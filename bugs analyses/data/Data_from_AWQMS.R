@@ -28,12 +28,12 @@ data.raw.AWQMS <- function(station = NULL,
   
   #function testing- run these if you are testing inside the function
 
-  station = NULL
-  startdate = NULL
-  enddate = NULL
-  AU_ID = NULL
-  taxonomy_table = 'bugs analyses/Taxonomy/ODEQ_Taxonomy_dec22.xlsx'
-  no_metrics = TRUE
+  # station = NULL
+  # startdate = NULL
+  # enddate = NULL
+  # AU_ID = NULL
+  # taxonomy_table = 'bugs analyses/Taxonomy/ODEQ_Taxonomy_dec22.xlsx'
+  # no_metrics = TRUE
   
 
   #Setup AWQMSdata parameters
@@ -103,9 +103,9 @@ data.raw.AWQMS <- function(station = NULL,
       ELEV_Ft,
       precip_mm,
       temp_Cx10,
-      #HUC6_Name,
+      HUC6_Name,
       HUC8_Name,
-      #HUC10_Name,
+      HUC10_Name,
       HUC12_Name,
       Wade_Boat,
       COMID,
@@ -204,8 +204,6 @@ data.raw.AWQMS <- function(station = NULL,
   b_t_s <- b_t_mod 
   
   
-  #delete this when AWQMS view gets updated
-  print("Warning- The bugs view in AWQMS does not contain the 'station_key', 'HUC6_Name', or 'HUC10_Name'. If these are needed, add them modify the view and then uncomment them in the function.")
   if(no_metrics){
     print("Only returning samples with no metrics or indexies calculated and stored in AWQMS")
   }

@@ -76,7 +76,7 @@ source('bugs analyses/finalize_summary.table/summary.table.R')
 oe.stress.mets.sta <- sum.bugs()
 
 # export SUMMARY TABLE
-write.csv(oe.stress.mets.sta, paste0("//deqlab1/biomon/R Stats/Bio Tools_Upgrade with R/SUM_BUGS_",Sys.Date(), ".csv"), row.names=FALSE)
+#write.csv(oe.stress.mets.sta, paste0("//deqlab1/biomon/R Stats/Bio Tools_Upgrade with R/SUM_BUGS_",Sys.Date(), ".csv"), row.names=FALSE)
 
 ###########
 ###########
@@ -92,4 +92,4 @@ write.csv(Index_uploads, paste0('bugs analyses/ForAWQMS/Index_uploads_',Sys.Date
 source('bugs analyses/ForAWQMS/fxn_AWQMSupload_Metrics.R')
 Metric_uploads <- AWQMS_Metric()
 #Where should these go?? 
-write.csv(Index_uploads, paste0('bugs analyses/ForAWQMS/Metric_uploads_',Sys.Date(), ".csv"), row.names=FALSE)
+write.csv(Metric_uploads, paste0('bugs analyses/ForAWQMS/Metric_uploads_',Sys.Date(), ".csv"), row.names=FALSE)

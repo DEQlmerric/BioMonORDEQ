@@ -4,7 +4,7 @@ AWQMS_Index <- function() {
  
    Index_upload <-
     oe.stress.mets.sta %>% 
-    dplyr::select(org_id,Date,Sample,MLocID.y,Project1,OoverE,BC,MTI,BSTI, #missing TS
+    dplyr::select(org_id,Date,Sample,MLocID.y,Project1,OoverE,BC,MTI,BSTI,MTTI, #missing TS
                   oe.cond,Use.303d,Eco2,low.count,
                   index.period,reason.no.303,methods.ok) %>% 
     dplyr::mutate(taxa_loss = (1-OoverE)*100,
@@ -13,11 +13,12 @@ AWQMS_Index <- function() {
     dplyr::rename('O/E Ratio' = OoverE,
                   'Bray Curtis Similarity Index' = BC,
                   'BSTI' = BSTI,
+                  'MTTI'= MTTI,
                   #'Inferred Temperature' = TS,
                   'MTI' = MTI,
                   'O/E Condition' = oe.cond,
                   '% Taxa Loss'= taxa_loss) %>%
-    gather('O/E Ratio','% Taxa Loss','Bray Curtis Similarity Index','MTI', #'Inferred Temperature'
+    gather('O/E Ratio','% Taxa Loss','Bray Curtis Similarity Index','MTI','MTTI', #'Inferred Temperature'
            'BSTI','O/E Condition',key = "ID", value = "Score") %>%
     # Shorten condition names to fit in AWQMS... sorry Shannon 
     dplyr::mutate(Score = ifelse(Score == 'Least disturbed', "Good",
@@ -35,9 +36,10 @@ AWQMS_Index <- function() {
     dplyr::mutate(id_short = ifelse(ID == 'O/E Ratio', "OE",
                                     ifelse(ID == '% Taxa Loss',"TL",
                                            ifelse(ID == 'Bray Curtis Similarity Index',"BC",
-                                                  ifelse(ID == 'Inferred Temperature',"TS",
+                                                  #ifelse(ID == 'Inferred Temperature',"TS",
                                                          ifelse(ID == 'BSTI', "BSTI",
                                                                 ifelse(ID == 'MTI', "MTI",
+                                                                       ifelse(ID == 'MTTI', "MTTI",
                                                                        ifelse(ID == 'O/E Condition', "COND",""))))))))%>%
     dplyr::mutate(activity = paste(Sample,id_short, sep =":")) %>%
     dplyr::filter(!Score == 'NA') %>%

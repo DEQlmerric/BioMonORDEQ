@@ -40,9 +40,9 @@ sum.bugs <- function() {
   
   # 1.2 = combine abundances and station/sample info back in with O/E scores
   
-  metrics<-merge(metrics, tot.abund.RIV, by='Sample', all.x=TRUE, suffix=c('','.y')) 
-  metrics<-merge(metrics, tot.abund.MTTI, by='Sample', all.x=TRUE, suffix=c('','.y'))
-  metrics<-merge(metrics, tot.abund.BSTI, by='Sample', all.x=TRUE, suffix=c('','.y'))
+  #metrics<-merge(metrics, tot.abund.RIV, by='Sample', all.x=TRUE, suffix=c('','.y')) 
+  #metrics<-merge(metrics, tot.abund.MTTI, by='Sample', all.x=TRUE, suffix=c('','.y'))
+  #metrics<-merge(metrics, tot.abund.BSTI, by='Sample', all.x=TRUE, suffix=c('','.y'))
   
   # combine O/E -> Stress -> mets
   oe.mets <- metrics %>%
@@ -50,10 +50,13 @@ sum.bugs <- function() {
   
   
   oe.stress.mets <- oe.mets %>%
-    dplyr::left_join(MTTI, by=c('Sample'))
+    dplyr::left_join(MTTI, by=c('Sample')) %>%
+    dplyr::left_join(BSTI, by=c('Sample')) %>%
+    dplyr::left_join(tot.abund.RIV, by=c('Sample')) %>%
+    dplyr::left_join(tot.abund.MTTI, by=c('Sample')) %>%
+    dplyr::left_join(tot.abund.BSTI, by=c('Sample'))
   
-  oe.stress.mets <- oe.mets %>%
-    dplyr::left_join(BSTI, by=c('Sample'))
+
   
   ########################
   ########################

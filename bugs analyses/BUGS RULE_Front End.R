@@ -85,11 +85,32 @@ oe.stress.mets.sta <- sum.bugs()
 ###########
 source('bugs analyses/ForAWQMS/fxn_AWQMSupload_Indexes.R')
 Index_uploads <- AWQMS_Index()
-#Where should these go?? 
-write.csv(Index_uploads, paste0('bugs analyses/ForAWQMS/Index_uploads_',Sys.Date(), ".csv"), row.names=FALSE)
-
+#splits uploads by org 
+for(i in 1:length(unique(Index_uploads$org_id))) {
+  print(noquote(paste("Starting file", i, "of", length(unique(Index_uploads$org_id)) )))
+  #get org abriviation to filter with
+  org <-  unique(Index_uploads$org_id)[[i]]
+  #filter dataframe to only one org
+  org_template <-  Index_uploads %>%
+    filter(org_id == org)
+  #save the excel file
+  write.csv(org_template, paste0('bugs analyses/ForAWQMS/Index_uploads_',Sys.Date(),org,".csv"), na = "",row.names=FALSE)
+}
 
 source('bugs analyses/ForAWQMS/fxn_AWQMSupload_Metrics.R')
 Metric_uploads <- AWQMS_Metric()
-#Where should these go?? 
-write.csv(Metric_uploads, paste0('bugs analyses/ForAWQMS/Metric_uploads_',Sys.Date(), ".csv"), row.names=FALSE)
+
+#splits uploads by org 
+for(i in 1:length(unique(Metric_uploads$org_id))) {
+    print(noquote(paste("Starting file", i, "of", length(unique(Metric_uploads$org_id)) )))
+  #get org abriviation to filter with
+    org <-  unique(Metric_uploads$org_id)[[i]]
+  #filter dataframe to only one org
+  org_template <-  Metric_uploads %>%
+    filter(org_id == org)
+  #save the excel file
+  write.csv(org_template, paste0('bugs analyses/ForAWQMS/Metric_uploads_',Sys.Date(),org,".csv"), na = "",row.names=FALSE)
+}
+
+
+

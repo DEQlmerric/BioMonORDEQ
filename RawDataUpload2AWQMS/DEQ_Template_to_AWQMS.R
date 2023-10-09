@@ -1,6 +1,6 @@
 ### Generate AWQMS upload from data template ###
 ### L. Merrick 5/7/2021 ###
-### Revised to use contractor version recieved from Cole ecological in 2023
+### Revised to use contractor version received from Cole ecological in 2023
 
 library(tidyverse)
 library(readxl)
@@ -16,7 +16,7 @@ org = "OREGONDEQ"
 hybrid_taxon <- read_excel("bugs analyses/Taxonomy/ODEQ_Taxonomy_dec22.xlsx") %>% 
   mutate(AWQMS_tax_uid = as.character(AWQMS_tax_uid))
 
-# this is the downloaded AWQMS taxon table. I don't know the best way to get this integrated without downloaded the lastest version each time. 
+# this is the downloaded AWQMS taxon table. I don't know the best way to get this integrated without downloaded the latest version each time. 
 awqms_t <- read_excel("RawDataUpload2AWQMS/AWQMS_Taxon2oct23.xlsx", sheet = "Taxon") %>% 
          mutate(UID = as.character(UID))
 

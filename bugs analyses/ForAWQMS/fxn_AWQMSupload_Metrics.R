@@ -121,7 +121,7 @@ AWQMS_Metric <- function() {
                               DQL = ifelse(Use.303d == 'No',"E","A"),
                               com = reason.no.303) %>%
     dplyr::filter(!score == 'NA') %>%
-    dplyr::select(Sample,Activity_Type,Media,Date,Project1,MLocID,ID,context,
+    dplyr::select(org_id,Sample,Activity_Type,Media,Date,Project1,MLocID,ID,context,
                               score,DQL,com,CollectionMethod,assemblage,equipment)
      return(metric_upload)
   

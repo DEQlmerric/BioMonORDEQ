@@ -15,16 +15,10 @@ require(tidyverse)
 
 
 # bring in data
-slh <- read.csv('//deqlab1/GIS_WA/Project_Working_Folders/Reference/2020/GE_Screens/Screen results/2020 GE watershed screens_SLH.csv')
-slh$Agency_ID <- as.factor(slh$Agency_ID)
-mbs <- read.csv('//deqlab1/GIS_WA/Project_Working_Folders/Reference/2020/GE_Screens/Screen results/GE_Ref_Screen_MBS_CAFW.FIXED.csv')
-mbs$Agency_ID <- as.factor(mbs$Agency_ID)
-alt <- read.csv('//deqlab1/GIS_WA/Project_Working_Folders/Reference/2020/GE_Screens/Screen results/Reference_screen_bydate_ALT_FIXED.csv')
-alt$Agency_ID <- as.factor(alt$Agency_ID)
+screens <-  read_excel("Reference/GE_screens.xlsx", 
+                                  sheet = "GE.screens_2023-11-17")
+      # merge multiple sets of GE screens together, if necessary
 
-# merge data frames together
-
-screens <- rbind(mbs, alt, slh)
 
 
 # use reshape2 to make df go from wide to long (fewer columns)
@@ -46,14 +40,7 @@ screens_long <- melt(screens,
     value.name="value"
 )
 
-
-### List of QC sites (21855 and 33338 MAY be extras, can ignore)
-qc_sites <- c('13244-ORDEQ', '17007-ORDEQ', '17048-ORDEQ', '21855-ORDEQ', '21864-ORDEQ', '21865-ORDEQ', '21868-ORDEQ', '21884-ORDEQ', '23856-ORDEQ',
-              '24453-ORDEQ', '26854-ORDEQ', '26952-ORDEQ', '30354-ORDEQ', '30625-ORDEQ', '31354-ORDEQ', '31387-ORDEQ', '33338-ORDEQ', '35716-ORDEQ', 
-              '35732-ORDEQ', '35733-ORDEQ', '35734-ORDEQ', '35792-ORDEQ')
-
-
-         
+     
 
 # long format does a good job, but not sure how to calculate across two rows
 # what if cast back to wide format, but only by putting Extent and Proximity as columns?
@@ -101,7 +88,7 @@ screens_wide <- screens_wide %>%
 #summarize the data
 
 GE_Site_sum.scores <- screens_wide %>%
-  #define what makes each roup unique
+  #define what makes each group unique
   group_by(Agency_ID, Sample.date, Scorer, Timestamp ) %>%
   #summarise the stats per group
   summarize(Disturb.score = sum(E.P_adj.hike))
@@ -120,54 +107,32 @@ GE_Site_sum.scores <- GE_Site_sum.scores  %>%
 
 
 
-##########
-##########
-##
-# visualize and explore the final scores
-##
-#########
-##########
-
-hist(GE_Site_sum.scores$Disturb.score, breaks =150, xlim=c(0,100))
-
-ggplot(GE_Site_sum.scores, aes(Disturb.score)) +
-  geom_freqpoly(bins = 50) + xlim(0,25) +
-  facet_wrap(~Scorer_BPJ)
-
-ggplot(GE_Site_sum.scores, aes(x=Scorer_BPJ, y = Disturb.score)) +
-  geom_boxplot() + ylim(0,50) +
-  facet_wrap(~Scorer)
-
-ggplot(GE_Site_sum.scores, aes(x=Scorer, y = Disturb.score)) +
-  geom_boxplot() + ylim(0,50) +
-  facet_wrap(~Scorer_BPJ)
-
-# make a table of scores by BPJ category
-with(GE_Site_sum.scores, table(Disturb.score, Scorer_BPJ)) 
-
-
-
-# compare QC site scores: 20 or so sites, all scored by Adam/Matt/Shannon for comparisons of consistency
-
-
-qc <- GE_Site_sum.scores %>% 
-  filter(Agency_ID %in% qc_sites)
-
-ggplot(qc, aes(x=Scorer, y=Disturb.score))+
-  geom_boxplot() + ylim(0,50) +
-  facet_wrap(~Scorer_BPJ)
-
-ggplot(qc, aes(y=Agency_ID, x=Disturb.score, colour = Scorer)) +
-  geom_point(position = position_jitter(width = 0.5, height = 0.0,), aes(shape=Scorer_BPJ, size = 2)) + xlim(0,20)+
-  theme(axis.text.x = element_text(angle = 0))
-
-
-
-
-# select individual sites for review
-
-        #qc.site <- screens_wide[screens_wide$Agency_ID=='26952',]
-        #view(qc.site)
+                              ##########
+                              ##########
+                              ##
+                              # visualize and explore the final scores
+                              ##
+                              #########
+                              ##########
+                              
+                              hist(GE_Site_sum.scores$Disturb.score, breaks =150, xlim=c(0,100))
+                              
+                              ggplot(GE_Site_sum.scores, aes(Disturb.score)) +
+                                geom_freqpoly(bins = 50) + xlim(0,25) +
+                                facet_wrap(~Scorer_BPJ)
+                              
+                              ggplot(GE_Site_sum.scores, aes(x=Scorer_BPJ, y = Disturb.score)) +
+                                geom_boxplot() + ylim(0,50) +
+                                facet_wrap(~Scorer)
+                              
+                              ggplot(GE_Site_sum.scores, aes(x=Scorer, y = Disturb.score)) +
+                                geom_boxplot() + ylim(0,50) +
+                                facet_wrap(~Scorer_BPJ)
+                              
+                              # make a table of scores by BPJ category
+                              with(GE_Site_sum.scores, table(Disturb.score, Scorer_BPJ)) 
+                              
+                              
 
 
 
@@ -223,7 +188,7 @@ GE_Site_sum.scores_ave <- GE_Site_sum.scores %>%
 ########
 
 # combine single disturb scores per station, with final BPJ status
-bpj.final <- read.csv('//deqlab1/GIS_WA/Project_Working_Folders/Reference/2020/GE_Screens/Screen results/FINAL_BPJ_2021.csv')
+bpj.final <- read.xlsx('Reference/FINAL_BPJ.xlsx', sheet = 'FINAL_BPJ_2023-11-17')
 
 bpj.final <- bpj.final%>%
   select(Agency_ID, BPJ_final)
@@ -279,27 +244,57 @@ stations <- stations %>%
 GE_Site_sum.scores_ave_bpj <- GE_Site_sum.scores_ave_bpj %>%
   left_join(stations, by = 'MLocID')
 
+                # SLH 11.17.23: I don't think we need to keep this piece.  Remove later if proved unnecessary 
 
+                                                        ref2020.sites_FINAL <- GE_Site_sum.scores_ave_bpj[GE_Site_sum.scores_ave_bpj$Ref2020_FINAL=='YES',]
+                                                        
+                                                        
+                                                        
+                                                        write.csv(ref2020.sites_FINAL, '//deqlab1/GIS_WA/Project_Working_Folders/Reference/2020/_Final outputs/REF.sites.only_2020_FINAL_DEQ.csv')
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        # create an exportable table of ref sites by ecoregion, save in same location as 'ref2020.sites_FINAL'
+                                                        
+                                                        
+                                                        ref2020.sites_by_eco <- with(GE_Site_sum.scores_ave_bpj, table(Ref2020_FINAL, EcoRegion3))
+                                                        write.csv(ref2020.sites_by_eco, '//deqlab1/GIS_WA/Project_Working_Folders/Reference/2020/_Final outputs/REF.2020_FINAL_deq_by_ecoregion.csv')
 
-ref2020.sites_FINAL <- GE_Site_sum.scores_ave_bpj[GE_Site_sum.scores_ave_bpj$Ref2020_FINAL=='YES',]
+                                                        
+                                                        
+                                                        
+#####                                                        
 
+#         export GE_Site_sum.scores_ave_bpj  --> this needs to be linked to GIS screen results (in "final ref tables.R')
 
-
-write.csv(ref2020.sites_FINAL, '//deqlab1/GIS_WA/Project_Working_Folders/Reference/2020/_Final outputs/REF.sites.only_2020_FINAL_DEQ.csv')
-
-
-
-
-
-# create an exportable table of ref sites by ecoregion, save in same location as 'ref2020.sites_FINAL'
-
-
-ref2020.sites_by_eco <- with(GE_Site_sum.scores_ave_bpj, table(Ref2020_FINAL, EcoRegion3))
-write.csv(ref2020.sites_by_eco, '//deqlab1/GIS_WA/Project_Working_Folders/Reference/2020/_Final outputs/REF.2020_FINAL_deq_by_ecoregion.csv')
-
-
-# export GE_Site_sum.scores_ave_bpj  --> this needs to be linked to GIS screen results (in "final ref tables.R')
+#####
+                                                        
 write.csv(GE_Site_sum.scores_ave_bpj, 'Reference/GE_Site_sum.scores_ave_bpj_DEQ.csv')
+
+#######
+#######
+
+#                 save file with date included = ref_screen.DEQ+DATE.csv
+
+#######
+#######
+
+library(openxlsx)
+
+today <- Sys.Date()
+
+worksheet.name <- paste("GE_final.bpj_", today)
+
+
+# This overwrites, but keeps all data present in new file
+filepath <- "Reference/GE_Site_sum.scores_ave_bpj.xlsx"  #change filepath to original xlsx filepath
+
+wb <- loadWorkbook(filepath)  
+addWorksheet(wb,worksheet.name) #change "sheet2" to "whatever-you-want-to-name-sheet"
+writeData(wb, worksheet.name, GE_Site_sum.scores_ave_bpj) #change "sheet2" to whatever you named new tab and df to whatever dataframe you want
+saveWorkbook(wb,filepath, overwrite = TRUE)
 
 
 

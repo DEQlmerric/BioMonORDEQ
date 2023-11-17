@@ -1,7 +1,7 @@
 # Authors: Lesley Merrick and Shannon Hubler
 
 # SLH 11.16.23: modified original code to make this work in new BioMonORDEQ repository,
-#               goal is to bring in new data, run through all steps, write back into final files
+#               goal is to bring in new data, run through all steps, write back into Ref_screen file, by appending as a new worksheet
 
 
 # objective:  1) Run the function "ref_gis.screen" from 'Fun_RefScreem.R' 

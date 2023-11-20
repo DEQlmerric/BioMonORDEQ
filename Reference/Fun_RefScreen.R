@@ -23,34 +23,34 @@ ref_screen <-  gis_mets %>%
   
   select(OrgID,MLocID,StationDes,Lat_DD, Long_DD, HUC8_Name,HUC12_Name,GNIS_Name,EcoRegion2,EcoRegion3,EcoRegion4,COMID,
          rdden_km_km2,xings_km2,P_AgLand,P_Urban21Land,mines,grvl_mn_km2,P_canal) %>% 
-  mutate(rd_Status = case_when(rdden_km_km2 <= 1.1854942 ~ 1,   # 25th
-                               rdden_km_km2 >= 4.9079551 ~ 2, # 95th
-                               TRUE ~ 0)) %>%
-  mutate(xing_Status = case_when(xings_km2 <= 0.10693475 ~ 1,   # 30th
-                                 xings_km2 >= 1.35543470 ~ 2,    # 95th
-                                 TRUE ~ 0)) %>%
-  mutate(Ag_Status = case_when(P_AgLand <= 0 ~ 1,          # 25th 
-                               P_AgLand > 30.045899737 ~ 2,        # 95th
-                               TRUE ~ 0)) %>%
-  mutate(Urb21L_Status = case_when(P_Urban21Land <= 1.5992877 ~ 1,  # 50th 
-                                   P_Urban21Land > 9.6508641 ~ 2,       # 95th
-                                   TRUE ~ 0)) %>%
-  mutate(mines_status = case_when(mines <= 0 ~ 1,      # 25th
-                                  mines > 15 ~ 2,       # 95th
-                                  TRUE ~ 0)) %>% 
-  mutate(gmines_status = case_when(grvl_mn_km2 <=0 ~ 1,     # 25th 
-                                   grvl_mn_km2 > 0.0048846532 ~ 2, # 95th
-                                   TRUE ~ 0)) %>%
-  mutate(canal_status = case_when(P_canal <=0 ~ 1,         # 25th
-                                  P_canal > 2.551325 ~ 2,      # 95th - first non-zero
-                                  TRUE ~ 0))
+  mutate(rd_Status = case_when(rdden_km_km2 <= 1.1854942 ~ "LOW",   # 25th
+                               rdden_km_km2 >= 4.9079551 ~ "HIGH", # 95th
+                               TRUE ~ "MOD")) %>%
+  mutate(xing_Status = case_when(xings_km2 <= 0.10693475 ~ "LOW",   # 30th
+                                 xings_km2 >= 1.35543470 ~ "HIGH",    # 95th
+                                 TRUE ~ "MOD")) %>%
+  mutate(Ag_Status = case_when(P_AgLand <= 0 ~ "LOW",          # 25th 
+                               P_AgLand > 30.045899737 ~ "HIGH",        # 95th
+                               TRUE ~ "MOD")) %>%
+  mutate(Urb21L_Status = case_when(P_Urban21Land <= 1.5992877 ~ "LOW",  # 50th 
+                                   P_Urban21Land > 9.6508641 ~ "HIGH",       # 95th
+                                   TRUE ~ "MOD")) %>%
+  mutate(mines_status = case_when(mines <= 0 ~ "LOW",      # 25th
+                                  mines > 15 ~ "HIGH",       # 95th
+                                  TRUE ~ "MOD")) %>% 
+  mutate(gmines_status = case_when(grvl_mn_km2 <=0 ~ "LOW",     # 25th 
+                                   grvl_mn_km2 > 0.0048846532 ~ "HIGH", # 95th
+                                   TRUE ~ "MOD")) %>%
+  mutate(canal_status = case_when(P_canal <=0 ~ "LOW",         # 25th
+                                  P_canal > 2.551325 ~ "HIGH",      # 95th - first non-zero
+                                  TRUE ~ "MOD"))
 ref_screen <- ref_screen %>%
   mutate(GIS.status_2020 = case_when(
-    rd_Status == 1 & xing_Status == 1 & Ag_Status == 1 & Urb21L_Status == 1 & mines_status == 1 & gmines_status == 1 &
-      canal_status == 1 ~ "Ref_GIS.candidate", # meets all 
-    rd_Status == 2 | xing_Status == 2 |  Ag_Status == 2 | Urb21L_Status == 2 | mines_status == 2 | gmines_status == 2 |
-      canal_status == 2 ~ "Trash", 
-    TRUE ~ "NO"))
+    rd_Status == "LOW" & xing_Status == "LOW" & Ag_Status == "LOW" & Urb21L_Status == "LOW" & mines_status == "LOW" & gmines_status == "LOW" &
+      canal_status == "LOW" ~ "Ref_GIS.candidate", # meets all 
+    rd_Status == "HIGH" | xing_Status == "HIGH" |  Ag_Status == "HIGH" | Urb21L_Status == "HIGH" | mines_status == "HIGH" | gmines_status == "HIGH" |
+      canal_status == "HIGH" ~ "MOST DISTURBED", 
+    TRUE ~ "MODERATELY DISTURBED"))
 
 ref_screen$GIS.status_2020 <- as.factor(ref_screen$GIS.status_2020)   
 

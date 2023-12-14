@@ -165,7 +165,7 @@ data.raw.AWQMS <- function(station = NULL,
   
   #limit columns to what is necessary
   taxonomy <- taxonomy %>%
-    dplyr::select(DEQ_TAXON, Taxon, OTU_RIV05_Nov05, OTU_Stress05, 'OTU_BCG_WV-PL', Phylum, Class, SubClass, Order, 
+    dplyr::select(DEQ_TAXON, Taxon, OTU_RIV_24, OTU_Stress05,  Phylum, Class, SubClass, Order, 
                   SubOrder, 'Super Family', Family, SubFamily, Tribe, Genus, SubGenus, SpeciesGroup, SpeciesComplex, 
                   Species, SubSpecies, MTI, Voltine, FFG)
   

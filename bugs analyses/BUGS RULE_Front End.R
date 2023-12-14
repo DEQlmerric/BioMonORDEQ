@@ -23,7 +23,7 @@ source('bugs analyses/data/Data_from_AWQMS.R')
 
 # TRUE = returns only samples with missing metrics
 # FALSE = returns all data
-only_no_metrics = TRUE
+only_no_metrics = FALSE
 
 b_t_s <- data.raw.AWQMS(no_metrics = only_no_metrics, 
                         startdate='1949-09-15') %>% 

@@ -236,7 +236,7 @@ b.p <- bugs_RIV24 %>%
 
  
 bugs_RIV24_no.nbr <-b.p %>%
-  select(-c(Eco2, Eco3, Tmean8110Ws,	Precip8110Ws,	WsAreaSqKm,	ElevCat))
+  select(-c(Eco2, Eco3, Tmean8110Ws,	Precip8110Ws,	WsAreaSqKm,	ElevCat, SLOPE, Fe2O3Ws))
 
 preds_RIV24_no.nbr <- b.p %>%
   select(Sample, MLocID, Tmean8110Ws, Precip8110Ws, WsAreaSqKm, Eco3, ElevCat, SLOPE, Fe2O3Ws)

@@ -8,6 +8,7 @@
     # drop samples with non-compatible methods
 
 library(openxlsx)
+library(tidyverse)
 
 # read in bug data
 usu_sites <- read.xlsx("bugs analyses/RIVPACS_2022/USU bug data/Shannon_data_request2.xlsx", sheet = "sites")
@@ -164,5 +165,5 @@ usu_bugs_limited <- usu_bugs7 %>%
 
 ##############################################################
 
-
+taxonomy <- read.xlsx("bugs analyses/Taxonomy/ODEQ_Taxonomy_dec22.xlsx")
  

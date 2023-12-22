@@ -7,7 +7,7 @@
     # drop unnecessary sites
     # drop samples with non-compatible methods
 
-library(openxlsx)
+library(openxlsx) 
 library(tidyverse)
 
 # read in bug data

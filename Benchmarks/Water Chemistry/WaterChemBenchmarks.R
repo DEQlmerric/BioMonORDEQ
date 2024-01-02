@@ -14,7 +14,7 @@
 #  |__| |__||__| |__|  |___|  |_______||___|  |_|  |_______||__| |__||_______||_|   |_||___| |_______|  |___|  |___|  |_|  |___|  
 
 
-#OVERVIEW - This script <fill in>. TEESTST
+#OVERVIEW - This script <fill in>
 
 #This script requires the ODEQ AWQMSdata package. Visit 'https://github.com/TravisPritchardODEQ/AWQMSdata' for installation instructions.
 
@@ -26,9 +26,11 @@ library(writexl)
 library(dplyr)
 library(reshape2)
 library(ggplot2)
+library(readr)
 
 #IMPORT STATIONS FROM BIOMON REFERENCE SCREEN
-one_rule_all <- read.csv("//deqlab1/GIS_WA/Project_Working_Folders/Reference/2020/_Final outputs/one.table_rule.all.csv")
+#one_rule_all <- read.csv("//deqlab1/GIS_WA/Project_Working_Folders/Reference/2020/_Final outputs/one.table_rule.all.csv")
+one_rule_all <- read_csv("Reference/one.table_rule.all.csv", show_col_types = FALSE)
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #TEST FOR DUPLICATE ENTRIES IN ONE RULE ALL TABLE 
@@ -58,7 +60,7 @@ one_rule_all$MLocID <- ifelse(one_rule_all$owner == "USU", paste(one_rule_all$ML
   #2: CREATE LIST OF STATION IDS FROM ONE RULE ALL TABLE WHICH WILL BE USED FOR AWQMS DATA PULL
 stations.all <- one_rule_all[c("MLocID", "Ref2020_FINAL")]
 
-  #3: RETRIEVE AWQMS DATA AT ALL STATIONS (REF, NOT, TRASHED) - NOTE: DATA PULL CAN TAKE ~5-10 MINUTES
+  #3: RETRIEVE AWQMS DATA AT ALL STATIONS (REF, MOD DIST, MOST DIST) - NOTE: DATA PULL CAN TAKE ~5-10 MINUTES
 chem.all <- AWQMS_Data(station = stations.all$MLocID)
 rm(stations.all)
 
@@ -70,9 +72,11 @@ nochem <- anti_join(one_rule_all, chem.all, by = "MLocID")
   #2: OPTIONAL - WRITE TO EXCEL FOR FURTHER EXAMINATION
 write_xlsx(nochem, path = "//deqlab1/ATHOMPS/Files/Biomon/R Chem Benchmarks/NoChemData.xlsx")
   #3: SUMMARIZE SITES BY OWNER, REF STATUS, AND ECOREGION
-nochem <- nochem %>% 
+nochemsum <- nochem %>% 
   group_by(owner, Ref2020_FINAL, Eco3) %>% 
   summarise(n = n())
+view(nochemsum)
+rm(nochemsum)
 rm(nochem)
 #??????????????????some of these sites might have chem data from nearby sites - use those somehow? yyyy
 
@@ -98,7 +102,7 @@ sum.eco <- chem.all %>%
             maxDate = max(SampleStartDate))
 
 #testing isolating a parameter for further analysis
-ortho <- subset(sum, sum$Char_Name == "Orthophosphate")
+ortho <- subset(chem.all, chem.all$Char_Name == "Orthophosphate")
 
 #testing summary pie charts
 ggplot(ortho, aes(x="", y = n.Samples, fill = EcoRegion3)) +
@@ -114,8 +118,11 @@ ggplot(ortho, aes(x="", y = n.Samples, fill = EcoRegion3)) +
 mlocid.awqms <- unique(chem.all[c("MLocID", "StationDes")])
 mlocid.onerule <- unique(one_rule_all[c("MLocID", "StationDes")])
 wrongstations <- inner_join(mlocid.awqms, mlocid.onerule, by = "MLocID")
-wrongstations$ToFix <- ifelse(wrongstations$StationDes.x == wrongstations$StationDes.y, "Match", "Fix") #StationDes.x = AWQMS / StationDes.y = OneRule
-  #Open wrongstations and sort by ToFix column. Resolve records that say "Fix" and redo steps above. Ignore mismatches due to extra spaces.
+wrongstations$ToFix <- ifelse(wrongstations$StationDes.x == wrongstations$StationDes.y, "Match", "Fix") 
+view(wrongstations)
+  #Sort by ToFix column
+  #StationDes.x = AWQMS / StationDes.y = OneRule
+  #Resolve records that say "Fix" and redo steps above. Ignore mismatches due to extra spaces.
 rm(mlocid.awqms)
 rm(mlocid.onerule)
 rm(wrongstations)
@@ -138,7 +145,7 @@ rm(one_rule_all)
   #1: PARSE SAMPLING DATE INTO SEPARATE MDY COLUMNS, KEEPING THE ORIGINAL DATE COLUMN
 wqdata <- separate(chem.onerule, "SampleStartDate", c("Year", "Month", "Day"), sep = "-", remove = FALSE)
   #2: ADD NEW COLUMN AT END FOR MONTH-DAY COMBINATION
-wqdata$MonthDay <- paste(wqdata$Month, test$Day, sep = "-")
+wqdata$MonthDay <- paste(wqdata$Month, wqdata$Day, sep = "-")
   #3: FILTER OUT RECORDS WHERE SAMPLING DATE IS OUTSIDE OF JUNE 1 - OCTOBER 15 DATE RANGE
 wqdata <- wqdata %>% filter(MonthDay <= "10-15" & MonthDay >= "06-01")
   #4: DROP INTERMEDIATE DATE/TIME COLUMNS THAT ARE NO LONGER NEEDED
@@ -146,9 +153,9 @@ wqdata <- subset(wqdata, select=-c(Year, Month, Day, MonthDay))
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #SUBSET DATA BY REFERENCE CONDITION (REF, NOT, TRASHED) <---is this needed?
-ref <- subset(wqdata, wqdata$Ref2020_FINAL == "YES")
-notref <- subset(wqdata, wqdata$Ref2020_FINAL == "NO")
-trash <- subset(wqdata, wqdata$Ref2020_FINAL == "Trash")
+ref <- subset(wqdata, wqdata$Ref2020_FINAL == "REFERENCE")
+mod <- subset(wqdata, wqdata$Ref2020_FINAL == "NO")
+most <- subset(wqdata, wqdata$Ref2020_FINAL == "MOST DISTURBED")
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #SUMMARIZE DATA

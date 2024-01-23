@@ -40,7 +40,7 @@ library(rioja)
 # Download first then read.
 ## URL BioMonTools
 url_bmt_base <- 'https://github.com/leppott/BioMonTools_SupportFiles/raw/main/data'
-url_taxa_official_pick <- file.path(url_bmt_base, "taxa_official", "ORWA_TaxaTranslator_20230605.csv")
+url_taxa_official_pick <- file.path(url_bmt_base, "taxa_official", "ORWA_TaxaTranslator_20231030.csv")
 taxonomy_MTTI <- read.csv(url_taxa_official_pick)
 # old csv copy locally: taxa <- read.csv('ORWA_TaxaTranslator_20230112_SLH.updated.csv') \
 

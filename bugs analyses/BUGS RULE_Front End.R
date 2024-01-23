@@ -26,8 +26,8 @@ source('bugs analyses/data/Data_from_AWQMS.R')
 only_no_metrics = FALSE
 
 b_t_s <- data.raw.AWQMS(no_metrics = only_no_metrics, 
-                        startdate='1949-09-15') %>% 
-                        dplyr::filter(org_id != 'CAFW(NOSTORETID)')
+                        startdate='1949-09-15') #%>% 
+                       # dplyr::filter(org_id != 'CAFW(NOSTORETID)')
 
 
 ###########

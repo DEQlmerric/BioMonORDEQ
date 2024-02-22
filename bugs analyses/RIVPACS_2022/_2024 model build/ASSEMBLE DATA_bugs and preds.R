@@ -171,13 +171,23 @@ metrics <- sc_get_data(metric='al2o3,bfi,cao,clay,compstrgth,elev,fe2o3,hydrlcon
                        mgo,n,na2o,nh4_2008,no3_2008,om,p2o5,pctalkintruvol,pctalluvcoast,pctbl2001,
                        pctbl2004,pctcarbresid,pctcoastcrs,pctcolluvsed,pcteolcrs,pcteolfine,pctextruvol,
                        pctglaclakecrs,pctglaclakefine,pctglactilclay,pctglactilcrs,pctglactilloam,
-                       pctgrs2001,pcthydric,pctice2001,pctice2004,pctice2006,pctice2008,pctice2011,
+                       pcthydric,pctice2001,pctice2004,pctice2006,pctice2008,pctice2011,
                        pctice2013,pctice2016,pctice2019,pctsallake,perm,precip08,precip09,
                        precip8110,rckdep,s,sand,sio2,tmax8110,tmean8110,tmin8110', 
                        aoi='watershed, other', region='16,17,18')
 
-@@@@ calculate means 
 
+
+metrics <- metrics %>%
+  mutate(MAST_mean08.14 = (MAST_2008+MAST_2009+MAST_2013+MAST_2014)/4) %>%
+  mutate(MSST_mean08.14 = (MSST_2008+MSST_2009+MSST_2013+MSST_2014)/4) %>% 
+  mutate(MWST_mean08.14 = (MWST_2008+MWST_2009+MWST_2013+MWST_2014)/4) %>%
+  mutate(PCTICE_mean01.19 = (PCTICE2001WS+PCTICE2004WS+PCTICE2006WS+PCTICE2008WS+PCTICE2011WS+
+          PCTICE2013WS+PCTICE2016WS+PCTICE2019WS)/8) %>%
+  select(-MAST_2008, -MAST_2009,-MAST_2013,-MAST_2014,-MSST_2008,-MSST_2009,
+         -MSST_2013,-MSST_2014,-MWST_2008,-MWST_2009,-MWST_2013,-MWST_2014, 
+         -PCTICE2001WS,-PCTICE2004WS,-PCTICE2006WS,-PCTICE2008WS,-PCTICE2011WS,
+           -PCTICE2013WS,-PCTICE2016WS,-PCTICE2019WS)
 
 
 # get COMIDs from ref samples
@@ -190,3 +200,13 @@ comids <- ref.bugs_265 %>%
 preds <- comids %>%
             left_join(metrics, by='COMID')
 summary(preds)                                          
+
+
+
+@@@@@@@@@@@@@@@ missing predictors due to missign COMIDs---how are we going to assign these to nearest CAT metrics values?
+  then need to get CAT metrics into the same table for WS metrics
+
+
+
+
+

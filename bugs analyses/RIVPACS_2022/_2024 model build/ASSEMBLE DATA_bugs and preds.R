@@ -30,7 +30,8 @@ ref_265 <- read.xlsx('bugs analyses/RIVPACS_2022/_2024 model build/Reference sit
                           sheet = 'FINAL FINAL FINAL_265 ref samps')  
 
 ref_265 <- ref_265 %>%
-                    filter(Use_spatial=='Y')
+            filter(Use_spatial=='Y') %>%
+            rename(MLocID = Name, StaDes = Description)
 
 # create a list of sampleIDs to use in querying bug data
 
@@ -134,38 +135,79 @@ save(bugs.mat_265.ref, file='bugs analyses/RIVPACS_2022/_2024 model build/bugs.m
   
   
   
-###########
+#######################################################################################
 
-# StreamCat predictors
+#           StreamCat predictors
 
-###########
+#######################################################################################
+
+# streamcat metrics are associated by COMIDs. Generally, we want to use WS (watershed) metrics as predictors
+# But some sites--small streams not on NHD med res--don't have COMIDs
+      # in these cases, Adam Thompson assigned COMID manually assigned COMID to the closest associated COMID
+      # but the WS metrics will be for larger systems, so instead, for these sites we want to use the CAT (catchment) metrics
+# Goal: 1) Get COMIDs for all sites, keeping track of which ones need metrics
+#       2) download streamcat metrics for all COMIDs associated with hydroregions 16/17/18, which covers all reference sites
+#           a) WS for sites with matching COMIDs
+#           b) CAT for sites with manually assigned COMID
+#       3) bring WS and CAT metrics together, based on sites and which scale is appropriate
+#           a) will require renaming metrics to match, then appending together
+
+
+
+
+#####
+
+#   Bring in COMIDs that were reviewed and, as necessary, manually assigned by Adam Thompson
+
+#####
+
+bio.mlocids.awqms_ALT <- read.xlsx('bugs analyses/RIVPACS_2022/_2024 model build/Bio_MlocIDs_AWQMS.xlsx') 
+  
+
+
+mlocids_WS <- bio.mlocids.awqms_ALT %>%
+                filter(COMID != 'NULL') %>%
+                select(MLocID, COMID) %>%
+
+
+mlocids_CAT <- bio.mlocids.awqms_ALT %>%
+  filter(COMID == 'NULL') %>%
+  select(MLocID, COMID = Nearby_COMID)
+
+
+
+###  associate bug samples with WS or CAT COMIDs
+
+samps.265_WS <- ref_265 %>%
+  inner_join(mlocids_WS, by='MLocID') %>%
+  unique() %>%
+  select(-Icon, -Use_nopool.date.abund, -Use_spatial)
+
+
+samps.265_CAT <- ref_265 %>%
+  inner_join(mlocids_CAT, by='MLocID') %>%
+  unique() %>%
+  select(-Icon, -Use_nopool.date.abund, -Use_spatial)
+
+samps.265_CAT$COMID <- as.character(samps.265_CAT$COMID)
+
+
+
+#####
+
+#   Query StreamCat database
+
+#####
 
 region_params <- sc_get_params(param='areaOfInterest')
 name_params <- sc_get_params(param='name')
 name_params <- sort(name_params)  
 
 
-# StreamCat natural metrics for model exploration
+# Get data for the three Hydroregions covering: 17= OR+WA+ID, 16 = NV, 18 = CA
 
-predictor.metrics <- c('al2o3,bfi,cao,clay,compstrgth,elev,fe2o3,hydrlcond,
-                       inorgnwetdep_2008,k2o,kffact,mast_2008,mast_2009,mast_2013,mast_2014,
-                       msst_2008,msst_2009,msst_2013,msst_2014,mwst_2008,mwst_2009,mwst_2013,mwst_2014,  
-                       mgo,n,na2o,nh4_2008,no3_2008,om,p2o5,pctalkintruvol,pctalluvcoast,pctbl2001,
-                       pctbl2004,pctcarbresid,pctcoastcrs,pctcolluvsed,pcteolcrs,pcteolfine,pctextruvol,
-                       pctglaclakecrs,pctglaclakefine,pctglactilclay,pctglactilcrs,pctglactilloam,
-                       pctgrs2001,pcthydric,pctice2001,pctice2004,pctice2006,pctice2008,pctice2011,
-                       pctice2013,pctice2016,pctice2019,pctsallake,perm,precip08,precip09,
-                       precip8110,rckdep,s,sand,sio2,tmax8110,tmean8110,tmin8110')  
-
-    ###
-      ### several of these (MAST, MSST, MWST, pctice, will need to be converted to a single average metric)
-    ###
-
-
-
-## Get data for the three Hydroregions covering: 17= OR+WA+ID, 16 = NV, 18 = CA
-
-metrics <- sc_get_data(metric='al2o3,bfi,cao,clay,compstrgth,elev,fe2o3,hydrlcond,
+# Watershed + Other (stream temp mets)
+metrics_WS.OTHER_OR.CA.NV <- sc_get_data(metric='al2o3,bfi,cao,clay,compstrgth,elev,fe2o3,hydrlcond,
                        inorgnwetdep_2008,k2o,kffact,mast_2008,mast_2009,mast_2013,mast_2014,
                        msst_2008,msst_2009,msst_2013,msst_2014,mwst_2008,mwst_2009,mwst_2013,mwst_2014,  
                        mgo,n,na2o,nh4_2008,no3_2008,om,p2o5,pctalkintruvol,pctalluvcoast,pctbl2001,
@@ -176,36 +218,61 @@ metrics <- sc_get_data(metric='al2o3,bfi,cao,clay,compstrgth,elev,fe2o3,hydrlcon
                        precip8110,rckdep,s,sand,sio2,tmax8110,tmean8110,tmin8110', 
                        aoi='watershed, other', region='16,17,18')
 
-
-
-metrics <- metrics %>%
+# convert multiple years to means
+metrics_WS.OTHER_OR.CA.NV <- metrics_WS.OTHER_OR.CA.NV %>%
   mutate(MAST_mean08.14 = (MAST_2008+MAST_2009+MAST_2013+MAST_2014)/4) %>%
   mutate(MSST_mean08.14 = (MSST_2008+MSST_2009+MSST_2013+MSST_2014)/4) %>% 
   mutate(MWST_mean08.14 = (MWST_2008+MWST_2009+MWST_2013+MWST_2014)/4) %>%
   mutate(PCTICE_mean01.19 = (PCTICE2001WS+PCTICE2004WS+PCTICE2006WS+PCTICE2008WS+PCTICE2011WS+
-          PCTICE2013WS+PCTICE2016WS+PCTICE2019WS)/8) %>%
+                               PCTICE2013WS+PCTICE2016WS+PCTICE2019WS)/8) %>%
   select(-MAST_2008, -MAST_2009,-MAST_2013,-MAST_2014,-MSST_2008,-MSST_2009,
          -MSST_2013,-MSST_2014,-MWST_2008,-MWST_2009,-MWST_2013,-MWST_2014, 
          -PCTICE2001WS,-PCTICE2004WS,-PCTICE2006WS,-PCTICE2008WS,-PCTICE2011WS,
-           -PCTICE2013WS,-PCTICE2016WS,-PCTICE2019WS)
+         -PCTICE2013WS,-PCTICE2016WS,-PCTICE2019WS)
 
 
-# get COMIDs from ref samples
-comids <- ref.bugs_265 %>%
-            select(act_id, COMID) %>%
-            #group_by(act_id) %>%
-            unique()
+# Catchment + Other (stream temp mets)
+
+metrics_CAT.OTHER_OR.CA.NV <- sc_get_data(metric='al2o3,bfi,cao,clay,compstrgth,elev,fe2o3,hydrlcond,
+                       inorgnwetdep_2008,k2o,kffact,mast_2008,mast_2009,mast_2013,mast_2014,
+                       msst_2008,msst_2009,msst_2013,msst_2014,mwst_2008,mwst_2009,mwst_2013,mwst_2014,  
+                       mgo,n,na2o,nh4_2008,no3_2008,om,p2o5,pctalkintruvol,pctalluvcoast,pctbl2001,
+                       pctbl2004,pctcarbresid,pctcoastcrs,pctcolluvsed,pcteolcrs,pcteolfine,pctextruvol,
+                       pctglaclakecrs,pctglaclakefine,pctglactilclay,pctglactilcrs,pctglactilloam,
+                       pcthydric,pctice2001,pctice2004,pctice2006,pctice2008,pctice2011,
+                       pctice2013,pctice2016,pctice2019,pctsallake,perm,precip08,precip09,
+                       precip8110,rckdep,s,sand,sio2,tmax8110,tmean8110,tmin8110', 
+                       aoi='catchment, other', region='16,17,18')
 
 
-preds <- comids %>%
-            left_join(metrics, by='COMID')
-summary(preds)                                          
+# convert multiple years to means
+metrics_CAT.OTHER_OR.CA.NV <- metrics_CAT.OTHER_OR.CA.NV %>%
+  mutate(MAST_mean08.14 = (MAST_2008+MAST_2009+MAST_2013+MAST_2014)/4) %>%
+  mutate(MSST_mean08.14 = (MSST_2008+MSST_2009+MSST_2013+MSST_2014)/4) %>% 
+  mutate(MWST_mean08.14 = (MWST_2008+MWST_2009+MWST_2013+MWST_2014)/4) %>%
+  mutate(PCTICE_mean01.19 = (PCTICE2001CAT+PCTICE2004CAT+PCTICE2006CAT+PCTICE2008CAT+PCTICE2011CAT+
+          PCTICE2013CAT+PCTICE2016CAT+PCTICE2019CAT)/8) %>%
+  select(-MAST_2008, -MAST_2009,-MAST_2013,-MAST_2014,-MSST_2008,-MSST_2009,
+         -MSST_2013,-MSST_2014,-MWST_2008,-MWST_2009,-MWST_2013,-MWST_2014, 
+         -PCTICE2001CAT,-PCTICE2004CAT,-PCTICE2006CAT,-PCTICE2008CAT,-PCTICE2011CAT,
+           -PCTICE2013CAT,-PCTICE2016CAT,-PCTICE2019CAT, -WSAREASQKM)
+
+# Convert COMID to character to allow join with COMIDs in our excel files
+metrics_WS.OTHER_OR.CA.NV$COMID <- as.character(metrics_WS.OTHER_OR.CA.NV$COMID)
+metrics_CAT.OTHER_OR.CA.NV$COMID <- as.character(metrics_CAT.OTHER_OR.CA.NV$COMID)
+
+# join WS metrics to appropriate bug samples
+
+samps.265_WS_mets <- samps.265_WS %>%
+                      left_join(metrics_WS.OTHER_OR.CA.NV, by='COMID')
+
+samps.265_CAT_mets <- samps.265_CAT %>%
+  left_join(metrics_CAT.OTHER_OR.CA.NV, by='COMID')
 
 
-
-@@@@@@@@@@@@@@@ missing predictors due to missign COMIDs---how are we going to assign these to nearest CAT metrics values?
-  then need to get CAT metrics into the same table for WS metrics
-
+@@@@@@@
+  need to get CAT metrics into the same table for WS metrics
+  rename all metrics to a common value, in both tables, create a new column to track spatial scale? Or just note this somewhere else?
 
 
 

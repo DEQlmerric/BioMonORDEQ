@@ -167,7 +167,7 @@ bio.mlocids.awqms_ALT <- read.xlsx('bugs analyses/RIVPACS_2022/_2024 model build
 
 mlocids_WS <- bio.mlocids.awqms_ALT %>%
                 filter(COMID != 'NULL') %>%
-                select(MLocID, COMID) %>%
+                select(MLocID, COMID) 
 
 
 mlocids_CAT <- bio.mlocids.awqms_ALT %>%
@@ -264,15 +264,122 @@ metrics_CAT.OTHER_OR.CA.NV$COMID <- as.character(metrics_CAT.OTHER_OR.CA.NV$COMI
 # join WS metrics to appropriate bug samples
 
 samps.265_WS_mets <- samps.265_WS %>%
-                      left_join(metrics_WS.OTHER_OR.CA.NV, by='COMID')
+        left_join(metrics_WS.OTHER_OR.CA.NV, by='COMID') %>%
+        mutate(met.type = 'WS')
 
 samps.265_CAT_mets <- samps.265_CAT %>%
-  left_join(metrics_CAT.OTHER_OR.CA.NV, by='COMID')
+  left_join(metrics_CAT.OTHER_OR.CA.NV, by='COMID')%>%
+  mutate(met.type = 'WS')
 
 
-@@@@@@@
-  need to get CAT metrics into the same table for WS metrics
-  rename all metrics to a common value, in both tables, create a new column to track spatial scale? Or just note this somewhere else?
+
+# rename to match columns, then rbind
+
+samps.265_WS_mets <- samps.265_WS_mets %>%
+      rename(AREASQKM = WSAREASQKM, SAND = SANDWS, CLAY = CLAYWS, ELEV = ELEVWS,            
+             BFI = BFIWS, KFFACT = KFFACTWS, PCTGLACLAKEFINE = PCTGLACLAKEFINEWS,
+             PCTGLACTILCLAY = PCTGLACTILCLAYWS, PCTGLACTILLOAM = PCTGLACTILLOAMWS,  
+             PCTCOASTCRS = PCTCOASTCRSWS, PCTGLACLAKECRS = PCTGLACLAKECRSWS,
+             PCTEXTRUVOL = PCTEXTRUVOLWS, PCTEOLFINE = PCTEOLFINEWS, PCTEOLCRS = PCTEOLCRSWS, 
+             PCTGLACTILCRS = PCTGLACTILCRSWS, PCTSALLAKE = PCTSALLAKEWS, 
+             PCTCARBRESID = PCTCARBRESIDWS, PCTALLUVCOAST = PCTALLUVCOASTWS,      
+             PCTALKINTRUVOL = PCTALKINTRUVOLWS, PCTHYDRIC = PCTHYDRICWS,
+             PCTCOLLUVSED = PCTCOLLUVSEDWS, TMAX8110 = TMAX8110WS, TMIN8110 = TMIN8110WS,
+             PRECIP8110 = PRECIP8110WS, TMEAN8110 = TMEAN8110WS, COMPSTRGTH = COMPSTRGTHWS,        
+             PCTBL2004 = PCTBL2004WS, INORGNWETDEP_2008 = INORGNWETDEP_2008WS,
+             NO3_2008 = NO3_2008WS, NH4_2008 = NH4_2008WS, N = NWS,
+             HYDRLCOND = HYDRLCONDWS, MGO = MGOWS, K2O = K2OWS, AL2O3 = AL2O3WS,
+             NA2O = NA2OWS, SIO2 = SIO2WS, CAO = CAOWS, P2O5 = P2O5WS,             
+             S = SWS, FE2O3 = FE2O3WS, PERM = PERMWS, RCKDEP = RCKDEPWS, OM = OMWS,
+             PCTBL2001 = PCTBL2001WS, PRECIP08 = PRECIP08WS, PRECIP09 = PRECIP09WS )    
+
+samps.265_CAT_mets <- samps.265_CAT_mets %>%
+  rename(AREASQKM = CATAREASQKM, SAND = SANDCAT, CLAY = CLAYCAT, ELEV = ELEVCAT,            
+         BFI = BFICAT, KFFACT = KFFACTCAT, PCTGLACLAKEFINE = PCTGLACLAKEFINECAT,
+         PCTGLACTILCLAY = PCTGLACTILCLAYCAT, PCTGLACTILLOAM = PCTGLACTILLOAMCAT,  
+         PCTCOASTCRS = PCTCOASTCRSCAT, PCTGLACLAKECRS = PCTGLACLAKECRSCAT,
+         PCTEXTRUVOL = PCTEXTRUVOLCAT, PCTEOLFINE = PCTEOLFINECAT, PCTEOLCRS = PCTEOLCRSCAT, 
+         PCTGLACTILCRS = PCTGLACTILCRSCAT, PCTSALLAKE = PCTSALLAKECAT, 
+         PCTCARBRESID = PCTCARBRESIDCAT, PCTALLUVCOAST = PCTALLUVCOASTCAT,      
+         PCTALKINTRUVOL = PCTALKINTRUVOLCAT, PCTHYDRIC = PCTHYDRICCAT,
+         PCTCOLLUVSED = PCTCOLLUVSEDCAT, TMAX8110 = TMAX8110CAT, TMIN8110 = TMIN8110CAT,
+         PRECIP8110 = PRECIP8110CAT, TMEAN8110 = TMEAN8110CAT, COMPSTRGTH = COMPSTRGTHCAT,        
+         PCTBL2004 = PCTBL2004CAT, INORGNWETDEP_2008 = INORGNWETDEP_2008CAT,
+         NO3_2008 = NO3_2008CAT, NH4_2008 = NH4_2008CAT, N = NCAT,
+         HYDRLCOND = HYDRLCONDCAT, MGO = MGOCAT, K2O = K2OCAT, AL2O3 = AL2O3CAT,
+         NA2O = NA2OCAT, SIO2 = SIO2CAT, CAO = CAOCAT, P2O5 = P2O5CAT,             
+         S = SCAT, FE2O3 = FE2O3CAT, PERM = PERMCAT, RCKDEP = RCKDEPCAT, OM = OMCAT,
+         PCTBL2001 = PCTBL2001CAT, PRECIP08 = PRECIP08CAT, PRECIP09 = PRECIP09CAT )    
+
+pred.mets_265 <- bind_rows(samps.265_WS_mets, samps.265_CAT_mets)
+
+
+# predictors together for all 265 sites
+
+summary(pred.mets_265)
+      # most metrics with 4-5 missing values--this is good enough to replace with imputation
+      # however, MAST (mean annual stream temp) has 37 missing values =---> need to drop this variable
+      # variables with very little spread = drop
+              # PCTGLACLAKEFINE, PCTGLACTILCLAY, PCTGLACTILLOAM, PCTCOASTCRS, PCTGLACLAKECRS, PCTEXTRUVOL, PCTEOLFINE,PCTEOLCRS, PCTSALLAKE, PCTHYDRIC,
+
+pred.mets_265 <- pred.mets_265 %>% select(-MAST_mean08.14, -PCTGLACLAKEFINE, -PCTGLACTILCLAY, -PCTGLACTILLOAM, -PCTCOASTCRS, -PCTGLACLAKECRS, 
+                                          -PCTEXTRUVOL, -PCTEOLFINE, -PCTEOLCRS, -PCTSALLAKE, -PCTHYDRIC)
+
+##########
+
+#  CORRELATIONS of PREDICTORS
+
+##########
+
+# we don't want to build models off of predictors that are highly correlated
+# run correlations, then retain a single metric from correlated metrics
+
+pred.corr <- pred.mets_265 %>%
+      select(17:56)
+
+
+results_corr <- cor(pred.corr, use='complete.obs')
+
+write.table(results_corr, 'clipboard', sep='\t') # pastes to clipboard, go into Excel, and paste in cell
+
+
+
+# SLH set a threshold of r > 0.895 for identifying highly correlated variables
+# drop the following variables from future analyses
+
+pred.mets_265_final <- pred.mets_265 %>%
+  select(-TMIN8110, -TMEAN8110, -PRECIP08, PRECIP09, -PCTBL2001, -NO3_2008, -NH4_2008, -AL2O3)
+
+
+# bring in NHD Slope
+
+
+nhd.or <- read.csv('bugs analyses/RIVPACS_2022/_2024 model build/nhd.slope/NHD_Slope.csv')
+nhd.ca <- read.csv('bugs analyses/RIVPACS_2022/_2024 model build/nhd.slope/CA_nhdslope.csv')
+nhd.gb <- read.csv('bugs analyses/RIVPACS_2022/_2024 model build/nhd.slope/GB_nhdslope.csv')
+
+
+
+nhd_all <- bind_rows(nhd.or, nhd.ca, nhd.gb) %>%
+  select(COMID, SLOPE)
+
+nhd_all$COMID <- as.character(nhd_all$COMID)
+
+
+pred.mets_265_final <- pred.mets_265_final %>%
+        left_join(nhd_all, by='COMID')
+
+
+
+
+# export final predictors file
+
+save(pred.mets_265_final, file='bugs analyses/RIVPACS_2022/_2024 model build/pred.mets_265_final.Rdata')
+
+
+
+
+
 
 
 

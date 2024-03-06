@@ -26,16 +26,16 @@ library(StreamCatTools)
 #     5) crosstab 
 #     6) change counts to '1' or '0'
   
-ref_265 <- read.xlsx('bugs analyses/RIVPACS_2022/_2024 model build/Reference sites_bug samples_total and OTU abundances.xlsx',
+ref_257 <- read.xlsx('bugs analyses/RIVPACS_2022/_2024 model build/Reference sites_bug samples_total and OTU abundances.xlsx',
                           sheet = 'FINAL FINAL FINAL_265 ref samps')  
 
-ref_265 <- ref_265 %>%
+ref_257 <- ref_257 %>%
             filter(Use_spatial=='Y') %>%
             rename(MLocID = Name, StaDes = Description)
 
 # create a list of sampleIDs to use in querying bug data
 
-sampleIDs.ref265 <- as.vector(ref_265$act_id)
+sampleIDs.ref257 <- as.vector(ref_257$act_id)
 
 
 # bring in saved bug data, downloaded from AWQMS in early February by LAM
@@ -45,8 +45,8 @@ load('bugs analyses/RIVPACS_2022/_2024 model build/raw_bugs.Rdata')
 
 # filter raw_bugs to only the 265 ref sites
 
-ref.bugs_265 <- raw_bugs %>%
-            filter(act_id %in% sampleIDs.ref265) %>%
+ref.bugs_257 <- raw_bugs %>%
+            filter(act_id %in% sampleIDs.ref257) %>%
             filter(Char_Name=='Count') %>%
             select(act_id, MLocID, StationDes, COMID, EcoRegion2, EcoRegion3, Lat_DD, Long_DD, ELEV_Ft, 
                    SampleStart_Date, Sample_Method, DEQ_Taxon, Taxonomic_Name, Result_Numeric, StageID, UniqueTaxon)
@@ -60,12 +60,12 @@ taxonomy.otu <- taxonomy %>%
 taxonomy.otu$DEQ_Taxon <- as.character(taxonomy.otu$DEQ_Taxon)
 
 
-ref.bugs.taxonomy <- ref.bugs_265 %>%
+ref.bugs.taxonomy <- ref.bugs_257 %>%
   left_join(taxonomy.otu, by='DEQ_Taxon')
 
 # sum abundances across OTUs, drop 'DNI' taxa
 
-ref.bugs_265_OTUs <- as.data.frame(ref.bugs.taxonomy %>%
+ref.bugs_257_OTUs <- as.data.frame(ref.bugs.taxonomy %>%
       group_by(Sample=act_id, MLocID, OTU=OTU_RIV_24) %>%
       summarise(Count=sum(Result_Numeric)) %>%
       filter(OTU != 'DNI'))
@@ -89,7 +89,7 @@ ref.bugs_265_OTUs <- as.data.frame(ref.bugs.taxonomy %>%
 source('bugs analyses/RIVPACS_2022/_2024 model build/rarify_w_seed.R')
 
 
-b.rare.seed <- rarify.seed(na.omit(ref.bugs_265_OTUs), 'Sample', 'Count', 300) 
+b.rare.seed <- rarify.seed(na.omit(ref.bugs_257_OTUs), 'Sample', 'Count', 300) 
 
 
 
@@ -98,12 +98,12 @@ b.rare.seed <- rarify.seed(na.omit(ref.bugs_265_OTUs), 'Sample', 'Count', 300)
 #       1.3 get total abundance of rarified samples for PREDATOR
 ######
 ######
-tot.abund_notsub_265<-aggregate(ref.bugs_265_OTUs$Count, list(Sample=ref.bugs_265_OTUs$Sample, MLocID=ref.bugs_265_OTUs$MLocID), sum)
-tot.abund_notsub_265 <- dplyr::rename(tot.abund_notsub_265, tot.abund_notsub_265 = x)
+tot.abund_notsub_257<-aggregate(ref.bugs_257_OTUs$Count, list(Sample=ref.bugs_257_OTUs$Sample, MLocID=ref.bugs_257_OTUs$MLocID), sum)
+tot.abund_notsub_257 <- dplyr::rename(tot.abund_notsub_257, tot.abund_notsub_257 = x)
 
 
-tot.abund.sub265<-aggregate(b.rare.seed$Count, list(Sample=b.rare.seed$Sample, MLocID=b.rare.seed$MLocID), sum)
-tot.abund.sub265 <- dplyr::rename(tot.abund.sub265, tot.abund.sub265 = x)
+tot.abund.sub257<-aggregate(b.rare.seed$Count, list(Sample=b.rare.seed$Sample, MLocID=b.rare.seed$MLocID), sum)
+tot.abund.sub257 <- dplyr::rename(tot.abund.sub257, tot.abund.sub257 = x)
 
 #####
 #####
@@ -117,7 +117,7 @@ dm.rare <- tidyr::pivot_longer(b.rare.seed, Count, names_to = "variable", values
 # bugs.all <- data.table::dcast(dm.rare, Sample+MLocID+Eco2+Eco3 ~ OTU, fun.aggregate = sum) # Sample x OTU doesn't seem to be unique so you need the fun.aggregate.  
 # head(bugs.all)
 
-bugs.mat_265.ref <- dm.rare %>% pivot_wider(               # new tidy method, replacing dcast (data.table)
+bugs.mat_257.ref <- dm.rare %>% pivot_wider(               # new tidy method, replacing dcast (data.table)
   names_from = OTU,
   id_cols = c(Sample),
   values_from = value,
@@ -127,7 +127,7 @@ bugs.mat_265.ref <- dm.rare %>% pivot_wider(               # new tidy method, re
 
 # export matrified bug data file to load directly in model building phase
 
-save(bugs.mat_265.ref, file='bugs analyses/RIVPACS_2022/_2024 model build/bugs.mat_265.ref.Rdata')
+save(bugs.mat_257.ref, file='bugs analyses/RIVPACS_2022/_2024 model build/bugs.mat_257.ref.Rdata')
   
 
   
@@ -178,18 +178,18 @@ mlocids_CAT <- bio.mlocids.awqms_ALT %>%
 
 ###  associate bug samples with WS or CAT COMIDs
 
-samps.265_WS <- ref_265 %>%
+samps.257_WS <- ref_257 %>%
   inner_join(mlocids_WS, by='MLocID') %>%
   unique() %>%
   select(-Icon, -Use_nopool.date.abund, -Use_spatial)
 
 
-samps.265_CAT <- ref_265 %>%
+samps.257_CAT <- ref_257 %>%
   inner_join(mlocids_CAT, by='MLocID') %>%
   unique() %>%
   select(-Icon, -Use_nopool.date.abund, -Use_spatial)
 
-samps.265_CAT$COMID <- as.character(samps.265_CAT$COMID)
+samps.257_CAT$COMID <- as.character(samps.257_CAT$COMID)
 
 
 
@@ -261,13 +261,22 @@ metrics_CAT.OTHER_OR.CA.NV <- metrics_CAT.OTHER_OR.CA.NV %>%
 metrics_WS.OTHER_OR.CA.NV$COMID <- as.character(metrics_WS.OTHER_OR.CA.NV$COMID)
 metrics_CAT.OTHER_OR.CA.NV$COMID <- as.character(metrics_CAT.OTHER_OR.CA.NV$COMID)
 
+
+##
+#   save streamcat metrics for loading in other applications
+##
+save(metrics_WS.OTHER_OR.CA.NV, file = 'bugs analyses/RIVPACS_2022/_2024 model build/metrics_WS.OTHER_OR.CA.NV.Rdta' )
+save(metrics_CAT.OTHER_OR.CA.NV, file = 'bugs analyses/RIVPACS_2022/_2024 model build/metrics_CAT.OTHER_OR.CA.NV.Rdta' )
+
+
+
 # join WS metrics to appropriate bug samples
 
-samps.265_WS_mets <- samps.265_WS %>%
+samps.257_WS_mets <- samps.257_WS %>%
         left_join(metrics_WS.OTHER_OR.CA.NV, by='COMID') %>%
         mutate(met.type = 'WS')
 
-samps.265_CAT_mets <- samps.265_CAT %>%
+samps.257_CAT_mets <- samps.257_CAT %>%
   left_join(metrics_CAT.OTHER_OR.CA.NV, by='COMID')%>%
   mutate(met.type = 'WS')
 
@@ -275,7 +284,7 @@ samps.265_CAT_mets <- samps.265_CAT %>%
 
 # rename to match columns, then rbind
 
-samps.265_WS_mets <- samps.265_WS_mets %>%
+samps.257_WS_mets <- samps.257_WS_mets %>%
       rename(AREASQKM = WSAREASQKM, SAND = SANDWS, CLAY = CLAYWS, ELEV = ELEVWS,            
              BFI = BFIWS, KFFACT = KFFACTWS, PCTGLACLAKEFINE = PCTGLACLAKEFINEWS,
              PCTGLACTILCLAY = PCTGLACTILCLAYWS, PCTGLACTILLOAM = PCTGLACTILLOAMWS,  
@@ -293,7 +302,7 @@ samps.265_WS_mets <- samps.265_WS_mets %>%
              S = SWS, FE2O3 = FE2O3WS, PERM = PERMWS, RCKDEP = RCKDEPWS, OM = OMWS,
              PCTBL2001 = PCTBL2001WS, PRECIP08 = PRECIP08WS, PRECIP09 = PRECIP09WS )    
 
-samps.265_CAT_mets <- samps.265_CAT_mets %>%
+samps.257_CAT_mets <- samps.257_CAT_mets %>%
   rename(AREASQKM = CATAREASQKM, SAND = SANDCAT, CLAY = CLAYCAT, ELEV = ELEVCAT,            
          BFI = BFICAT, KFFACT = KFFACTCAT, PCTGLACLAKEFINE = PCTGLACLAKEFINECAT,
          PCTGLACTILCLAY = PCTGLACTILCLAYCAT, PCTGLACTILLOAM = PCTGLACTILLOAMCAT,  
@@ -311,18 +320,18 @@ samps.265_CAT_mets <- samps.265_CAT_mets %>%
          S = SCAT, FE2O3 = FE2O3CAT, PERM = PERMCAT, RCKDEP = RCKDEPCAT, OM = OMCAT,
          PCTBL2001 = PCTBL2001CAT, PRECIP08 = PRECIP08CAT, PRECIP09 = PRECIP09CAT )    
 
-pred.mets_265 <- bind_rows(samps.265_WS_mets, samps.265_CAT_mets)
+pred.mets_257 <- bind_rows(samps.257_WS_mets, samps.257_CAT_mets)
 
 
 # predictors together for all 265 sites
 
-summary(pred.mets_265)
+summary(pred.mets_257)
       # most metrics with 4-5 missing values--this is good enough to replace with imputation
       # however, MAST (mean annual stream temp) has 37 missing values =---> need to drop this variable
       # variables with very little spread = drop
               # PCTGLACLAKEFINE, PCTGLACTILCLAY, PCTGLACTILLOAM, PCTCOASTCRS, PCTGLACLAKECRS, PCTEXTRUVOL, PCTEOLFINE,PCTEOLCRS, PCTSALLAKE, PCTHYDRIC,
 
-pred.mets_265 <- pred.mets_265 %>% select(-MAST_mean08.14, -PCTGLACLAKEFINE, -PCTGLACTILCLAY, -PCTGLACTILLOAM, -PCTCOASTCRS, -PCTGLACLAKECRS, 
+pred.mets_257 <- pred.mets_265 %>% select(-MAST_mean08.14, -PCTGLACLAKEFINE, -PCTGLACTILCLAY, -PCTGLACTILLOAM, -PCTCOASTCRS, -PCTGLACLAKECRS, 
                                           -PCTEXTRUVOL, -PCTEOLFINE, -PCTEOLCRS, -PCTSALLAKE, -PCTHYDRIC)
 
 ##########
@@ -334,7 +343,7 @@ pred.mets_265 <- pred.mets_265 %>% select(-MAST_mean08.14, -PCTGLACLAKEFINE, -PC
 # we don't want to build models off of predictors that are highly correlated
 # run correlations, then retain a single metric from correlated metrics
 
-pred.corr <- pred.mets_265 %>%
+pred.corr <- pred.mets_257 %>%
       select(17:56)
 
 
@@ -347,7 +356,7 @@ write.table(results_corr, 'clipboard', sep='\t') # pastes to clipboard, go into 
 # SLH set a threshold of r > 0.895 for identifying highly correlated variables
 # drop the following variables from future analyses
 
-pred.mets_265_final <- pred.mets_265 %>%
+pred.mets_257_final <- pred.mets_257 %>%
   select(-TMIN8110, -TMEAN8110, -PRECIP08, PRECIP09, -PCTBL2001, -NO3_2008, -NH4_2008, -AL2O3)
 
 
@@ -366,15 +375,23 @@ nhd_all <- bind_rows(nhd.or, nhd.ca, nhd.gb) %>%
 nhd_all$COMID <- as.character(nhd_all$COMID)
 
 
-pred.mets_265_final <- pred.mets_265_final %>%
+pred.mets_257_final <- pred.mets_257_final %>%
         left_join(nhd_all, by='COMID')
 
 
+# still missing Ecoregion from preds file
+ecos <- bio.mlocids.awqms_ALT %>%
+  select(MLocID, EcoRegion2, EcoRegion3) %>%
+  unique()
+
+
+pred.mets_257_final <- pred.mets_257_final %>%
+      left_join(ecos, by='MLocID')
 
 
 # export final predictors file
 
-save(pred.mets_265_final, file='bugs analyses/RIVPACS_2022/_2024 model build/pred.mets_265_final.Rdata')
+save(pred.mets_257_final, file='bugs analyses/RIVPACS_2022/_2024 model build/pred.mets_257_final.Rdata')
 
 
 

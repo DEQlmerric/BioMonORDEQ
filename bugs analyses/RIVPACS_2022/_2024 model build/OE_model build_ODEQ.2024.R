@@ -20,6 +20,7 @@ library(VSURF)
 library(tidyr)
 library(RColorBrewer)   
 library(tidyverse)
+library(openxlsx)
 #-------------------------------------------------------------------------#
 #STEP 1 -- INITIAL SETUP -- Input and organize the bug and predictor data;
 #-------------------------------------------------------------------------#
@@ -978,7 +979,7 @@ summary(row.names(bugs.mat_raw.bugs_matching)==row.names(preds_raw.bugs_mod))
 
 
 # load the model to run
-load('bugs analyses/RIVPACS_2022/_2024 model build/RIVPACS.2024__NoNBR_6out_9grps_6preds.Rdata')
+load('bugs analyses/RIVPACS_2022/_2024 model build/RIVPACS.2024__NoNBR_6out_8grps_6preds.Rdata')
 
 
 
@@ -1096,6 +1097,9 @@ sensitivity = 178/300*100
 59%
 
 
+ a<- (oe_old.vs.new$OE_new < 0.80)
+
+summary(a == TRUE)
 
 
 

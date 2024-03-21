@@ -34,38 +34,47 @@ data.raw.AWQMS <- function(station = NULL,
   # AU_ID = NULL
   # taxonomy_table = 'bugs analyses/Taxonomy/ODEQ_Taxonomy_dec22.xlsx'
   # no_metrics = TRUE
-  
+
 
   #Setup AWQMSdata parameters
   #the AWQMSdata package needs a start date to run. It defaults to '1949-09-15'
   #if no start datae given, use start date
   
   options(dplyr.summarise.inform = FALSE)
-  startdate <- dplyr::if_else(is.null(startdate), '1949-09-15', startdate)
+  #startdate <- ifelse(is.null(startdate), '1949-09-15', startdate)
   
   
 
 ## Pulling raw data from AWQMS backend view via the AWQMSdatapackage
   print("Query data from AWQMS")
+  print("AWQMS_Raw_Macros")
   
-  bugs_raw <- AWQMSdata::AWQMS_Raw_Macros(station = station,
+  a <- Sys.time()
+  bugs_raw <- AWQMSdata::AWQMS_Raw_Macros(MLocID = station,
                                           startdate = startdate,
                                           enddate = enddate,
                                           AU_ID = AU_ID) 
+  Sys.time() - a
  
 # should represent unique samples # 
 # act_id field joins raw bug data to index and metrics
   
   if(no_metrics){
     
-    bugs_indexes <- AWQMSdata::AWQMS_Bio_Indexes(station = station,
+    print('AWQMS_Bio_Indexes')
+    a <- Sys.time()
+    bugs_indexes <- AWQMSdata::AWQMS_Bio_Indexes(MLocID = station,
                                                  startdate = startdate,
                                                  enddate = enddate,
                                                  AU_ID = AU_ID)
-    bugs_metrics <- AWQMSdata::AWQMS_Bio_Metrics(station = station,
+    Sys.time() - a
+    print('AWQMS_Bio_Metrics')
+    a <- Sys.time()
+    bugs_metrics <- AWQMSdata::AWQMS_Bio_Metrics(MLocID = station,
                                                  startdate = startdate,
                                                  enddate = enddate,
                                                  AU_ID = AU_ID)
+    Sys.time() - a
     
     print("Data Query Complete")
     
@@ -162,7 +171,7 @@ data.raw.AWQMS <- function(station = NULL,
   
   ################################
   
-  taxonomy <- readxl::read_excel(taxonomy_table)
+  taxonomy <- readxl::read_excel(taxonomy_table, col_types = "text")
   
   #limit columns to what is necessary
   taxonomy <- taxonomy %>%

@@ -211,7 +211,8 @@ data.raw.AWQMS <- function(station = NULL,
   
   # join stations table to bugs + taxonomy
   
-  b_t_s <- b_t_mod 
+  b_t_s <- b_t_mod %>%
+    dplyr::mutate(MTI = as.numeric(MTI))
   
   
   if(no_metrics){

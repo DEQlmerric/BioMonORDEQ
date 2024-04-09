@@ -14,7 +14,8 @@
 # 
 #
 
-bug.stressors <- function(b_t_s = b_t_s){
+bug.stressors <- function(b_t_s = b_t_s, 
+                          taxonomy_table_url = 'https://raw.githubusercontent.com/leppott/BioMonTools_SupportFiles/main/data/taxa_official/ORWA_TaxaTranslator_20240204.csv'){
 
 
 
@@ -39,9 +40,10 @@ library(rioja)
 
 # Download first then read.
 ## URL BioMonTools
-url_bmt_base <- 'https://github.com/leppott/BioMonTools_SupportFiles/raw/main/data'
-url_taxa_official_pick <- file.path(url_bmt_base, "taxa_official", "ORWA_TaxaTranslator_20231030.csv")
-taxonomy_MTTI <- read.csv(url_taxa_official_pick)
+ 
+taxonomy_MTTI <- read.csv(taxonomy_table_url)
+
+
 # old csv copy locally: taxa <- read.csv('ORWA_TaxaTranslator_20230112_SLH.updated.csv') \
 
 # 'DNI' = used to filter out and drop taxa not included in model,
@@ -86,7 +88,8 @@ bugs.MTTI <- bugs.MTTI %>%
 
 bugs.RA <- bugs.MTTI %>%
   dplyr::group_by(sample.id, Taxon_orig) %>%
-  dplyr::summarize(RA = (Count/tot.abund))
+  dplyr::summarize(count = n(),
+                   RA = (sum(Count)/first(tot.abund)))
 
 
 
@@ -247,7 +250,7 @@ bugs.BSTI <- bugs.BSTI %>%
 
 bugs.RA <- bugs.BSTI %>%
   dplyr::group_by(sample.id, Taxon_orig) %>%
-  dplyr::summarize(RA = (Count/tot.abund))
+  dplyr::summarize(RA = (sum(Count)/first(tot.abund)))
 
 
 

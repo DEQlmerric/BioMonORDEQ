@@ -36,7 +36,6 @@ b_t_s <- data.raw.AWQMS(no_metrics = only_no_metrics,
 ###########
 ###########
 
-#fix this
 source('bugs analyses/metrics/bug metrics.R')
 metrics <- bug.metrics(b_t_s)
 
@@ -46,7 +45,6 @@ metrics <- bug.metrics(b_t_s)
 ###########
 ###########
 
-#fix this
 source('bugs analyses/stressor/StressorID models_v2023.R')
 stressors <- bug.stressors(b_t_s)  
 

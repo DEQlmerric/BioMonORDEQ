@@ -59,7 +59,7 @@ bug.PREDATOR <- function(b_t_s = b_t_s){
   
   head(b.oe)
   b.oe<-arrange(b.oe, Sample)               # sort the d.f by Sample
-  b.oe <- b.oe %>% filter(OTU != 666) # remove '666' from d.f (they are ambiguous taxa not used in models)
+  b.oe <- b.oe %>%  dplyr::filter(OTU != 666) # remove '666' from d.f (they are ambiguous taxa not used in models)
   b.oe<- dplyr::mutate(b.oe, OTU = ifelse(OTU == "", NA_character_, OTU)) #remove empty character strings and replace with NA values
   head(b.oe)
   

@@ -43,65 +43,52 @@ sampleIDs.ref256 <- as.vector(ref_256$act_id)
     ######  MOST DISTURBED
 ####
 
-# all possible bio stations with ref status
-all.stations <- read.xlsx('bugs analyses/MMI/_2024 model build/Bio_MlocIDs_AWQMS_Most disturbed.SYB.xlsx')
+                                                                                  # all possible bio stations with ref status
+                                                                                  all.stations <- read.xlsx('bugs analyses/MMI/_2024 model build/Bio_MlocIDs_AWQMS_Most disturbed.SYB.xlsx')
+                                                                                  
+                                                                                  most.disturbed <- all.stations %>%
+                                                                                    filter(ReferenceSite == 'MOST DISTURBED') %>% # limit to sites of interest
+                                                                                    unique()
 
-most.disturbed <- all.stations %>%
-  filter(ReferenceSite == 'MOST DISTURBED') # limit to sites of interest
+# which samples to use? --SLH took the "MOST.DISTURBED_bug.samples_site.info_total.abundances.xlsx" file 
+# and identified which sample to use when more than one sample existed for a MostDisturbed station
 
+most.dist_USE <- read.csv('bugs analyses/MMI/_2024 model build/MOST.DISTURBED_bug.samples_site.info_total.abundances_USE2.csv')
 
-# bring in bug data to get sample ids
+most.dist_USE <- most.dist_USE %>%
+  filter(Use_FINAL == 'Y')           # 'n' = 167 most disturbed samples to use for modeling
+  
+sampleIDs.most.dist167 <- as.vector(most.dist_USE$act_id) 
+  
+
+###
+    ####### BUG DATA
+###
 
 load('bugs analyses/MMI/_2024 model build/raw_bugs2.Rdata')
 
-@@@@@@@@  may need to revisit this site selection after get metrics calculated from BioMonTools package
+
 
 # get month
 raw_bugs <- raw_bugs %>%
   mutate(month = month(SampleStart_Date))
 
-# drop: old samples (diff methods/taxonomy), pools/other, density, non-summer
-bugs.good <- raw_bugs %>%
-  filter(SampleStart_Date > "1998-01-01") %>%
-  filter(Sample_Method %in% 'Benthic Kick - Riffle' | Sample_Method %in% 'Benthic Kick - Targeted Riffle'| Sample_Method %in% 'Benthic Kick - Transect') %>%
-  filter(Char_Name == 'Count') %>%
-  filter(month > 5 & month < 10) 
+
+
+# drop: NOT reference or most disturbed, old samples (diff methods/taxonomy), pools/other, density, non-summer
+bugs_ref.most <- raw_bugs %>%
+  filter(act_id %in% sampleIDs.ref256 | act_id %in% sampleIDs.most.dist167) %>%
+  filter(Result_Unit == 'count') %>%
+  select(act_id, MLocID, StationDes, DEQ_Taxon,  Result_Numeric, ReferenceSite) 
+
+bugs_ref.most$DEQ_Taxon <- as.numeric(bugs_ref.most$DEQ_Taxon)
 
 # calculate total abundance per sample
-tot.abund <- bugs.good %>%
-  group_by(act_id, MLocID, StationDes) %>%
+tot.abund_ref.most <- bugs_ref.most %>%
+  group_by(act_id, MLocID, StationDes, ReferenceSite) %>%
   summarize( tot.abund = sum(Result_Numeric))
 
-# get unique sample IDs and associated site/sample data
-bug.sample.info <- bugs.good %>%
-  select(act_id, MLocID, SampleStart_Date) %>%
-  unique()
-
-most.disturbed_sample.info <- most.disturbed %>%
-  inner_join(bug.sample.info, by = 'MLocID')
-
-most.disturbed_sample.info <- most.disturbed_sample.info %>%
-  left_join(tot.abund, by = c('act_id', 'MLocID', 'StationDes'))
-
-   # take these results and create a file for exploring duplicates and selecting final MD sites to use in model
-
-write.xlsx(most.disturbed_sample.info, 'bugs analyses/MMI/_2024 model build/MOST.DISTURBED_bug.samples_site.info_total.abundances.xlsx')
-
-
-
-
-
-# look for duplicates in bug samples
-
-a <- raw_bugs %>%
-  filter(act_id == '126608' | act_id == 'PIBO:0930:20040812:R:SR') %>%
-  filter(Char_Name == 'Count') %>%
-  select(act_id, Result_Numeric, Taxonomic_Name, StageID)
-
-
-
-
-
+@@@@@ 70 samples with less than 450 total abundance: 28 most disturbed, 42 reference
 
 
 
@@ -118,107 +105,153 @@ a <- raw_bugs %>%
 #     5) crosstab 
 #     6) change counts to '1' or '0'
   
-@@@@@@@@@@@@@@@@@@
-  @@@@@@@@@@@@@@@@@@
-  @@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@@@@@
-  
-  bring in metrics, calculated from BioMonTools
-
-# bring in saved bug data, downloaded from AWQMS in early February by LAM
-      # AWQMS pulls haven't been working, this was a temporary work-around, suitable for model building but not permament
-load('bugs analyses/RIVPACS_2022/_2024 model build/raw_bugs.Rdata') 
-
-
-# filter raw_bugs to only the 265 ref sites
-
-ref.bugs_257 <- raw_bugs %>%
-            filter(act_id %in% sampleIDs.ref257) %>%
-            filter(Char_Name=='Count') %>%
-            select(act_id, MLocID, StationDes, COMID, EcoRegion2, EcoRegion3, Lat_DD, Long_DD, ELEV_Ft, 
-                   SampleStart_Date, Sample_Method, DEQ_Taxon, Taxonomic_Name, Result_Numeric, StageID, UniqueTaxon)
+1) assocaite raw_bugs with OTUs, then attributes
+2) calculate metrics using BioMonTools
 
 # join to taxonomy and OTUs
 taxonomy <- read.xlsx('bugs analyses/Taxonomy/ODEQ_Taxonomy_dec22.xlsx') 
 
-taxonomy.otu <- taxonomy %>%
-              select(DEQ_Taxon = DEQ_TAXON, Taxon, OTU_RIV_24)
+taxonomy<- taxonomy %>%
+    filter(Phylum != 'Chordata') %>%
+    select(DEQ_Taxon = DEQ_TAXON, Taxon)
 
-taxonomy.otu$DEQ_Taxon <- as.character(taxonomy.otu$DEQ_Taxon)
+# bring in OTUs from taxa translator created by Sean Sullivan
+translator <- read.csv('bugs analyses/MMI/_2024 model build/ORWA_TaxaTranslator_20240411_FOR SHANNON.csv')
 
+# join taxonomy and translator: bug data has taxon codes only, translator has taxon, taxonomy has both
 
-ref.bugs.taxonomy <- ref.bugs_257 %>%
-  left_join(taxonomy.otu, by='DEQ_Taxon')
-
-# sum abundances across OTUs, drop 'DNI' taxa
-
-ref.bugs_257_OTUs <- as.data.frame(ref.bugs.taxonomy %>%
-      group_by(Sample=act_id, MLocID, OTU=OTU_RIV_24) %>%
-      summarise(Count=sum(Result_Numeric)) %>%
-      filter(OTU != 'DNI'))
-      
+taxon.translate <- taxonomy %>%
+  left_join(translator, by = 'Taxon') %>%
+  unique()
 
 
+
+# join with bugs, sum abundances across OTUs, drop 'DNI' taxa
+
+bugs_ref.most_OTUs <- bugs_ref.most %>%
+  left_join(taxon.translate, by='DEQ_Taxon') %>%
+  select(act_id, OTU_MetricCalc, Count = Result_Numeric) %>%
+  filter(OTU_MetricCalc != 'DNI') 
+  
+# sum across OTUs
+
+bugs_ref.most_OTUs_sum <- bugs_ref.most_OTUs %>%
+  group_by(act_id, OTU_MetricCalc) %>%
+  summarise(sum.count = sum(Count))
+
+
+# join OTUs and counts with attributes
+attributes <- read.csv('bugs analyses/MMI/_2024 model build/ORWA_Attributes_20240411_DRAFT_FOR_SHANNON.csv')
+
+
+bugs_ref.most_OTUs_sum_attr <- bugs_ref.most_OTUs_sum %>%
+  left_join(attributes, by = 'OTU_MetricCalc')%>%
+  rename(SAMPLEID = act_id, TAXAID = OTU_MetricCalc, N_TAXA = sum.count) %>%
+  filter(N_TAXA > 0)
+
+
+@@@@@ do we need to subsample for MMI ?????
       #### READY for SUBSAMPLING
 
-#####
-#####
-#       1.2 rarify to 300 count
-#####
-#####
+      #####
+      #####
+      #       1.2 rarify to 300 count
+      #####
+      #####
+      
+      # rarify to 300 count per sample --> this standardizes 'effort' across all samples 
+      # since O/E is basically 'reference taxa richness', it is highly related to total count
+      
+      
+      # load the 'reshape2' package and source in the 'rarify' script for subsampling to 300
+      
+      source('bugs analyses/RIVPACS_2022/_2024 model build/rarify_w_seed.R')
+      
+      
+      b.rare.seed <- rarify.seed(na.omit(ref.bugs_257_OTUs), 'Sample', 'Count', 300) 
+      
+      
+      
+      #####
+      #####
+      #       1.3 get total abundance of rarified samples for PREDATOR
+      ######
+      ######
+      tot.abund_notsub_257<-aggregate(ref.bugs_257_OTUs$Count, list(Sample=ref.bugs_257_OTUs$Sample, MLocID=ref.bugs_257_OTUs$MLocID), sum)
+      tot.abund_notsub_257 <- dplyr::rename(tot.abund_notsub_257, tot.abund_notsub_257 = x)
+      
+      
+      tot.abund.sub257<-aggregate(b.rare.seed$Count, list(Sample=b.rare.seed$Sample, MLocID=b.rare.seed$MLocID), sum)
+      tot.abund.sub257 <- dplyr::rename(tot.abund.sub257, tot.abund.sub257 = x)
+      
+      #####
+      #####
+      #       1.4 Matrify: convert from long format (many rows per sample), to site X species matrix (one row per sample)
+      ######
+      ######
+      
+      dm.rare <- tidyr::pivot_longer(b.rare.seed, Count, names_to = "variable", values_to = "value" )
+      
+      # data.table::setDT(dm.rare)
+      # bugs.all <- data.table::dcast(dm.rare, Sample+MLocID+Eco2+Eco3 ~ OTU, fun.aggregate = sum) # Sample x OTU doesn't seem to be unique so you need the fun.aggregate.  
+      # head(bugs.all)
+      
+      bugs.mat_257.ref <- dm.rare %>% pivot_wider(               # new tidy method, replacing dcast (data.table)
+        names_from = OTU,
+        id_cols = c(Sample),
+        values_from = value,
+        values_fill = 0,
+        names_repair = "check_unique",
+        names_sort = TRUE)
+      
+      # export matrified bug data file to load directly in model building phase
+      
+      save(bugs.mat_257.ref, file='bugs analyses/RIVPACS_2022/_2024 model build/bugs.mat_257.ref.Rdata')
+        
+@@@@@@@@@@@@
+        
 
-# rarify to 300 count per sample --> this standardizes 'effort' across all samples 
-# since O/E is basically 'reference taxa richness', it is highly related to total count
-
-
-# load the 'reshape2' package and source in the 'rarify' script for subsampling to 300
-
-source('bugs analyses/RIVPACS_2022/_2024 model build/rarify_w_seed.R')
-
-
-b.rare.seed <- rarify.seed(na.omit(ref.bugs_257_OTUs), 'Sample', 'Count', 300) 
-
-
-
-#####
-#####
-#       1.3 get total abundance of rarified samples for PREDATOR
-######
-######
-tot.abund_notsub_257<-aggregate(ref.bugs_257_OTUs$Count, list(Sample=ref.bugs_257_OTUs$Sample, MLocID=ref.bugs_257_OTUs$MLocID), sum)
-tot.abund_notsub_257 <- dplyr::rename(tot.abund_notsub_257, tot.abund_notsub_257 = x)
-
-
-tot.abund.sub257<-aggregate(b.rare.seed$Count, list(Sample=b.rare.seed$Sample, MLocID=b.rare.seed$MLocID), sum)
-tot.abund.sub257 <- dplyr::rename(tot.abund.sub257, tot.abund.sub257 = x)
-
-#####
-#####
-#       1.4 Matrify: convert from long format (many rows per sample), to site X species matrix (one row per sample)
-######
-######
-
-dm.rare <- tidyr::pivot_longer(b.rare.seed, Count, names_to = "variable", values_to = "value" )
-
-# data.table::setDT(dm.rare)
-# bugs.all <- data.table::dcast(dm.rare, Sample+MLocID+Eco2+Eco3 ~ OTU, fun.aggregate = sum) # Sample x OTU doesn't seem to be unique so you need the fun.aggregate.  
-# head(bugs.all)
-
-bugs.mat_257.ref <- dm.rare %>% pivot_wider(               # new tidy method, replacing dcast (data.table)
-  names_from = OTU,
-  id_cols = c(Sample),
-  values_from = value,
-  values_fill = 0,
-  names_repair = "check_unique",
-  names_sort = TRUE)
-
-# export matrified bug data file to load directly in model building phase
-
-save(bugs.mat_257.ref, file='bugs analyses/RIVPACS_2022/_2024 model build/bugs.mat_257.ref.Rdata')
+###########
+      
+#             METRICS
+      
+###########
   
+###
+    # mark excluded
+###
+
+
+bugs.excluded <- markExcluded(bugs_ref.most_OTUs_sum_attr, TaxaLevels = c("Kingdom", "Phylum",
+                "SubPhylum", "Class", "SubClass", "Order", "SubOrder", "SuperFamily", 
+                "Family", "SubFamily", "Tribe", "GenusGroup", "Genus", "SubGenus", "SpeciesGroup",
+                "SpeciesSubGroup", "SpeciesComplex", "Species"))
+
+
+
+
+
+###
+    # rarify
+###
+
+
+
+@@@ necessary ????????????
+
 
   
+###
+    # bug metrics
+###  
   
+bug.metrics <- metric.values(bugs.excluded, "bugs")
+
+
+@@@@@ missing fields = INDEX_NAME, INDEX_CLASS
+  There are 9 missing fields in the data:
+INFRAORDER, FFG2, ELEVATION_ATTR, GRADIENT_ATTR, WSAREA_ATTR, HABSTRUCT, BCG_ATTR2, AIRBREATHER, UFC
+ 
   
   
   

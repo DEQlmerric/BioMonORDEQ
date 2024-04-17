@@ -1,4 +1,4 @@
-Taxon_Group,Taxon_orig,NonTarget,Rationale,OTU_MTTI,OTU_MetricCalc,OTU_BCG_MariNW,OTU_BSTI
+Taxon_Group,Taxon,NonTarget,Rationale,OTU_MTTI,OTU_MetricCalc,OTU_BCG_MariNW,OTU_BSTI
 Other Non-Insect,Aaptos,TRUE,Sponges excluded,DNI,DNI,DNI,DNI
 Chironomidae,Ablabesmyia,FALSE,,Ablabesmyia,Ablabesmyia,Ablabesmyia,Ablabesmyia
 Other Non-Insect,Acalyptonotus,FALSE,,DNI,Acalyptonotus,Trombidiformes,DNI

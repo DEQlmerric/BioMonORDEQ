@@ -89,7 +89,6 @@ tot.abund_ref.most <- bugs_ref.most %>%
   group_by(act_id, MLocID, StationDes, ReferenceSite) %>%
   summarize( tot.abund = sum(Result_Numeric))
 
-@@@@@ 70 samples with less than 450 total abundance: 28 most disturbed, 42 reference
 
 
 
@@ -154,7 +153,7 @@ bugs_ref.most_OTUs_sum_attr <- bugs_ref.most_OTUs_sum %>%
   filter(N_TAXA > 0)
 
 
-@@@@@ do we need to subsample for MMI ?????
+
       #### READY for SUBSAMPLING
 
       #####
@@ -212,8 +211,6 @@ bugs_ref.most_OTUs_sum_attr <- bugs_ref.most_OTUs_sum %>%
       
       save(bugs.mat_257.ref, file='bugs analyses/RIVPACS_2022/_2024 model build/bugs.mat_257.ref.Rdata')
         
-@@@@@@@@@@@@
-        
 
 ###########
       
@@ -241,22 +238,65 @@ bugs.excluded <- markExcluded(bugs_ref.most_OTUs_sum_attr, TaxaLevels = c("Kingd
 
 
 
-@@@ necessary ????????????
-
-
+ # rarify to 300 count per sample --> this standardizes 'effort' across all samples 
+      # since O/E is basically 'reference taxa richness', it is highly related to total count
+      
+      
+      # load the 'reshape2' package and source in the 'rarify' script for subsampling to 300
+      
+      source('bugs analyses/RIVPACS_2022/_2024 model build/rarify_w_seed.R')
+      
+      
+      b.rare.seed <- rarify.seed(na.omit(ref.bugs_257_OTUs), 'Sample', 'Count', 300) 
+      
   
 ###
     # bug metrics
 ###  
-  
-bug.metrics <- metric.values(bugs.excluded, "bugs", fun.cols2keep = "ReferenceSite")
 
+# identify which metrics to keep out of many more in BioMonTools
+mets.keep <- c("ni_total","li_total","ni_Chiro","ni_EPT","ni_Trich",
+"nt_total","nt_Amph","nt_Bival","nt_Coleo","nt_COET","nt_CruMol","nt_Dipt","nt_ECT","nt_Ephem","nt_Ephemerellid",
+"nt_ET","nt_EPT","nt_Gast","nt_Hepta","nt_Insect","nt_Isop","nt_Mega","nt_Mol","nt_Nemour","nt_NonIns","nt_Odon",
+"nt_OET","nt_Oligo","nt_Perlid","nt_Pleco","nt_POET","nt_Ptero","nt_Rhya","nt_Tipulid","nt_Trich","nt_TrichNoHydro",
+"nt_Tromb","nt_Tubif","pi_Amph","pi_AmphIsop","pi_Baet","pi_Bival","pi_Caen","pi_Cheu","pi_Coleo",
+"pi_COET","pi_Corb","pi_CorixPhys","pi_CraCaeGam","pi_Cru","pi_CruMol","pi_Deca","pi_Dipt","pi_DiptNonIns",
+"pi_ECT","pi_Ephem","pi_EphemNoCae","pi_EphemNoCaeBae","pi_EPT","pi_EPTNoBaeHydro","pi_EPTNoCheu","pi_EPTNoHydro",
+"pi_ET","pi_Gast","pi_Hydro","pi_Hydro2EPT","pi_Hydro2Trich","pi_Insect","pi_Isop","pi_IsopGastHiru","pi_Juga",
+"pi_JugaFlumi","pi_Mega","pi_Mol","pi_Nemata","pi_NonIns","pi_Odon","pi_OET","pi_Oligo","pi_Pleco","pi_POET",
+"pi_Sphaer","pi_SphaerCorb","pi_Trich","pi_TrichNoHydro","pi_Tromb","pt_Amph","pt_Bival","pt_COET","pt_Coleo",
+"pt_Deca","pt_Dipt","pt_ECT","pt_Ephem","pt_EPT","pt_ET","pt_Gast","pt_Insect","pt_Isop","pt_Mega","pt_NonIns",
+"pt_Odon","pt_OET","pt_Oligo","pt_Pleco","pt_POET","pt_Trich","pt_TrichNoHydro","pt_Tromb","nt_Chiro","pi_Chiro",
+"pt_Chiro","pi_Ortho","pi_Tanyt","pi_Tanyp","pi_COC2Chi","pi_ChCr2Chi","pi_Orth2Chi","pi_Tanyp2Chi","pi_ChiroAnne",
+"pi_SimBtri","pi_Colesens","nt_ti_stenocold","nt_ti_cold","nt_ti_cool","nt_ti_warm",
+"nt_ti_stenowarm","nt_ti_eury","nt_ti_cowa","nt_ti_stenocold_cold","nt_ti_stenocold_cold_cool","nt_ti_cowa_warm_stenowarm",
+"nt_ti_warm_stenowarm","pi_ti_stenocold","pi_ti_cold","pi_ti_cool","pi_ti_warm","pi_ti_stenowarm","pi_ti_eury",
+"pi_ti_cowa","pi_ti_stenocold_cold","pi_ti_stenocold_cold_cool","pi_ti_cowa_warm_stenowarm","pi_ti_warm_stenowarm",
+"pt_ti_stenocold","pt_ti_cold","pt_ti_cool","pt_ti_warm","pt_ti_stenowarm","pt_ti_eury","pt_ti_cowa","pt_ti_stenocold_cold",
+"pt_ti_stenocold_cold_cool","pt_ti_cowa_warm_stenowarm","pt_ti_warm_stenowarm","ri_ti_sccc_wsw","nt_tv_intol","nt_tv_intol4",
+"nt_tv_toler","pi_tv_intol","pi_tv_intol4","pi_tv_toler","pi_tv_toler6","pt_tv_intol","pt_tv_intol4","pt_tv_toler",
+"nt_tv_intol4_EPT","nt_tv_ntol","nt_tv_stol","pi_tv_ntol","pi_tv_stol","pt_tv_ntol","pt_tv_stol","pi_tv2_intol",
+"nt_ffg_col","nt_ffg_filt","nt_ffg_pred","nt_ffg_scrap","nt_ffg_shred","nt_ffg_mah","nt_ffg_omn","nt_ffg_par",
+"nt_ffg_pih","nt_ffg_xyl","nt_ffg_pred_scrap_shred","pi_ffg_col","pi_ffg_filt","pi_ffg_pred","pi_ffg_scrap",
+"pi_ffg_shred","pi_ffg_mah","pi_ffg_omn","pi_ffg_par","pi_ffg_pih","pi_ffg_xyl","pi_ffg_col_filt","pt_ffg_col",
+"pt_ffg_filt","pt_ffg_pred","pt_ffg_scrap","pt_ffg_shred","pt_ffg_mah","pt_ffg_omn","pt_ffg_par","pt_ffg_pih",
+"pt_ffg_xyl","nt_habit_burrow","nt_habit_climb","nt_habit_climbcling","nt_habit_cling","nt_habit_sprawl","nt_habit_swim",
+"pi_habit_burrow","pi_habit_climb","pi_habit_climbcling","pi_habit_cling","pi_habit_cling_PlecoNoCling","pi_habit_sprawl",
+"pi_habit_swim","pt_habit_burrow","pt_habit_climb","pt_habit_climbcling","pt_habit_cling","pt_habit_sprawl","pt_habit_swim",
+"nt_volt_multi","nt_volt_semi","nt_volt_uni","pi_volt_multi","pi_volt_semi","pi_volt_uni","pt_volt_multi","pt_volt_semi",
+"pt_volt_uni","pi_dom01","pi_dom02","pi_dom03","pi_dom04","pi_dom05","x_Becks","x_Becks3","x_HBI","x_HBI2","x_Shan_e",
+"x_Shan_2","x_Shan_10","x_D","x_D_G","x_D_Mg","x_Evenness","nt_habitat_brac","nt_habitat_depo","nt_habitat_gene",
+"nt_habitat_head","nt_habitat_rheo","nt_habitat_rive","nt_habitat_spec","pi_habitat_brac","pi_habitat_depo",
+"pi_habitat_gene","pi_habitat_head","pi_habitat_rheo","pi_habitat_rive","pi_habitat_spec","pi_habitat_unkn","pt_habitat_brac",
+"pt_habitat_depo","pt_habitat_gene","pt_habitat_head","pt_habitat_rheo","pt_habitat_rive","pt_habitat_spec","nfam_Coleo",
+"nfam_Ephem","nfam_Odon","nfam_Trich","ngen_Coleo","ngen_Ephem","ngen_Odon","ngen_Trich","ngen_Elmid","nt_oneind",
+"pt_oneind","nt_dni","pi_dni","pt_dni","ni_Dipt")
 
-@@@@@ missing fields = INDEX_NAME, INDEX_CLASS
-  There are 9 missing fields in the data:
-INFRAORDER, FFG2, ELEVATION_ATTR, GRADIENT_ATTR, WSAREA_ATTR, HABSTRUCT, BCG_ATTR2, AIRBREATHER, UFC
+        
+          
+bug.metrics <- metric.values(bugs.excluded, "bugs", fun.cols2keep = "ReferenceSite", fun.MetricNames = mets.keep)
+
  
-  
 
   
 #######

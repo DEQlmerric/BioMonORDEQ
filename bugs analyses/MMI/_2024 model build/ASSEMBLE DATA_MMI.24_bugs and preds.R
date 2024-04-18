@@ -9,6 +9,7 @@
 library(tidyverse)
 library(openxlsx)
 library(StreamCatTools)
+library(BioMonTools)
           # library(remotes)
           # install_github("USEPA/StreamCatTools", build_vignettes=FALSE)
 
@@ -44,11 +45,11 @@ sampleIDs.ref256 <- as.vector(ref_256$act_id)
 ####
 
                                                                                   # all possible bio stations with ref status
-                                                                                  all.stations <- read.xlsx('bugs analyses/MMI/_2024 model build/Bio_MlocIDs_AWQMS_Most disturbed.SYB.xlsx')
+                                                                                 # all.stations <- read.xlsx('bugs analyses/MMI/_2024 model build/Bio_MlocIDs_AWQMS_Most disturbed.SYB.xlsx')
                                                                                   
-                                                                                  most.disturbed <- all.stations %>%
-                                                                                    filter(ReferenceSite == 'MOST DISTURBED') %>% # limit to sites of interest
-                                                                                    unique()
+                                                                                #  most.disturbed <- all.stations %>%
+                                                                                #    filter(ReferenceSite == 'MOST DISTURBED') %>% # limit to sites of interest
+                                                                                #    unique()
 
 # which samples to use? --SLH took the "MOST.DISTURBED_bug.samples_site.info_total.abundances.xlsx" file 
 # and identified which sample to use when more than one sample existed for a MostDisturbed station
@@ -130,18 +131,21 @@ taxon.translate <- taxonomy %>%
 
 bugs_ref.most_OTUs <- bugs_ref.most %>%
   left_join(taxon.translate, by='DEQ_Taxon') %>%
-  select(act_id, OTU_MetricCalc, Count = Result_Numeric) %>%
+  select(act_id, OTU_MetricCalc, Count = Result_Numeric, ReferenceSite) %>%
   filter(OTU_MetricCalc != 'DNI') 
   
 # sum across OTUs
 
 bugs_ref.most_OTUs_sum <- bugs_ref.most_OTUs %>%
-  group_by(act_id, OTU_MetricCalc) %>%
+  group_by(act_id, OTU_MetricCalc, ReferenceSite) %>%
   summarise(sum.count = sum(Count))
 
 
 # join OTUs and counts with attributes
 attributes <- read.csv('bugs analyses/MMI/_2024 model build/ORWA_Attributes_20240411_DRAFT_FOR_SHANNON.csv')
+
+attributes <- attributes %>%
+  rename(AIRBREATHER = Air)
 
 
 bugs_ref.most_OTUs_sum_attr <- bugs_ref.most_OTUs_sum %>%
@@ -245,7 +249,7 @@ bugs.excluded <- markExcluded(bugs_ref.most_OTUs_sum_attr, TaxaLevels = c("Kingd
     # bug metrics
 ###  
   
-bug.metrics <- metric.values(bugs.excluded, "bugs")
+bug.metrics <- metric.values(bugs.excluded, "bugs", fun.cols2keep = "ReferenceSite")
 
 
 @@@@@ missing fields = INDEX_NAME, INDEX_CLASS
@@ -253,7 +257,35 @@ bug.metrics <- metric.values(bugs.excluded, "bugs")
 INFRAORDER, FFG2, ELEVATION_ATTR, GRADIENT_ATTR, WSAREA_ATTR, HABSTRUCT, BCG_ATTR2, AIRBREATHER, UFC
  
   
+
   
+#######
+  #########  METRICS VALIDATION 
+#######
+  
+# this is our first use of BioMonTools to calculate metrics
+# take metrics and bugs.excluded into excel and explore to see the metrics are working correctly
+  
+write.xlsx(bugs.excluded, 'bugs analyses/MMI/_2024 model build/Verify BioMonTools metrics/bugs.excluded.xlsx')
+  
+write.xlsx(bug.metrics, 'bugs analyses/MMI/_2024 model build/Verify BioMonTools metrics/bug.metrics.xlsx')
+
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+    
   
 #######################################################################################
 

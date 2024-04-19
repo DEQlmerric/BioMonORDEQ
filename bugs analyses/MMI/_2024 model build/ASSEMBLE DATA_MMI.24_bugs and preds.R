@@ -150,6 +150,8 @@ bugs_ref.most_OTUs_sum <- bugs_ref.most_OTUs %>%
 mySize <- 300
 Seed_OR <- 18590214
 
+bugs_ref.most_OTUs_sum <- as.data.frame(bugs_ref.most_OTUs_sum)
+
 bugs_ref.most_rare <- rarify(inbug = bugs_ref.most_OTUs_sum, sample.ID='act_id', abund='sum.count', subsiz = mySize, mySeed = Seed_OR)
 
 #######

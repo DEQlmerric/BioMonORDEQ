@@ -131,8 +131,9 @@ bugs_ref.most_OTUs <- bugs_ref.most %>%
 
 bugs_ref.most_OTUs_sum <- bugs_ref.most_OTUs %>%
   group_by(act_id, OTU_MetricCalc) %>%
-  summarise(sum.count = sum(Count))
-
+  summarise(sum.count = sum(Count))%>%
+  filter( sum.count > 0)
+  # need to drop ReferenceSite to work with rarify
 
 
 #####
@@ -150,9 +151,13 @@ bugs_ref.most_OTUs_sum <- bugs_ref.most_OTUs %>%
 mySize <- 300
 Seed_OR <- 18590214
 
-bugs_ref.most_OTUs_sum <- as.data.frame(bugs_ref.most_OTUs_sum)
+bugs_ref.most_OTUs_sum <- as.data.frame(bugs_ref.most_OTUs_sum) 
 
-bugs_ref.most_rare <- rarify(inbug = bugs_ref.most_OTUs_sum, sample.ID='act_id', abund='sum.count', subsiz = mySize, mySeed = Seed_OR)
+bugs_ref.most_rare <- rarify(inbug = bugs_ref.most_OTUs_sum, sample.ID='act_id', abund='sum.count', subsiz = mySize, mySeed = Seed_OR)%>%
+  filter(sum.count > 0)
+
+
+
 
 #######
 
@@ -168,15 +173,9 @@ attributes <- attributes %>%
   rename(OTU_MetricCalc = Taxon)
 
 
-bugs_ref.most_OTUs_sum_attr <- bugs_ref.most_OTUs_sum %>%
+bugs_ref.most_OTUs_sum_attr <- bugs_ref.most_rare %>%
   left_join(attributes, by = 'OTU_MetricCalc')%>%
-  rename(SAMPLEID = act_id, TAXAID = OTU_MetricCalc, N_TAXA = sum.count) %>%
-  filter(N_TAXA > 0)
-
-
-
-      
-
+  rename(SAMPLEID = act_id, TAXAID = OTU_MetricCalc, N_TAXA = sum.count) 
 
 
  
@@ -246,30 +245,45 @@ mets.keep <- c("ni_total","li_total","ni_Chiro","ni_EPT","ni_Trich",
 
         
           
-bug.metrics <- metric.values(bugs.excluded, "bugs", fun.cols2keep = "ReferenceSite", fun.MetricNames = mets.keep)
+bug.metrics <- metric.values(bugs.excluded, "bugs", fun.MetricNames = mets.keep) #, fun.cols2keep = "ReferenceSite"
 
  
+# add ReferenceSite back in
+ref.status <- bugs_ref.most %>%
+  select(act_id, MLocID, ReferenceSite) %>%
+  rename(SAMPLEID = act_id) %>%
+  unique()
+
+      
+
+bug.metrics_ref.status <- bug.metrics %>%
+  left_join(ref.status, by = 'SAMPLEID') %>%
+  relocate(MLocID, .before = 2)%>%
+  relocate(ReferenceSite, .before = 3)
 
   
-#######
-  #########  METRICS VALIDATION 
-#######
+                                                                                  #######
+                                                                                    #########  METRICS VALIDATION 
+                                                                                  #######
+                                                                                    
+                                                                                  # this is our first use of BioMonTools to calculate metrics
+                                                                                  # take metrics and bugs.excluded into excel and explore to see the metrics are working correctly
+                                                                                    
+                                                                                 # write.xlsx(bugs.excluded, 'bugs analyses/MMI/_2024 model build/Verify BioMonTools metrics/bugs.excluded.xlsx')
+                                                                                    
+                                                                                 # write.xlsx(bug.metrics, 'bugs analyses/MMI/_2024 model build/Verify BioMonTools metrics/bug.metrics.xlsx')
+                                                                                  
+                                                                                    
   
-# this is our first use of BioMonTools to calculate metrics
-# take metrics and bugs.excluded into excel and explore to see the metrics are working correctly
   
-write.xlsx(bugs.excluded, 'bugs analyses/MMI/_2024 model build/Verify BioMonTools metrics/bugs.excluded.xlsx')
   
-write.xlsx(bug.metrics, 'bugs analyses/MMI/_2024 model build/Verify BioMonTools metrics/bug.metrics.xlsx')
+##### Limit all samples to at least 200 count, same as used in O/E models
 
+
+bug.metrics_ref.status <- bug.metrics_ref.status %>%
+  filter(ni_total > 199)
   
-  
-  
-  
-  
-  
-  
-  
+  # 414 sites total: 158 most, 256 reference
   
   
   

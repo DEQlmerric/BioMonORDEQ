@@ -98,15 +98,9 @@ tot.abund_ref.most <- bugs_ref.most %>%
 
 ################################################################################################################################
 
-#     1) bring in bug sample list
-#     2) query bug samples from AWQMS
-#     3) assign to OTUs
-#     4) subsample to 300 count
-#     5) crosstab 
-#     6) change counts to '1' or '0'
-  
-1) assocaite raw_bugs with OTUs, then attributes
-2) calculate metrics using BioMonTools
+#     1) assocaite raw_bugs with OTUs, then attributes
+#     2) rarify to 300 count
+#     3) calculate metrics using BioMonTools
 
 # join to taxonomy and OTUs
 taxonomy <- read.xlsx('bugs analyses/Taxonomy/ODEQ_Taxonomy_dec22.xlsx') 
@@ -116,7 +110,7 @@ taxonomy<- taxonomy %>%
     select(DEQ_Taxon = DEQ_TAXON, Taxon)
 
 # bring in OTUs from taxa translator created by Sean Sullivan
-translator <- read.csv('bugs analyses/MMI/_2024 model build/ORWA_TaxaTranslator_20240411_FOR SHANNON.csv')
+translator <- read.csv('bugs analyses/MMI/_2024 model build/ORWA_TaxaTranslator_20240417.csv')
 
 # join taxonomy and translator: bug data has taxon codes only, translator has taxon, taxonomy has both
 
@@ -136,15 +130,40 @@ bugs_ref.most_OTUs <- bugs_ref.most %>%
 # sum across OTUs
 
 bugs_ref.most_OTUs_sum <- bugs_ref.most_OTUs %>%
-  group_by(act_id, OTU_MetricCalc, ReferenceSite) %>%
+  group_by(act_id, OTU_MetricCalc) %>%
   summarise(sum.count = sum(Count))
 
 
+
+#####
+#       1.2 rarify to 300 count
+#####
+
+
+# rarify to 300 count per sample --> this standardizes 'effort' across all samples 
+# technically, this is only required for richness (# taxa/sample) metrics
+# start with a single subsampled dataset for all metrics
+        #### if model performance poor, explore subsampled bugs ONLY FOR RICHNESS
+        #     ---> requires two datasets and running metrics function separately for each
+
+# use BioMonTools 'rarify' function (JVS original code)
+mySize <- 300
+Seed_OR <- 18590214
+
+bugs_ref.most_rare <- rarify(inbug = bugs_ref.most_OTUs_sum, sample.ID='act_id', abund='sum.count', subsiz = mySize, mySeed = Seed_OR)
+
+#######
+
+#         ATTRIBUTES
+
+#######
+
 # join OTUs and counts with attributes
-attributes <- read.csv('bugs analyses/MMI/_2024 model build/ORWA_Attributes_20240411_DRAFT_FOR_SHANNON.csv')
+attributes <- read.csv('bugs analyses/MMI/_2024 model build/ORWA_Attributes_20240417.csv')
 
 attributes <- attributes %>%
-  rename(AIRBREATHER = Air)
+  rename(AIRBREATHER = Air) %>%
+  rename(OTU_MetricCalc = Taxon)
 
 
 bugs_ref.most_OTUs_sum_attr <- bugs_ref.most_OTUs_sum %>%
@@ -154,64 +173,11 @@ bugs_ref.most_OTUs_sum_attr <- bugs_ref.most_OTUs_sum %>%
 
 
 
-      #### READY for SUBSAMPLING
+      
 
-      #####
-      #####
-      #       1.2 rarify to 300 count
-      #####
-      #####
-      
-      # rarify to 300 count per sample --> this standardizes 'effort' across all samples 
-      # since O/E is basically 'reference taxa richness', it is highly related to total count
-      
-      
-      # load the 'reshape2' package and source in the 'rarify' script for subsampling to 300
-      
-      source('bugs analyses/RIVPACS_2022/_2024 model build/rarify_w_seed.R')
-      
-      
-      b.rare.seed <- rarify.seed(na.omit(ref.bugs_257_OTUs), 'Sample', 'Count', 300) 
-      
-      
-      
-      #####
-      #####
-      #       1.3 get total abundance of rarified samples for PREDATOR
-      ######
-      ######
-      tot.abund_notsub_257<-aggregate(ref.bugs_257_OTUs$Count, list(Sample=ref.bugs_257_OTUs$Sample, MLocID=ref.bugs_257_OTUs$MLocID), sum)
-      tot.abund_notsub_257 <- dplyr::rename(tot.abund_notsub_257, tot.abund_notsub_257 = x)
-      
-      
-      tot.abund.sub257<-aggregate(b.rare.seed$Count, list(Sample=b.rare.seed$Sample, MLocID=b.rare.seed$MLocID), sum)
-      tot.abund.sub257 <- dplyr::rename(tot.abund.sub257, tot.abund.sub257 = x)
-      
-      #####
-      #####
-      #       1.4 Matrify: convert from long format (many rows per sample), to site X species matrix (one row per sample)
-      ######
-      ######
-      
-      dm.rare <- tidyr::pivot_longer(b.rare.seed, Count, names_to = "variable", values_to = "value" )
-      
-      # data.table::setDT(dm.rare)
-      # bugs.all <- data.table::dcast(dm.rare, Sample+MLocID+Eco2+Eco3 ~ OTU, fun.aggregate = sum) # Sample x OTU doesn't seem to be unique so you need the fun.aggregate.  
-      # head(bugs.all)
-      
-      bugs.mat_257.ref <- dm.rare %>% pivot_wider(               # new tidy method, replacing dcast (data.table)
-        names_from = OTU,
-        id_cols = c(Sample),
-        values_from = value,
-        values_fill = 0,
-        names_repair = "check_unique",
-        names_sort = TRUE)
-      
-      # export matrified bug data file to load directly in model building phase
-      
-      save(bugs.mat_257.ref, file='bugs analyses/RIVPACS_2022/_2024 model build/bugs.mat_257.ref.Rdata')
-        
 
+
+ 
 ###########
       
 #             METRICS
@@ -232,23 +198,7 @@ bugs.excluded <- markExcluded(bugs_ref.most_OTUs_sum_attr, TaxaLevels = c("Kingd
 
 
 
-###
-    # rarify
-###
 
-
-
- # rarify to 300 count per sample --> this standardizes 'effort' across all samples 
-      # since O/E is basically 'reference taxa richness', it is highly related to total count
-      
-      
-      # load the 'reshape2' package and source in the 'rarify' script for subsampling to 300
-      
-      source('bugs analyses/RIVPACS_2022/_2024 model build/rarify_w_seed.R')
-      
-      
-      b.rare.seed <- rarify.seed(na.omit(ref.bugs_257_OTUs), 'Sample', 'Count', 300) 
-      
   
 ###
     # bug metrics

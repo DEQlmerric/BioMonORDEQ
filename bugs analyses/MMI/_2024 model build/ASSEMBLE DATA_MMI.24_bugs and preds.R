@@ -151,7 +151,7 @@ bugs_ref.most_OTUs_sum <- bugs_ref.most_OTUs %>%
 mySize <- 300
 Seed_OR <- 18590214
 
-bugs_ref.most_OTUs_sum <- as.data.frame(bugs_ref.most_OTUs_sum) 
+bugs_ref.most_OTUs_sum <- as.data.frame(bugs_ref.most_OTUs_sum) # do this, or rarify won't work (dplyr turns df into tibbles)
 
 bugs_ref.most_rare <- rarify(inbug = bugs_ref.most_OTUs_sum, sample.ID='act_id', abund='sum.count', subsiz = mySize, mySeed = Seed_OR)%>%
   filter(sum.count > 0)
@@ -282,12 +282,17 @@ bug.metrics_ref.status <- bug.metrics %>%
 
 bug.metrics_ref.status <- bug.metrics_ref.status %>%
   filter(ni_total > 199)
+
+
+save(bug.metrics_ref.status, file='bugs analyses/MMI/_2024 model build/bug.metrics_ref.status.Rdata')
   
   # 414 sites total: 158 most, 256 reference
+ ref.most_414samps <- bug.metrics_ref.status$SAMPLEID
   
-  
-  
-  
+
+ # drop low count sites from ref.status
+ref.status_414samps <- ref.status %>%
+  filter(SAMPLEID %in% ref.most_414samps)
   
   
   
@@ -336,19 +341,16 @@ mlocids_CAT <- bio.mlocids.awqms_ALT %>%
 
 ###  associate bug samples with WS or CAT COMIDs
 
-samps.257_WS <- ref_257 %>%
+samps_WS <- ref.status_414samps %>%
   inner_join(mlocids_WS, by='MLocID') %>%
-  unique() %>%
-  select(-Icon, -Use_nopool.date.abund, -Use_spatial)
+  unique()
 
 
-samps.257_CAT <- ref_257 %>%
+samps_CAT <- ref.status_414samps %>%
   inner_join(mlocids_CAT, by='MLocID') %>%
-  unique() %>%
-  select(-Icon, -Use_nopool.date.abund, -Use_spatial)
+  unique() 
 
-samps.257_CAT$COMID <- as.character(samps.257_CAT$COMID)
-
+samps_CAT$COMID <- as.character(samps_CAT$COMID)
 
 
 #####
@@ -420,29 +422,29 @@ metrics_WS.OTHER_OR.CA.NV$COMID <- as.character(metrics_WS.OTHER_OR.CA.NV$COMID)
 metrics_CAT.OTHER_OR.CA.NV$COMID <- as.character(metrics_CAT.OTHER_OR.CA.NV$COMID)
 
 
-##
-#   save streamcat metrics for loading in other applications
-##
-save(metrics_WS.OTHER_OR.CA.NV, file = 'bugs analyses/RIVPACS_2022/_2024 model build/metrics_WS.OTHER_OR.CA.NV.Rdta' )
-save(metrics_CAT.OTHER_OR.CA.NV, file = 'bugs analyses/RIVPACS_2022/_2024 model build/metrics_CAT.OTHER_OR.CA.NV.Rdta' )
+                        ##
+                        #   save streamcat metrics for loading in other applications
+                        ##
+                        save(metrics_WS.OTHER_OR.CA.NV, file = 'bugs analyses/RIVPACS_2022/_2024 model build/metrics_WS.OTHER_OR.CA.NV.Rdta' )
+                        save(metrics_CAT.OTHER_OR.CA.NV, file = 'bugs analyses/RIVPACS_2022/_2024 model build/metrics_CAT.OTHER_OR.CA.NV.Rdta' )
 
 
 
 # join WS metrics to appropriate bug samples
 
-samps.257_WS_mets <- samps.257_WS %>%
+samps_WS_mets <- samps_WS %>%
         left_join(metrics_WS.OTHER_OR.CA.NV, by='COMID') %>%
         mutate(met.type = 'WS')
 
-samps.257_CAT_mets <- samps.257_CAT %>%
+samps_CAT_mets <- samps_CAT %>%
   left_join(metrics_CAT.OTHER_OR.CA.NV, by='COMID')%>%
-  mutate(met.type = 'WS')
+  mutate(met.type = 'CAT')
 
 
 
 # rename to match columns, then rbind
 
-samps.257_WS_mets <- samps.257_WS_mets %>%
+samps_WS_mets <- samps_WS_mets %>%
       rename(AREASQKM = WSAREASQKM, SAND = SANDWS, CLAY = CLAYWS, ELEV = ELEVWS,            
              BFI = BFIWS, KFFACT = KFFACTWS, PCTGLACLAKEFINE = PCTGLACLAKEFINEWS,
              PCTGLACTILCLAY = PCTGLACTILCLAYWS, PCTGLACTILLOAM = PCTGLACTILLOAMWS,  
@@ -460,7 +462,7 @@ samps.257_WS_mets <- samps.257_WS_mets %>%
              S = SWS, FE2O3 = FE2O3WS, PERM = PERMWS, RCKDEP = RCKDEPWS, OM = OMWS,
              PCTBL2001 = PCTBL2001WS, PRECIP08 = PRECIP08WS, PRECIP09 = PRECIP09WS )    
 
-samps.257_CAT_mets <- samps.257_CAT_mets %>%
+samps_CAT_mets <- samps_CAT_mets %>%
   rename(AREASQKM = CATAREASQKM, SAND = SANDCAT, CLAY = CLAYCAT, ELEV = ELEVCAT,            
          BFI = BFICAT, KFFACT = KFFACTCAT, PCTGLACLAKEFINE = PCTGLACLAKEFINECAT,
          PCTGLACTILCLAY = PCTGLACTILCLAYCAT, PCTGLACTILLOAM = PCTGLACTILLOAMCAT,  
@@ -478,20 +480,20 @@ samps.257_CAT_mets <- samps.257_CAT_mets %>%
          S = SCAT, FE2O3 = FE2O3CAT, PERM = PERMCAT, RCKDEP = RCKDEPCAT, OM = OMCAT,
          PCTBL2001 = PCTBL2001CAT, PRECIP08 = PRECIP08CAT, PRECIP09 = PRECIP09CAT )    
 
-pred.mets_257 <- bind_rows(samps.257_WS_mets, samps.257_CAT_mets)
+mmi.pred.mets_414 <- bind_rows(samps_WS_mets, samps_CAT_mets)
 
 
-# predictors together for all 265 sites
+# predictors together for all 414 sites
 
-summary(pred.mets_257)
+summary(mmi.pred.mets_414)
       # most metrics with 4-5 missing values--this is good enough to replace with imputation
       # however, MAST (mean annual stream temp) has 37 missing values =---> need to drop this variable
       # variables with very little spread = drop
               # PCTGLACLAKEFINE, PCTGLACTILCLAY, PCTGLACTILLOAM, PCTCOASTCRS, PCTGLACLAKECRS, PCTEXTRUVOL, PCTEOLFINE,PCTEOLCRS, PCTSALLAKE, PCTHYDRIC,
 
-pred.mets_257 <- pred.mets_265 %>% select(-MAST_mean08.14, -PCTGLACLAKEFINE, -PCTGLACTILCLAY, -PCTGLACTILLOAM, -PCTCOASTCRS, -PCTGLACLAKECRS, 
-                                          -PCTEXTRUVOL, -PCTEOLFINE, -PCTEOLCRS, -PCTSALLAKE, -PCTHYDRIC)
-
+mmi.pred.mets_414.lim <- mmi.pred.mets_414 %>% select(-MAST_mean08.14, -PCTGLACLAKEFINE, -PCTGLACTILCLAY, -PCTGLACTILLOAM, -PCTCOASTCRS, -PCTGLACLAKECRS, 
+                                          -PCTEXTRUVOL, -PCTEOLFINE, -PCTEOLCRS, -PCTGLACTILCRS, -PCTCARBRESID, -PCTALLUVCOAST, -PCTSALLAKE, 
+                                          -PCTALKINTRUVOL,-PCTHYDRIC, -PCTCOLLUVSED)
 ##########
 
 #  CORRELATIONS of PREDICTORS
@@ -501,8 +503,8 @@ pred.mets_257 <- pred.mets_265 %>% select(-MAST_mean08.14, -PCTGLACLAKEFINE, -PC
 # we don't want to build models off of predictors that are highly correlated
 # run correlations, then retain a single metric from correlated metrics
 
-pred.corr <- pred.mets_257 %>%
-      select(17:56)
+pred.corr <- mmi.pred.mets_414.lim %>%
+      select(6:40)
 
 
 results_corr <- cor(pred.corr, use='complete.obs')
@@ -514,7 +516,7 @@ write.table(results_corr, 'clipboard', sep='\t') # pastes to clipboard, go into 
 # SLH set a threshold of r > 0.895 for identifying highly correlated variables
 # drop the following variables from future analyses
 
-pred.mets_257_final <- pred.mets_257 %>%
+mmi.pred.mets_414_final <- mmi.pred.mets_414.lim %>%
   select(-TMIN8110, -TMEAN8110, -PRECIP08, PRECIP09, -PCTBL2001, -NO3_2008, -NH4_2008, -AL2O3)
 
 
@@ -533,23 +535,14 @@ nhd_all <- bind_rows(nhd.or, nhd.ca, nhd.gb) %>%
 nhd_all$COMID <- as.character(nhd_all$COMID)
 
 
-pred.mets_257_final <- pred.mets_257_final %>%
+mmi.pred.mets_414_final <- mmi.pred.mets_414_final %>%
         left_join(nhd_all, by='COMID')
 
-
-# still missing Ecoregion from preds file
-ecos <- bio.mlocids.awqms_ALT %>%
-  select(MLocID, EcoRegion2, EcoRegion3) %>%
-  unique()
-
-
-pred.mets_257_final <- pred.mets_257_final %>%
-      left_join(ecos, by='MLocID')
 
 
 # export final predictors file
 
-save(pred.mets_257_final, file='bugs analyses/RIVPACS_2022/_2024 model build/pred.mets_257_final.Rdata')
+save(mmi.pred.mets_414_final, file='bugs analyses/MMI/_2024 model build/mmi.pred.mets_414_final.Rdata')
 
 
 

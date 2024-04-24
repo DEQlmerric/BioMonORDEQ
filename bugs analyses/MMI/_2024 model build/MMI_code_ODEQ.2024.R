@@ -125,7 +125,7 @@ library(tibble)
     nestedlist=list(unlist(formulas),unlist(variance_explained))
     
     randomforest_results=as.data.frame(do.call(cbind,nestedlist))
-    write.csv(randomforest_results,"randomforest_results.csv")
+    write.csv(randomforest_results,"bugs analyses/MMI/_2024 model build/randomforest_results.csv")
 
 
 #----------------------------------------------------------------------------------------------------#

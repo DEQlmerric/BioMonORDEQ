@@ -2,6 +2,7 @@ library(randomForest)
 library(VSURF)
 library(psych)
 library(dplyr)
+library(tibble)
 
 #-------------------------------------------------------------------------------------------------------#
 # Step 1- Read in predictors
@@ -41,9 +42,12 @@ library(dplyr)
       metricsdf <- bug.metrics_ref.status
       rm(bug.metrics_ref.status)
 
- 
-
- 
+                                     # drop metrics with 'Inf' values or only 0 for results
+                                          metricsdf <- metricsdf %>%
+                                            select(-ri_ti_sccc_wsw, -nt_habit_climb, -pi_habit_climb, -pt_habit_climb, -nt_Tubif,
+                                                   -pi_Juga, -pi_JugaFlumi, -nt_dni, -pi_dni, -pt_dni)# ri_ti_sccc_wsw -- this metric has 'Inf' values
+                                    
+                                     
 #-------------------------------------------------------------------------------------------------------#
 # Step 3- combine predictors and metrics into two dataframes, one with only reference sites and one with all sites
 #-------------------------------------------------------------------------------------------------------#
@@ -51,14 +55,15 @@ library(dplyr)
 #rfdat=subset(rfdat_all,reference=='Y')
 
       rfdat_all <- metricsdf %>%
-        select(-MLocID, -ReferenceSite, -INDEX_CLASS, -INDEX_NAME, -ri_ti_sccc_wsw) %>% # ri_ti_sccc_wsw -- this metric has 'Inf' values
+        select(-MLocID, -ReferenceSite, -INDEX_CLASS, -INDEX_NAME, -ri_ti_sccc_wsw) %>% 
         left_join(predictorsdf, by='SAMPLEID') %>%
-        relocate(MLocID, .before = 2)%>%
-        relocate(ReferenceSite, .before = 3) %>%
-        relocate(COMID, .before = 4)
+        select(-MLocID, -COMID) %>%
+        column_to_rownames('SAMPLEID') %>%
+        relocate(ReferenceSite, .before = 1)
 
       rfdat <- rfdat_all %>%
-        filter(ReferenceSite =='REFERENCE')
+        filter(ReferenceSite =='REFERENCE') %>%
+        select(-ReferenceSite)
 
 #----------------------------------------------------------------------------------------------------#
 #Step 4- create random forest models to predict natural variation in all metrics
@@ -68,7 +73,7 @@ library(dplyr)
 #formulas=list()
 #variance_explained=list()
 
-      metrics=names(rfdat[5:290])
+      metrics=names(rfdat[1:286])
       formulas=list()
       variance_explained=list()
 
@@ -76,25 +81,25 @@ library(dplyr)
 
 
 
-for (i in 1:length(metrics)){
-  assign(paste0("rfdat",i),rfdat[,c(i,199:253)])
-  species.vsurf = VSURF(rfdat[,199:253], rfdat[,i])
-  names = as.data.frame(names(rfdat[,c(199:253,i)]))
-  selected.pred=names[species.vsurf$varselect.pred,]
-  assign(paste0("rfmod_",names(rfdat)[i]),
-         randomForest(as.formula(paste0(names(rfdat)[i],"~",paste(selected.pred,collapse="+"))), data=eval(parse(text =paste0("rfdat",i))), ntree=2000, importance=TRUE, norm.votes=TRUE, keep.forest=TRUE)) 
-  print(paste0(names(rfdat)[i],"~",paste(selected.pred,collapse="+")))
-  print(eval(parse(text =paste0("rfmod_",names(rfdat)[i]))))
-  
-  formulas[[names(rfdat)[i]]]<-print(paste0(names(rfdat)[i],"~",paste(selected.pred,collapse="+")))
-  variance_explained[[names(rfdat)[i]]]<-eval(parse(text =paste0("rfmod_",names(rfdat)[i],"$rsq[2000]")))
-}
-      
+# for (i in 1:length(metrics)){
+#   assign(paste0("rfdat",i),rfdat[,c(i,287:316)])
+#   species.vsurf = VSURF(rfdat[,287:316], rfdat[,i])
+#   names = as.data.frame(names(rfdat[,c(287:316,i)]))
+#   selected.pred=names[species.vsurf$varselect.pred,]
+#   assign(paste0("rfmod_",names(rfdat)[i]),
+#          randomForest(as.formula(paste0(names(rfdat)[i],"~",paste(selected.pred,collapse="+"))), data=eval(parse(text =paste0("rfdat",i))), ntree=2000, importance=TRUE, norm.votes=TRUE, keep.forest=TRUE)) 
+#   print(paste0(names(rfdat)[i],"~",paste(selected.pred,collapse="+")))
+#   print(eval(parse(text =paste0("rfmod_",names(rfdat)[i]))))
+#   
+#   formulas[[names(rfdat)[i]]]<-print(paste0(names(rfdat)[i],"~",paste(selected.pred,collapse="+")))
+#   variance_explained[[names(rfdat)[i]]]<-eval(parse(text =paste0("rfmod_",names(rfdat)[i],"$rsq[2000]")))
+# }
+#       
       
       for (i in 1:length(metrics)){
-        assign(paste0("rfdat",i),rfdat[,c(i,291:319)])
-        species.vsurf = VSURF(rfdat[,291:319], rfdat[,i])
-        names = as.data.frame(names(rfdat[,c(291:319,i)]))
+        assign(paste0("rfdat",i),rfdat[,c(i,287:315)])
+        species.vsurf = VSURF(rfdat[,287:315], rfdat[,i])
+        names = as.data.frame(names(rfdat[,c(287:315,i)]))
         selected.pred=names[species.vsurf$varselect.pred,]
         assign(paste0("rfmod_",names(rfdat)[i]),
                randomForest(as.formula(paste0(names(rfdat)[i],"~",paste(selected.pred,collapse="+"))), data=eval(parse(text =paste0("rfdat",i))), ntree=2000, importance=TRUE, norm.votes=TRUE, keep.forest=TRUE)) 
@@ -112,10 +117,16 @@ for (i in 1:length(metrics)){
       
       
       
-nestedlist=list(unlist(formulas),unlist(variance_explained))
+# nestedlist=list(unlist(formulas),unlist(variance_explained))
+# 
+# randomforest_results=as.data.frame(do.call(cbind,nestedlist))
+# write.csv(randomforest_results,"randomforest_results.csv")
 
-randomforest_results=as.data.frame(do.call(cbind,nestedlist))
-write.csv(randomforest_results,"randomforest_results.csv")
+    nestedlist=list(unlist(formulas),unlist(variance_explained))
+    
+    randomforest_results=as.data.frame(do.call(cbind,nestedlist))
+    write.csv(randomforest_results,"randomforest_results.csv")
+
 
 #----------------------------------------------------------------------------------------------------#
 #Step 5- Get predicted values out of model objects for reference sites and predict values for degraded sites

@@ -133,7 +133,11 @@ library(tibble)
 #----------------------------------------------------------------------------------------------------#
 ##reference site predictions
 #select random forest models of interest from workspace
-rfmodels=objects()[243:249]
+#rfmodels=objects()[243:249]
+
+      rfmodels=objects()[301:322]
+
+
 
 df=list()
 for (i in 1:length(rfmodels)){
@@ -145,7 +149,10 @@ rfdat2=cbind(rfdat,Rpredicteddf)
 
 
 ##degraded site predictions
-Drfdat=subset(rfdat_all, reference=="N")
+#Drfdat=subset(rfdat_all, reference=="N")
+
+    Drfdat=subset(rfdat_all, ReferenceSite=="MOST DISTURBED")
+    Drfdat <- Drfdat %>% select(-ReferenceSite)
 
 Dpredictions=list()
 for (i in 1:length(rfmodels)){
@@ -160,8 +167,8 @@ predictionsdf=as.data.frame(do.call(cbind,Dpredictions))
 Drfdat2=cbind(Drfdat,predictionsdf)
 
 #join reference and degraded sites back together
-rfdat_all_final=rbind(rfdat2,Drfdat2)
-write.csv(rfdat_all_final,"rfdat_all_final.csv")
+rfdat_all_final=rbind(rfdat2,Drfdat2)           
+write.csv(rfdat_all_final,"bugs analyses/MMI/_2024 model build/rfdat_all_final.csv")
 
 #----------------------------------------------------------------------------------------------------#
 # Step 6 Calculate residuals

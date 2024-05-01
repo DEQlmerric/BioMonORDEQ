@@ -56,11 +56,10 @@ library(tibble)
 
       
       
-      @@@@@@@@@@@ leave ReferenceSite in !!!!!
-      
-      
-      rfdat_all <- metricsdf %>%
-        select(-MLocID, -ReferenceSite, -INDEX_CLASS, -INDEX_NAME, -ri_ti_sccc_wsw) %>% 
+        rfdat_all <- metricsdf %>% 
+        select(-MLocID, -ReferenceSite, -INDEX_CLASS, -INDEX_NAME, -ri_ti_sccc_wsw, -nt_Tubif, -nt_habit_climb,
+               -pi_habit_climb, -pt_habit_climb, -pi_Juga, -pi_JugaFlumi, -nt_dni, -pi_dni, -pt_dni) %>% 
+              # drop non-numeric and all zero metrics
         left_join(predictorsdf, by='SAMPLEID') %>%
         select(-MLocID, -COMID) %>%
         column_to_rownames('SAMPLEID') %>%
@@ -78,7 +77,7 @@ library(tibble)
 #formulas=list()
 #variance_explained=list()
 
-      metrics=names(rfdat[1:286])
+      metrics=names(rfdat[1:277])
       formulas=list()
       variance_explained=list()
 
@@ -102,9 +101,9 @@ library(tibble)
 #       
       
       for (i in 1:length(metrics)){
-        assign(paste0("rfdat",i),rfdat[,c(i,287:315)])
-        species.vsurf = VSURF(rfdat[,287:315], rfdat[,i])
-        names = as.data.frame(names(rfdat[,c(287:315,i)]))
+        assign(paste0("rfdat",i),rfdat[,c(i,278:306)])
+        species.vsurf = VSURF(rfdat[,278:306], rfdat[,i])
+        names = as.data.frame(names(rfdat[,c(278:306,i)]))
         selected.pred=names[species.vsurf$varselect.pred,]
         assign(paste0("rfmod_",names(rfdat)[i]),
                randomForest(as.formula(paste0(names(rfdat)[i],"~",paste(selected.pred,collapse="+"))), data=eval(parse(text =paste0("rfdat",i))), ntree=2000, importance=TRUE, norm.votes=TRUE, keep.forest=TRUE)) 
@@ -149,7 +148,11 @@ library(tibble)
 
     metrics_good.mods<- paste(metrics_good.mods, 'resid', sep = '_')
     
+    # drop these metrics, throws off rfdat_all_final3
+    metrics_good.mods <- metrics_good.mods[!metrics_good.mods %in%  c("nfam_Coleo_resid","nfam_Ephem_resid","nfam_Trich_resid")]
     
+    # the following metrics were dropped from rf mods:
+    # "nt_Isop" "pi_Caen" "pi_Corb" "pi_Isop" "pt_Isop"
     
     
 #----------------------------------------------------------------------------------------------------#
@@ -159,15 +162,87 @@ library(tibble)
 #select random forest models of interest from workspace
 #rfmodels=objects()[243:249]
 
-      rfmodels=objects()[307:592]
-                          # better to call by name? select the top performing models, based on 'randomforest_results'?
-                    
-                          rfmodels <- c('rfmod_pt_ti_stenocold','rfmod_nt_ti_cowa_warm_stenowarm', 'rfmod_nt_tv_intol','rfmod_pt_tv_intol4',
-                                        'rfmod_nt_POET','rfmod_nt_ti_stenocold','rfmod_nt_EPT','rfmod_x_Becks','rfmod_pt_ti_warm_stenowarm',
-                                        'rfmod_pt_Coleo','rfmod_pt_EPT','rfmod_nt_habitat_rheo','rfmod_nt_habit_climbcling',
-                                        'rfmod_nt_habit_cling','rfmod_nt_ffg_pred_scrap_shred')
+                              rfmodels=objects()[302:587]
+      # better to call by name? select the top performing models, based on 'randomforest_results'?
 
-
+      
+     rfmodels <- c('rfmod_ngen_Coleo','rfmod_ngen_Elmid','rfmod_ngen_Ephem','rfmod_ngen_Odon',
+     'rfmod_ngen_Trich','rfmod_ni_Chiro','rfmod_ni_Dipt','rfmod_ni_EPT',
+     'rfmod_ni_total','rfmod_ni_Trich','rfmod_nt_Amph','rfmod_nt_Bival',
+     'rfmod_nt_Chiro','rfmod_nt_COET','rfmod_nt_Coleo','rfmod_nt_CruMol',
+     'rfmod_nt_Dipt','rfmod_nt_ECT','rfmod_nt_Ephem','rfmod_nt_Ephemerellid',
+     'rfmod_nt_EPT','rfmod_nt_ET','rfmod_nt_ffg_col','rfmod_nt_ffg_filt',
+     'rfmod_nt_ffg_mah','rfmod_nt_ffg_omn','rfmod_nt_ffg_par','rfmod_nt_ffg_pih',
+     'rfmod_nt_ffg_pred','rfmod_nt_ffg_pred_scrap_shred','rfmod_nt_ffg_scrap',               
+     'rfmod_nt_ffg_shred','rfmod_nt_ffg_xyl','rfmod_nt_Gast','rfmod_nt_habit_burrow',            
+     'rfmod_nt_habit_climbcling','rfmod_nt_habit_cling','rfmod_nt_habit_sprawl',
+     'rfmod_nt_habit_swim','rfmod_nt_habitat_brac','rfmod_nt_habitat_depo',            
+     'rfmod_nt_habitat_gene','rfmod_nt_habitat_head','rfmod_nt_habitat_rheo',
+     'rfmod_nt_habitat_rive','rfmod_nt_habitat_spec','rfmod_nt_Hepta','rfmod_nt_Insect',
+     'rfmod_nt_Mega','rfmod_nt_Mol','rfmod_nt_Nemour',
+     'rfmod_nt_NonIns','rfmod_nt_Odon','rfmod_nt_OET','rfmod_nt_Oligo',
+     'rfmod_nt_oneind','rfmod_nt_Perlid','rfmod_nt_Pleco','rfmod_nt_POET',
+     'rfmod_nt_Ptero','rfmod_nt_Rhya','rfmod_nt_ti_cold','rfmod_nt_ti_cool',
+     'rfmod_nt_ti_cowa','rfmod_nt_ti_cowa_warm_stenowarm','rfmod_nt_ti_eury',                 
+     'rfmod_nt_ti_stenocold','rfmod_nt_ti_stenocold_cold','rfmod_nt_ti_stenocold_cold_cool',
+     'rfmod_nt_ti_stenowarm','rfmod_nt_ti_warm','rfmod_nt_ti_warm_stenowarm',       
+     'rfmod_nt_Tipulid','rfmod_nt_total','rfmod_nt_Trich','rfmod_nt_TrichNoHydro',            
+     'rfmod_nt_Tromb','rfmod_nt_tv_intol','rfmod_nt_tv_intol4','rfmod_nt_tv_intol4_EPT',           
+     'rfmod_nt_tv_ntol','rfmod_nt_tv_stol','rfmod_nt_tv_toler','rfmod_nt_volt_multi',              
+     'rfmod_nt_volt_semi','rfmod_nt_volt_uni','rfmod_pi_Amph','rfmod_pi_AmphIsop',                
+     'rfmod_pi_Baet','rfmod_pi_Bival','rfmod_pi_ChCr2Chi',                
+     'rfmod_pi_Cheu','rfmod_pi_Chiro','rfmod_pi_ChiroAnne','rfmod_pi_COC2Chi',                 
+     'rfmod_pi_COET','rfmod_pi_Coleo','rfmod_pi_Colesens',                    
+     'rfmod_pi_CorixPhys','rfmod_pi_CraCaeGam','rfmod_pi_Cru','rfmod_pi_CruMol',                  
+     'rfmod_pi_Deca','rfmod_pi_Dipt','rfmod_pi_DiptNonIns','rfmod_pi_dom01',                   
+     'rfmod_pi_dom02','rfmod_pi_dom03','rfmod_pi_dom04','rfmod_pi_dom05',                   
+     'rfmod_pi_ECT','rfmod_pi_Ephem','rfmod_pi_EphemNoCae','rfmod_pi_EphemNoCaeBae',           
+     'rfmod_pi_EPT','rfmod_pi_EPTNoBaeHydro','rfmod_pi_EPTNoCheu','rfmod_pi_EPTNoHydro',              
+     'rfmod_pi_ET','rfmod_pi_ffg_col','rfmod_pi_ffg_col_filt','rfmod_pi_ffg_filt',               
+     'rfmod_pi_ffg_mah','rfmod_pi_ffg_omn','rfmod_pi_ffg_par','rfmod_pi_ffg_pih',                 
+     'rfmod_pi_ffg_pred','rfmod_pi_ffg_scrap','rfmod_pi_ffg_shred','rfmod_pi_ffg_xyl',                 
+     'rfmod_pi_Gast','rfmod_pi_habit_burrow','rfmod_pi_habit_climbcling','rfmod_pi_habit_cling',             
+     'rfmod_pi_habit_cling_PlecoNoCling','rfmod_pi_habit_sprawl','rfmod_pi_habit_swim',
+     'rfmod_pi_habitat_brac','rfmod_pi_habitat_depo','rfmod_pi_habitat_gene',            
+     'rfmod_pi_habitat_head','rfmod_pi_habitat_rheo','rfmod_pi_habitat_rive',
+     'rfmod_pi_habitat_spec','rfmod_pi_habitat_unkn','rfmod_pi_Hydro',                  
+     'rfmod_pi_Hydro2EPT','rfmod_pi_Hydro2Trich','rfmod_pi_Insect',                   
+     'rfmod_pi_IsopGastHiru','rfmod_pi_Mega','rfmod_pi_Mol','rfmod_pi_Nemata',                 
+     'rfmod_pi_NonIns','rfmod_pi_Odon','rfmod_pi_OET','rfmod_pi_Oligo',                  
+     'rfmod_pi_Orth2Chi','rfmod_pi_Ortho','rfmod_pi_Pleco','rfmod_pi_POET',                   
+     'rfmod_pi_SimBtri','rfmod_pi_Sphaer','rfmod_pi_SphaerCorb','rfmod_pi_Tanyp',                  
+     'rfmod_pi_Tanyp2Chi','rfmod_pi_Tanyt','rfmod_pi_ti_cold','rfmod_pi_ti_cool',                
+     'rfmod_pi_ti_cowa','rfmod_pi_ti_cowa_warm_stenowarm','rfmod_pi_ti_eury',
+     'rfmod_pi_ti_stenocold','rfmod_pi_ti_stenocold_cold','rfmod_pi_ti_stenocold_cold_cool', 
+     'rfmod_pi_ti_stenowarm','rfmod_pi_ti_warm','rfmod_pi_ti_warm_stenowarm',
+     'rfmod_pi_Trich','rfmod_pi_TrichNoHydro','rfmod_pi_Tromb','rfmod_pi_tv_intol',
+     'rfmod_pi_tv_intol4','rfmod_pi_tv_ntol','rfmod_pi_tv_stol','rfmod_pi_tv_toler',
+     'rfmod_pi_tv_toler6','rfmod_pi_tv2_intol','rfmod_pi_volt_multi',             
+     'rfmod_pi_volt_semi','rfmod_pi_volt_uni','rfmod_pt_Amph',                   
+     'rfmod_pt_Bival','rfmod_pt_Chiro','rfmod_pt_COET','rfmod_pt_Coleo',                  
+     'rfmod_pt_Deca','rfmod_pt_Dipt','rfmod_pt_ECT','rfmod_pt_Ephem',                  
+     'rfmod_pt_EPT','rfmod_pt_ET','rfmod_pt_ffg_col','rfmod_pt_ffg_filt',               
+     'rfmod_pt_ffg_mah','rfmod_pt_ffg_omn','rfmod_pt_ffg_par','rfmod_pt_ffg_pih',                
+     'rfmod_pt_ffg_pred','rfmod_pt_ffg_scrap','rfmod_pt_ffg_shred','rfmod_pt_ffg_xyl',                
+     'rfmod_pt_Gast','rfmod_pt_habit_burrow','rfmod_pt_habit_climbcling','rfmod_pt_habit_cling',            
+     'rfmod_pt_habit_sprawl','rfmod_pt_habit_swim','rfmod_pt_habitat_brac','rfmod_pt_habitat_depo',           
+     'rfmod_pt_habitat_gene','rfmod_pt_habitat_head','rfmod_pt_habitat_rheo','rfmod_pt_habitat_rive',           
+     'rfmod_pt_habitat_spec','rfmod_pt_Insect','rfmod_pt_Mega',                   
+     'rfmod_pt_NonIns','rfmod_pt_Odon','rfmod_pt_OET','rfmod_pt_Oligo',                  
+     'rfmod_pt_oneind','rfmod_pt_Pleco','rfmod_pt_POET','rfmod_pt_ti_cold',                
+     'rfmod_pt_ti_cool','rfmod_pt_ti_cowa','rfmod_pt_ti_cowa_warm_stenowarm','rfmod_pt_ti_eury',                
+     'rfmod_pt_ti_stenocold','rfmod_pt_ti_stenocold_cold','rfmod_pt_ti_stenocold_cold_cool',
+     'rfmod_pt_ti_stenowarm','rfmod_pt_ti_warm','rfmod_pt_ti_warm_stenowarm',      
+     'rfmod_pt_Trich','rfmod_pt_TrichNoHydro','rfmod_pt_Tromb','rfmod_pt_tv_intol',               
+     'rfmod_pt_tv_intol4','rfmod_pt_tv_ntol','rfmod_pt_tv_stol','rfmod_pt_tv_toler',               
+     'rfmod_pt_volt_multi','rfmod_pt_volt_semi','rfmod_pt_volt_uni',                     
+     'rfmod_x_Becks','rfmod_x_Becks3','rfmod_x_D',                       
+     'rfmod_x_D_G','rfmod_x_D_Mg','rfmod_x_Evenness','rfmod_x_HBI',                     
+     'rfmod_x_HBI2','rfmod_x_Shan_10','rfmod_x_Shan_2','rfmod_x_Shan_e')
+     
+     # dropped metrics? 'rfmod_nt_Isop','rfmod_pi_Caen','rfmod_pi_Corb','rfmod_pi_Isop','rfmod_pt_Isop',
+     
+     
      # @@@@@ - below (step 6) calculating residuals and calling by indexing (not by name)....just do it for all metrics at once?
         
         
@@ -179,7 +254,7 @@ for (i in 1:length(rfmodels)){
 Rpredicteddf=as.data.frame(do.call(cbind,df))
 #join predictions into master dataframe
 rfdat2=cbind(rfdat,Rpredicteddf)
-
+  # rfdat2: metrics, predictors, Expected
 
 ##degraded site predictions
 #Drfdat=subset(rfdat_all, reference=="N")
@@ -200,6 +275,7 @@ predictionsdf=as.data.frame(do.call(cbind,Dpredictions))
 Drfdat2=cbind(Drfdat,predictionsdf)
 
 #join reference and degraded sites back together
+
 rfdat_all_final=rbind(rfdat2,Drfdat2)           
 write.csv(rfdat_all_final,"bugs analyses/MMI/_2024 model build/rfdat_all_final.csv")
 
@@ -225,7 +301,7 @@ order as E.rfmod cols (316: 601)
 # }
 
                 resid=list()
-                for (i in 1:286){
+                for (i in 1:277){
                   tryCatch({resid[[paste0(colnames(rfdat_all_final)[i],"_resid")]]=rfdat_all_final[,i]- rfdat_all_final[,paste0("E.rfmod_",colnames(rfdat_all_final)[i])]
                   
                   }, error =function (e){
@@ -235,6 +311,8 @@ order as E.rfmod cols (316: 601)
                   
                 }
 
+                
+                
 residualsdf=as.data.frame(do.call(cbind,resid))
 
 rfdat_all_final4=cbind(rfdat_all_final,residualsdf)
@@ -247,8 +325,6 @@ rfdat_all_final4=cbind(rfdat_all_final,residualsdf)
       
       rfdat_all_final3 <- rfdat_all_final4 %>%
             select(SAMPLEID, ReferenceSite, all_of(c(metrics_poor.mods, metrics_good.mods))) 
-      
-       
 
 #----------------------------------------------------------------------------------------------------#
 #Step 7- deterimine how well residuals discrimiate between reference and degraded sites with t-tests
@@ -280,9 +356,9 @@ tvalues=list()
 # write.csv(tvalues,"tvalues.csv")
 
 
-
+576 - 841 = only resids.  need to add in originals for poor mods
           
-          for (i in 604:889){     
+          for (i in 576:841){     
             tryCatch({t=t.test(rfdat_all_final4[,i]~rfdat_all_final4$ReferenceSite)
             tvalues[[paste0(colnames(rfdat_all_final4)[i])]]=unlist(t$statistic[[1]])
             }, error =function (e){
@@ -290,10 +366,15 @@ tvalues=list()
               str(e,indent.str = "   "); cat("/n")
             })
           }
-          tvalues=as.data.frame(do.call(rbind,tvalues))
+          tvalues=as.data.frame(do.call(rbind,tvalues)) 
+          
+          tvalues <- tvalues %>% rownames_to_column('metric')
+          
+          
+          
           write.csv(tvalues,"bugs analyses/MMI/_2024 model build/tvalues.csv")
 
-
+          # 266 metrics
 
 
 
@@ -322,19 +403,25 @@ only want residuals and originals.<10 for ref only (see end of step 6 df)
 # reference=subset(master, reference=="Y")
 # select=principal(reference[c(-1,-2)],nfactors=5,covar=FALSE, rotate='varimax',scores=TRUE)
 # select$loadings
-
+        
 
           master=rfdat_all_final3   
           reference=subset(master, ReferenceSite=="REFERENCE")
           select=principal(reference[c(-1,-2)],nfactors=5,covar=FALSE, rotate='varimax',scores=TRUE)
           select$loadings
 
+          
+          # make a df out of pca loads, then combine with tvalues to select metrics
+          pca.loads <- as.data.frame(select$loadings[1:269, 1:5]) %>%
+            rownames_to_column('metric')
+
+          
+          
+          pca.tval <- pca.loads %>%
+            left_join(tvalues, by = 'metric')
 
 
-
-
-
-
+          write.csv(pca.tval, 'bugs analyses/MMI/_2024 model build/pca.tval.csv')
 
 
 
@@ -378,8 +465,9 @@ only want residuals and originals.<10 for ref only (see end of step 6 df)
           
           
           candmetrics <- master %>%
-            select(SAMPLEID, ReferenceSite, nt_EPT_resid, pt_ti_cowa_warm_stenowarm_resid,
-                  pi_habitat_rheo, pi_NonIns, pi_Colesens_resid)
+            select(SAMPLEID, ReferenceSite, pi_tv_intol4_resid, nt_volt_semi_resid,
+                    pt_ti_stenocold_cold_cool_resid, pt_habit_cling_resid,
+                    pi_Insect_resid)
 
           
           
@@ -412,8 +500,9 @@ only want residuals and originals.<10 for ref only (see end of step 6 df)
             rownames_to_column('SAMPLEID') %>%
             left_join(site.type, by='SAMPLEID')%>%
             relocate(ReferenceSite, .before = 2)   %>%
-            mutate(MMI.2024 = (nt_EPT_resid+pt_ti_cowa_warm_stenowarm_resid+
-                pi_habitat_rheo+pi_NonIns+pi_Colesens_resid)/5)
+            mutate(MMI.2024 = (pi_tv_intol4_resid+nt_volt_semi_resid+
+                    pt_ti_stenocold_cold_cool_resid+pt_habit_cling_resid+
+                    pi_Insect_resid)/5)
           
           
           #then average across rescaled metrics

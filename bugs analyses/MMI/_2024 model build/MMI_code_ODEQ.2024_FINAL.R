@@ -610,7 +610,52 @@ save(rfmod_pi_Pleco, file = 'bugs analyses/MMI/_2024 model build/rfmod_pi_Pleco.
 
 
 
+#################################################################################
+
+#       MMI PRECISION AND RESPONSIVENESS
+
+#################################################################################
+
+stdev <- metrics_rs %>%
+  group_by(ReferenceSite) %>%
+  summarize(stdev = sd(MMI.2024))
+
+    # ref = 0.102
+    # most = 0.245
 
 
-          
+ ref.percents <- metrics_rs %>%
+   filter(ReferenceSite == 'REFERENCE') %>%
+   summarize(quantile(MMI.2024, probs = c(0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95)))
+ 
+    # 5th = 0.56
+    # 10th = 0.60
+ 
+ mets.most <- metrics_rs %>%
+  filter(ReferenceSite == 'MOST DISTURBED') # 158
+ 
+ 
+ mets.most_.60 <- mets.most %>%
+   filter(MMI.2024 < 0.6) # 109
+  
+ 109/158*100 # 69%
+ 
+#####
+ 
+ # bias = rf models of MMI at ref sites only, using natural preds
+
+#####
+ 
+ mmi.ref <- metrics_rs %>%
+   filter(ReferenceSite == 'REFERENCE') %>%
+   select(SAMPLEID, MMI.2024) %>%
+   left_join(predictorsdf) %>%
+   select(-MLocID, -ReferenceSite, -COMID)
+ 
+ 
+rfmod_mmi.ref = randomForest(MMI.2024 ~ AREASQKM+SAND+CLAY+ELEV+BFI+KFFACT+TMAX8110+PRECIP8110+COMPSTRGTH+INORGNWETDEP_2008+N+HYDRLCOND+MGO+K2O+NA2O+SIO2+CAO+P2O5+S+FE2O3+PERM+RCKDEP+OM+MSST_mean08.14+MWST_mean08.14+PCTICE_mean01.19+SLOPE,
+          data=mmi.ref, ntree=2000, importance=TRUE, norm.votes=TRUE, keep.forest=TRUE)
+ 
+ 
+rfmod_mmi.ref 
                                                                                                     #' 

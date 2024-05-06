@@ -469,14 +469,9 @@ tvalues=list()
           # first choice metrics
           candmetrics <- master %>%
             select(SAMPLEID, ReferenceSite, pt_habitat_rheo_resid, nt_habit_cling_resid,
-                    pt_ti_warm_stenowarm_resid, pi_tv_intol_resid, pi_Pleco_resid)
+                    pt_ti_stenocold_cold_cool_resid, pi_tv_intol_resid, pi_Pleco_resid)
 
-                      # second choice metrics
-                      candmetrics <- master %>%
-                        select(SAMPLEID, ReferenceSite, pt_tv_intol_resid, nt_habitat_rheo_resid,
-                                pt_ti_warm_stenowarm_resid, pi_EPTNoHydro_resid, pi_Pleco_resid)
-
-
+                     
           
           metrics=candmetrics
           row.names(metrics)=metrics$SAMPLEID
@@ -507,37 +502,115 @@ tvalues=list()
             rownames_to_column('SAMPLEID') %>%
             left_join(site.type, by='SAMPLEID')%>%
             relocate(ReferenceSite, .before = 2)   %>%
-            mutate(MMI.2024 = (pt_tv_intol_resid+ nt_habitat_rheo_resid+
-                        pt_ti_warm_stenowarm_resid+ pi_EPTNoHydro_resid+pi_Pleco_resid)/5)
+            mutate(MMI.2024 = (pt_habitat_rheo_resid + nt_habit_cling_resid +
+                    pt_ti_stenocold_cold_cool_resid + pi_tv_intol_resid + pi_Pleco_resid)/5)
           
           
           #then average across rescaled metrics
-          write.csv(metrics_rs,'bugs analyses/MMI/_2024 model build/final_MMI.csv')
+          write.csv(metrics_rs,'bugs analyses/MMI/_2024 model build/final_MMI_5.metrics.csv')
           
           
           
-          boxplot(metrics_rs$MMI.2024 ~ metrics_rs$ReferenceSite, main='2nd choice metrics - 5', ylim=c(0,1))
+          boxplot(metrics_rs$MMI.2024 ~ metrics_rs$ReferenceSite, main='1st choice metrics - 5', ylim=c(0,1))
           
           t.test(metrics_rs$MMI.2024 ~metrics_rs$ReferenceSite)
-          # 1st choice: t = -13.049, p < 2.2e-16
-                # mean Most = 0.475, mean REF = 0.708
-          # 2nd choice (4 metrics): t = -13.66, p < 2.2e-16
-                # mean Most = 0.495, mean REF = 0.762
-          # 2nd choice (5 metrics): t = -13.034, p < 2.2e-16
-                # mean Most = 0.505, mean REF = 0.740
-          
-          @@@@@@@@@ check ref sites for outliers -- same as O/E? If yes, drop them
-          
-          ref.mmi_outliers <- metrics_rs %>%
-            filter(ReferenceSite=='REFERENCE' & MMI.2024 < 0.5) %>%
-            select(SAMPLEID) 
           
           
+          # second choice metrics
+          candmetrics <- master %>%
+            select(SAMPLEID, ReferenceSite, pt_tv_intol_resid, nt_habitat_rheo_resid,
+                    pt_ti_stenocold_cold_cool_resid, pi_EPTNoHydro_resid)
+
+
           
-          outliers_mlocid <- predictorsdf %>%
-            filter(SAMPLEID %in% ref.mmi_outliers$SAMPLEID) %>%
-            select(MLocID)
+          metrics=candmetrics
+          row.names(metrics)=metrics$SAMPLEID
+          ref_metrics=subset(candmetrics, ReferenceSite=="REFERENCE")
+          mostdeg_metrics=subset(candmetrics, ReferenceSite=="MOST DISTURBED")
+          metrics_rs=matrix(nrow=dim(metrics)[1],ncol=0)
+          for(n in 3:dim(metrics)[2]){
+            metric=metrics[,n]
+            ref_metric=ref_metrics[,n]
+            mostdeg_metric=mostdeg_metrics[,n]
+            if(mean(ref_metric)>mean(mostdeg_metric)){
+              min=quantile(mostdeg_metric,0.05)
+              max=quantile(ref_metric,0.95)
+              metric_rs=(metric-min)/(max-min)}
+            if(mean(ref_metric)<mean(mostdeg_metric)){
+              min=quantile(ref_metric,0.05)
+              max=quantile(mostdeg_metric,0.95)
+              metric_rs=1-((metric-min)/(max-min))}
+            metric_rs[metric_rs>1]=1
+            metric_rs[metric_rs<0]=0
+            metrics_rs=cbind(metrics_rs,metric_rs)}
+          colnames(metrics_rs)=colnames(metrics[3:6]) # 7
+          row.names(metrics_rs)=rownames(metrics)
+          
+          metrics_rs=as.data.frame(metrics_rs)
+          
+          metrics_rs <- metrics_rs %>%
+            rownames_to_column('SAMPLEID') %>%
+            left_join(site.type, by='SAMPLEID')%>%
+            relocate(ReferenceSite, .before = 2)   %>%
+            mutate(MMI.2024 = (pt_tv_intol_resid + nt_habitat_rheo_resid +
+                    pt_ti_stenocold_cold_cool_resid + pi_EPTNoHydro_resid)/4)
+          
+          
+          #then average across rescaled metrics
+          write.csv(metrics_rs,'bugs analyses/MMI/_2024 model build/final_MMI_4.metrics.csv')
           
           
           
-          @@@@ these are all SE OR sites.  Recommend rebuilding with the exact same list as used in O/E model
+          boxplot(metrics_rs$MMI.2024 ~ metrics_rs$ReferenceSite, main='2nd choice metrics - 4', ylim=c(0,1))
+          
+          t.test(metrics_rs$MMI.2024 ~metrics_rs$ReferenceSite)
+          
+# 1st choice: t = -12.636, p < 2.2e-16
+      # mean Most = 0.440, mean REF = 0.680
+
+# 2nd choice (4 metrics): t = -13.034, p < 2.2e-16
+      # mean Most = 0.451, mean REF = 0.727
+
+                                                                                          #' @@@@@@@@@ check ref sites for outliers -- same as O/E? If yes, drop them
+                                                                                          #' 
+                                                                                          #' ref.mmi_outliers <- metrics_rs %>%
+                                                                                          #'   filter(ReferenceSite=='REFERENCE' & MMI.2024 < 0.5) %>%
+                                                                                          #'   select(SAMPLEID) 
+                                                                                          #' 
+                                                                                          #' 
+                                                                                          #' 
+                                                                                          #' outliers_mlocid <- predictorsdf %>%
+                                                                                          #'   filter(SAMPLEID %in% ref.mmi_outliers$SAMPLEID) %>%
+                                                                                          #'   select(MLocID)
+                                                                                          #' 
+                                                                                          #' 
+                                                                                          #' 
+                                                                                          #' @@@@ these are all SE OR sites.  Recommend rebuilding with the exact same list as used in O/E model
+                                                                                          #' 
+
+##############################################################################
+          
+#         SAVE RANDOM FORESTS MODELS FOR FINAL METRICS
+          
+#############################################################################
+          
+
+# 4 metric model
+save(rfmod_pt_tv_intol, file = 'bugs analyses/MMI/_2024 model build/rfmod_pt_tv_intol.Rdata' )
+save(rfmod_nt_habitat_rheo, file = 'bugs analyses/MMI/_2024 model build/rfmod_nt_habitat_rheo.Rdata' )          
+save(rfmod_pt_ti_stenocold_cold_cool, file = 'bugs analyses/MMI/_2024 model build/rfmod_pt_ti_stenocold_cold_cool.Rdata' )          
+save(rfmod_pi_EPTNoHydro, file = 'bugs analyses/MMI/_2024 model build/rfmod_pi_EPTNoHydro.Rdata' )                    
+          
+# 5 metric model
+# same as above: save(rfmod_pt_habitat_rheo, file = 'bugs analyses/MMI/_2024 model build/rfmod_pt_habitat_rheo.Rdata' )
+save(rfmod_nt_habit_cling, file = 'bugs analyses/MMI/_2024 model build/rfmod_nt_habit_cling.Rdata' )
+# same as above: save(rfmod_pt_ti_stenocold_cold_cool, file = 'bugs analyses/MMI/_2024 model build/rfmod_pt_ti_stenocold_cold_cool.Rdata' )
+save(rfmod_pi_tv_intol, file = 'bugs analyses/MMI/_2024 model build/rfmod_pi_tv_intol.Rdata' )
+save(rfmod_pi_Pleco, file = 'bugs analyses/MMI/_2024 model build/rfmod_pi_Pleco.Rdata' )
+
+
+
+
+
+          
+                                                                                                    #' 

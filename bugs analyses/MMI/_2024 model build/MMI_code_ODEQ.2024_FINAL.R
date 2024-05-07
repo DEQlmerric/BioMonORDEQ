@@ -658,4 +658,24 @@ rfmod_mmi.ref = randomForest(MMI.2024 ~ AREASQKM+SAND+CLAY+ELEV+BFI+KFFACT+TMAX8
  
  
 rfmod_mmi.ref 
+
+
+
+### 
+
+#       Standardize MMI scores to compare to O/E models
+
+###
+
+
+ref.X <- mean(mmi.ref$MMI.2024) # 0.7272163
+
+mmi.ref_stand.mean <- (mmi.ref$MMI.2024)/ref.X
+
+mean(mmi.ref_stand.mean) # 1
+sd(mmi.ref_stand.mean) # 0.140
+
+quantile(mmi.ref_stand.mean, probs = c(0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95)) # 0.81
+
+
                                                                                                     #' 

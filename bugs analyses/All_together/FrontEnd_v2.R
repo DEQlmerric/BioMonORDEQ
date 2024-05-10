@@ -58,7 +58,14 @@ bug_tax_data_filtered <- bug_tax_data |>
   mutate( month = format(SampleStart_Date,"%m")) %>%
   filter(month %in% '06' | month %in% '07' | month %in% '08' | month %in% '09' | month %in% '10') 
   
-  
+
+#These are mlocs with no associated comid ID. Please address before continuing   
+
+no_comid <- bug_tax_data_filtered |> 
+  filter(is.na(COMID)) |> 
+  select(MLocID, COMID) |> 
+  distinct()
+
 
 
 # Randomize subsample ---------------------------------------------------------------------------------------------

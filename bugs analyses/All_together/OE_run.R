@@ -50,31 +50,45 @@ OE_modelrun <- function(df_bugs, df_rand){
   # Get streamcat data ----------------------------------------------------------------------------------------------
   
   
-  # alternate comids get catchment
-  # exact comids get watershed
+
   
   print("Begin Streamcat datapull")
   
   source('bugs analyses/All_together/get_streamcat.R')
   
+  
+  # Get list of COMIDs and remove blanks
   comidID <- unique(df_bugs$COMID)
   
   comidID <- comidID[!is.na(comidID)]
   
+  # Get OE streamcat metrics at identifiyed comids
+  
   streamcat <- get_streamcat(comids = comidID, type = "OE" )
   
-  mlocs <- df_bugs |> 
+  #Get a list of unique activity ID and comids
+  actids <- df_bugs |> 
     select(act_id,  COMID, QC_Comm) |> 
     unique()
   
-  mloc_streamcat <- mlocs |> 
+  
+  #Join steramcat data to the activity IDS
+  actid_streamcat <- actids |> 
     left_join(streamcat, by = join_by(COMID))
   
   
-  streamcat_errors <- mloc_streamcat |> 
+  #Produce a list of errors- used in development
+  streamcat_errors <- actid_streamcat |> 
     filter(is.na(WSAREASQKM))
   
-  streamcat_mloc_data <- mloc_streamcat |> 
+  
+  # Remove errors
+  # alternate comids get catchment
+  # exact comids get watershed
+  # calculate MWST_mean08.14
+  
+  
+  streamcat_mloc_data <- actid_streamcat |> 
     filter(!is.na(WSAREASQKM)) |> 
     mutate(TMAX8110 = case_when(str_detect(QC_Comm, "Used closest COMID") ~ TMAX8110CAT,
                                 TRUE ~ TMAX8110WS),
@@ -94,7 +108,7 @@ OE_modelrun <- function(df_bugs, df_rand){
   
   preds_raw.bugs_mod <- streamcat_mloc_data[complete.cases(streamcat_mloc_data), ]
   
-  
+  # Export a table of comids with missing streamcats
   errors <- streamcat_mloc_data[!complete.cases(streamcat_mloc_data), ] |> 
     mutate(model_comment = "Missing streamcat features. No model run")
   

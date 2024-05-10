@@ -4,7 +4,7 @@
 # Get data that will be shared by all components of bioassessment -------------------------------------------------
 source('bugs analyses/All_together/Fetch_data.R')
 
-bug_tax_data <- fetch_data()
+bug_tax_data <- fetch_data(taxonomy_table = 'bugs analyses/Taxonomy/ODEQ_Taxonomy_dec22.xlsx')
 
 bug_tax_data_filtered <- bug_tax_data |> 
   filter(SampleStart_Date > "1998-01-01") %>%

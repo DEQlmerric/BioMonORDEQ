@@ -1,10 +1,10 @@
+# This function is a wrapper for the  rarify.seed() function created by John Van Sickle, USEPA. This function will 
+# take an input dataframe of raw bug counts and output a random 300 count subsample. 
+
 
 random_subsample <- function(df){
   
-  #Testing
-  df <- bug_tax_data
-  
-  
+
   
   raw.bugs_OTUs <- as.data.frame(df %>%
                                    group_by(Sample=act_id, MLocID, OTU=OTU_RIV_24) %>%

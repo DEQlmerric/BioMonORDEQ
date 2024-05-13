@@ -1,3 +1,10 @@
+# This function is a wrapper function for StreamCatTools::sc_get_data(). The intention is for each bioassessment type
+# different metrics are pulled from the StreamCatTools get data function. This function only exisists to maje it easier
+# to pull data in similar ways between the different types.
+
+
+
+
 get_streamcat <- function(comids, type = c("OE", "MMI")){
   
   

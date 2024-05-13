@@ -1,5 +1,8 @@
 
-
+# This function will ru the O:E assessment for the biocriteria assessments. The actual model is run in teh function 
+# model.predict.RanFor.4.2(). The rest of this function preps data to go into that function. The outputs are a list
+# containing 2 items: 1) A dataframe for O:E scores and 2) a dataframe containing monitoring locations that did not get
+# assessed due to some streamcat attributes missing in the datapull. 
 
 
 OE_modelrun <- function(df_bugs, df_rand){

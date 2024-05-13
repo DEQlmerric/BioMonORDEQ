@@ -59,13 +59,20 @@ bug_tax_data_filtered <- bug_tax_data |>
   filter(month %in% '06' | month %in% '07' | month %in% '08' | month %in% '09' | month %in% '10') 
   
 
-#These are mlocs with no associated comid ID. Please address before continuing   
+
+
+# Check for missing comids ----------------------------------------------------------------------------------------
 
 no_comid <- bug_tax_data_filtered |> 
   filter(is.na(COMID)) |> 
   select(MLocID, COMID) |> 
   distinct()
 
+if(nrow(no_comid) == 0){
+  
+  warning("Missing COMIDs. Please address before continuing")
+  
+}
 
 
 # Randomize subsample ---------------------------------------------------------------------------------------------

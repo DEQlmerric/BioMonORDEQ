@@ -1,3 +1,8 @@
+# This function will get raw bug data from AWQMS and join it with various taxonomy tables to get information about the
+# macroinvertebrates. There is no current filtering done on the AWQMSdata pull, but that can be added in once this 
+# process transitions from all at once to only assessing newly collected sites. 
+
+
 library(tidyverse)
 library(StreamCatTools)
 

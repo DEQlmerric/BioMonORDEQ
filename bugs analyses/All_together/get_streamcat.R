@@ -5,13 +5,14 @@
 
 
 
-get_streamcat <- function(comids, type = c("OE", "MMI")){
+get_streamcat <- function(comids, type = c("OE", "MMI", 'BCG')){
   
   
   type <- match.arg(type)
   
   if(type == "OE"){
     
+    comid_narm <- na.omit(comids)
     #Need to add MMI metrics here also
     streamcat <-StreamCatTools::sc_get_data(comid = comids,
                              metric = 'TMAX8110,BFI,ELEV,clay,precip8110,mwst2008,mwst2009,mwst2013,mwst2014', 
@@ -19,9 +20,19 @@ get_streamcat <- function(comids, type = c("OE", "MMI")){
     
   }
   
+  if(type == "BCG"){
+    
+    
 
-
+    #Need to add MMI metrics here also
+    streamcat <-StreamCatTools::sc_get_data(comid = comids,
+                                            metric = 'elev,Precip8110,ICI,IWI')
+    
+  }
   
+
+
+  return(streamcat)
   
   
 }

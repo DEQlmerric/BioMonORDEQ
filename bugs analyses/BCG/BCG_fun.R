@@ -27,12 +27,12 @@ library(BioMonTools)
 
 # bring in taxonomy table from BiomonTools
 url_bmt_base <- 'https://github.com/leppott/BioMonTools_SupportFiles/raw/main/data'
-url_taxa_official_pick <- file.path(url_bmt_base, "taxa_official", "ORWA_TaxaTranslator_20230228.csv")
+url_taxa_official_pick <- file.path(url_bmt_base, "taxa_official", "ORWA_TaxaTranslator_20240204.csv")
 taxonomy <- read.csv(url_taxa_official_pick)
 
 # bring in attributes table from BiomonTools
 url_bmt_base <- 'https://github.com/leppott/BioMonTools_SupportFiles/raw/main/data'
-url_taxa_official_pick <- file.path(url_bmt_base, "taxa_official", "ORWA_Attributes_20230228.csv")
+url_taxa_official_pick <- file.path(url_bmt_base, "taxa_official", "ORWA_Attributes_20240204.csv")
 attributes <- read.csv(url_taxa_official_pick)
 
 

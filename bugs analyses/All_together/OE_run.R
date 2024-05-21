@@ -21,8 +21,8 @@ OE_modelrun <- function(df_bugs, df_rand){
   
   #testing
   
-  # df_bugs <- bug_tax_data
-  # df_rand <- randomized
+  # df_bugs <- bug_tax_data_filtered
+  # df_rand <- rand_subsample
   
   
   #####

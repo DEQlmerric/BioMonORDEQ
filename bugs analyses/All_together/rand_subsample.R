@@ -9,7 +9,8 @@ random_subsample <- function(df){
   raw.bugs_OTUs <- as.data.frame(df %>%
                                    group_by(Sample=act_id, MLocID, OTU=OTU_RIV_24) %>%
                                    summarise(Count=sum(Result_Numeric)) %>%
-                                   filter(OTU != 'DNI'))
+                                   filter(OTU != 'DNI') |> 
+                                   ungroup())
   
   source('bugs analyses/RIVPACS_2022/_2024 model build/rarify_w_seed.R')
   

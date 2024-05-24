@@ -59,6 +59,13 @@ bug_tax_data_filtered <- bug_tax_data |>
   filter(month %in% '06' | month %in% '07' | month %in% '08' | month %in% '09' | month %in% '10') 
   
 
+sample_info <- bug_tax_data_filtered |> 
+  select(org_id, Project1, Project2, MLocID, StationDes, MonLocType, act_id, act_comments, Activity_Type, 
+         SampleStart_Date, SampleStart_Time,Sample_Media, Sample_Method, Assemblage, EcoRegion3, 
+         EcoRegion4, EcoRegion2, HUC8_Name, HUC12_Name, Lat_DD, Long_DD, Reachcode, Measure, ELEV_Ft, 
+         GNIS_Name, Conf_Score, QC_Comm,COMID, AU_ID,  ReferenceSite, Wade_Boat) |> 
+  distinct()
+
 
 
 # Check for missing comids ----------------------------------------------------------------------------------------
@@ -94,3 +101,27 @@ OE_results <- OE_modelrun(df_bugs = bug_tax_data_filtered,
 OE_scores <- OE_results$OE_Scores
 
 missing_streamcat <- OE_results$missing_streamcat
+
+
+# BCG -------------------------------------------------------------------------------------------------------------
+
+
+## Calculate Metrics ----------------------------------------------------------------------------------------------
+
+source('bugs analyses/All_together/calculate_metrics.R')
+
+
+BCG_metrics <- calculate_metrics(bug_tax_data_filtered)
+
+
+
+## Run BCG --------------------------------------------------------------------------------------------------------
+
+source('bugs analyses/All_together/BCG_run.R')
+
+BCG <- run_BCG(BCG_metrics)
+
+BCG_results <- BCG$Levels.Flags
+
+BCG_sample <- sample_info |> 
+  left_join(BCG_results, by = c('act_id' = 'SampleID'))

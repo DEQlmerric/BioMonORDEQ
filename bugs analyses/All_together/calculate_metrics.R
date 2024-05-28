@@ -28,21 +28,18 @@ calculate_metrics <- function(bug_data){
   
   
   # limit data to only whats needed ---------------------------------------------------------------------------------
-  
+
   
   
   
   BCG_Bug_data <- bug_tax_nhd |> 
     transmute(SampleID = act_id,
-              
               Area_mi2 = NA_integer_,
               SurfaceArea = NA_integer_,
               TaxaID = Taxon, #is this correct???
               N_Taxa = Result_Numeric,
               Index_Name = 'BCG_PugLowWilVal_500ct',
               INDEX_CLASS = str_to_title(SITE_TYPE),
-              Exclude = case_when(UniqueTaxon == 'UniqueTaxon' ~ FALSE,
-                                  UniqueTaxon == 'AmbiguousTaxon' ~ TRUE), #Is this correct??
               NonTarget,
               SITE_TYPE, 
               Phylum, 
@@ -74,6 +71,12 @@ calculate_metrics <- function(bug_data){
               
     )
   
+  #limit data to only whats needed ---------------------------------------------------------------------------------
+    bugs.excluded <- markExcluded(BCG_Bug_data, TaxaLevels = c("Kingdom", "Phylum",
+                                                              "SubPhylum", "Class", "SubClass", "Order", "SubOrder", "SuperFamily", 
+                                                              "Family", "SubFamily", "Tribe", "GenusGroup", "Genus", "SubGenus", "SpeciesGroup",
+                                                              "SpeciesSubGroup", "SpeciesComplex", "Species"))
+  
   
   # Extra columns to keep in results
   keep.cols <- c("Area_mi2"
@@ -82,7 +85,7 @@ calculate_metrics <- function(bug_data){
                  , "Density_ft2."
                  , "Site_Type")
   # Run Function
-  df.metrics <- metric.values(BCG_Bug_data, "bugs", fun.cols2keep = keep.cols)
+  df.metrics <- metric.values(bugs.excluded, "bugs", fun.cols2keep = keep.cols)
   
   
 }

@@ -31,6 +31,16 @@ df_results <- df |>
   dplyr::mutate(SITE_TYPE = dplyr::case_when(NHD_pSLOPE >= 1 ~ 'hi',
                                              NHD_pSLOPE <1 ~ 'lo'))
 
+df_results_fail <- df_results |> 
+  filter(is.na(SITE_TYPE))
+
+if(nrow(df_results_fail) > 0){
+  warning("Some monitoring locations failed NHD join and slope determination")
+  
+}
+
+
+return(df_results)
 
 }
 

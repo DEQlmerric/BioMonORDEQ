@@ -601,7 +601,7 @@ tvalues=list()
 save(rfmod_pt_tv_intol, file = 'bugs analyses/MMI/_2024 model build/rfmod_pt_tv_intol.Rdata' )
 save(rfmod_nt_habitat_rheo, file = 'bugs analyses/MMI/_2024 model build/rfmod_nt_habitat_rheo.Rdata' )          
 save(rfmod_pt_ti_stenocold_cold_cool, file = 'bugs analyses/MMI/_2024 model build/rfmod_pt_ti_stenocold_cold_cool.Rdata' )          
-save(rfmod_pi_EPTNoHydro, file = 'bugs analyses/MMI/_2024 model build/rfmod_pi_EPTNoHydro_resid.Rdata' )                    
+save(rfmod_pi_EPTNoHydro, file = 'bugs analyses/MMI/_2024 model build/rfmod_pi_EPTNoHydro.Rdata' )                    
           
 
 
@@ -697,23 +697,23 @@ mets.percents <- metrics %>%
 as.data.frame(mets.percents)
 
 
-   ReferenceSite pt_tv_intol_resid.perc05 pt_tv_intol_resid.perc95 nt_habitat_rheo_resid.perc05 nt_habitat_rheo_resid.perc95 pt_ti_stenocold_cold_cool_resid.perc05
-1 MOST DISTURBED                -50.83933                 11.60285                   -23.714250                     4.172515                              -39.30112
-2      REFERENCE                -14.82727                 14.11435                    -7.815749                     9.185201                              -17.04776
-  pt_ti_stenocold_cold_cool_resid.perc95 pi_EPTNoHydro_resid.perc05 pi_EPTNoHydro_resid.perc95
-1                               12.90728                  -54.54288                   24.13227
-2                               14.89715                  -29.43413                   24.32300                              
- # need to rescale based on percentiles of metrics
-          # in the final model, all 4 metrics have ref means > most disturbed means
-                # metric response = decrease with disturbance
-          
-          # here are the values to hard-code in:
-                    # 
-                    #                       REF_95th      MOST_5th
-                    # pt_tv_intol           14.11435      -50.83933
-                    # nt_habitat_rheo       9.185201      -23.714250
-                    # pt_ti_steno...        14.89715      -39.30112
-                    # pi_EPTNoHydro         24.32300      -54.54288
+                          #    ReferenceSite pt_tv_intol_resid.perc05 pt_tv_intol_resid.perc95 nt_habitat_rheo_resid.perc05 nt_habitat_rheo_resid.perc95 pt_ti_stenocold_cold_cool_resid.perc05
+                          # 1 MOST DISTURBED                -50.83933                 11.60285                   -23.714250                     4.172515                              -39.30112
+                          # 2      REFERENCE                -14.82727                 14.11435                    -7.815749                     9.185201                              -17.04776
+                          #   pt_ti_stenocold_cold_cool_resid.perc95 pi_EPTNoHydro_resid.perc05 pi_EPTNoHydro_resid.perc95
+                          # 1                               12.90728                  -54.54288                   24.13227
+                          # 2                               14.89715                  -29.43413                   24.32300                              
+                           # need to rescale based on percentiles of metrics
+                                    # in the final model, all 4 metrics have ref means > most disturbed means
+                                          # metric response = decrease with disturbance
+                                    
+                                    # here are the values to hard-code in:
+                                              # 
+                                              #                       REF_95th      MOST_5th
+                                              # pt_tv_intol           14.11435      -50.83933
+                                              # nt_habitat_rheo       9.185201      -23.714250
+                                              # pt_ti_steno...        14.89715      -39.30112
+                                              # pi_EPTNoHydro         24.32300      -54.54288
 
 
 ##########################################################################################################################################################################

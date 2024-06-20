@@ -245,8 +245,19 @@ library(tibble)
      
      
      # @@@@@ - below (step 6) calculating residuals and calling by indexing (not by name)....just do it for all metrics at once?
-        
-        
+      
+      
+                                # FINAL MODELS CHOSEN - in case they are needed to be loaded in again
+                               
+                                #  load('bugs analyses/MMI/_2024 model build/rfmod_pt_tv_intol.Rdata' )
+                                #  load('bugs analyses/MMI/_2024 model build/rfmod_nt_habitat_rheo.Rdata' )          
+                                #  load('bugs analyses/MMI/_2024 model build/rfmod_pt_ti_stenocold_cold_cool.Rdata' )          
+                                #  load('bugs analyses/MMI/_2024 model build/rfmod_pi_EPTNoHydro.Rdata' )                    
+ 
+
+                                # rfmodels <- c('rfmod_pt_tv_intol', 'rfmod_nt_habitat_rheo',
+                                #              'rfmod_pt_ti_stenocold_cold_cool', 'rfmod_pi_EPTNoHydro')  
+                                  
 
 df=list()
 for (i in 1:length(rfmodels)){
@@ -279,6 +290,7 @@ Drfdat2=cbind(Drfdat,predictionsdf)
 
 rfdat_all_final=rbind(rfdat2,Drfdat2)           
 write.csv(rfdat_all_final,"bugs analyses/MMI/_2024 model build/rfdat_all_final.csv")
+
 
 #----------------------------------------------------------------------------------------------------#
 # Step 6 Calculate residuals
@@ -313,6 +325,9 @@ residualsdf=as.data.frame(do.call(cbind,resid))
 
 rfdat_all_final4=cbind(rfdat_all_final,residualsdf)
 
+rfdat_all_final4 <- rfdat_all_final4 %>%
+  rownames_to_column("SAMPLEID")
+
 
 
 
@@ -320,7 +335,7 @@ rfdat_all_final4=cbind(rfdat_all_final,residualsdf)
       #create a new dframe of only resids and orig.<10, use this in both 7 & 8
       
       rfdat_all_final3 <- rfdat_all_final4 %>%
-            select(all_of(c(metrics_poor.mods, metrics_good.mods))) 
+            select(SAMPLEID, all_of(c(metrics_poor.mods, metrics_good.mods))) 
       
       # Get ReferenceSite in the dframe
       site.type <- metricsdf %>%
@@ -463,60 +478,60 @@ tvalues=list()
 
 
 
-          #candmetrics=master[,1:7]   # sampleid, ref, 5 mets
-          
-          
-          # first choice metrics
-          candmetrics <- master %>%
-            select(SAMPLEID, ReferenceSite, pt_habitat_rheo_resid, nt_habit_cling_resid,
-                    pt_ti_stenocold_cold_cool_resid, pi_tv_intol_resid, pi_Pleco_resid)
-
-                     
-          
-          metrics=candmetrics
-          row.names(metrics)=metrics$SAMPLEID
-          ref_metrics=subset(candmetrics, ReferenceSite=="REFERENCE")
-          mostdeg_metrics=subset(candmetrics, ReferenceSite=="MOST DISTURBED")
-          metrics_rs=matrix(nrow=dim(metrics)[1],ncol=0)
-          for(n in 3:dim(metrics)[2]){
-            metric=metrics[,n]
-            ref_metric=ref_metrics[,n]
-            mostdeg_metric=mostdeg_metrics[,n]
-            if(mean(ref_metric)>mean(mostdeg_metric)){
-              min=quantile(mostdeg_metric,0.05)
-              max=quantile(ref_metric,0.95)
-              metric_rs=(metric-min)/(max-min)}
-            if(mean(ref_metric)<mean(mostdeg_metric)){
-              min=quantile(ref_metric,0.05)
-              max=quantile(mostdeg_metric,0.95)
-              metric_rs=1-((metric-min)/(max-min))}
-            metric_rs[metric_rs>1]=1
-            metric_rs[metric_rs<0]=0
-            metrics_rs=cbind(metrics_rs,metric_rs)}
-          colnames(metrics_rs)=colnames(metrics[3:7]) # 7
-          row.names(metrics_rs)=rownames(metrics)
-          
-          metrics_rs=as.data.frame(metrics_rs)
-          
-          metrics_rs <- metrics_rs %>%
-            rownames_to_column('SAMPLEID') %>%
-            left_join(site.type, by='SAMPLEID')%>%
-            relocate(ReferenceSite, .before = 2)   %>%
-            mutate(MMI.2024 = (pt_habitat_rheo_resid + nt_habit_cling_resid +
-                    pt_ti_stenocold_cold_cool_resid + pi_tv_intol_resid + pi_Pleco_resid)/5)
-          
-          
-          #then average across rescaled metrics
-          write.csv(metrics_rs,'bugs analyses/MMI/_2024 model build/final_MMI_5.metrics.csv')
           
           
           
-          boxplot(metrics_rs$MMI.2024 ~ metrics_rs$ReferenceSite, main='1st choice metrics - 5', ylim=c(0,1))
+                                                                                      # first choice metrics
+                                                                                      candmetrics <- master %>%
+                                                                                        select(SAMPLEID, ReferenceSite, pt_habitat_rheo_resid, nt_habit_cling_resid,
+                                                                                                pt_ti_stenocold_cold_cool_resid, pi_tv_intol_resid, pi_Pleco_resid)
+                                                                            
+                                                                                                 
+                                                                                      
+                                                                                      metrics=candmetrics
+                                                                                      row.names(metrics)=metrics$SAMPLEID
+                                                                                      ref_metrics=subset(candmetrics, ReferenceSite=="REFERENCE")
+                                                                                      mostdeg_metrics=subset(candmetrics, ReferenceSite=="MOST DISTURBED")
+                                                                                      metrics_rs=matrix(nrow=dim(metrics)[1],ncol=0)
+                                                                                      for(n in 3:dim(metrics)[2]){
+                                                                                        metric=metrics[,n]
+                                                                                        ref_metric=ref_metrics[,n]
+                                                                                        mostdeg_metric=mostdeg_metrics[,n]
+                                                                                        if(mean(ref_metric)>mean(mostdeg_metric)){
+                                                                                          min=quantile(mostdeg_metric,0.05)
+                                                                                          max=quantile(ref_metric,0.95)
+                                                                                          metric_rs=(metric-min)/(max-min)}
+                                                                                        if(mean(ref_metric)<mean(mostdeg_metric)){
+                                                                                          min=quantile(ref_metric,0.05)
+                                                                                          max=quantile(mostdeg_metric,0.95)
+                                                                                          metric_rs=1-((metric-min)/(max-min))}
+                                                                                        metric_rs[metric_rs>1]=1
+                                                                                        metric_rs[metric_rs<0]=0
+                                                                                        metrics_rs=cbind(metrics_rs,metric_rs)}
+                                                                                      colnames(metrics_rs)=colnames(metrics[3:7]) # 7
+                                                                                      row.names(metrics_rs)=rownames(metrics)
+                                                                                      
+                                                                                      metrics_rs=as.data.frame(metrics_rs)
+                                                                                      
+                                                                                      metrics_rs <- metrics_rs %>%
+                                                                                        rownames_to_column('SAMPLEID') %>%
+                                                                                        left_join(site.type, by='SAMPLEID')%>%
+                                                                                        relocate(ReferenceSite, .before = 2)   %>%
+                                                                                        mutate(MMI.2024 = (pt_habitat_rheo_resid + nt_habit_cling_resid +
+                                                                                                pt_ti_stenocold_cold_cool_resid + pi_tv_intol_resid + pi_Pleco_resid)/5)
+                                                                                      
+                                                                                      
+                                                                                      #then average across rescaled metrics
+                                                                                      write.csv(metrics_rs,'bugs analyses/MMI/_2024 model build/final_MMI_5.metrics.csv')
+                                                                                      
+                                                                                      
+                                                                                      
+                                                                                      boxplot(metrics_rs$MMI.2024 ~ metrics_rs$ReferenceSite, main='1st choice metrics - 5', ylim=c(0,1))
+                                                                                      
+                                                                                      t.test(metrics_rs$MMI.2024 ~metrics_rs$ReferenceSite)
+                                                                                      
           
-          t.test(metrics_rs$MMI.2024 ~metrics_rs$ReferenceSite)
-          
-          
-          # second choice metrics
+          # FINAL choice metrics
           candmetrics <- master %>%
             select(SAMPLEID, ReferenceSite, pt_tv_intol_resid, nt_habitat_rheo_resid,
                     pt_ti_stenocold_cold_cool_resid, pi_EPTNoHydro_resid)
@@ -676,6 +691,267 @@ mean(mmi.ref_stand.mean) # 1
 sd(mmi.ref_stand.mean) # 0.140
 
 quantile(mmi.ref_stand.mean, probs = c(0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95)) # 0.81
+
+
+
+###########################################
+
+#    Percentiles and means for 4 metrics -- for use in re-scaling
+
+############################################
+
+mets.percents <- metrics %>% 
+  group_by(ReferenceSite) %>%  
+  summarise(across(pt_tv_intol_resid:pi_EPTNoHydro_resid,list(perc05 = perc05, perc95 = perc95), .names = "{.col}.{.fn}"))
+
+
+as.data.frame(mets.percents)
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@   incorrect values (erroneously calculated on rescaled metrics)
+
+#    ReferenceSite pt_tv_intol_resid.perc05 pt_tv_intol_resid.perc95 nt_habitat_rheo_resid.perc05 nt_habitat_rheo_resid.perc95 pt_ti_stenocold_cold_cool_resid.perc05
+# 1 MOST DISTURBED             0.0003152543                0.9364713                 0.0004026694                    0.8487283                            0.001267909
+# 2      REFERENCE             0.5673473396                1.0000000                 0.4878043806                    1.0000000                            0.410652489
+#   pt_ti_stenocold_cold_cool_resid.perc95 pi_EPTNoHydro_resid.perc05 pi_EPTNoHydro_resid.perc95
+# 1                               0.968449               2.737876e-05                  0.9992819
+# 2                               1.000000               3.208480e-01                  1.0000000
+
+ # need to rescale based on percentiles of metrics
+          # in the final model, all 4 metrics have ref means > most disturbed means
+                # metric response = decrease with disturbance
+          
+          # here are the values to hard-code in:
+                    # 
+                    #                       REF_95th      MOST_5th
+                    # pt_tv_intol           1.0           0.0003152543
+                    # nt_habitat_rheo       1.0           0.0004026694
+                    # pt_ti_steno...        1.0           0.001267909
+                    # pi_EPTNoHydro         1.0           2.737876e-05
+
+
+##########################################################################################################################################################################
+######################################################################################
+##########################################################################################################################################################################
+######################################################################################
+##########################################################################################################################################################################
+
+#         RUN MMI FOR NEW DATASET
+
+##########################################################################################################################################################################
+######################################################################################
+##########################################################################################################################################################################
+######################################################################################
+##########################################################################################################################################################################
+
+library(randomForest)
+library(VSURF)
+library(psych)
+library(dplyr)
+library(tibble)
+
+
+#######
+    ####### BRING IN METRICS
+#######
+ 
+# must bring in metrics calculated from SUBSAMPLED bug data (to 300 count)
+load('bugs analyses/MMI/_2024 model build/bug.metrics_ref.status.Rdata')
+metricsdf <- bug.metrics_ref.status %>%
+  select(SAMPLEID, pt_tv_intol, nt_habitat_rheo, pt_ti_stenocold_cold_cool, pi_EPTNoHydro)
+rm(bug.metrics_ref.status)
+
+
+
+#######
+    ######## BRING IN PREDICTORS
+#######
+
+# bring in as many predictors (StreamCat) as you want, code will select the correct predictors to keep
+
+load('bugs analyses/MMI/_2024 model build/mmi.pred.mets_414_final.Rdata')
+predictorsdf <- mmi.pred.mets_414_final %>%
+  select(SAMPLEID, TMAX8110, CLAY, OM, KFFACT, PRECIP8110, ELEV, MSST_mean08.14,  
+         PERM, AREASQKM, SLOPE, P2O5)
+rm(mmi.pred.mets_414_final)
+
+
+
+
+@@@@@@ dont do NAs -- see if model can accept NAs
+
+#######
+    ####### JOIN METRICS AND PREDICTORS
+#######
+
+rfdat_all <- metricsdf %>% 
+        left_join(predictorsdf, by='SAMPLEID')
+
+Drfdat <- rfdat_all
+
+
+
+
+#######
+    ######## RUN RANDOM.FORESTS MODELS - FOR EACH OF 4 METRICS
+#######
+
+# LOAD MODELS
+load('bugs analyses/MMI/_2024 model build/rfmod_pt_tv_intol.Rdata' )
+load('bugs analyses/MMI/_2024 model build/rfmod_nt_habitat_rheo.Rdata' )          
+load('bugs analyses/MMI/_2024 model build/rfmod_pt_ti_stenocold_cold_cool.Rdata' )          
+load('bugs analyses/MMI/_2024 model build/rfmod_pi_EPTNoHydro.Rdata' )                    
+ 
+
+# which rf models to use
+rfmodels <- c('rfmod_pt_tv_intol', 'rfmod_nt_habitat_rheo', 'rfmod_pt_ti_stenocold_cold_cool',
+                   'rfmod_pi_EPTNoHydro')
+
+## test site predictions
+
+
+Dpredictions=list()
+for (i in 1:length(rfmodels)){
+  tryCatch({Dpredictions[[paste0("E.",rfmodels[i])]]<- round(predict(eval(parse(text =paste0(rfmodels[i]))), Drfdat, type = "response"),digits=4)
+  }, error =function (e){
+    cat(paste0("/n/tERROR calculating: ",paste0(names(rfdat)[i],"_pred"),"/n"))
+    str(e,indent.str = "   "); cat("/n")
+  })
+}
+predictionsdf=as.data.frame(do.call(cbind,Dpredictions))
+#join predictions into master dataframe
+Drfdat2=cbind(Drfdat,predictionsdf)
+
+
+
+
+#######
+    ######## CALCULATE RESIDUALS
+#######
+
+resid=list()
+for (i in 2:5){
+  tryCatch({resid[[paste0(colnames(Drfdat2)[i],"_resid")]]=Drfdat2[,i]- Drfdat2[,paste0("E.rfmod_",colnames(Drfdat2)[i])]
+  
+  }, error =function (e){
+    cat(paste0("/n/tERROR calculating: ",paste0(Drfdat2[i],"_resid"),"/n"))
+    str(e,indent.str = "   "); cat("/n")
+  })
+  
+}
+
+                
+                
+residualsdf=as.data.frame(do.call(cbind,resid))
+
+rfdat_all_final4=cbind(Drfdat2,residualsdf)
+
+
+
+#######
+    ########    RESCALE TO 0 - 1, 
+#######
+
+
+# Select SAMPLEID + 4 metrics.residuals
+candmetrics <- rfdat_all_final4 %>%
+  select(SAMPLEID, pt_tv_intol_resid, nt_habitat_rheo_resid,
+          pt_ti_stenocold_cold_cool_resid, pi_EPTNoHydro_resid)
+
+ 
+                     
+          # need to rescale based on percentiles of metrics
+          # in the final model, all 4 metrics have ref means > most disturbed means
+                # metric response = decrease with disturbance
+          
+          # here are the values to hard-code in:
+                    # 
+                    #                       REF_95th      MOST_5th
+                    # pt_tv_intol           1.0           0.0003152543
+                    # nt_habitat_rheo       1.0           0.0004026694
+                    # pt_ti_steno...        1.0           0.001267909
+                    # pi_EPTNoHydro         1.0           2.737876e-05
+                    # 
+          
+          
+          
+          metrics=candmetrics
+                                                                                    #row.names(metrics)=metrics$SAMPLEID
+          min = c(0.0003152543, 0.0004026694, 0.001267909, 2.737876e-05)
+          max = c(1, 1, 1, 1)                                                                                 #ref_metrics=subset(candmetrics, ReferenceSite=="REFERENCE")
+                                                                                    #mostdeg_metrics=subset(candmetrics, ReferenceSite=="MOST DISTURBED")
+          metrics_rs=matrix(nrow=dim(metrics)[1],ncol=0)
+          for(n in 2:5){
+            metric=metrics[,n]
+                                                                                      # ref_metric=ref_metrics[,n]
+                                                                                      # mostdeg_metric=mostdeg_metrics[,n]
+                                                                                      # if(mean(ref_metric)>mean(mostdeg_metric)){
+                                                                                      #   min=quantile(mostdeg_metric,0.05)
+                                                                                      #   max=quantile(ref_metric,0.95)
+                                                                                      #   metric_rs=(metric-min)/(max-min)}
+            
+         
+          metric_rs=(metric-min)/(max-min)
+          }
+            
+         @@@ What we need: for each of the 4 metrics in "metrics", 
+                              first subtract the min from the metric, 
+                              second subtract min from the max, 
+                              then divide first by second
+                              RESULT = scaled between 0 -1
+                              
+                              
+          @@@@@ Results of the above are all 
+            
+            
+            #if(mean(ref_metric)<mean(mostdeg_metric)){
+            #  min=quantile(ref_metric,0.05)
+            #  max=quantile(mostdeg_metric,0.95)
+            #  metric_rs=1-((metric-min)/(max-min))}
+            metric_rs[metric_rs>1]=1
+            metric_rs[metric_rs<0]=0
+            metrics_rs=cbind(metrics_rs,metric_rs)
+            }
+          
+          
+          
+          
+            
+          
+          colnames(metrics_rs)=colnames(metrics[3:7]) # 7
+          row.names(metrics_rs)=rownames(metrics)
+          
+          metrics_rs=as.data.frame(metrics_rs)
+
+          
+          
+          
+# FINAL MMI 
+          
+          #then average across rescaled metrics
+          metrics_rs <- metrics_rs %>%
+            rownames_to_column('SAMPLEID') %>%
+            left_join(site.type, by='SAMPLEID')%>%
+            relocate(ReferenceSite, .before = 2)   %>%
+            mutate(MMI.2024 = (pt_habitat_rheo_resid + nt_habit_cling_resid +
+                    pt_ti_stenocold_cold_cool_resid + pi_tv_intol_resid + pi_Pleco_resid)/5)
+          
+          
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
                                                                                                     #' 

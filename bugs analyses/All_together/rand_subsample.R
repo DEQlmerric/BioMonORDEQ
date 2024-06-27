@@ -4,7 +4,7 @@
 
 random_subsample <- function(df){
   
-
+df <- bug_tax_data_filtered
   
   raw.bugs_OTUs <- as.data.frame(df %>%
                                    group_by(Sample=act_id, MLocID, OTU=OTU_RIV_24) %>%
@@ -15,9 +15,10 @@ random_subsample <- function(df){
   source('bugs analyses/RIVPACS_2022/_2024 model build/rarify_w_seed.R')
   
   
-  b.rare.seed <- rarify.seed(na.omit(raw.bugs_OTUs), 'Sample', 'Count', 300) 
+ # b.rare.seed <- rarify.seed(na.omit(raw.bugs_OTUs), 'Sample', 'Count', 300) 
   
   
+  b.rare.seed <-BioMonTools::rarify(na.omit(raw.bugs_OTUs), 'Sample', 'Count', 300) 
   
 }
 

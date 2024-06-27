@@ -85,7 +85,7 @@ calculate_metrics <- function(bug_data){
                  , "Density_ft2."
                  , "Site_Type")
   # Run Function
-  df.metrics <- metric.values(bugs.excluded, "bugs", fun.cols2keep = keep.cols)
+  df.metrics <- metric.values(bugs.excluded, "bugs", fun.cols2keep = keep.cols, boo.Shiny = TRUE)
   
   
 }

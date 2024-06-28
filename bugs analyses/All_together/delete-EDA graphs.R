@@ -22,9 +22,7 @@ MMI <- MMI_scores |>
   rename(act_id = SAMPLEID)
 
 joined_OE_BCG_MMI <- left_join(OE, BCG, by = join_by(act_id)) |> 
-  left_join(MMI)
-
-
+  left_join(MMI) 
 
 
 ## Graphs ----------------------------------------------------------------------------------------------------------
@@ -46,9 +44,9 @@ p2 <- ggplot(data = joined_OE_BCG_MMI, aes(x = MMI, y = OoverE))+
   geom_point(aes(color = ReferenceSite))+
   #stat_smooth(method=lm)+
   geom_hline(yintercept = 0.8, color = 'red')+
-  #geom_vline(xintercept = 3.5, color = "forestgreen")+
+  geom_vline(xintercept = 0.35, color = "forestgreen")+
   geom_smooth(#data = filter(joined_OE_BCG_MMI, ReferenceSite != 'REFERENCE' ), 
-    method='lm', formula= y~x)+
+    method='lm')+
   scale_color_hue(l=50)+
   labs(title = 'O:E + MMI')+
   theme_bw()
@@ -57,7 +55,7 @@ p2 <- ggplot(data = joined_OE_BCG_MMI, aes(x = MMI, y = OoverE))+
 p3 <- ggplot(data = joined_OE_BCG_MMI, aes(x = Continuous_BCG_Level, y = MMI))+
   geom_point(aes(color = ReferenceSite))+
   #stat_smooth(method=lm)+
-  #geom_hline(yintercept = 0.8, color = 'red')+
+  geom_hline(yintercept = 0.35, color = 'red')+
   geom_vline(xintercept = 3.5, color = "forestgreen")+
   geom_smooth(#data = filter(joined_OE_BCG_MMI, ReferenceSite != 'REFERENCE' ), 
     method='lm', formula= y~x)+
@@ -101,9 +99,10 @@ library(plotly)
 
 
 
+data3d <- joined_OE_BCG_MMI |> 
+  filter(ReferenceSite == 'REFERENCE')
 
-
-fig <- plot_ly(joined_OE_BCG_MMI, x = ~OoverE, y = ~Continuous_BCG_Level, z = ~MMI, color = ~ReferenceSite)
+fig <- plot_ly(data3d, x = ~OoverE, y = ~Continuous_BCG_Level, z = ~MMI, color = ~ReferenceSite)
 fig <- fig %>% add_markers()
 fig <- fig %>% layout(scene = list(xaxis = list(title = 'OoverE'),
                                    yaxis = list(title = 'BCG'),

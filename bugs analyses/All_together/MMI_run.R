@@ -9,21 +9,22 @@ MMI_run <- function(df_sub, df_sample,
                     attribute_table_loc = 'https://raw.githubusercontent.com/leppott/BioMonTools_SupportFiles/main/data/taxa_official/ORWA_Attributes_20240606.csv')
 {
 
-# df_sub <- rand_subsample
-# df_sample <- sample_info
-  #attribute_table_loc = 'https://raw.githubusercontent.com/leppott/BioMonTools_SupportFiles/main/data/taxa_official/ORWA_Attributes_20240606.csv'
 
+  #Read in attribute table from BioMonTools_SupportFiles
+  #this is the sheet that we were advised to use by Jen Stamp on 6/19/2024
+  
   attribute_table <- read.csv(attribute_table_loc)
 
-#Join subsetted data to the taxanomic attribute table from BioMonTools
+#Join subsetted data to the taxanomic attribute table from BioMonTools_SupportFiles
 df_bugs_taxa <- df_sub |> 
   dplyr::left_join(select(sample_info, -MLocID),by = c('Sample' = 'act_id')) |> 
   dplyr::rename(TAXAID = OTU) |> 
   dplyr::left_join(attribute_table,
                    by = c('TAXAID' = 'Taxon'))
 
-# We need slope, use the get_NHD_info function to get slope
-#rename and create a bunch of columns needed for metric calculation
+# We need slope and the corresponding INDEX_CLASS, 
+# use the get_NHD_info function to get slope and SITE_TYPE
+# rename and create a bunch of columns needed for metric calculation
 
 source('bugs analyses/All_together/get_NHD_info.R')
 
@@ -95,10 +96,12 @@ mets.keep <- c('pt_tv_intol', 'nt_habitat_rheo', 'pt_ti_stenocold_cold_cool', 'p
 
 
 #Calculate metrics
-metricsdf <- BioMonTools::metric.values(bugs.excluded, "bugs",fun.MetricNames = mets.keep, boo.Shiny	= TRUE)
-# metricsdf <- bug.metrics |> 
-#   dplyr::select(SAMPLEID, pt_tv_intol, nt_habitat_rheo, pt_ti_stenocold_cold_cool, pi_EPTNoHydro)
+# The boo.Shiny argument prevents the code from stopping and asking permission to calculate metrics with missing parameters.
+# It will give a warning instead. 
 
+# The function will return the metrics identified in mets.keep
+
+metricsdf <- BioMonTools::metric.values(bugs.excluded, "bugs",fun.MetricNames = mets.keep, boo.Shiny	= TRUE)
 
 
 # Predictors ------------------------------------------------------------------------------------------------------
@@ -175,7 +178,7 @@ streamcat_mloc_data_slope <- streamcat_mloc_data |>
   left_join(slope_sample, by = c('act_id' = 'SampleID'))
 
 
-# join all together -----------------------------------------------------------------------------------------------
+# Put everything together -----------------------------------------------------------------------------------------------
 
 
 #Join metrics to streamcat predictors
@@ -183,11 +186,13 @@ Drfdat <-metricsdf |>
   left_join(streamcat_mloc_data_slope, by = c('SAMPLEID' = 'act_id') ) |> 
   select(-INDEX_CLASS, -INDEX_NAME, -ni_total)
 
-#######
-######## RUN RANDOM.FORESTS MODELS - FOR EACH OF 4 METRICS
-#######
 
-# LOAD MODELS
+# RUN RANDOM.FORESTS MODELS - FOR EACH OF 4 METRICS ---------------------------------------------------------------
+
+
+## Load models -----------------------------------------------------------------------------------------------------
+
+
 load('bugs analyses/MMI/_2024 model build/rfmod_pt_tv_intol.Rdata' )
 load('bugs analyses/MMI/_2024 model build/rfmod_nt_habitat_rheo.Rdata' )          
 load('bugs analyses/MMI/_2024 model build/rfmod_pt_ti_stenocold_cold_cool.Rdata' )          
@@ -198,7 +203,11 @@ load('bugs analyses/MMI/_2024 model build/rfmod_pi_EPTNoHydro.Rdata' )
 rfmodels <- c('rfmod_pt_tv_intol', 'rfmod_nt_habitat_rheo', 'rfmod_pt_ti_stenocold_cold_cool',
               'rfmod_pi_EPTNoHydro')
 
-## test site predictions
+
+
+## test site predictions -------------------------------------------------------------------------------------------
+
+
 Dpredictions=list()
 for (i in 1:length(rfmodels)){
   tryCatch({Dpredictions[[paste0("E.",rfmodels[i])]]<- round(predict(eval(parse(text =paste0(rfmodels[i]))), Drfdat, type = "response"),digits=4)
@@ -212,9 +221,10 @@ predictionsdf=as.data.frame(do.call(cbind,Dpredictions))
 Drfdat2=cbind(Drfdat,predictionsdf)
 
 
-#######
-######## CALCULATE RESIDUALS
-#######
+
+## CALCULATE RESIDUALS ---------------------------------------------------------------------------------------------
+
+
 
 resid=list()
 for (i in 2:5){
@@ -240,6 +250,9 @@ candmetrics <- rfdat_all_final4 %>%
   select(SAMPLEID, pt_tv_intol_resid, nt_habitat_rheo_resid,
          pt_ti_stenocold_cold_cool_resid, pi_EPTNoHydro_resid)
 
+
+
+## Rescale values --------------------------------------------------------------------------------------------------
 
 
 

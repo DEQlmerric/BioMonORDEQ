@@ -9,7 +9,7 @@
 
 OE <- OE_scores |> 
   #select(MLocID,org_id, AU_ID, act_id,EcoRegion3,EcoRegion4,ReferenceSite, OoverE) |> 
-  mutate(ecoregion = case_when(EcoRegion3 %in% c(1,3,4) ~ "In region",
+  mutate(BCG_region = case_when(EcoRegion3 %in% c(1,3,4) ~ "In region",
                                TRUE ~ "Out Region"))
 
 BCG <- BCG_results |> 
@@ -21,9 +21,15 @@ MMI <- MMI_scores |>
   select(SAMPLEID, MMI) |> 
   rename(act_id = SAMPLEID)
 
-joined_OE_BCG_MMI <- left_join(OE, BCG, by = join_by(act_id)) |> 
-  left_join(MMI) 
+MMI_met <- MMI_metrics |> 
+   rename(act_id = SAMPLEID)
 
+joined_OE_BCG_MMI <- left_join(OE, BCG, by = join_by(act_id)) |> 
+  left_join(MMI_met) |> 
+  left_join(MMI)
+  #filter(BCG_region == "In region")
+
+save(joined_OE_BCG_MMI, file = 'bioassess_6-28-24.Rdata')
 
 ## Graphs ----------------------------------------------------------------------------------------------------------
 
@@ -32,7 +38,7 @@ p1 <- ggplot(data = joined_OE_BCG_MMI, aes(x = Continuous_BCG_Level, y = OoverE)
   #stat_smooth(method=lm)+
   geom_hline(yintercept = 0.8, color = 'red')+
   geom_vline(xintercept = 3.5, color = "forestgreen")+
-  geom_smooth(data = joined_OE_BCG_MMI, 
+  geom_smooth(#data = filter(joined_OE_BCG_MMI, ReferenceSite == 'REFERENCE' ),  
               method='lm', formula= y~x)+
   scale_color_hue(l=50)+
   labs(title = 'O:E + BCG')+
@@ -44,8 +50,8 @@ p2 <- ggplot(data = joined_OE_BCG_MMI, aes(x = MMI, y = OoverE))+
   geom_point(aes(color = ReferenceSite))+
   #stat_smooth(method=lm)+
   geom_hline(yintercept = 0.8, color = 'red')+
-  geom_vline(xintercept = 0.35, color = "forestgreen")+
-  geom_smooth(#data = filter(joined_OE_BCG_MMI, ReferenceSite != 'REFERENCE' ), 
+  geom_vline(xintercept = 0.28, color = "forestgreen")+
+  geom_smooth(#data = filter(joined_OE_BCG_MMI, ReferenceSite == 'REFERENCE' ), 
     method='lm')+
   scale_color_hue(l=50)+
   labs(title = 'O:E + MMI')+
@@ -55,9 +61,9 @@ p2 <- ggplot(data = joined_OE_BCG_MMI, aes(x = MMI, y = OoverE))+
 p3 <- ggplot(data = joined_OE_BCG_MMI, aes(x = Continuous_BCG_Level, y = MMI))+
   geom_point(aes(color = ReferenceSite))+
   #stat_smooth(method=lm)+
-  geom_hline(yintercept = 0.35, color = 'red')+
+  geom_hline(yintercept = 0.28, color = 'red')+
   geom_vline(xintercept = 3.5, color = "forestgreen")+
-  geom_smooth(#data = filter(joined_OE_BCG_MMI, ReferenceSite != 'REFERENCE' ), 
+  geom_smooth(#data = filter(joined_OE_BCG_MMI, ReferenceSite == 'REFERENCE' ), 
     method='lm', formula= y~x)+
   scale_color_hue(l=50)+
   labs(title = 'BCG + MMI')+

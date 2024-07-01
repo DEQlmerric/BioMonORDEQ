@@ -30,6 +30,7 @@ joined_OE_BCG_MMI <- left_join(OE, BCG, by = join_by(act_id)) |>
   #filter(BCG_region == "In region")
 
 save(joined_OE_BCG_MMI, file = 'bioassess_6-28-24.Rdata')
+write.xlsx(joined_OE_BCG_MMI, file = paste0("biocriteria_scores", Sys.Date(), '.xlsx'))
 
 ## Graphs ----------------------------------------------------------------------------------------------------------
 

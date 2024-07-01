@@ -32,8 +32,8 @@ oe_multi <- function(){
 result_list <- purrr::map(1:num_runs, ~ oe_multi())
 
 
-View(result_list[[1]])
-View(result_list[[2]])
+# View(result_list[[1]])
+# View(result_list[[2]])
 
 result_stats <- data.frame(sample = result_list[[1]]$act_id,
                      mean_indivduals = rowMeans(sapply(result_list, function(df) df$num_indiv)),
@@ -43,3 +43,8 @@ result_stats <- data.frame(sample = result_list[[1]]$act_id,
                      mean_OE = rowMeans(sapply(result_list, function(df) df$OoverE)),
                      sd_OE = apply(sapply(result_list, function(df) df$OoverE), 1, sd),
                      var_OE = apply(sapply(result_list, function(df) df$OoverE), 1, var))
+
+
+
+ggplot(result_stats, aes(x=sd_OE)) + geom_histogram()
+

@@ -284,6 +284,18 @@ metric_rs <- candmetrics |>
          nt_habitat_rheo_resid = (nt_habitat_rheo_resid - -23.714250) /  (9.185201 -  -23.714250) ,
          pt_ti_stenocold_cold_cool_resid = (pt_ti_stenocold_cold_cool_resid - -39.30112) /  (14.89715 -  -39.30112),
          pi_EPTNoHydro_resid = (pi_EPTNoHydro_resid - -54.54288) /  (24.32300 -  -54.54288)) %>%
+  mutate(pt_tv_intol_resid = case_when(pt_tv_intol_resid <0 ~ 0,
+                                       pt_tv_intol_resid >1 ~ 1,
+                                       TRUE ~ pt_tv_intol_resid)) %>% 
+  mutate(nt_habitat_rheo_resid = case_when(nt_habitat_rheo_resid <0 ~ 0,
+                                           nt_habitat_rheo_resid >1 ~ 1,
+                                           TRUE ~ nt_habitat_rheo_resid)) %>%  
+  mutate(pt_ti_stenocold_cold_cool_resid = case_when(pt_ti_stenocold_cold_cool_resid <0 ~ 0,
+                                                     pt_ti_stenocold_cold_cool_resid >1 ~ 1,
+                                                     TRUE ~ pt_ti_stenocold_cold_cool_resid)) %>%  
+  mutate( pi_EPTNoHydro_resid = case_when( pi_EPTNoHydro_resid <0 ~ 0,
+                                           pi_EPTNoHydro_resid >1 ~ 1,
+                                           TRUE ~  pi_EPTNoHydro_resid)) %>%  
   mutate(MMI = (pt_tv_intol_resid + nt_habitat_rheo_resid +
                        pt_ti_stenocold_cold_cool_resid+pi_EPTNoHydro_resid)  /4) |> 
   left_join(df_sample, by =c('SAMPLEID' = 'act_id')) |> 

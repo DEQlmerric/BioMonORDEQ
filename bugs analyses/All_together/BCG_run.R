@@ -5,7 +5,11 @@ library(readxl)
 
 run_BCG <- function(df_metric){
 
-  df_metric <- BCG_metrics
+
+# testing ---------------------------------------------------------------------------------------------------------
+  #df_metric <- BCG_metrics
+  
+  
 # 1.B. Metric Membership
 
 df.rules <- read_excel(system.file("./extdata/Rules.xlsx"

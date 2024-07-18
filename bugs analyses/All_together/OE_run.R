@@ -5,7 +5,7 @@
 # assessed due to some streamcat attributes missing in the datapull. 
 
 
-OE_modelrun <- function(df_bugs, df_rand){
+OE_modelrun <- function(df_bugs){
 
   
   library(cluster); 
@@ -22,7 +22,19 @@ OE_modelrun <- function(df_bugs, df_rand){
   #testing
   
   # df_bugs <- bug_tax_data_filtered
-  # df_rand <- rand_subsample
+
+  
+  
+  
+
+# Random subsample ------------------------------------------------------------------------------------------------
+
+  
+  source('bugs analyses/All_together/rand_subsample.R')
+  
+  df_rand <- random_subsample(df_bugs, OTU_col = OTU_RIV_24)
+  
+  
   
   
   #####

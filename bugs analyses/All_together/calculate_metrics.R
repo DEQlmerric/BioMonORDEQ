@@ -13,7 +13,7 @@ calculate_metrics <- function(bug_data){
   
   df_bugs_taxa <- df |> 
     dplyr::left_join(BioMonTools::TaxaMaster_Ben_BCG_PacNW,
-                     by = c('Taxon' = 'TaxaID'))
+                     by = c('OTU_MetricCalc' = 'TaxaID'))
   
 
   

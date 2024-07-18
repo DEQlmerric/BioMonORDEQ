@@ -85,21 +85,12 @@ if(nrow(no_comid) > 0){
 }
 
 
-# Randomize subsample ---------------------------------------------------------------------------------------------
-
-source('bugs analyses/All_together/rand_subsample.R')
-
-rand_subsample <- random_subsample(bug_tax_data_filtered)
-
-
-
 # Run O:E model ---------------------------------------------------------------------------------------------------
 
 #pass nhd slope to output
 source('bugs analyses/All_together/OE_run.R')
 
-OE_results <- OE_modelrun(df_bugs = bug_tax_data_filtered,
-                          df_rand = rand_subsample)
+OE_results <- OE_modelrun(df_bugs = bug_tax_data_filtered)
 
 
 OE_scores <- OE_results$OE_Scores

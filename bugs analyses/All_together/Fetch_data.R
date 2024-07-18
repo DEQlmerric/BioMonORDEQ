@@ -31,7 +31,7 @@ fetch_data <- function(DEQ_taxonomy_table = 'bugs analyses/Taxonomy/ODEQ_Taxonom
   
   
   taxonomy.otu <- taxonomy %>%
-    select(DEQ_Taxon = DEQ_TAXON, Taxon, OTU_RIV_24)
+    select(DEQ_Taxon = DEQ_TAXON, Taxon,Kingdom, OTU_RIV_24)
   
   taxonomy.otu$DEQ_Taxon <- as.character(taxonomy.otu$DEQ_Taxon)
   
@@ -42,7 +42,7 @@ fetch_data <- function(DEQ_taxonomy_table = 'bugs analyses/Taxonomy/ODEQ_Taxonom
   
   
    taxonomy_leppo_select <- taxonomy_leppo |> 
-    select(Taxon_orig,OTU_MTTI, OTU_BSTI) |> 
+    select(Taxon_orig,OTU_MTTI, OTU_BSTI, OTU_MetricCalc) |> 
     rename(Taxon = Taxon_orig)
   
   

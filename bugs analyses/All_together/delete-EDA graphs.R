@@ -34,6 +34,15 @@ write.xlsx(joined_OE_BCG_MMI, file = paste0("biocriteria_scores", Sys.Date(), '.
 
 ## Graphs ----------------------------------------------------------------------------------------------------------
 
+MMI_ref <- MMI_scores |> 
+  filter(ReferenceSite == 'REFERENCE')
+
+
+OE_ref <- OE_scores |> 
+  filter(ReferenceSite == 'REFERENCE')
+
+quantile(OE_ref$OoverE, c(.10), na.rm = TRUE)
+
 p1 <- ggplot(data = joined_OE_BCG_MMI, aes(x = Continuous_BCG_Level, y = OoverE))+
   geom_point(aes(color = ReferenceSite))+
   #stat_smooth(method=lm)+
@@ -51,7 +60,7 @@ p2 <- ggplot(data = joined_OE_BCG_MMI, aes(x = MMI, y = OoverE))+
   geom_point(aes(color = ReferenceSite))+
   #stat_smooth(method=lm)+
   geom_hline(yintercept = 0.8, color = 'red')+
-  geom_vline(xintercept = 0.28, color = "forestgreen")+
+  geom_vline(xintercept = quantile(MMI_ref$MMI, c(.10), na.rm = TRUE) , color = "forestgreen")+
   geom_smooth(#data = filter(joined_OE_BCG_MMI, ReferenceSite == 'REFERENCE' ), 
     method='lm')+
   scale_color_hue(l=50)+
@@ -62,7 +71,7 @@ p2 <- ggplot(data = joined_OE_BCG_MMI, aes(x = MMI, y = OoverE))+
 p3 <- ggplot(data = joined_OE_BCG_MMI, aes(x = Continuous_BCG_Level, y = MMI))+
   geom_point(aes(color = ReferenceSite))+
   #stat_smooth(method=lm)+
-  geom_hline(yintercept = 0.28, color = 'red')+
+  geom_hline(yintercept = quantile(MMI_ref$MMI, c(.10), na.rm = TRUE) , color = 'red')+
   geom_vline(xintercept = 3.5, color = "forestgreen")+
   geom_smooth(#data = filter(joined_OE_BCG_MMI, ReferenceSite == 'REFERENCE' ), 
     method='lm', formula= y~x)+

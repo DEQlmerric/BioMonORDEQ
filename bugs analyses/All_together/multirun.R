@@ -5,24 +5,54 @@
 
 num_runs <- 20
 
+
+
+# Copy frontend ---------------------------------------------------------------------------------------------------
+
+
+
+# Get data that will be shared by all components of bioassessment -------------------------------------------------
+source('bugs analyses/All_together/Fetch_data.R')
+
+bug_tax_data <- fetch_data(DEQ_taxonomy_table = 'bugs analyses/Taxonomy/ODEQ_Taxonomy_dec22.xlsx',
+                           leppo_taxonomy_table_url = 'https://raw.githubusercontent.com/leppott/BioMonTools_SupportFiles/main/data/taxa_official/_archive/ORWA_TaxaTranslator_20240204.csv')
+
+
+## Filter the original datapull ------------------------------------------------------------------------------------
+
+bug_tax_data_filtered <- bug_tax_data |> 
+  filter(SampleStart_Date > "1998-01-01") %>%
+  filter(Sample_Method %in% c('Benthic Kick - Riffle', 'Benthic Kick - Targeted Riffle', 'Benthic Kick - Transect')) %>%
+  filter(Char_Name == 'Count') %>%
+  mutate(SampleStart_Date = lubridate::ymd(SampleStart_Date)) |> 
+  mutate( month = format(SampleStart_Date,"%m")) %>%
+  filter(month %in% '06' | month %in% '07' | month %in% '08' | month %in% '09' | month %in% '10') 
+
+
+sample_info <- bug_tax_data_filtered |> 
+  select(org_id, Project1, Project2, MLocID, StationDes, MonLocType, act_id, act_comments, Activity_Type, 
+         SampleStart_Date, SampleStart_Time,Sample_Media, Sample_Method, Assemblage, EcoRegion3, 
+         EcoRegion4, EcoRegion2, HUC8_Name, HUC12_Name, Lat_DD, Long_DD, Reachcode, Measure, ELEV_Ft, 
+         GNIS_Name, Conf_Score, QC_Comm,COMID, AU_ID,  ReferenceSite, Wade_Boat) |> 
+  distinct()
+
+
+
+
 # OE_multirun -----------------------------------------------------------------------------------------------------
+#pass nhd slope to output
+source('bugs analyses/All_together/OE_run.R')
+
 
 oe_multi <- function(){
   
-    rand_subsample <- random_subsample(bug_tax_data_filtered)
-    
-    rand_stats <- rand_subsample |> 
-      group_by(Sample) |> 
-      summarise(num_taxa = n_distinct(OTU),
-                num_indiv = sum(Count))
+   
     
     
-    OE_results <- OE_modelrun(df_bugs = bug_tax_data_filtered,
-                              df_rand = rand_subsample)
+    OE_results <- OE_modelrun(df_bugs = bug_tax_data_filtered)
     
     
     OE_scores <- OE_results$OE_Scores |> 
-      left_join(rand_stats, by = c('act_id' = 'Sample')) |> 
       dplyr::arrange(act_id)
     
     return(OE_scores)
@@ -36,37 +66,33 @@ result_list_OE <- purrr::map(1:num_runs, ~ oe_multi())
 # View(result_list[[2]])
 
 result_stats_OE <- data.frame(sample = result_list_OE[[1]]$act_id,
-                     mean_indivduals = rowMeans(sapply(result_list_OE, function(df) df$num_indiv)),
-                     sd_ind = apply(sapply(result_list_OE, function(df) df$num_indiv), 1, sd),
-                     mean_num_taxa =  rowMeans(sapply(result_list_OE, function(df) df$num_taxa)),
-                     sd_taxa = apply(sapply(result_list_OE, function(df) df$num_taxa), 1, sd),
+                              #mean_indivduals = rowMeans(sapply(result_list_OE, function(df) df$num_indiv)),
+                     #sd_ind = apply(sapply(result_list_OE, function(df) df$num_indiv), 1, sd),
+                     #mean_num_taxa =  rowMeans(sapply(result_list_OE, function(df) df$num_taxa)),
+                     #sd_taxa = apply(sapply(result_list_OE, function(df) df$num_taxa), 1, sd),
                      mean_OE = rowMeans(sapply(result_list_OE, function(df) df$OoverE)),
                      sd_OE = apply(sapply(result_list_OE, function(df) df$OoverE), 1, sd),
                      var_OE = apply(sapply(result_list_OE, function(df) df$OoverE), 1, var))
 
 
 
-ggplot(result_stats, aes(x=sd_OE)) + geom_histogram()
+ggplot(result_stats_OE, aes(x=sd_OE)) + geom_histogram()
 
 
 
 # MMI multirun ----------------------------------------------------------------------------------------------------
 
+source('bugs analyses/All_together/MMI_run.R')
+
 
 MMI_multi <- function(){
   
-  rand_subsample <- random_subsample(bug_tax_data_filtered)
   
-  rand_stats <- rand_subsample |> 
-    group_by(Sample) |> 
-    summarise(num_taxa = n_distinct(OTU),
-              num_indiv = sum(Count))
   
-  MMI_results <- MMI_run(rand_subsample, sample_info)
+  MMI_results <- MMI_run(df_bugs = bug_tax_data_filtered, df_sample= sample_info)
   
   MMI_scores <- MMI_results$MMI_result |> 
-    left_join(rand_stats, by = c('SAMPLEID' = 'Sample')) |> 
-    dplyr::arrange(SAMPLEID)
+     dplyr::arrange(SAMPLEID) 
   
   
 
@@ -79,10 +105,10 @@ result_list_MMI <- purrr::map(1:num_runs, ~ MMI_multi())
 
 
 result_stats_MMI <- data.frame(sample = result_list_MMI[[1]]$SAMPLEID,
-                           mean_indivduals = rowMeans(sapply(result_list_MMI, function(df) df$num_indiv)),
-                           sd_ind = apply(sapply(result_list_MMI, function(df) df$num_indiv), 1, sd),
-                           mean_num_taxa =  rowMeans(sapply(result_list_MMI, function(df) df$num_taxa)),
-                           sd_taxa = apply(sapply(result_list_MMI, function(df) df$num_taxa), 1, sd),
+                           # mean_indivduals = rowMeans(sapply(result_list_MMI, function(df) df$num_indiv)),
+                           # sd_ind = apply(sapply(result_list_MMI, function(df) df$num_indiv), 1, sd),
+                           # mean_num_taxa =  rowMeans(sapply(result_list_MMI, function(df) df$num_taxa)),
+                           # sd_taxa = apply(sapply(result_list_MMI, function(df) df$num_taxa), 1, sd),
                            mean_MMI = rowMeans(sapply(result_list_MMI, function(df) df$MMI)),
                            sd_MMI = apply(sapply(result_list_MMI, function(df) df$MMI), 1, sd),
                            var_MMI = apply(sapply(result_list_MMI, function(df) df$MMI), 1, var))

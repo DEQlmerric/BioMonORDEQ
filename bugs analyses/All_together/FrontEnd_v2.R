@@ -104,7 +104,7 @@ missing_streamcat <- OE_results$missing_streamcat
 
 source('bugs analyses/All_together/MMI_run.R')
 
-MMI_results <- MMI_run(rand_subsample, sample_info)
+MMI_results <- MMI_run(df_bugs = bug_tax_data_filtered, df_sample= sample_info)
 
 MMI_scores <- MMI_results$MMI_result
 

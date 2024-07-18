@@ -5,10 +5,24 @@ library(BioMonTools)
 library(randomForest)
 
 
-MMI_run <- function(df_sub, df_sample, 
+MMI_run <- function(df_bugs, df_sample, 
                     attribute_table_loc = 'https://raw.githubusercontent.com/leppott/BioMonTools_SupportFiles/main/data/taxa_official/ORWA_Attributes_20240606.csv')
 {
 
+# Testing ---------------------------------------------------------------------------------------------------------
+
+ #df_bugs <- bug_tax_data_filtered
+#  df_sample <-  sample_info
+  
+  
+
+# Random subsample ------------------------------------------------------------------------------------------------
+
+  source('bugs analyses/All_together/rand_subsample.R')
+  
+  df_rand <- random_subsample(df_bugs, OTU_col = OTU_MetricCalc)
+  
+  
 
   #Read in attribute table from BioMonTools_SupportFiles
   #this is the sheet that we were advised to use by Jen Stamp on 6/19/2024
@@ -16,7 +30,7 @@ MMI_run <- function(df_sub, df_sample,
   attribute_table <- read.csv(attribute_table_loc)
 
 #Join subsetted data to the taxanomic attribute table from BioMonTools_SupportFiles
-df_bugs_taxa <- df_sub |> 
+df_bugs_taxa <- df_rand |> 
   dplyr::left_join(select(sample_info, -MLocID),by = c('Sample' = 'act_id')) |> 
   dplyr::rename(TAXAID = OTU) |> 
   dplyr::left_join(attribute_table,

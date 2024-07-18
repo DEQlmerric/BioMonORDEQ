@@ -27,19 +27,19 @@ MMI_met <- MMI_metrics |>
 joined_OE_BCG_MMI <- left_join(OE, BCG, by = join_by(act_id)) |> 
   left_join(MMI_met) |> 
   left_join(MMI)
-  #filter(BCG_region == "In region")
 
-save(joined_OE_BCG_MMI, file = 'bioassess_6-28-24.Rdata')
+save(joined_OE_BCG_MMI, file = 'bioassess_7-14-24.Rdata')
 write.xlsx(joined_OE_BCG_MMI, file = paste0("biocriteria_scores", Sys.Date(), '.xlsx'))
 
 ## Graphs ----------------------------------------------------------------------------------------------------------
 
-MMI_ref <- MMI_scores |> 
+
+
+ref <- joined_OE_BCG_MMI |> 
   filter(ReferenceSite == 'REFERENCE')
 
 
-OE_ref <- OE_scores |> 
-  filter(ReferenceSite == 'REFERENCE')
+
 
 quantile(OE_ref$OoverE, c(.10), na.rm = TRUE)
 
@@ -60,7 +60,7 @@ p2 <- ggplot(data = joined_OE_BCG_MMI, aes(x = MMI, y = OoverE))+
   geom_point(aes(color = ReferenceSite))+
   #stat_smooth(method=lm)+
   geom_hline(yintercept = 0.8, color = 'red')+
-  geom_vline(xintercept = quantile(MMI_ref$MMI, c(.10), na.rm = TRUE) , color = "forestgreen")+
+  geom_vline(xintercept = quantile(ref$MMI, c(.10), na.rm = TRUE) , color = "forestgreen")+
   geom_smooth(#data = filter(joined_OE_BCG_MMI, ReferenceSite == 'REFERENCE' ), 
     method='lm')+
   scale_color_hue(l=50)+
@@ -71,7 +71,7 @@ p2 <- ggplot(data = joined_OE_BCG_MMI, aes(x = MMI, y = OoverE))+
 p3 <- ggplot(data = joined_OE_BCG_MMI, aes(x = Continuous_BCG_Level, y = MMI))+
   geom_point(aes(color = ReferenceSite))+
   #stat_smooth(method=lm)+
-  geom_hline(yintercept = quantile(MMI_ref$MMI, c(.10), na.rm = TRUE) , color = 'red')+
+  geom_hline(yintercept = quantile(ref$MMI, c(.10), na.rm = TRUE) , color = 'red')+
   geom_vline(xintercept = 3.5, color = "forestgreen")+
   geom_smooth(#data = filter(joined_OE_BCG_MMI, ReferenceSite == 'REFERENCE' ), 
     method='lm', formula= y~x)+
@@ -101,7 +101,11 @@ p4 <- ggplot(data =  filter(joined_OE_BCG_MMI,!is.na(Primary_BCG_Level) ), aes(y
 #arrange
 library(patchwork)
 
-(p1 | p2 | p3) / (p5 | p4) + plot_layout(guides = "collect")
+(p1 | p2 | p3) / (p5 | p4) + plot_layout(guides = "collect") +  plot_annotation(
+  title = 'Biocriteria Assessment Comparisons',
+  subtitle = 'MMI threshold line drawn at 10th percentile of reference sites',
+  caption = paste0('Plot generated on ', Sys.Date())
+)
 
 
 library(openxlsx)

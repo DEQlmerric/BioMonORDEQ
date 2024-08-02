@@ -24,11 +24,15 @@ MMI <- MMI_scores |>
 MMI_met <- MMI_metrics |> 
    rename(act_id = SAMPLEID)
 
+load("bugs analyses/Models_Validation/sample_info_model.Rdata") ### this comes from model_val script 
+
 joined_OE_BCG_MMI <- left_join(OE, BCG, by = join_by(act_id)) |> 
   left_join(MMI_met) |> 
-  left_join(MMI)
+  left_join(MMI) |> 
+  left_join(sample_info_model, by = 'act_id') %>% 
+  filter(qualifer == 0) ## removes sus data (low counts, glacial sites and poor samples)
 
-save(joined_OE_BCG_MMI, file = 'bioassess_7-14-24.Rdata')
+save(joined_OE_BCG_MMI, file = 'bioassess_8-2-24.Rdata')
 write.xlsx(joined_OE_BCG_MMI, file = paste0("biocriteria_scores", Sys.Date(), '.xlsx'))
 
 ## Graphs ----------------------------------------------------------------------------------------------------------
@@ -96,7 +100,7 @@ p4 <- ggplot(data =  filter(joined_OE_BCG_MMI,!is.na(Primary_BCG_Level) ), aes(y
   geom_jitter(width = 0.2, alpha = .3)+
   labs(title = 'MMI + BCG',
        x = "Primary BCG")
-
+p4
 
 #arrange
 library(patchwork)

@@ -4,6 +4,8 @@
 
 
 #### get samples used to build O/E model ####
+
+
 ### this is code from the RIVPACS model build 
 ref_257 <- read.xlsx('bugs analyses/RIVPACS_2022/_2024 model build/Reference sites_bug samples_total and OTU abundances.xlsx',
                      sheet = 'FINAL FINAL FINAL_265 ref samps')  
@@ -25,6 +27,21 @@ most.dist_USE <- most.dist_USE %>%
   filter(Use_FINAL == 'Y')           # 'n' = 167 most disturbed samples to use for modeling
 
 sampleIDs.most.dist167 <- as.vector(most.dist_USE$act_id) 
+
+## Shannon reviewed samples and added additional qualifiers 
+sampl_qual <- read.xlsx('bugs analyses/Models_Validation/biocriteria_scores2024-07-18.xlsx', 
+                        sheet = 'Sheet 1') %>% 
+              mutate(qualifer = case_when(Filter_Low.Count %in% 'low.count'~ 1,
+                                          Filters_SLH %in% c('? Choked with aquatic moss',
+                                                                      'all 3 distinctly different from DEQ',
+                                                                      'duplicate?','duplicated?',
+                                                                      'poor sample - 1/2 rapids and boulders',
+                                                                      'reference outlier - poor taxonomy') ~ 2, 
+                                          Filters_SLH %in% c('SEOR') ~ 3,
+                                          Filters_SLH %in% c('ref outlier - lake effect')~ 4, 
+                                          Filters_SLH %in% c('Glacial','? Glacial','Glacial - DO NOT USE')~ 5,
+                                          TRUE ~ 0)) %>% 
+              select(Filters_SLH,'Filter_Low.Count',act_id,qualifer)
 
 
 #### assign samples used in model development -  ### 
@@ -48,7 +65,7 @@ sample_info_model <- sample_info %>%
          ref = case_when(ReferenceSite == "MOST DISTURBED" ~ 3,
                          ReferenceSite == "REFERENCE"~ 1,
                          TRUE ~ 2),
-         model_status = case_when(EcoRegion3 == 80 ~ "Outlier",
+         model_status = case_when(#EcoRegion3 == 80 ~ "Outlier",
                                   c(act_used ==1 & ref == 1)~ "Ref_Cal",
                                   c(act_used ==1 & ref == 3)~ "Most_Cal",
                                   c(station_used == 1 & act_used == 0 &ref == 1) ~ "Ref_Cal_dup",
@@ -56,11 +73,18 @@ sample_info_model <- sample_info %>%
                                   c(station_used == 0 & ref == 1) ~ "Ref_Val",
                                   c(station_used == 0 & ref == 3) ~ "Most_Val",
                                   TRUE ~ "Not_Ref")) %>%
-  #filter(!EcoRegion3 == 80) %>% 
-  select(org_id,Project1,MLocID,StationDes,act_id,SampleStart_Date,EcoRegion3,EcoRegion2,GNIS_Name,
-         COMID,ReferenceSite,Wade_Boat,act_used,station_used,ref,model_status)
+  left_join(sampl_qual, by = 'act_id') %>% 
+  mutate(qualifer = case_when(c(is.na(qualifer)& EcoRegion3 == 80) ~ 3,
+                                c(is.na(qualifer)& !EcoRegion3 == 80) ~ 0,
+                                TRUE ~ qualifer),#) %>%
+         model_status_qual = paste(model_status,qualifer, sep = "-")) %>% 
+  select(act_id,act_used,station_used,ref,model_status,qualifer,model_status_qual)
 
-#### assign these as Val_dups - this was done manually by select the newest sample, preference for ####
+save(sample_info_model, file = 'bugs analyses/Models_Validation/sample_info_model.Rdata')
+
+
+###### did not use this approach as the sample size is much smaller #####
+##assign these as Val_dups - this was done manually by select the newest sample, preference for 
 ### riffle over transect, primary sample over OC, 
 act_ref_val_dup <- c('21814-ORDEQ:20000920:R:SR','21814-ORDEQ:19990922:R:SR','21848-ORDEQ:19990825:R:SR',
    '24416-ORDEQ:20000830:T:SR','31729-ORDEQ:20040831:R:QCLR','34658-ORDEQ:20070920:R:QCFR',
@@ -89,16 +113,8 @@ act_most_val_dup <- c('21822-ORDEQ:20020925:R:SR','21822-ORDEQ:20030909:R:SR',
 ### reassign the samples that are val dups 
 sample_info_model$model_status <- if_else(sample_info_model$act_id %in% act_ref_val_dup,"Ref_Val_dup",sample_info_model$model_status)
 sample_info_model$model_status <- if_else(sample_info_model$act_id %in% act_most_val_dup,"Ref_Most_dup",sample_info_model$model_status)                                            
-
-#### build the table #### 
-ref_cal <- sample_info_model %>% 
-           filter(model_status == 'Ref_Cal')
-
-# explore the table 
-
-
-write.csv(sample_info_model, "sample_info_model.csv")
-
+sample_info_model$model_status_qual <- paste(sample_info_model$model_status,sample_info_model$qualifer, sep = "-")
+#### keep going here #####  
 
 ### pull in O/E scores from model build 
 
@@ -113,20 +129,32 @@ O_E_cal_2 <- o_E_ref_modelbuild %>%
 # get a table of O_E from model build and 
 O_E_cal <- sample_info_model %>% 
   left_join(o_E_ref_modelbuild, by = "act_id") %>% 
-  select(act_id,model_status,O_MB,E_MB,OoverE_MB) %>%
+  select(act_id,model_status_qual,O_MB,E_MB,OoverE_MB) %>%
   left_join(OE_scores, by = "act_id") %>% # this is from a model run using front end v2
   drop_na(OoverE) %>% 
-  filter(OoverE > 0)
+ filter(OoverE > 0) 
 
-# this excludes   
+# 
 O_E_stats <- O_E_cal %>% 
-             group_by(model_status) %>% 
-             summarise(O_E_mean = mean(OoverE),
-                       O_E_sd= sd(OoverE),
-                       O_E_MB_mean = mean(OoverE_MB), 
-                       O_E_MB_sd= sd(OoverE_MB))
-  
-### repeat process for MMI 
+  group_by(model_status_qual) %>% 
+  summarise(O_E_mean = mean(OoverE),
+            O_E_sd= sd(OoverE),
+            O_E_MB_mean = mean(OoverE_MB), 
+            O_E_MB_sd= sd(OoverE_MB))
+
+#### not using this approach - I went for the one sample per station approach #####
+# # For val duplicates take an average at the station level 
+# O_E_station <- O_E_cal %>%
+#                group_by(MLocID,model_status_qual) %>%
+#                summarise(n= n(),
+#                          OoverE_ave = mean(OoverE))
+# O_E_stats_mloc_ave <- O_E_station %>% 
+#               group_by(model_status_qual) %>% 
+#               summarise(O_E_mean = mean(OoverE_ave),
+#               O_E_sd= sd(OoverE_ave))
+
+ 
+###3 repeat process for MMI #####
 mmi_modelbuild <- read.csv('bugs analyses/MMI/_2024 model build/final_MMI_4.metrics.csv') %>%
                   select(SAMPLEID,MMI.2024) %>% 
                   rename(act_id = SAMPLEID, MMI_MB = MMI.2024)
@@ -138,24 +166,62 @@ mmi_cal_2 <- mmi_modelbuild %>%
 
 # get a table of O_E from model build and 
 mmi_cal <- sample_info_model %>% 
-  #left_join(mmi_modelbuild, by = "act_id") %>% 
- # select(act_id,model_status,MMI_MB) %>%
+  left_join(mmi_modelbuild, by = "act_id") %>% 
+  select(act_id,model_status_qual,MMI_MB) %>%
   left_join(MMI_scores, by = c("act_id"= "SAMPLEID")) %>% # this is from a model run using front end v2
   drop_na(MMI)
 
 mmi_stats <- mmi_cal %>% 
-  group_by(model_status) %>% 
+  group_by(model_status_qual) %>% 
   summarise(MMI_mean = mean(MMI),
             MMI_sd= sd(MMI))
 
 # had to break this out cause MMI_MB had NAs for Most_Val - not sure why?? 
 mmi_stats_mb <- mmi_cal_2 %>% 
-  group_by(model_status) %>% 
-  summarise(MMI_mean = mean(MMI_MB),
-            MMI_sd= sd(MMI_MB))
+  group_by(model_status_qual) %>% 
+  summarise(MMI_mean_mb = mean(MMI_MB),
+            MMI_sd_mb = sd(MMI_MB))
 
 model_val_stats <- O_E_stats %>% 
-                   left_join(mmi_stats, by = 'model_status') %>% 
-                   left_join(mmi_stats_mb, by = 'model_status')
+                   left_join(mmi_stats, by = 'model_status_qual') %>% 
+                   left_join(mmi_stats_mb, by = 'model_status_qual')
 
 write.csv(model_val_stats, "model_val_stats.csv")
+
+### generate plots ### 
+OE_val_plots <- O_E_cal %>% 
+                filter(model_status_qual %in% c('Ref_Val-0','Ref_Cal-0'))
+OE_val <- ggplot(data=OE_val_plots, mapping=aes(x=model_status_qual, y=OoverE))+geom_boxplot()
+OE_val
+
+OE_val <- ggplot(data=OE_val_plots, mapping=aes(x=model_status_qual, y=OoverE))+geom_boxplot()
+OE_val
+
+OE_val_hist <- ggplot(data=OE_val_plots, mapping=aes(x=OoverE, color=model_status_qual, fill = model_status_qual)) +geom_histogram(alpha=0.5, position="identity")
+OE_val_hist
+
+OE_status_plot <- O_E_cal %>% 
+                  filter(model_status_qual %in% c('Ref_Val-0','Ref_Cal-0',"Not_Ref-0",
+                                                  "Most_Cal-0","Most_Val-0")) %>%
+                  mutate(OE_model_status = case_when(model_status_qual %in% c("Most_Cal-0","Most_Val-0") ~ "Most",
+                                                     TRUE ~ model_status_qual))
+OE_by_status <- ggplot(data=OE_status_plot, mapping=aes(x=OE_model_status, y=OoverE))+geom_boxplot()
+OE_by_status
+
+
+mmi_val_plots <- mmi_cal %>% 
+  filter(model_status_qual %in% c('Ref_Val-0','Ref_Cal-0','Most_Cal-0','Most_Val-0'))
+
+mmi_val <- ggplot(data=mmi_val_plots, mapping=aes(x=model_status_qual, y=MMI))+geom_boxplot()
+mmi_val
+
+mmi_val_hist <- ggplot(data=mmi_val_plots, mapping=aes(x=MMI, color=model_status_qual, fill = model_status_qual)) +geom_histogram(alpha=0.5, position="identity")
+mmi_val_hist
+
+mmi_status_plot <- mmi_cal %>% 
+  filter(model_status_qual %in% c('Ref_Val-0','Ref_Cal-0',"Not_Ref-0",
+                                  "Most_Cal-0","Most_Val-0")) 
+
+mmi_by_status <- ggplot(data=mmi_status_plot, mapping=aes(x=model_status_qual, y=MMI))+geom_boxplot()
+mmi_by_status
+

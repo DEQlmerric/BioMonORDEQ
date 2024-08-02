@@ -55,7 +55,7 @@ bug_tax_data <- fetch_data(DEQ_taxonomy_table = 'bugs analyses/Taxonomy/ODEQ_Tax
 
 bug_tax_data_filtered <- bug_tax_data |> 
   filter(SampleStart_Date > "1998-01-01") %>%
-  filter(Sample_Method %in% c('Benthic Kick - Riffle', 'Benthic Kick - Targeted Riffle', 'Benthic Kick - Transect')) %>%
+  filter(Sample_Method %in% c('Benthic Kick - Riffle', 'Benthic Kick - Targeted Riffle', 'Benthic Kick - Transect','Benthic Kick - Mixed')) %>% # LAM added mixed for USU transect data inclusion
   filter(Char_Name == 'Count') %>%
   mutate(SampleStart_Date = lubridate::ymd(SampleStart_Date)) |> 
   mutate( month = format(SampleStart_Date,"%m")) %>%

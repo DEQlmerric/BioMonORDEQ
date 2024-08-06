@@ -6,6 +6,9 @@
 
 get_NHD_info <- function(df, comid_col = COMID){
 
+  #testing
+  #df <- df_bugs_taxa
+  
 print("Get NHD info")
 nhdplusTools::nhdplusTools_data_dir(file.path("data")) # set dir
 nhdplusTools::download_vaa(path = nhdplusTools::get_vaa_path()

@@ -8,12 +8,18 @@ library(readxl)
 
 calculate_metrics <- function(bug_data){
   
+  #testing
+  #bug_data <- bug_tax_data_filtered
+  
   df <- bug_data
+  
+
   
   
   df_bugs_taxa <- df |> 
     dplyr::left_join(BioMonTools::TaxaMaster_Ben_BCG_PacNW,
                      by = c('OTU_MetricCalc' = 'TaxaID'))
+  
   
 
   
@@ -26,20 +32,66 @@ calculate_metrics <- function(bug_data){
   bug_tax_nhd <- get_NHD_info(df_bugs_taxa)
   
   
+  # Stremcat --------------------------------------------------------------------------------------------------------
+  
+  # Get list of COMIDs and remove blanks
+  comidID <- unique(df$COMID)
+  
+  comidID <- comidID[!is.na(comidID)]
+  
+  
+  source('bugs analyses/All_together/get_streamcat.R')
+  streamcat <- get_streamcat(comids = comidID, type = "BCG" )
+  
+  actids <- df |> 
+    select(act_id,  COMID, QC_Comm) |> 
+    unique()
+  
+  
+  #Join steramcat data to the activity IDS
+  actid_streamcat <- actids |> 
+    left_join(streamcat, by = join_by(COMID))
+  #Produce a list of errors- used in development
+  streamcat_errors <- actid_streamcat |> 
+    filter(is.na(WSAREASQKM))
+  
+  
+  
+  streamcat_mloc_data <- actid_streamcat |> 
+    filter(!is.na(WSAREASQKM)) |> 
+    mutate(PRECIP8110 = case_when(str_detect(QC_Comm, "Used closest COMID") ~ PRECIP8110CAT,
+                                  TRUE ~ PRECIP8110WS),
+           ELEV = case_when(str_detect(QC_Comm, "Used closest COMID") ~ ELEVCAT,
+                            TRUE ~ ELEVWS),
+           AREASQKM =  case_when(str_detect(QC_Comm, "Used closest COMID") ~ CATAREASQKM,
+                                 TRUE ~ WSAREASQKM),
+           II = case_when(str_detect(QC_Comm, "Used closest COMID") ~ ICI,
+                          TRUE ~ IWI),
+    ) |> 
+    select(act_id, PRECIP8110, ELEV, AREASQKM)
+  
+  bug_tax_nhd_2 <-bug_tax_nhd |> 
+    left_join(streamcat_mloc_data, by = 'act_id' ) |> 
+    mutate(SITE_TYPE = case_when(NHD_pSLOPE < 1 & ELEV < 750  ~ 'lograd-loelev',
+                                 NHD_pSLOPE >= 1 & ELEV < 750  ~ 'higrad-loelev',
+                                 NHD_pSLOPE >= 1 & ELEV >= 750  ~ 'higrad-hielev',
+                                 NHD_pSLOPE < 1 & ELEV >= 750  ~ 'lograd-hielev'))
+  
+  
   
   # limit data to only whats needed ---------------------------------------------------------------------------------
 
   
   
   
-  BCG_Bug_data <- bug_tax_nhd |> 
+  BCG_Bug_data <- bug_tax_nhd_2 |> 
     transmute(SampleID = act_id,
               Area_mi2 = NA_integer_,
               SurfaceArea = NA_integer_,
               TaxaID = Taxon, #is this correct???
               N_Taxa = Result_Numeric,
-              Index_Name = 'BCG_PugLowWilVal_500ct',
-              INDEX_CLASS = str_to_title(SITE_TYPE),
+              Index_Name = 'BCG_MariNW_Bugs500ct',
+              INDEX_CLASS = SITE_TYPE,
               NonTarget,
               SITE_TYPE, 
               Phylum, 
@@ -86,6 +138,13 @@ calculate_metrics <- function(bug_data){
                  , "Site_Type")
   # Run Function
   df.metrics <- metric.values(bugs.excluded, "bugs", fun.cols2keep = keep.cols, boo.Shiny = TRUE)
+  
+  
+
+
+
+  
+  
   
   
 }

@@ -45,7 +45,7 @@ ref <- joined_OE_BCG_MMI |>
 
 
 
-quantile(OE_ref$OoverE, c(.10), na.rm = TRUE)
+#quantile(OE_ref$OoverE, c(.10), na.rm = TRUE)
 
 p1 <- ggplot(data = joined_OE_BCG_MMI, aes(x = Continuous_BCG_Level, y = OoverE))+
   geom_point(aes(color = ReferenceSite))+

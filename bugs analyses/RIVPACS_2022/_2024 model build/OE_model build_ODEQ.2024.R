@@ -45,11 +45,19 @@ preds <- preds %>%
                                                                                         # dplyr::filter(act_id !='30343-ORDEQ:20030814:R:SR') %>% 
                                                                                         # dplyr::filter(act_id !='32555-ORDEQ:20050801:R:SR') %>%
                                                                                         # dplyr::filter(act_id !='123437') %>%
-                                                                                        # dplyr::filter(act_id !='35813-ORDEQ:20000901:R:SR')
-                                                                                        # 
 
+
+                                                                                         # dplyr::filter(act_id !='35813-ORDEQ:20000901:R:SR')
+                                                                                        # 
+# SLH 8/6/24: export a list of the exact reference samples used in O/E construction, so that they can be used in MMI construction
 rownames(preds)=preds$act_id
 
+ref.samps_221 <- as.data.frame(preds$act_id)
+
+ref.samps_221 <- ref.samps_221 %>%
+  rename('act_id' = 'preds$act_id' )
+
+write.csv(ref.samps_221, 'bugs analyses/RIVPACS_2022/_2024 model build/ref.samps_221.csv')  
 
 ########
 ########### Step 1b - Input the assemblage data (bug data), as a site-by-taxa matrix;

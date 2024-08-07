@@ -57,7 +57,7 @@ metricsdf.most<- metricsdf.2 %>%
 
 
 # SLH 8/6/24: apply a new filter to MMI so that the same reference samples are used in MMI construction as were used in O/E build
-@@@@@@@ NEW FILTER FOR REF SAMPLES TO MATCH O/E
+  # NEW FILTER FOR REF SAMPLES TO MATCH O/E
 
 
 metricsdf.ref <- metricsdf.2 %>%
@@ -268,6 +268,16 @@ metricsdf <- rbind(metricsdf.most, metricsdf.ref)
      'rfmod_x_Becks','rfmod_x_Becks3','rfmod_x_D',                       
      'rfmod_x_D_G','rfmod_x_D_Mg','rfmod_x_Evenness','rfmod_x_HBI',                     
      'rfmod_x_HBI2','rfmod_x_Shan_10','rfmod_x_Shan_2','rfmod_x_Shan_e')
+     
+    # for testing, without need to run all rfmods which takes 4+ hrs
+      # rfmodels <- c('rfmod_pt_tv_intol','rfmod_nt_habitat_rheo','rfmod_pt_ti_stenocold_cold_cool','rfmod_pi_EPTNoHydro')
+     
+    # for testing--just reload the saved rf mods for the final chosen 4 metrics
+      # load('bugs analyses/MMI/_2024 model build/rfmod_pt_tv_intol.Rdata' )
+      # load('bugs analyses/MMI/_2024 model build/rfmod_nt_habitat_rheo.Rdata' )          
+      # load('bugs analyses/MMI/_2024 model build/rfmod_pt_ti_stenocold_cold_cool.Rdata' )          
+      # load('bugs analyses/MMI/_2024 model build/rfmod_pi_EPTNoHydro.Rdata' )                    
+
      
      # dropped metrics? 'rfmod_nt_Isop','rfmod_pi_Caen','rfmod_pi_Corb','rfmod_pi_Isop','rfmod_pt_Isop',
      
@@ -633,8 +643,10 @@ save(rfmod_pt_ti_stenocold_cold_cool, file = 'bugs analyses/MMI/_2024 model buil
 save(rfmod_pi_EPTNoHydro, file = 'bugs analyses/MMI/_2024 model build/rfmod_pi_EPTNoHydro.Rdata' )                    
           
 
-
-
+rfmod_pt_tv_intol
+rfmod_nt_habitat_rheo
+rfmod_pt_ti_stenocold_cold_cool
+rfmod_pi_EPTNoHydro
 #################################################################################
 
 #       MMI PRECISION AND RESPONSIVENESS

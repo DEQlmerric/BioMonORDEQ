@@ -33,7 +33,8 @@ get_streamcat <- function(comids, type = c("OE", "MMI", 'BCG', 'TEST')){
   if(type == 'MMI'){
     
     streamcat <-StreamCatTools::sc_get_data(comid = comids,
-                                            metric = 'TMAX8110,CLAY,OM,KFFACT,PRECIP8110,ELEV,msst2008,msst2009,msst2013,msst2014,PERM,SLOPE,P2O5')
+                                            metric = 'TMAX8110,CLAY,OM,KFFACT,PRECIP8110,ELEV,msst2008,msst2009,msst2013,msst2014,
+                                            mwst2008,mwst2009,mwst2013,mwst2014,PERM,SLOPE,P2O5, AREASQKM')
     
   }
   

@@ -169,6 +169,7 @@ streamcat_mloc_data <- actid_streamcat |>
          ELEV = case_when(str_detect(QC_Comm, "Used closest COMID") ~ ELEVCAT,
                                 TRUE ~ ELEVWS),
          MSST_mean08.14 =  (MSST2008+MSST2009+MSST2013+MSST2014)/4,
+         MWST_mean08.14 =  (MWST2008+MWST2009+MWST2013+MWST2014)/4,   # SLH 8.7.24 = this metric is new to the August run
          PERM = case_when(str_detect(QC_Comm, "Used closest COMID") ~ PERMCAT,
                           TRUE ~ PERMWS),
          P2O5 = case_when(str_detect(QC_Comm, "Used closest COMID") ~ P2O5CAT,
@@ -176,7 +177,7 @@ streamcat_mloc_data <- actid_streamcat |>
          AREASQKM =  case_when(str_detect(QC_Comm, "Used closest COMID") ~ CATAREASQKM,
                                TRUE ~ WSAREASQKM),
   ) |> 
-  select(act_id, TMAX8110, CLAY, OM, KFFACT, PRECIP8110, ELEV,MSST_mean08.14,PERM,P2O5, AREASQKM)
+  select(act_id, TMAX8110, CLAY, OM, KFFACT, PRECIP8110, ELEV,MSST_mean08.14, MWST_mean08.14,PERM,P2O5, AREASQKM)
 
 
 ## slope -----------------------------------------------------------------------------------------------------------

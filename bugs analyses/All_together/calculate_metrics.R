@@ -14,11 +14,12 @@ calculate_metrics <- function(bug_data){
   df <- bug_data
   
 
-  
+  attributes <- read.csv('https://raw.githubusercontent.com/leppott/BioMonTools_SupportFiles/main/data/taxa_official/ORWA_Attributes_20240606.csv') |> 
+    select(-Kingdom)
   
   df_bugs_taxa <- df |> 
-    dplyr::left_join(BioMonTools::TaxaMaster_Ben_BCG_PacNW,
-                     by = c('OTU_MetricCalc' = 'TaxaID'))
+    dplyr::left_join(attributes,
+                     by = c('Taxon'))
   
   
 
@@ -105,14 +106,14 @@ calculate_metrics <- function(bug_data){
               Genus,
               SubGenus, 
               Species,
-              BCG_Attr,
+              BCG_attr,
               FFG,
               Habit,
               Life_Cycle,
-              Thermal_Indicator,
+              Thermal_indicator,
               TolVal,
               INFRAORDER = NA_character_,
-              HABITAT = NA_character_,
+              HABITAT = Habitat,
               ELEVATION_ATTR = NA_character_,
               GRADIENT_ATTR = NA_character_,
               WSAREA_ATTR = NA_character_,

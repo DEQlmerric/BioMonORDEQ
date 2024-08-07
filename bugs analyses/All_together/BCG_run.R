@@ -7,7 +7,7 @@ run_BCG <- function(df_metric){
 
 
 # testing ---------------------------------------------------------------------------------------------------------
-  #df_metric <- test
+  #df_metric <- BCG_metrics
   
   
 # 1.B. Metric Membership
@@ -27,7 +27,7 @@ df.Metric.Membership <- BCG.Metric.Membership(df_metric, df.rules)
 # Run Function
 
 #Delete this after leppot fixes the repo bug
-source('bugs analyses/All_together/delete_after_leppoFixes.R')
+source('bugs analyses/All_together/metric_membership_fix.R')
 
 df.Level.Membership <- BCG.Level.Membership_fix(df.Metric.Membership, df.rules)
 

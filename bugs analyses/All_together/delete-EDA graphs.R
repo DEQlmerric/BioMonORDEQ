@@ -32,7 +32,7 @@ joined_OE_BCG_MMI <- left_join(OE, BCG, by = join_by(act_id)) |>
   left_join(sample_info_model, by = 'act_id') %>% 
   filter(qualifer == 0) ## removes sus data (low counts, glacial sites and poor samples)
 
-save(joined_OE_BCG_MMI, file = 'bioassess_8-2-24.Rdata')
+save(joined_OE_BCG_MMI, file = 'bioassess_8-6-24.Rdata')
 write.xlsx(joined_OE_BCG_MMI, file = paste0("biocriteria_scores", Sys.Date(), '.xlsx'))
 
 ## Graphs ----------------------------------------------------------------------------------------------------------

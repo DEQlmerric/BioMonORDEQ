@@ -665,6 +665,14 @@ stdev <- metrics_rs %>%
    filter(ReferenceSite == 'REFERENCE') %>%
    summarize(quantile(MMI.2024, probs = c(0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95)))
  
+
+ 
+ mets.ref <-  metrics_rs %>%
+   filter(ReferenceSite == 'REFERENCE') 
+ 
+ 
+  quantile(mets.ref$MMI.2024,c(0.01, 0.03, 0.05, 0.08, 0.10, 0.13, 0.15, 0.18, 0.20, 0.23, 0.25, 0.28, 0.30)) 
+
     # 5th = 0.56
     # 10th = 0.59
  

@@ -632,13 +632,14 @@ RESULTS=cbind(OE.assess.cal$OE.scores,predcal,grps.final)
 
  write.csv(RESULTS, 'bugs analyses/RIVPACS_2022/RIVPACS.2024_FINAL_ref.build_OE.csv')
 
- quantile(RESULTS$OoverE,0.10)
+ quantile(RESULTS$OoverE,c(0.01, 0.03, 0.05, 0.08, 0.10, 0.13, 0.15, 0.18, 0.20, 0.23, 0.25, 0.28, 0.30)) 
 
     ####
  #            10th percentile of ref O/E scores = 0.80
     ####
 
-
+#       1%        3%        5%        8%       10%       13%       15%       18%       20%       23%       25%       28%       30% 
+#    0.6517001 0.6990455 0.7538250 0.7895091 0.8024583 0.8289528 0.8429569 0.8749733 0.8900239 0.8983386 0.9073651 0.9198652 0.9246491 
 
 
 

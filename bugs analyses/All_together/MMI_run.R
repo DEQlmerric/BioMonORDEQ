@@ -278,13 +278,24 @@ candmetrics <- rfdat_all_final4 %>%
 # in the final model, all 4 metrics have ref means > most disturbed means
 # metric response = decrease with disturbance
 
-# here are the values to hard-code in:
-# 
-#                       REF_95th      MOST_5th
-# pt_tv_intol           14.11435      -50.83933
-# nt_habitat_rheo       9.185201      -23.714250
-# pt_ti_steno...        14.89715      -39.30112
-# pi_EPTNoHydro         24.32300      -54.54288
+                                                                                        # SLH 8.6.24 = these are the old (May 24) results
+                                                                                        # here are the values to hard-code in:
+                                                                                        # 
+                                                                                        #                       REF_95th      MOST_5th
+                                                                                        # pt_tv_intol           14.11435      -50.83933
+                                                                                        # nt_habitat_rheo       9.185201      -23.714250
+                                                                                        # pt_ti_steno...        14.89715      -39.30112
+                                                                                        # pi_EPTNoHydro         24.32300      -54.54288
+
+
+
+# SLH 8.6.24 = here are the values to hard-code in:
+                                              # 
+                                              #                       REF_95th      MOST_5th
+                                              # pt_tv_intol           14.13465       -50.54222
+                                              # nt_habitat_rheo       8.299599      -24.334100
+                                              # pt_ti_steno...        15.15093      -38.35066
+                                              # pi_EPTNoHydro         24.54683      -54.76710
 
 # What we need: for each of the 4 metrics in "metrics", 
 # first subtract the min from the metric, 
@@ -293,11 +304,12 @@ candmetrics <- rfdat_all_final4 %>%
 # RESULT = scaled between 0 -1
 
 
+# SLH 8.6.24 = updated to new model results
 metric_rs <- candmetrics |> 
-  mutate(pt_tv_intol_resid = (pt_tv_intol_resid - -50.83933) /  (14.11435 -  -50.83933) ,
-         nt_habitat_rheo_resid = (nt_habitat_rheo_resid - -23.714250) /  (9.185201 -  -23.714250) ,
-         pt_ti_stenocold_cold_cool_resid = (pt_ti_stenocold_cold_cool_resid - -39.30112) /  (14.89715 -  -39.30112),
-         pi_EPTNoHydro_resid = (pi_EPTNoHydro_resid - -54.54288) /  (24.32300 -  -54.54288)) %>%
+  mutate(pt_tv_intol_resid = (pt_tv_intol_resid - -50.54222) /  (14.13465 -  -50.54222) ,
+         nt_habitat_rheo_resid = (nt_habitat_rheo_resid - -24.334100) /  (8.299599 -  -24.334100) ,
+         pt_ti_stenocold_cold_cool_resid = (pt_ti_stenocold_cold_cool_resid - -38.35066) /  (15.15093 -  -38.35066),
+         pi_EPTNoHydro_resid = (pi_EPTNoHydro_resid - -54.76710) /  (24.54683 -  -54.76710)) %>%
   mutate(pt_tv_intol_resid = case_when(pt_tv_intol_resid <0 ~ 0,
                                        pt_tv_intol_resid >1 ~ 1,
                                        TRUE ~ pt_tv_intol_resid)) %>% 

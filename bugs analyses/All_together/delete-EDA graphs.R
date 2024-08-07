@@ -30,7 +30,8 @@ joined_OE_BCG_MMI <- left_join(OE, BCG, by = join_by(act_id)) |>
   left_join(MMI_met) |> 
   left_join(MMI) |> 
   left_join(sample_info_model, by = 'act_id') %>% 
-  filter(qualifer == 0) ## removes sus data (low counts, glacial sites and poor samples)
+  filter(qualifer == 0)%>% ## removes sus data (low counts, glacial sites and poor samples)
+  filter(!is.na(ReferenceSite))
 
 save(joined_OE_BCG_MMI, file = 'bioassess_8-6-24.Rdata')
 write.xlsx(joined_OE_BCG_MMI, file = paste0("biocriteria_scores", Sys.Date(), '.xlsx'))
@@ -76,7 +77,7 @@ p3 <- ggplot(data = joined_OE_BCG_MMI, aes(x = Continuous_BCG_Level, y = MMI))+
   geom_point(aes(color = ReferenceSite))+
   #stat_smooth(method=lm)+
   geom_hline(yintercept = quantile(ref$MMI, c(.10), na.rm = TRUE) , color = 'red')+
-  geom_vline(xintercept = 3.5, color = "forestgreen")+
+  geom_vline(xintercept = 4.5, color = "forestgreen")+
   geom_smooth(#data = filter(joined_OE_BCG_MMI, ReferenceSite == 'REFERENCE' ), 
     method='lm', formula= y~x)+
   scale_color_hue(l=50)+

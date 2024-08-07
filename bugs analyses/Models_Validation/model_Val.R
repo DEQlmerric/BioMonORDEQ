@@ -4,55 +4,62 @@
 
 
 #### get samples used to build O/E model ####
+o_E_ref_modelbuild <- read.csv('bugs analyses/RIVPACS_2022/RIVPACS.2024_FINAL_ref.build_OE.csv') %>% 
+  select(X,O,E,OoverE) %>% 
+  rename(act_id = X,"O_MB"="O", "E_MB"="E","OoverE_MB"= "OoverE")
 
+ref_mb <- o_E_ref_modelbuild$act_id
 
-### this is code from the RIVPACS model build 
-ref_257 <- read.xlsx('bugs analyses/RIVPACS_2022/_2024 model build/Reference sites_bug samples_total and OTU abundances.xlsx',
-                     sheet = 'FINAL FINAL FINAL_265 ref samps')  
+### get samples used to build the MMI
+mmi_modelbuild <- read.csv('bugs analyses/MMI/_2024 model build/final_MMI_4.metrics.csv') %>%
+  select(SAMPLEID,MMI.2024) %>% 
+  rename(act_id = SAMPLEID, MMI_MB = MMI.2024)
 
-ref_257 <- ref_257 %>%
-  filter(Use_spatial=='Y') %>%
-  rename(MLocID = Name, StaDes = Description)
+mmi_mb <- mmi_modelbuild$act_id
 
-# create a list of sampleIDs to use in querying bug data
-
-sampleIDs.ref257 <- as.vector(ref_257$act_id)
-
-# which samples to use? --SLH took the "MOST.DISTURBED_bug.samples_site.info_total.abundances.xlsx" file 
-# and identified which sample to use when more than one sample existed for a MostDisturbed station
-
-most.dist_USE <- read.csv('bugs analyses/MMI/_2024 model build/MOST.DISTURBED_bug.samples_site.info_total.abundances_USE2.csv')
-
-most.dist_USE <- most.dist_USE %>%
-  filter(Use_FINAL == 'Y')           # 'n' = 167 most disturbed samples to use for modeling
-
-sampleIDs.most.dist167 <- as.vector(most.dist_USE$act_id) 
 
 ## Shannon reviewed samples and added additional qualifiers 
 sampl_qual <- read.xlsx('bugs analyses/Models_Validation/biocriteria_scores2024-07-18.xlsx', 
                         sheet = 'Sheet 1') %>% 
               mutate(qualifer = case_when(Filter_Low.Count %in% 'low.count'~ 1,
                                           Filters_SLH %in% c('? Choked with aquatic moss',
-                                                                      'all 3 distinctly different from DEQ',
-                                                                      'duplicate?','duplicated?',
-                                                                      'poor sample - 1/2 rapids and boulders',
-                                                                      'reference outlier - poor taxonomy') ~ 2, 
-                                          Filters_SLH %in% c('SEOR') ~ 3,
+                                                             'duplicate?','duplicated?',
+                                                              '? Glacial') ~ 0,
+                                          Filters_SLH %in% c('all 3 distinctly different from DEQ',
+                                                             'poor sample - 1/2 rapids and boulders',
+                                                              'reference outlier - poor taxonomy') ~ 2,
+                                          Filters_SLH == 'SEOR' ~ 3,
+                                          EcoRegion3 == 80 ~ 3,
                                           Filters_SLH %in% c('ref outlier - lake effect')~ 4, 
-                                          Filters_SLH %in% c('Glacial','? Glacial','Glacial - DO NOT USE')~ 5,
-                                          TRUE ~ 0)) %>% 
-              select(Filters_SLH,'Filter_Low.Count',act_id,qualifer)
+                                          Filters_SLH %in% c('Glacial','Glacial - DO NOT USE')~ 5,
+                                          org_id %in% c('JCWC_AW(NOSTORETID)',
+                                                        'PDX_BES(NOSTORETID)',
+                                                        'UDESCHUTES_WC(NOSTORETID)',
+                                                        #'PBWC_WQX', keeping these for now
+                                                        'CITY_GRESHAM(NOSTORETID)',
+                                                        'CRBC_WQX') ~ 6,
+                                          #Wade_Boat == 'boatable' ~ 7, 
+                                          TRUE ~ 0),
+                     qualifer_text = case_when(qualifer == 1 ~ "low count",
+                                               qualifer == 2 ~ "poor sample quality",
+                                               qualifer == 3 ~ "Southeast Oregon",
+                                               qualifer == 4 ~ "Lake Effect",
+                                               qualifer == 5 ~ "Glacier",
+                                               qualifer == 6 ~ "VolMon",
+                                               #qualifer == 7 ~ "boatable",
+                                               TRUE ~ NA)) %>% 
+              select(Filters_SLH,'Filter_Low.Count',act_id,qualifer,qualifer_text)
 
 
-#### assign samples used in model development -  ### 
+#### assign samples used in model development - was able to use just the mmi act_ids ###
 bugs_samp_used <- sample_info %>% 
-  mutate(ref_used = case_when(act_id %in% sampleIDs.ref257 ~ 1,
+  mutate(mb_used = case_when(act_id %in% mmi_mb ~ 1,
                               TRUE ~ 0),
-         most_used = case_when(act_id %in% sampleIDs.most.dist167 ~ 1,
-                               TRUE ~ 0),
-         station_used = case_when(c(ref_used == 1 | most_used == 1)~1,
+         #most_used = case_when(act_id %in% sampleIDs.most.dist167 ~ 1,
+                               #TRUE ~ 0),
+         station_used = case_when(c(mb_used == 1)~1,
                                   TRUE ~ 0)) %>%
-  filter(ref_used == 1 | most_used == 1)
+  filter(mb_used == 1)
 
 samples_used <- as.vector(bugs_samp_used$act_id)
 stations_used <- as.vector(bugs_samp_used$MLocID)
@@ -65,7 +72,8 @@ sample_info_model <- sample_info %>%
          ref = case_when(ReferenceSite == "MOST DISTURBED" ~ 3,
                          ReferenceSite == "REFERENCE"~ 1,
                          TRUE ~ 2),
-         model_status = case_when(#EcoRegion3 == 80 ~ "Outlier",
+         model_status = case_when(EcoRegion3 == 80 ~ "Outlier-SE",
+                                  Wade_Boat == 'boatable' ~ "Outlier-boatable",
                                   c(act_used ==1 & ref == 1)~ "Ref_Cal",
                                   c(act_used ==1 & ref == 3)~ "Most_Cal",
                                   c(station_used == 1 & act_used == 0 &ref == 1) ~ "Ref_Cal_dup",
@@ -76,9 +84,10 @@ sample_info_model <- sample_info %>%
   left_join(sampl_qual, by = 'act_id') %>% 
   mutate(qualifer = case_when(c(is.na(qualifer)& EcoRegion3 == 80) ~ 3,
                                 c(is.na(qualifer)& !EcoRegion3 == 80) ~ 0,
+                                 Wade_Boat == 'boatable' ~ 7,
                                 TRUE ~ qualifer),#) %>%
          model_status_qual = paste(model_status,qualifer, sep = "-")) %>% 
-  select(act_id,act_used,station_used,ref,model_status,qualifer,model_status_qual)
+  select(act_id,station_used,ref,model_status,qualifer,qualifer_text,model_status_qual)
 
 save(sample_info_model, file = 'bugs analyses/Models_Validation/sample_info_model.Rdata')
 
@@ -144,14 +153,16 @@ O_E_stats <- O_E_cal %>%
 
 #### not using this approach - I went for the one sample per station approach #####
 # # For val duplicates take an average at the station level 
-# O_E_station <- O_E_cal %>%
-#                group_by(MLocID,model_status_qual) %>%
-#                summarise(n= n(),
-#                          OoverE_ave = mean(OoverE))
-# O_E_stats_mloc_ave <- O_E_station %>% 
-#               group_by(model_status_qual) %>% 
-#               summarise(O_E_mean = mean(OoverE_ave),
-#               O_E_sd= sd(OoverE_ave))
+O_E_station_ave <- O_E_cal %>%
+               group_by(MLocID,ReferenceSite) %>%
+               summarise(n= n(),
+                         OoverE_ave = mean(OoverE))
+
+O_E_stats_mloc_ave <- O_E_station_ave %>%
+              stations_used, by = 'MLocID') %>%
+              group_by(model_status_qual) %>%
+              summarise(O_E_mean = mean(OoverE_ave),
+              O_E_sd= sd(OoverE_ave))
 
  
 ###3 repeat process for MMI #####
@@ -210,7 +221,7 @@ OE_by_status
 
 
 mmi_val_plots <- mmi_cal %>% 
-  filter(model_status_qual %in% c('Ref_Val-0','Ref_Cal-0','Most_Cal-0','Most_Val-0'))
+  filter(model_status_qual %in% c('Ref_Val-0','Ref_Cal-0',"Not_Ref-0",'Most_Cal-0','Most_Val-0'))
 
 mmi_val <- ggplot(data=mmi_val_plots, mapping=aes(x=model_status_qual, y=MMI))+geom_boxplot()
 mmi_val

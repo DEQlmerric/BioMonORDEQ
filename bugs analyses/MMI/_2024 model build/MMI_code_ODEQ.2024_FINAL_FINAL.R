@@ -68,7 +68,7 @@ metricsdf.ref <- metricsdf.2 %>%
 
 metricsdf <- rbind(metricsdf.most, metricsdf.ref)
 
-                                     
+                                       
 #-------------------------------------------------------------------------------------------------------#
 # Step 3- combine predictors and metrics into two dataframes, one with only reference sites and one with all sites
       

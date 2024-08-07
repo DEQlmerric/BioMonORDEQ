@@ -287,7 +287,7 @@ candmetrics <- rfdat_all_final4 %>%
                                                                                         # pt_ti_steno...        14.89715      -39.30112
                                                                                         # pi_EPTNoHydro         24.32300      -54.54288
 
-
+    
 
 # SLH 8.6.24 = here are the values to hard-code in:
                                               # 

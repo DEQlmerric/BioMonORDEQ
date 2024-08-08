@@ -54,7 +54,8 @@ bug_tax_data <- fetch_data(DEQ_taxonomy_table = 'bugs analyses/Taxonomy/ODEQ_Tax
 ## Filter the original datapull ------------------------------------------------------------------------------------
 
 bug_tax_data_filtered <- bug_tax_data |> 
-  filter(SampleStart_Date > "1998-01-01") %>%
+  filter(Result_Status != 'Rejected') |> 
+  filter(SampleStart_Date > "1999-01-01") %>%
   filter(Sample_Method %in% c('Benthic Kick - Riffle', 'Benthic Kick - Targeted Riffle', 'Benthic Kick - Transect','Benthic Kick - Mixed')) %>% # LAM added mixed for USU transect data inclusion
   filter(Char_Name == 'Count') %>%
   mutate(SampleStart_Date = lubridate::ymd(SampleStart_Date)) |> 
@@ -118,9 +119,10 @@ MMI_metrics <- MMI_results$MMI_metrics
 source('bugs analyses/All_together/calculate_metrics.R')
 
 
-BCG_metrics <- calculate_metrics(bug_tax_data_filtered)
+BCG_metric_list <- calculate_metrics(bug_tax_data_filtered)
 
-
+BCG_metrics <- BCG_metric_list$Metrics
+BCG_Metric_taxa_attributes <- BCG_metric_list$metric_taxa_attribute
 
 ## Run BCG --------------------------------------------------------------------------------------------------------
 
@@ -129,6 +131,9 @@ source('bugs analyses/All_together/BCG_run.R')
 BCG <- run_BCG(BCG_metrics)
 
 BCG_results <- BCG$Levels.Flags
+BCG_Metric.Membership <- BCG$Metric.Membership
+BCG_Level.Membership <- BCG$Level.Membership
+
 
 BCG_sample <- sample_info |> 
   left_join(BCG_results, by = c('act_id' = 'SampleID'))

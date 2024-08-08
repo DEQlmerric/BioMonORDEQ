@@ -24,7 +24,7 @@ calculate_metrics <- function(bug_data){
   
 
   
-  
+
   
   # Get NHD info ----------------------------------------------------------------------------------------------------
   
@@ -143,7 +143,10 @@ calculate_metrics <- function(bug_data){
   
 
 
-
+  Metric_list <- list(Metrics = df.metrics,
+                      metric_taxa_attribute = bugs.excluded)
+  
+  return(Metric_list)
   
   
   

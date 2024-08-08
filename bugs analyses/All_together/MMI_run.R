@@ -49,7 +49,7 @@ bug_tax_nhd <- get_NHD_info(df_bugs_taxa) |>
             TaxaID = TAXAID,
             N_Taxa = Count,
             slope,
-            Index_Name = 'BCG_PugLowWilVal_500ct',
+            Index_Name ='MMI_metrics',
             INDEX_CLASS = str_to_title(SITE_TYPE),
             NonTarget,
             SITE_TYPE, 

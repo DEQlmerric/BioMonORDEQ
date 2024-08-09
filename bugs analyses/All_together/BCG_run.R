@@ -27,9 +27,9 @@ df.Metric.Membership <- BCG.Metric.Membership(df_metric, df.rules)
 # Run Function
 
 #Delete this after leppot fixes the repo bug
-source('bugs analyses/All_together/metric_membership_fix.R')
+#source('bugs analyses/All_together/metric_membership_fix.R')
 
-df.Level.Membership <- BCG.Level.Membership_fix(df.Metric.Membership, df.rules)
+df.Level.Membership <- BCG.Level.Membership(df.Metric.Membership, df.rules)
 
 # 1.D. Level Membership
 # Run Function

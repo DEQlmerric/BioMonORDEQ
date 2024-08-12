@@ -48,7 +48,7 @@
 source('bugs analyses/All_together/Fetch_data.R')
 
 bug_tax_data <- fetch_data(DEQ_taxonomy_table = 'bugs analyses/Taxonomy/ODEQ_Taxonomy_dec22.xlsx',
-                           leppo_taxonomy_table_url = 'https://raw.githubusercontent.com/leppott/BioMonTools_SupportFiles/main/data/taxa_official/_archive/ORWA_TaxaTranslator_20240204.csv')
+                           leppo_taxonomy_table_url = 'https://raw.githubusercontent.com/leppott/BioMonTools_SupportFiles/main/data/taxa_official/ORWA_TaxaTranslator_20240619.csv')
 
 
 ## Filter the original datapull ------------------------------------------------------------------------------------

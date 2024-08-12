@@ -38,10 +38,15 @@ write.xlsx(joined_OE_BCG_MMI, file = paste0("biocriteria_scores", Sys.Date(), '.
 
 ## Graphs ----------------------------------------------------------------------------------------------------------
 
-
+mmi_modelbuild <- read.csv('bugs analyses/MMI/_2024 model build/final_MMI_4.metrics.csv') %>%
+  select(SAMPLEID,MMI.2024) %>% 
+  rename(act_id = SAMPLEID, MMI_MB = MMI.2024)
 
 ref <- joined_OE_BCG_MMI |> 
-  filter(ReferenceSite == 'REFERENCE')
+  #left_join(mmi_modelbuild) |> 
+  filter(ReferenceSite == 'REFERENCE',
+         #!is.na(MMI_MB)
+         )
 
 
 
@@ -51,8 +56,8 @@ ref <- joined_OE_BCG_MMI |>
 p1 <- ggplot(data = joined_OE_BCG_MMI, aes(x = Continuous_BCG_Level, y = OoverE))+
   geom_point(aes(color = ReferenceSite))+
   #stat_smooth(method=lm)+
-  geom_hline(yintercept = 0.8, color = 'red')+
-  geom_vline(xintercept = 3.5, color = "forestgreen")+
+  geom_hline(yintercept = 0.75, color = 'red')+
+  geom_vline(xintercept = 4.5, color = "forestgreen")+
   geom_smooth(#data = filter(joined_OE_BCG_MMI, ReferenceSite == 'REFERENCE' ),  
               method='lm', formula= y~x)+
   scale_color_hue(l=50)+
@@ -65,7 +70,8 @@ p2 <- ggplot(data = joined_OE_BCG_MMI, aes(x = MMI, y = OoverE))+
   geom_point(aes(color = ReferenceSite))+
   #stat_smooth(method=lm)+
   geom_hline(yintercept = 0.8, color = 'red')+
-  geom_vline(xintercept = quantile(ref$MMI, c(.10), na.rm = TRUE) , color = "forestgreen")+
+  #geom_vline(xintercept = quantile(ref$MMI, c(.03), na.rm = TRUE) , color = "forestgreen")+
+  geom_vline(xintercept = 0.51 , color = "forestgreen")+
   geom_smooth(#data = filter(joined_OE_BCG_MMI, ReferenceSite == 'REFERENCE' ), 
     method='lm')+
   scale_color_hue(l=50)+
@@ -76,7 +82,9 @@ p2 <- ggplot(data = joined_OE_BCG_MMI, aes(x = MMI, y = OoverE))+
 p3 <- ggplot(data = joined_OE_BCG_MMI, aes(x = Continuous_BCG_Level, y = MMI))+
   geom_point(aes(color = ReferenceSite))+
   #stat_smooth(method=lm)+
-  geom_hline(yintercept = quantile(ref$MMI, c(.10), na.rm = TRUE) , color = 'red')+
+  #geom_hline(yintercept = quantile(ref$MMI, c(.03), na.rm = TRUE) , color = 'red')+
+  geom_hline(yintercept = 0.51 , color = 'red')+
+  #geom_vline(xintercept = 0.53 , color = "forestgreen")
   geom_vline(xintercept = 4.5, color = "forestgreen")+
   geom_smooth(#data = filter(joined_OE_BCG_MMI, ReferenceSite == 'REFERENCE' ), 
     method='lm', formula= y~x)+
@@ -120,7 +128,7 @@ library(openxlsx)
 
 
 library(plotly) 
-
+ggplotly(p1)
 
 
 

@@ -19,7 +19,7 @@ calculate_metrics <- function(bug_data){
   
   df_bugs_taxa <- df |> 
     dplyr::left_join(attributes,
-                     by = c('Taxon'))
+                     by = c( 'OTU_BCG_MariNW' = 'Taxon'))
   
   
 
@@ -89,7 +89,7 @@ calculate_metrics <- function(bug_data){
     transmute(SampleID = act_id,
               Area_mi2 = NA_integer_,
               SurfaceArea = NA_integer_,
-              TaxaID = Taxon, #is this correct???
+              TaxaID = OTU_BCG_MariNW, #is this correct???
               N_Taxa = Result_Numeric,
               Index_Name = 'BCG_MariNW_Bugs500ct',
               INDEX_CLASS = SITE_TYPE,

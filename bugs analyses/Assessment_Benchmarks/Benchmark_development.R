@@ -16,18 +16,19 @@ o_E_ref_mb_percentile <- o_E_ref_mb_plot %>%
 OE_ref_mb_hist <- ggplot(data=o_E_ref_mb_plot, mapping=aes(x=OoverE_MB)) +geom_histogram(alpha=0.5, position="identity")
 OE_ref_mb_hist
 
-R1 <- ggplot(data = o_E_ref_mb_plot, aes(x = Continuous_BCG_Level, y = OoverE_MB))+
-  geom_point(aes(color = model_status))+
-  #stat_smooth(method=lm)+
-  geom_hline(yintercept = 0.9, color = 'red')+
-  geom_hline(yintercept = 0.8, color = 'red')+
-  geom_vline(xintercept = 3.5, color = "forestgreen")+
-  geom_vline(xintercept = 4.5, color = "forestgreen")+
-  geom_smooth(#data = filter(joined_OE_BCG_MMI, ReferenceSite == 'REFERENCE' ),  
-    method='lm', formula= y~x)+
-  scale_color_hue(l=50)+
-  labs(title = 'O:E + BCG')+
-  theme_bw()
+# not using this 
+# R1 <- ggplot(data = o_E_ref_mb_plot, aes(x = Continuous_BCG_Level, y = OoverE_MB))+
+#   geom_point(aes(color = model_status))+
+#   #stat_smooth(method=lm)+
+#   geom_hline(yintercept = 0.9, color = 'red')+
+#   geom_hline(yintercept = 0.8, color = 'red')+
+#   geom_vline(xintercept = 3.5, color = "forestgreen")+
+#   geom_vline(xintercept = 4.5, color = "forestgreen")+
+#   geom_smooth(#data = filter(joined_OE_BCG_MMI, ReferenceSite == 'REFERENCE' ),  
+#     method='lm', formula= y~x)+
+#   scale_color_hue(l=50)+
+#   labs(title = 'O:E + BCG')+
+#   theme_bw()
 
 R1 
 ### repeat process for MMI 
@@ -40,11 +41,14 @@ mmi_modelbuild <- read.csv('bugs analyses/MMI/_2024 model build/final_MMI_4.metr
   
 
 mmi_mb_percentile <- mmi_modelbuild %>%
-  group_by(model_status) %>% 
+  filter(model_status == 'Ref_Cal') %>%
+  #group_by(model_status) %>% 
   reframe(enframe(quantile(MMI_MB, c(0.05, 0.10, 0.25,0.35,0.5,0.75,0.90)), "quantile", "MMI_MB"))
 
+mmi_mb_ref <- mmi_modelbuild %>%
+  filter(model_status == 'Ref_Cal')
 
-mmi_ref_mb_hist <- ggplot(data=mmi_modelbuild, mapping=aes(x=MMI_MB, color=model_status, fill = model_status)) +geom_histogram(alpha=0.5, position="identity")
+mmi_ref_mb_hist <- ggplot(data=mmi_mb_ref, mapping=aes(x=MMI_MB, color=model_status, fill = model_status)) +geom_histogram(alpha=0.5, position="identity")
 mmi_ref_mb_hist
 
 mmi_modelbuild_ref <- mmi_modelbuild %>% 

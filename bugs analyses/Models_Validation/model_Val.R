@@ -151,18 +151,13 @@ O_E_stats <- O_E_cal %>%
             O_E_MB_mean = mean(OoverE_MB), 
             O_E_MB_sd= sd(OoverE_MB))
 
-#### not using this approach - I went for the one sample per station approach #####
+#### not using this approach -  #####
 # # For val duplicates take an average at the station level 
 O_E_station_ave <- O_E_cal %>%
                group_by(MLocID,ReferenceSite) %>%
                summarise(n= n(),
                          OoverE_ave = mean(OoverE))
 
-O_E_stats_mloc_ave <- O_E_station_ave %>%
-              stations_used, by = 'MLocID') %>%
-              group_by(model_status_qual) %>%
-              summarise(O_E_mean = mean(OoverE_ave),
-              O_E_sd= sd(OoverE_ave))
 
  
 ###3 repeat process for MMI #####
@@ -236,3 +231,15 @@ mmi_status_plot <- mmi_cal %>%
 mmi_by_status <- ggplot(data=mmi_status_plot, mapping=aes(x=model_status_qual, y=MMI))+geom_boxplot()
 mmi_by_status
 
+##### site variability #### 
+
+Mloc_summary <- joined_OE_BCG_MMI %>% 
+              group_by(MLocID) %>% 
+              summarise(n = n(),
+                        MMI_mean = mean(MMI),
+                        MMI_sd= sd(MMI),
+                        OE_mean = mean(OoverE),
+                        OE_sd= sd(OoverE),
+                        BCG_mean = mean(Continuous_BCG_Level),
+                        BCG_sd= sd(Continuous_BCG_Level)) %>% 
+              filter(n>1)

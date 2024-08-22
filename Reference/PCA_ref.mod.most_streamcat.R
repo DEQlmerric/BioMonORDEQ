@@ -4,7 +4,7 @@
 #             and StreamCat predictors
 
 
-
+library(tidyverse)
 ################################################
 
 -STEP 1: run the 'FrontEnd_v2.R', lines 47:88
@@ -17,83 +17,198 @@
 -STEP 2: associate StreamCat with sample_info
 
 
+library(StreamCatTools)
+
+#####
+
+#   Query StreamCat database
+
+#####
+
+region_params <- sc_get_params(param='areaOfInterest')
+name_params <- sc_get_params(param='name')
+name_params <- sort(name_params)  
+
+
+# Get data for the three Hydroregions covering: 17= OR+WA+ID, 16 = NV, 18 = CA
+
+# Watershed + Other (stream temp mets)
+metrics_WS.OTHER_OR.CA.NV <- sc_get_data(metric='al2o3,bfi,cao,clay,compstrgth,elev,fe2o3,hydrlcond,
+                       inorgnwetdep_2008,k2o,kffact,mast_2008,mast_2009,mast_2013,mast_2014,
+                       msst_2008,msst_2009,msst_2013,msst_2014,mwst_2008,mwst_2009,mwst_2013,mwst_2014,  
+                       mgo,n,na2o,nh4_2008,no3_2008,om,p2o5,pctalkintruvol,pctalluvcoast,pctbl2001,
+                       pctbl2004,pctcarbresid,pctcoastcrs,pctcolluvsed,pcteolcrs,pcteolfine,pctextruvol,
+                       pctglaclakecrs,pctglaclakefine,pctglactilclay,pctglactilcrs,pctglactilloam,
+                       pcthydric,pctice2001,pctice2004,pctice2006,pctice2008,pctice2011,
+                       pctice2013,pctice2016,pctice2019,pctsallake,perm,
+                       precip8110,rckdep,s,sand,sio2,tmax8110,tmean8110,tmin8110', 
+                       aoi='watershed, other', region='16,17,18')
+
+# convert multiple years to means
+metrics_WS.OTHER_OR.CA.NV <- metrics_WS.OTHER_OR.CA.NV %>%
+  #mutate(MAST_mean08.14 = (MAST_2008+MAST_2009+MAST_2013+MAST_2014)/4) %>%
+ # mutate(MSST_mean08.14 = (MSST_2008+MSST_2009+MSST_2013+MSST_2014)/4) %>% 
+  #mutate(MWST_mean08.14 = (MWST_2008+MWST_2009+MWST_2013+MWST_2014)/4) %>%
+  mutate(PCTICE_mean01.19 = (PCTICE2001WS+PCTICE2004WS+PCTICE2006WS+PCTICE2008WS+PCTICE2011WS+
+                               PCTICE2013WS+PCTICE2016WS+PCTICE2019WS)/8) %>%
+  select(#-MAST_2008, -MAST_2009,-MAST_2013,-MAST_2014,-MSST_2008,-MSST_2009,
+         #-MSST_2013,-MSST_2014,-MWST_2008,-MWST_2009,-MWST_2013,-MWST_2014, 
+         -PCTICE2001WS,-PCTICE2004WS,-PCTICE2006WS,-PCTICE2008WS,-PCTICE2011WS,
+         -PCTICE2013WS,-PCTICE2016WS,-PCTICE2019WS)
 
 
 
 
 ###################################################
--STEP 3: run PCA
+#-STEP 3: associate streamcat to comids
+
+
+# get unique stations
+sta.comid <- sample_info %>%
+  filter(Wade_Boat == 'wadeable') %>%
+  select(MLocID, COMID, EcoRegion3, ReferenceSite) %>%
+  distinct(MLocID, .keep_all = TRUE)
+
+sta.comid2 <- na.omit(sta.comid)
+
+
+
+sta.comid_kitty <- sta.comid %>%
+  left_join(metrics_WS.OTHER_OR.CA.NV, by = "COMID") %>%
+  select(-REGIONID)
+
+
+###################################################
+#-STEP 4: run PCA
 
 
 
 # remove columns with "zero variance"
-which(apply(ref.cat, 2, var)==0)  
 
+
+sta.comid_kitty[,c(5:47)] %>% 
+  summarise_all(var) %>% 
+  select_if(function(.) . == 0) %>% 
+  names()
 
 
 # missing data blows up the PCA -- remove rows with missing data
+sta.comid_kitty_complete <- sta.comid_kitty[complete.cases(sta.comid_kitty), ]
 
-# change NAs from Disturb.score and BPJ.final -- these can be changed to some sort of dummy/marker value
 
-ref.cat$Disturb.score[is.na(ref.cat$Disturb.score)] <- -999
-ref.cat$BPJ_final[is.na(ref.cat$BPJ_final)] <- "Not Assessed"
+# data transformations for PCA: normal distributions an assumption for linear relationships
+source("//deqlab1/Biomon/R Stats/chris parker scripts/transform.variables[1]_SH divide by 100.r") #
 
-# remove incomplete cases
-ref.cat_complete <- ref.cat[complete.cases(ref.cat), ]
+transform.view(sta.comid_kitty_complete)  # [,c(5:47)]
 
-@@@@@@
-  @@@@@@@   removes 84 records without COMIDs matching....several are ref sites, need to include to show better coverage
-@@@@@@
-  
-                # data transformations for PCA: normal distributions an assumption for linear relationships
-                #source("//deqlab1/Biomon/R Stats/chris parker scripts/transform.variables[1]_SH divide by 100.r")
+@@@@ this isnt working
 
-  
-# example of data transformation, without saving
-  
-log10(ref.cat_complete$PctNonCarbResidWs)
-sqrt(ref.cat_complete$PctNonCarbResidWs)
-asin(sqrt(ref.cat_complete$PctNonCarbResidWs/100))
-                
-                #transform.view(ref.cat[,c(27:65)])
+
+
+
+library(DataExplorer)
+
+
+plot_missing(sta.comid_kitty_complete)
+plot_histogram(sta.comid_kitty_complete)
+#drop the following: low variability/range of values
+sta.comid_kitty_complete2 <- sta.comid_kitty_complete %>%
+  select(-c(PCTALKINTRUVOLWS, PCTALLUVCOASTWS, PCTCARBRESIDWS, PCTEOLFINEWS, PCTEOLCRSWS, PCTEXTRUVOLWS,
+            PCTHYDRICWS, PCTGLACLAKECRSWS, PCTGLACLAKEFINEWS, PCTGLACTILCRSWS, PCTSALLAKEWS, PCTBL2004WS, 
+            PCTCOLLUVSEDWS, PCTBL2001WS, PCTICE_mean01.19, PCTGLACTILCLAYWS, PCTGLACTILLOAMWS,
+            PCTCOASTCRSWS))
+
+
+# get ReferenceSite levels ready for plotting in proper order and color
+sta.comid_kitty_complete2$ReferenceSite <- as.factor(sta.comid_kitty_complete2$ReferenceSite)
+
+sta.comid_kitty_complete2$ReferenceSite <- factor(sta.comid_kitty_complete2$ReferenceSite, 
+                                          levels = c("REFERENCE", "MODERATELY DISTURBED", "MOST DISTURBED"))
+
+
+
+                      #windows()
+                      plot_qq(sta.comid_kitty_complete2)
+                      
+                             # no transformation needed:
+                            SIO2WS 
+                            TMEAN8110WS 
+                            K2OWS 
+                            COMPSTRGTHWS 
+                            CLAYWS 
+                            TMAX8110WS 
+                            KFFACTWS
+                            BFI 
+                      
+                      # look at log plots to see which improve
+                      log_qq_data <- update_columns(sta.comid_kitty_complete2, 5:29, function(x) log10(x + 1))
+                      plot_qq(log_qq_data[, 5:29])
+                      
+                            # variables improved by Log + 1
+                            
+                            SANDWS
+                            WSAREAKM
+                            TMAX8110WS
+                            WSAREASQKM
+                            PERMWS
+                            ELEVWS
+                      
+                      # look at sqrt plots to see which improve
+                      sqrt_qq_data <- update_columns(sta.comid_kitty_complete2, 5:29, function(x) sqrt(x))
+                      plot_qq(sqrt_qq_data[, 5:29])
+                      
+                      
+                            # variables improved by sqrt
+                          
+                            OMWS
+                      
+                      # look at asin.sqrt plots
+                      asin.sqrt_qq_data <- update_columns(sta.comid_kitty_complete2, 5:29, function(x) asin(sqrt(x/100)))
+                      plot_qq(asin.sqrt_qq_data[, 5:29])
+                      
+                            # variables improved by asin.sqrt
+                            #RCKDEPWS ---- no! too many NaNs produced
+
+
 
 log.10p1 <- function(x, na.rm = FALSE) (log10(x +1)) #, na.rm = na.rm))
 log.10 <- function(x, na.rm = FALSE) (log10(x))      #, na.rm = na.rm))
 asin.sqrt.100 <- function(x, na.rm = FALSE) (asin(sqrt(x/100))) #, na.rm = na.rm)))
-sqrt <- function(x, na.rm = FALSE) (sqrt(x))         #, na.rm = na.rm))
+sqroot <- function(x, na.rm = FALSE) (sqrt(x))         #, na.rm = na.rm))
 
-            ref.cat_complete <- ref.cat_complete %>% 
-              mutate_at(c('PctNonCarbResidWs', 'PctSilicicWs'), asin.sqrt.100)  
-              # summary(ref.cat$PctNonCarbResidWs); summary(ref.cat_complete$PctNonCarbResidWs)
-            
-            ref.cat_complete <- ref.cat_complete %>% 
-              mutate_at(c('CompStrgthWs'), sqrt)  
-            
-            
-            ref.cat_complete <- ref.cat_complete %>% 
-              mutate_at(c('WsAreaSqKm', 'ElevWs','MgOWs'), log.10p1)  %>% 
-              mutate_at(c('SWs', 'NWs','HydrlCondWs'), log.10)  
-            
-# create a new df for assessing PCA with transformed variables
-ref.cat_trans <- ref.cat_complete
-
-# remove variables with little info  
-ref.cat_trans <- ref.cat_trans %>%   
-    select (-c(PctCarbResidWs, PctGlacTilClayWs,	PctGlacTilLoamWs,	PctGlacTilCrsWs, PctGlacLakeCrsWs,
-             PctGlacLakeFineWs,	PctHydricWs,	PctEolCrsWs,	PctEolFineWs,	PctSalLakeWs,	PctAlluvCoastWs,
-             PctCoastCrsWs,	PctWaterWs,	AgKffactWs))
+#trans_sta.kitty <- sta.comid_kitty_complete2 %>% 
+ # mutate_at(c('RCKDEPWS'), asin.sqrt.100)  
 
 
-ref.cat_complete <- ref.cat_complete %>%   
-  select (-c(PctCarbResidWs, PctGlacTilClayWs,	PctGlacTilLoamWs,	PctGlacTilCrsWs, PctGlacLakeCrsWs,
-             PctGlacLakeFineWs,	PctHydricWs,	PctEolCrsWs,	PctEolFineWs,	PctSalLakeWs,	PctAlluvCoastWs,
-             PctCoastCrsWs,	PctWaterWs,	AgKffactWs))
-
-  
-# data transformations
-ref.cat_trans$PctNonCarbResidWs <- asin(sqrt(ref.cat_trans$PctNonCarbResidWs/100))
+trans_sta.kitty <- sta.comid_kitty_complete2 %>% 
+  mutate_at(c('OMWS'), sqroot)  %>% 
+  mutate_at(c('SANDWS', 'WSAREASQKM','TMAX8110WS', 'PERMWS', 'ELEVWS'), log.10p1)  # %>% 
+#   mutate_at(c('SWs', 'NWs','HydrlCondWs'), log.10)  
 
 
+
+                                                                                    # 
+                                                                                    # 
+                                                                                    # # create a new df for assessing PCA with transformed variables
+                                                                                    # ref.cat_trans <- ref.cat_complete
+                                                                                    # 
+                                                                                    # # remove variables with little info  
+                                                                                    # ref.cat_trans <- ref.cat_trans %>%   
+                                                                                    #     select (-c(PctCarbResidWs, PctGlacTilClayWs,	PctGlacTilLoamWs,	PctGlacTilCrsWs, PctGlacLakeCrsWs,
+                                                                                    #              PctGlacLakeFineWs,	PctHydricWs,	PctEolCrsWs,	PctEolFineWs,	PctSalLakeWs,	PctAlluvCoastWs,
+                                                                                    #              PctCoastCrsWs,	PctWaterWs,	AgKffactWs))
+                                                                                    # 
+                                                                                    # 
+                                                                                    # ref.cat_complete <- ref.cat_complete %>%   
+                                                                                    #   select (-c(PctCarbResidWs, PctGlacTilClayWs,	PctGlacTilLoamWs,	PctGlacTilCrsWs, PctGlacLakeCrsWs,
+                                                                                    #              PctGlacLakeFineWs,	PctHydricWs,	PctEolCrsWs,	PctEolFineWs,	PctSalLakeWs,	PctAlluvCoastWs,
+                                                                                    #              PctCoastCrsWs,	PctWaterWs,	AgKffactWs))
+                                                                                    # 
+                                                                                    #   
+                                                                                    # # data transformations
+                                                                                    # ref.cat_trans$PctNonCarbResidWs <- asin(sqrt(ref.cat_trans$PctNonCarbResidWs/100))
+                                                                                    # 
+                                                                                    # 
 
 
   
@@ -101,7 +216,7 @@ ref.cat_trans$PctNonCarbResidWs <- asin(sqrt(ref.cat_trans$PctNonCarbResidWs/100
 library(FactoMineR)  
 library("factoextra")
 library("corrplot")
-pca.allsites <- PCA(ref.cat_complete[,c(27:51)], graph = FALSE)
+pca.allsites <- PCA(trans_sta.kitty[,c(5:29)], graph = FALSE)
 
 summary(pca.allsites)
 str(pca.allsites)
@@ -148,21 +263,9 @@ fviz_pca_var(pca.allsites, col.var = "contrib",
 )
 
             
- fviz_pca_ind(pca.allsites, col.ind = "cos2", 
-              gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-              repel = TRUE # Avoid text overlapping (slow if many points)
-             )
 
 
 
-
-grp <- as.factor(ref.cat$Eco3)
-# Color variables by groups
-fviz_pca_var(pca.allsites, col.var = grp, 
-             palette = c("#0073C2FF", "#EFC000FF", "#868686FF"),
-             legend.title = "Cluster")
-
-@@@@@@@@ doesnt work.  grouping var not the same length as # rows in pca
 
 
 
@@ -172,7 +275,7 @@ fviz_pca_var(pca.allsites, col.var = grp,
 # Eco3
 fviz_pca_ind(pca.allsites,
              geom.ind = "point", # show points only (nbut not "text")
-             col.ind = ref.cat$Eco3, # color by groups
+             col.ind = trans_sta.kitty$EcoRegion3, # color by groups
              palette = 'lancet', #c('violet', 'blue', 'green', 'gray', 'orange', 'red', 'pink', 'black', 'forest green'),
              addEllipses = TRUE, # Concentration ellipses
              legend.title = "Groups"
@@ -181,18 +284,10 @@ fviz_pca_ind(pca.allsites,
 # Ref 2020
 fviz_pca_ind(pca.allsites,
              geom.ind = 'point', # show points only (nbut not "text")
-             col.ind = ref.cat$Ref2020_FINAL, # color by groups
-             palette = c('forest green', 'blue', 'red'),
+             col.ind = trans_sta.kitty$ReferenceSite, # color by groups
+             palette = c('blue', 'forest green', 'red'),
              addEllipses = TRUE, # Concentration ellipses
              legend.title = 'Ref Class 2016')
-
-# Owner
-fviz_pca_ind(pca.allsites,
-             geom.ind = 'point', # show points only (nbut not "text")
-             col.ind = ref.cat$owner, # color by groups
-             palette = c('forest green', 'blue', 'red'),
-             #addEllipses = TRUE, # Concentration ellipses
-             legend.title = 'Ref class 2020')
 
 
 
@@ -213,7 +308,7 @@ fviz_pca_biplot(pca.allsites,
                 geom.ind = "point",
                 pointshape = 21,
                 pointsize = 2,
-                fill.ind = ref.cat$Eco3,
+                fill.ind = sta.comid_kitty_complete2$EcoRegion3,
                 col.ind = "black",
                 # Color variable by groups
                 #col.var = factor(c("sepal", "sepal", "petal", "petal")),
@@ -233,7 +328,7 @@ fviz_pca_ind(pca.allsites,
              geom.ind = "point",
              pointshape = 21,
              pointsize = 2,
-             fill.ind = ref.cat$Eco3, 
+             fill.ind = sta.comid_kitty_complete2$EcoRegion3, 
              addEllipses = TRUE,
              #col.ind = "black",
              # Color variable by groups
@@ -249,8 +344,8 @@ fviz_pca_ind(pca.allsites,
 fviz_pca_ind(pca.allsites,
              geom.ind = "point", # show points only (but not "text")
              pointshape = 21,
-             pointsize = ref.cat$Ref2020_FINAL,
-             fill.ind = ref.cat$Eco3, # color by groups
+             pointsize = sta.comid_kitty_complete2$ReferenceSite,
+             fill.ind = sta.comid_kitty_complete2$EcoRegion3, # color by groups
              palette = c('purple', 'blue', 'green', 'orange', 'red', 'gray', 'pink', 'black', 'forest green'), 
              addEllipses = FALSE, # Concentration ellipses
              legend.title = "Groups"
@@ -261,8 +356,8 @@ fviz_pca_ind(pca.allsites,
 fviz_pca_biplot(pca.allsites,
                 geom.ind = "point", # show points only (nbut not "text")
                 pointshape = 21,
-                pointsize = ref.cat$Ref2020_FINAL,
-                fill.ind = ref.cat$Eco3, # color by groups
+                pointsize = sta.comid_kitty_complete2$ReferenceSite,
+                fill.ind = sta.comid_kitty_complete2$EcoRegion3, # color by groups
                 palette = c('purple', 'blue', 'green', 'orange', 'red', 'gray', 'black','yellow',  'forest green'), 
                 addEllipses = FALSE, # Concentration ellipses
                 select.var = list(cos2  = 0.5),  # opnly include variables with cos2 > 0.5
@@ -270,25 +365,59 @@ fviz_pca_biplot(pca.allsites,
 ) 
 
 
+###################################################
 
-# from CA F&G code
-library(ggplot2)
+# summary stats table
 
-pca.plot<-
-  ggplot(stations, aes(x=Nat.PC1, y=Nat.PC2))+
-  geom_point()+
-  theme_bw()
+library(vtable)
 
-ggsave(pca.plot, filename="PeteFigures011013/pca.plot.eps",width=10, height=8, units="in") 
-# ggsave(pca.plot, filename="PeteFigures011013/pca.plot.jpg",width=10, height=8, units="in") 
-
-pca.plot.refs<-
-  pca.plot+
-  geom_point(data=subset(stations, SiteStatus=="Reference"), shape=21, fill="gray90", size=4)
-
-ggsave(pca.plot.refs, filename="PeteFigures011013/pca.plot.refs.eps",width=10, height=8, units="in") 
+sta.kitty_sum <- sta.comid_kitty_complete2[,c(4:29)]
 
 
+st(sta.kitty_sum, group = 'ReferenceSite')
+
+
+
+
+########### 
+
+# box plots
+
+
+# wsarea has big diffs between most disturbed and others -- rescale
+
+sta.kitty_sum.scale <- sta.kitty_sum %>%
+  mutate(WSAREASQKM.log = log10(WSAREASQKM)) %>%
+  select(!WSAREASQKM)
+
+sta.kitty_long <- sta.kitty_sum.scale %>%
+  pivot_longer(!ReferenceSite, names_to = "metric", values_to = "value") 
+
+                sta.kitty_long <- as.data.frame(sta.kitty_long)
+                
+                sta.kitty_long <- sta.kitty_long %>%
+                  recode(ReferenceSite, REFERENCE = 'REF')
+
+sta.kitty_long$ReferenceSite <- as.character(sta.kitty_long$ReferenceSite)                
+                
+sta.kitty_long[sta.kitty_long == 'REFERENCE'] <- 'REF'
+sta.kitty_long[sta.kitty_long == 'MODERATELY DISTURBED'] <- 'MOD'
+sta.kitty_long[sta.kitty_long == 'MOST DISTURBED'] <- 'MOST'
+
+
+sta.kitty_long$ReferenceSite <- as.factor(sta.kitty_long$ReferenceSite)                
+sta.kitty_long$ReferenceSite <- factor(sta.kitty_long$ReferenceSite, 
+                                          levels = c("REF", "MOD", "MOST"))
+
+
+
+ggplot(data = sta.kitty_long, 
+       mapping = aes(x = ReferenceSite, y = value)) +
+           geom_jitter(alpha = 0.05, color = "blue") +
+           geom_boxplot(alpha = 0) +  # Do not show outliers
+         
+          theme_bw()+
+    facet_wrap(facets = vars(metric), scales = "free")
 
 
 

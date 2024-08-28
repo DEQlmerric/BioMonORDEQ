@@ -242,4 +242,4 @@ Mloc_summary <- joined_OE_BCG_MMI %>%
                         OE_sd= sd(OoverE),
                         BCG_mean = mean(Continuous_BCG_Level),
                         BCG_sd= sd(Continuous_BCG_Level)) %>% 
-              filter(n>1)
+              filter(n>5)

@@ -15,15 +15,16 @@ mloc_aves <-joined_OE_BCG_MMI%>%
   mutate(BCG_level=round(BCG_site_avg),
          BCG_level=as.factor(BCG_level))%>%
   filter(!is.na(BCG_level)&!is.na(MMI_site_avg)) %>% 
-  left_join(mloc_info, by = "MLocID") 
+  left_join(mloc_info, by = "MLocID") %>% 
+  filter(OE_site_avg >0)
 
 #### get linear regression equation to find O_E values at BGC levels 3.5 and 4.5 - 
 fit_OE_ave <- lm(formula = OE_site_avg ~ BCG_site_avg, data = mloc_aves)
 summary(fit_OE_ave)
 
 ## determine the O_E value of BCG 4.5 using lm above 
-attain_ave <- (-0.178787*3.5)  + 1.553726
-impair_ave <- (-0.178787 *4.5) + 1.553726
+attain_ave <- (-0.177638*3.5)  + 1.550113
+impair_ave <- (-0.177638 *4.5) + 1.550113
 
 # get linear regression equation to find MMI values at BGC levels 3.5 and 4.5 
 
@@ -31,8 +32,8 @@ fit_MMI_ave <- lm(formula = MMI_site_avg ~ BCG_site_avg, data = mloc_aves)
 summary(fit_MMI_ave)
 
 ## determine the MMI value of BCG 4.5 & 3.5using lm above 
-attain_mmi_ave <- (-0.148129*3.5)  + 1.164929
-impair_mmi_ave <- (-0.148129*4.5)  + 1.164929
+attain_mmi_ave <- (-0.14836 *3.5)  + 1.16599
+impair_mmi_ave <- (-0.14836 *4.5)  + 1.16599
 
 ###### generate plots #### 
 ### add colors set colors to reference status - by alphabetical order ?? 
@@ -45,7 +46,9 @@ oe_bcg <- ggplot(data = mloc_aves, aes(x = BCG_site_avg, y = OE_site_avg))+
   geom_smooth(#data = filter(joined_OE_BCG_MMI, ReferenceSite == 'REFERENCE' ),  
     method='lm', formula= y~x,color = "black")+
   scale_color_manual(values=ref_colors)+
-  labs(title = 'O:E + BCG')+
+  labs(title = 'O:E + BCG',
+       y = "O/E Site Average",
+       x = "BCG Level")+
   theme_bw()
 oe_bcg
 
@@ -56,14 +59,16 @@ mmi_bcg <- ggplot(data = mloc_aves, aes(x = BCG_site_avg, y = MMI_site_avg))+
   geom_smooth(#data = filter(joined_OE_BCG_MMI, ReferenceSite == 'REFERENCE' ),  
     method='lm', formula= y~x,color = "black")+
   scale_color_manual(values=ref_colors)+
-  labs(title = 'MMI + BCG')+
+  labs(title = 'MMI + BCG',
+       y = "MMI Site Average",
+       x = "BCG Level")+
   theme_bw()
 mmi_bcg
 
 ##### get percentiles of mloc averages for all reference sites #### 
 
 ref_mloc_aves <- mloc_aves %>% 
-                 left_join(mloc_info, by = "MLocID") %>% 
+                 #left_join(mloc_info, by = "MLocID") %>% 
                   filter(ReferenceSite == "REFERENCE")
 
 OE_ra_percentile <- ref_mloc_aves %>%
@@ -94,5 +99,5 @@ mmi_modelbuild <- read.csv('bugs analyses/MMI/_2024 model build/final_MMI_4.metr
 mmi_mb_ref_percentile <- mmi_modelbuild %>%
   filter(model_status == 'Ref_Cal') %>%
   #group_by(model_status) %>% 
-  reframe(enframe(quantile(MMI_MB, c(0.01,0.02,0.03,0.05, 0.10, 0.25,0.35,0.5,0.75,0.90)), "quantile", "MMI_MB"))
+  reframe(enframe(quantile(MMI_MB, c(0.01,0.02,0.03,0.05, 0.10, 0.25,0.30,0.5,0.75,0.90)), "quantile", "MMI_MB"))
 

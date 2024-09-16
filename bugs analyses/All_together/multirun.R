@@ -36,6 +36,10 @@ sample_info <- bug_tax_data_filtered |>
          GNIS_Name, Conf_Score, QC_Comm,COMID, AU_ID,  ReferenceSite, Wade_Boat) |> 
   distinct()
 
+tot_num_bugs <- bug_tax_data_filtered |> 
+  group_by(act_id) |> 
+  summarise(tot_indiv = sum(Result_Numeric))
+
 
 
 
@@ -126,12 +130,22 @@ ggplot(result_stats_MMI, aes(x=sd_MMI)) +
   ylab("Number of samples")+
   theme_minimal()
   
+
+#read in good scores
+
+library(openxlsx)
+good_actid <- read.xlsx("C:/Users/tpritch/Oregon/DEQ - Integrated Report 🎉 - IR_2026/Methodology/FW BioCriteria/biocriteria_scores2024-08-07_filtered.xlsx") |> 
+  pull(act_id)
+
+
 results_together <- result_stats_OE |> 
   select(sample, sd_OE) |> 
   left_join( select(result_stats_MMI, sample, sd_MMI)) |> 
   pivot_longer(cols = c(sd_OE, sd_MMI),
                names_to = 'type',
-               values_to = 'st_dev')
+               values_to = 'st_dev') |> 
+  left_join(tot_num_bugs, by = c('sample' = 'act_id') ) |> 
+  filter(sample %in% good_actid)
 
 
 
@@ -139,7 +153,25 @@ ggplot(results_together, aes(x=st_dev, fill = type, color=type)) +
   geom_histogram(alpha = 0.5,
                  aes(x=st_dev, fill = type, color=type),
                  position='identity') +
-  labs(title = paste("Histogram of standard deviation over",num_runs, "subsampling runs" ))+
+  labs(title = paste("Histogram of standard deviation over",num_runs, "subsampling runs" ),
+       x = "Standard Deviation",
+       legend = 'll')+
   ylab("Number of samples")+
-  theme_minimal()
+  theme_minimal()+
+  guides(color = FALSE,
+         fill=guide_legend(title="Metric"))+
+  scale_fill_discrete(labels=c('MMI', 'O:E'))+
+  theme(text = element_text(size = 12))
+  
+
+ggplot(results_together, aes(x =tot_indiv,  y=st_dev,  color=type)) + 
+  geom_point(alpha = 0.5)+
+  labs(title = paste("Total individuals in sample and standard deviation over",num_runs, "subsampling runs" ),
+       x = "Total individuals in sample",
+       y = 'Standard Deviation')+
+  theme_minimal()+
+  guides(color = guide_legend(title="Metric"))+
+  scale_color_discrete(labels=c('MMI', 'O:E'))+
+  theme(text = element_text(size = 12))
+
 

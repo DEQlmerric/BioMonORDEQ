@@ -43,9 +43,9 @@ mmi_modelbuild <- read.csv('bugs analyses/MMI/_2024 model build/final_MMI_4.metr
   rename(act_id = SAMPLEID, MMI_MB = MMI.2024)
 
 ref <- joined_OE_BCG_MMI |> 
-  #left_join(mmi_modelbuild) |> 
+  left_join(mmi_modelbuild) |> 
   filter(ReferenceSite == 'REFERENCE',
-         #!is.na(MMI_MB)
+         !is.na(MMI_MB)
          )
 
 

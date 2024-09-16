@@ -19,10 +19,10 @@ abline(fit, col = "red")
 
 
 #To get linear regression intersect, we need a dataframe of values. For now, I'm only interested in BCG level 4.5
-newdata = data.frame(Continuous_BCG_Level=4.5)
-
+Impaired = data.frame(Continuous_BCG_Level=4.5)
+Attain = data.frame(Continuous_BCG_Level=3.5)
 #calculate the linear regression intercept
-predict(fit, newdata)
+predict(fit, Impaired)
 
 
 
@@ -30,7 +30,7 @@ predict(fit, newdata)
 # This section will calculate exact quantile from ALL identified reference sites
 #If you want to limit to model build sites,  use ref2 instead of ref
 
-percentile <- ecdf(ref$MMI)
+percentile <- ecdf(ref2$MMI)
 percentile(predict(fit, newdata))
 
 
@@ -39,9 +39,10 @@ percentile(predict(fit, newdata))
 # plot MMI histogram with linear regression intercept value -------------------------------------------------------
 
 
-ggplot(data = ref,aes(x=MMI))+
+ggplot(data = ref2,aes(x=MMI))+
   geom_histogram()+
-  geom_vline(xintercept = predict(fit, newdata), color = "red")
+  geom_vline(xintercept = predict(fit, Impaired), color = "red")+
+  geom_vline(xintercept = predict(fit, Attain), color = "forestgreen")
   
 
 

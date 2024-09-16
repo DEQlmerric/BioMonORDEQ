@@ -1,5 +1,8 @@
 library (tidyverse)
 
+load('bioassess_8-6-24.Rdata')
+
+
 #### generate benchmarks based on average scores at a monitoring location 
 mloc_info <- joined_OE_BCG_MMI %>% 
              select(org_id,Project1,AU_ID,MLocID,StationDes,COMID,
@@ -37,7 +40,9 @@ impair_mmi_ave <- (-0.14836 *4.5)  + 1.16599
 
 ###### generate plots #### 
 ### add colors set colors to reference status - by alphabetical order ?? 
-ref_colors <- c("yellow3","red3","royalblue3")
+ref_colors <- c("royalblue3", "yellow3","red3")
+mloc_aves$ReferenceSite <- factor(mloc_aves$ReferenceSite, levels=c('REFERENCE', 'MODERATELY DISTURBED', 'MOST DISTURBED'))
+
 
 oe_bcg <- ggplot(data = mloc_aves, aes(x = BCG_site_avg, y = OE_site_avg))+
   geom_point(aes(color = ReferenceSite))+
@@ -49,6 +54,7 @@ oe_bcg <- ggplot(data = mloc_aves, aes(x = BCG_site_avg, y = OE_site_avg))+
   labs(title = 'O:E + BCG',
        y = "O/E Site Average",
        x = "BCG Level")+
+  guides(color = guide_legend(title="Site Type"))+
   theme_bw()
 oe_bcg
 
@@ -62,6 +68,7 @@ mmi_bcg <- ggplot(data = mloc_aves, aes(x = BCG_site_avg, y = MMI_site_avg))+
   labs(title = 'MMI + BCG',
        y = "MMI Site Average",
        x = "BCG Level")+
+  guides(color = guide_legend(title="Site Type"))+
   theme_bw()
 mmi_bcg
 

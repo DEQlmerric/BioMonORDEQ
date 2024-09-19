@@ -31,7 +31,7 @@ joined_OE_BCG_MMI_withSE <- left_join(OE, BCG, by = join_by(act_id)) |>
   left_join(MMI_met) |> 
   left_join(MMI) |> 
   left_join(sample_info_model, by = 'act_id') %>% 
-  filter(qualifer %in% c(0,7)) %>% ## removes sus data (low counts, glacial sites and poor samples)
+  filter(qualifer %in% c(0,3)) %>% ## removes sus data (low counts, glacial sites and poor samples)
   filter(!is.na(ReferenceSite))
 
 ### this one has all qualifiers removed 

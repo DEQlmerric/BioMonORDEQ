@@ -26,14 +26,25 @@ MMI_met <- MMI_metrics |>
 
 load("bugs analyses/Models_Validation/sample_info_model.Rdata") ### this comes from model_val script 
 
+### this one keeps qualifiers 
+joined_OE_BCG_MMI_withSE <- left_join(OE, BCG, by = join_by(act_id)) |> 
+  left_join(MMI_met) |> 
+  left_join(MMI) |> 
+  left_join(sample_info_model, by = 'act_id') %>% 
+  filter(qualifer %in% c(0,7)) %>% ## removes sus data (low counts, glacial sites and poor samples)
+  filter(!is.na(ReferenceSite))
+
+### this one has all qualifiers removed 
 joined_OE_BCG_MMI <- left_join(OE, BCG, by = join_by(act_id)) |> 
   left_join(MMI_met) |> 
   left_join(MMI) |> 
   left_join(sample_info_model, by = 'act_id') %>% 
-  filter(qualifer == 0)%>% ## removes sus data (low counts, glacial sites and poor samples)
+  filter(qualifer == 0)%>% ## removes sus data (low counts, SE, glacial sites and poor samples)
   filter(!is.na(ReferenceSite))
 
+
 save(joined_OE_BCG_MMI, file = 'bioassess_8-6-24.Rdata')
+save(joined_OE_BCG_MMI_withSE, file = 'bioassess_8-6-24_withSE.Rdata')
 write.xlsx(joined_OE_BCG_MMI, file = paste0("biocriteria_scores", Sys.Date(), '.xlsx'))
 
 ## Graphs ----------------------------------------------------------------------------------------------------------

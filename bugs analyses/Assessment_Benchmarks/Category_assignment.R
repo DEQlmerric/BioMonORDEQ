@@ -65,8 +65,6 @@ non_WS_Cat <- AU_aves %>%
                                            TRUE ~ 'ERROR')) 
 
 
-
-
 #### compare to 2024 IR 
 
 non_WS_24 <-  read.xlsx('2024_biocriteria_status.xlsx', 
@@ -78,4 +76,46 @@ non_WS_compare <- non_WS_24 %>%
            left_join(non_WS_Cat, by = 'AU_ID') %>% 
            filter(!is.na(n))
 
-write.csv(non_WS_compare)
+write.csv(non_WS_compare,"non_WS_compare.csv")
+
+#watershed AUs 
+
+WS_Cat <- mloc_aves %>% 
+  filter(str_detect(AU_ID, "^OR_WS")) %>%
+  mutate(Mloc_Cat = case_when(MMI_site_avg <= 0.5 & OE_site_avg <= 0.75 ~ '5',
+                            
+                            MMI_site_avg <= 0.65 & MMI_site_avg > 0.5 & 
+                              OE_site_avg <= 0.75 & BCG_site_avg > 4.5 ~ '5',
+                            
+                            OE_site_avg <= 0.92 & OE_site_avg > 0.75 & 
+                              MMI_site_avg <= 0.5 & BCG_site_avg > 4.5 ~ '5',
+                            
+                            MMI_site_avg > 0.65 & OE_site_avg > 0.92 ~ '2',
+                            
+                            MMI_site_avg <= 0.65 & MMI_site_avg > 0.5 &
+                              OE_site_avg > 0.92 & BCG_site_avg < 3.5 ~ '2',
+                            
+                            OE_site_avg <= 0.92 & OE_site_avg > 0.75 & 
+                              MMI_site_avg > 0.65 & BCG_site_avg < 3.5 ~ '2',
+                            
+                            MMI_site_avg <= 0.65 & MMI_site_avg > 0.5 & 
+                              OE_site_avg <= 0.92 & OE_site_avg > 0.75 ~ '3C',
+                            
+                            MMI_site_avg <= 0.65 & MMI_site_avg > 0.5 & 
+                              OE_site_avg <= 0.75 & BCG_site_avg <= 4.5 ~ '3C',
+                            
+                            OE_site_avg <= 0.92 & OE_site_avg > 0.75 & 
+                              MMI_site_avg < 0.5 & BCG_site_avg <= 4.5 ~ '3C',
+                            
+                            MMI_site_avg <= 0.65 & MMI_site_avg > 0.5 &
+                              OE_site_avg > 0.92 & BCG_site_avg >= 3.5 ~ '3C',
+                            
+                            OE_site_avg <= 0.92 & OE_site_avg > 0.75 & 
+                              MMI_site_avg > 0.65 & BCG_site_avg >= 3.5 ~ '3C', 
+                            
+                            MMI_site_avg <= 0.5 & OE_site_avg > 0.92 ~ '3B',
+                            MMI_site_avg >0.65 & OE_site_avg <= 0.75 ~ '3B',
+                            TRUE ~ 'ERROR')) 
+
+
+write.csv(WS_Cat,"WS_Cat.csv")

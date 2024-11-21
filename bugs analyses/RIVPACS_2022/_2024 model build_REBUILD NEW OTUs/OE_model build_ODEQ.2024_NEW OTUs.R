@@ -31,18 +31,19 @@ library(openxlsx)
 #preds=read.csv("bugs analyses/RIVPACS_2022/z_Exploratory Work/preds_slope_ecoregion.csv")
 #select only reference data and exclude bug metrics
                              
-load('bugs analyses/RIVPACS_2022/_2024 model build/pred.mets_257_final.Rdata')
+load('bugs analyses/RIVPACS_2022/_2024 model build_REBUILD NEW OTUs/pred.mets_257_final.Rdata')
                               #  @@@@ SLH 11.2.22
                               # predcal=predcal[predcal$reference=='Y',c(1,97:150)]
                               # @@@@ currently only reference data is included in the preds file, so this either not needed OR we need a column for 'reference' added
 preds <- pred.mets_257_final
 
-                              # remove NBR sites, plus remove outlier sites (ref sites continually scoring very low)
+# remove NBR sites, plus remove outlier sites (ref sites continually scoring very low)
+# SLH 11.20.24: 
 preds <- preds %>%
-        dplyr:: filter(EcoRegion3 != '80') %>%
-        dplyr::filter(act_id !='35618-ORDEQ:20000702:R:SR') 
-                                                                                        # dplyr::filter(act_id !='21814-ORDEQ:20010912:R:SR') %>%  
-                                                                                        # dplyr::filter(act_id !='30343-ORDEQ:20030814:R:SR') %>% 
+          dplyr:: filter(EcoRegion3 != '80') #%>%
+          #dplyr::filter(act_id !='35618-ORDEQ:20000702:R:SR') 
+                                                                                          # dplyr::filter(act_id !='21814-ORDEQ:20010912:R:SR') %>%  
+                                                                                         # dplyr::filter(act_id !='30343-ORDEQ:20030814:R:SR') %>% 
                                                                                         # dplyr::filter(act_id !='32555-ORDEQ:20050801:R:SR') %>%
                                                                                         # dplyr::filter(act_id !='123437') %>%
 
@@ -57,7 +58,7 @@ ref.samps_221 <- as.data.frame(preds$act_id)
 ref.samps_221 <- ref.samps_221 %>%
   rename('act_id' = 'preds$act_id' )
 
-write.csv(ref.samps_221, 'bugs analyses/RIVPACS_2022/_2024 model build/ref.samps_221.csv')  
+write.csv(ref.samps_221, 'bugs analyses/RIVPACS_2022/_2024 model build_REBUILD NEW OTUs/ref.samps_221.csv')  
 
 ########
 ########### Step 1b - Input the assemblage data (bug data), as a site-by-taxa matrix;
@@ -77,7 +78,7 @@ write.csv(ref.samps_221, 'bugs analyses/RIVPACS_2022/_2024 model build/ref.samps
   # matrix, counts
   # only samples with > 200 count were retained
 
-load('bugs analyses/RIVPACS_2022/_2024 model build/bugs.mat_257.ref.Rdata')
+load('bugs analyses/RIVPACS_2022/_2024 model build_REBUILD NEW OTUs/bugs.mat_257.ref.Rdata')
 bugsOTU <- bugs.mat_257.ref %>%
   rename(sampleId = Sample)
 
@@ -88,23 +89,23 @@ bugsOTU=subset(bugsOTU, sampleId %in% rownames(preds))
 ###
 ####### prep preds file: remove non-predictor columns
 ###
-preds_257 <- preds %>%
+preds_221 <- preds %>%
   dplyr::select(-c(act_id, org_id, COMID, MLocID, StaDes,SampleStart_Date,tot.abund,OTU.abund,HUC12_Name,
-                   GNIS_Name,AU_ID,Reachcode,Measure,REGIONID, met.type ))
+                   GNIS_Name,AU_ID,Reachcode,Measure,REGIONID, met.type, SLH.COMMENTS ))
 
  
-predcal <- preds_257
+predcal <- preds_221
                        
 ###
 ######## create P/A dataframes
 ###
 
 # convert counts greater than 1 to 1
-bugs_257 <- bugsOTU %>% mutate_if(is.numeric, ~1 * (. != 0))
-bugs_257 <- as.data.frame(bugs_257)
-rownames(bugs_257)<-bugs_257$sampleId
+bugs_221 <- bugsOTU %>% mutate_if(is.numeric, ~1 * (. != 0))
+bugs_221 <- as.data.frame(bugs_221)
+rownames(bugs_221)<-bugs_221$sampleId
 # remove sampleID as a column
-bugcal.pa<-bugs_257[,-1]
+bugcal.pa<-bugs_221[,-1]
 
                                                                                     
 
@@ -133,7 +134,8 @@ bugcal.pa.nonrare<- bugcal.pa[,nonrare.taxa]; dim(bugcal.pa.nonrare);
     #   @@@@@ SLH 02.26.24(200 ct): only 96 taxa
                                     #     44.9% of taxa retained
               # NBR removed = 102 taxa, 47.4%  
- 
+    #   @@@@@ SLH 11.20.24(200 ct): 
+              # NBR removed = 100 taxa, 47.2%  
 
 # FYI: Print the percentage of total taxa that were retained after removing rare taxa?
 pct.taxa.used.message = paste0((round(length(nonrare.taxa)/length(psite.occ),4)*100),"%"," of total taxa are retained after excluding rare taxa."); print(pct.taxa.used.message, quote=F)
@@ -301,7 +303,7 @@ groups12=cbind(row.names(predcal),grps.12); #list calibration sites and their gr
 rfdat<-data.frame(predcal,Groups=grps.9);
 #windows()
 m=sf::st_as_sf(rfdat, coords = c("Longitude", "Latitude"), crs = 4269,agr = "constant")
-mapview::mapview(m['Groups'],col.regions=brewer.pal(8, "Spectral"))
+mapview::mapview(m['Groups'],col.regions=brewer.pal(9, "Spectral"))
 
 
 
@@ -315,7 +317,7 @@ mapview::mapview(m['Groups'],col.regions=brewer.pal(8, "Spectral"))
       #predcal[is.na(predcal)] <- 0
 
 # if all data is already present (no imputation needed), include categorical variables
-rfdat<-data.frame(predcal,grps.8, grps.9, grps.10);
+rfdat<-data.frame(predcal,grps.7, grps.8, grps.9);
 
                                                                                   # predictors as chosen through PCA analyses--MAST/MSST values excluded, due to high numbers of missing values 
                                                                                   rfdat <- rfdat %>%
@@ -323,19 +325,19 @@ rfdat<-data.frame(predcal,grps.8, grps.9, grps.10);
                                                                                            Fe2O3Ws,ElevCat,Eco2,Eco3,Eco4_code,East.West, grps.5, grps.6, grps.7)
 
 # 1 sample missing PermWs...need to impute
-rfdat$PERM <- na.roughfix(rfdat$PERM)
-rfdat$SAND <- na.roughfix(rfdat$SAND)                                                                       
+rfdat$SAND <- na.roughfix(rfdat$SAND) 
 rfdat$CLAY <- na.roughfix(rfdat$CLAY)
+rfdat$PERM <- na.roughfix(rfdat$PERM)
 rfdat$RCKDEP <- na.roughfix(rfdat$RCKDEP)
 rfdat$OM <- na.roughfix(rfdat$OM)
 rfdat$MSST_mean08.14 <- na.roughfix(rfdat$MSST_mean08.14)
 rfdat$MWST_mean08.14 <- na.roughfix(rfdat$MWST_mean08.14)
-rfdat$SLOPE <- na.roughfix(rfdat$SLOPE)
+#rfdat$SLOPE <- na.roughfix(rfdat$SLOPE)
 
-
+rfdat$grps.7<-factor(rfdat$grps.7);
 rfdat$grps.8<-factor(rfdat$grps.8);
 rfdat$grps.9<-factor(rfdat$grps.9);
-rfdat$grps.10<-factor(rfdat$grps.10);
+
 
 
 # Build RF model;
@@ -433,19 +435,21 @@ rfdat$grps.10<-factor(rfdat$grps.10);
 # VSURF models are showing odd results--predictors with little variable importance are being selected.
 # run a full model, look at VIP, select top predictors, run again with 'reduced' predictors
 # full
-rf_full = randomForest(grps.9 ~ AREASQKM+SAND+CLAY+ELEV+BFI+KFFACT+PCTGLACTILCRS+PCTCARBRESID+PCTALLUVCOAST+PCTALKINTRUVOL+PCTCOLLUVSED+TMAX8110+PRECIP8110+COMPSTRGTH+PCTBL2004+INORGNWETDEP_2008+N+HYDRLCOND+MGO+K2O+NA2O+SIO2+CAO+P2O5+S+FE2O3+PERM+RCKDEP+OM+PRECIP09+MSST_mean08.14+MWST_mean08.14+PCTICE_mean01.19+SLOPE,
-          data=rfdat, ntree=2000, importance=TRUE, norm.votes=TRUE, keep.forest=TRUE)
+rf_full = randomForest(grps.9 ~ AREASQKM+SAND+CLAY+ELEV+BFI+KFFACT+PCTGLACTILCRS+PCTCARBRESID+PCTALLUVCOAST+PCTALKINTRUVOL+
+                         PCTCOLLUVSED+TMAX8110+PRECIP8110+COMPSTRGTH+PCTBL2004+N+HYDRLCOND+MGO+K2O+NA2O+
+                         SIO2+CAO+P2O5+S+FE2O3+PERM+RCKDEP+OM+MWST_mean08.14+MSST_mean08.14+PCTICE_mean01.19+SLOPE,
+          data=rfdat, ntree=2000, importance=TRUE, norm.votes=TRUE, keep.forest=TRUE) # INORGNWETDEP_2008+PRECIP09+  
 
 print(rf_full)
-varImpPlot(rf_full, type=1,n.var=33);
+varImpPlot(rf_full, type=1,n.var=20);
 # reduced
-rf_reduced = randomForest(grps.9 ~ TMAX8110+MWST_mean08.14+BFI+ELEV+PRECIP8110+CLAY,
+rf_reduced = randomForest(grps.9 ~ TMAX8110+ ELEV+ MWST_mean08.14+ PRECIP8110 + CLAY,
                                        data=rfdat, ntree=2000, importance=TRUE, norm.votes=TRUE, keep.forest=TRUE)
                                                                                                              
                                                                                   
 print(rf_reduced)
 
-varImpPlot(rf_reduced, type=1,n.var=6);
+varImpPlot(rf_reduced, type=1,n.var=5);
 
 # Variable Importance Plot (VIP):
                                                                                     varImpPlot(rf.mod.best.from.VSURF8, type=1,n.var=4);
@@ -459,19 +463,19 @@ varImpPlot(rf_reduced, type=1,n.var=6);
 
 
 
-# Variable Importance Table
-importance(rf.mod.best.from.VSURF8)
-importance(rf_full)
-
-
-
-# the "type=1" argument below tells it to focus on the 1st metric of importance, the %IncMSE.  
-var.imp <- data.frame(importance(rf.200ct_5grps, type=1));  var.imp
-var.imp$Variables <- row.names(var.imp)
-str(var.imp)
-# order the variables by Gini importance index (most important variables at the top):
-var.imp[order(var.imp$MeanDecreaseAccuracy, decreasing = T),]
-imp.names = rownames(var.imp[order(var.imp$MeanDecreaseAccuracy,decreasing = T),]); imp.names
+                                        # Variable Importance Table
+                                        importance(rf.mod.best.from.VSURF8)
+                                        importance(rf_full)
+                                        
+                                        
+                                        
+                                        # the "type=1" argument below tells it to focus on the 1st metric of importance, the %IncMSE.  
+                                        var.imp <- data.frame(importance(rf.200ct_5grps, type=1));  var.imp
+                                        var.imp$Variables <- row.names(var.imp)
+                                        str(var.imp)
+                                        # order the variables by Gini importance index (most important variables at the top):
+                                        var.imp[order(var.imp$MeanDecreaseAccuracy, decreasing = T),]
+                                        imp.names = rownames(var.imp[order(var.imp$MeanDecreaseAccuracy,decreasing = T),]); imp.names
 
 
                                       # Partial Dependence Plots:
@@ -487,30 +491,30 @@ imp.names = rownames(var.imp[order(var.imp$MeanDecreaseAccuracy,decreasing = T),
 
 
       
-## Looping over variables ranked by importance:
-# Y-axis is Probability of being in Class 1:
-# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-# Notice that I'm restricting it to just the first 25 important variables! %
-# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-# If you imputed, replace "rfdat" with "rf.imputed" in the code below.
-# Last time this took 2.20 minutes!
-windows(height=10,width=12)
-
-start.time = Sys.time()
-op <- par(mfrow=c(3, 3))
-for (i in seq_along(imp.names[c(1:7)])) {
-  partialPlot(rf.200ct_5grps, rfdat, which.class = "5", imp.names[i], xlab=imp.names[i],
-              main=paste("on", imp.names[i])
-              )# ylim=c(-5, 6)
-}
-end.time = Sys.time()
-
-time.taken.PDP1 = end.time - start.time
-time.taken.PDP1
-
-
-
+                                          ## Looping over variables ranked by importance:
+                                          # Y-axis is Probability of being in Class 1:
+                                          # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                                          # Notice that I'm restricting it to just the first 25 important variables! %
+                                          # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                                          
+                                          # If you imputed, replace "rfdat" with "rf.imputed" in the code below.
+                                          # Last time this took 2.20 minutes!
+                                          windows(height=10,width=12)
+                                          
+                                          start.time = Sys.time()
+                                          op <- par(mfrow=c(3, 3))
+                                          for (i in seq_along(imp.names[c(1:7)])) {
+                                            partialPlot(rf.200ct_5grps, rfdat, which.class = "5", imp.names[i], xlab=imp.names[i],
+                                                        main=paste("on", imp.names[i])
+                                                        )# ylim=c(-5, 6)
+                                          }
+                                          end.time = Sys.time()
+                                          
+                                          time.taken.PDP1 = end.time - start.time
+                                          time.taken.PDP1
+                                          
+                                          
+                                          
 
 #------------------------------------------------------------#
 #STEP 4 - Save the final RF predictive model, for future use;
@@ -525,13 +529,14 @@ grps.final<-grps.9;
 # 4.3) Specify the final predictor variables ;Tmean8110Ws+Precip8110Ws+WsAreaSqKm+SiO2Ws+Fe2O3Ws+ElevCat+Eco3
 # full model
 preds.final_full=c('AREASQKM','SAND','CLAY','ELEV','BFI','KFFACT','PCTGLACTILCRS','PCTCARBRESID','PCTALLUVCOAST','PCTALKINTRUVOL','PCTCOLLUVSED',
-                    'TMAX8110','PRECIP8110','COMPSTRGTH','PCTBL2004','INORGNWETDEP_2008','N','HYDRLCOND','MGO','K2O','NA2O','SIO2','CAO','P2O5','S',
-                    'FE2O3','PERM','RCKDEP','OM','PRECIP09','MSST_mean08.14','MWST_mean08.14','PCTICE_mean01.19', 'SLOPE')
+                    'TMAX8110','PRECIP8110','COMPSTRGTH','PCTBL2004','N','HYDRLCOND','MGO','K2O','NA2O','SIO2','CAO','P2O5','S',
+                    'FE2O3','PERM','RCKDEP','OM','PRECIP09','MWST_mean08.14','PCTICE_mean01.19', 'SLOPE')
+                    # 'MSST_mean08.14',
                                 
 # reduced model, top predictors from Var Imp Plots
-preds.final_reduced=c('TMAX8110', 'BFI','ELEV','MWST_mean08.14','CLAY','PRECIP8110')
+preds.final_reduced=c('TMAX8110', 'ELEV','MWST_mean08.14','PRECIP8110','CLAY')
 
-      
+     
       #preds.final=c('LONG','MSST_mean08091314','ElevCat','Tmax8110Ws','Precip8110Ws','length_46006','OmWs','DOY','WsAreaSqKm')
       #preds.final<-interp.pred
       #preds.final<-c('prdzdy','LONG','RunoffWs','Precip8110Ws','MSST_mean08091314','Tmax8110Ws','Tmin8110Ws')
@@ -547,12 +552,12 @@ bugcal.pa = bugcal.pa
 # full model
 predcal.full = rfdat %>%
             select(AREASQKM,SAND,CLAY,ELEV,BFI,KFFACT,PCTGLACTILCRS,PCTCARBRESID,PCTALLUVCOAST,PCTALKINTRUVOL,PCTCOLLUVSED,
-                   TMAX8110,PRECIP8110,COMPSTRGTH,PCTBL2004,INORGNWETDEP_2008,N,HYDRLCOND,MGO,K2O,NA2O,SIO2,CAO,P2O5,S,
-                   FE2O3,PERM,RCKDEP,OM,PRECIP09,MSST_mean08.14,MWST_mean08.14,PCTICE_mean01.19, SLOPE )
+                   TMAX8110,PRECIP8110,COMPSTRGTH,PCTBL2004,N,HYDRLCOND,MGO,K2O,NA2O,SIO2,CAO,P2O5,S,
+                   FE2O3,PERM,RCKDEP,OM,MWST_mean08.14,PCTICE_mean01.19, SLOPE )
         
     
 # reduced model
-predcal.reduced = rfdat %>% select(TMAX8110,BFI,ELEV,MWST_mean08.14,CLAY,PRECIP8110)
+predcal.reduced = rfdat %>% select(TMAX8110, ELEV, MWST_mean08.14, PRECIP8110, CLAY)
 
     
     
@@ -569,7 +574,7 @@ model.final <-  rf_reduced
     # Any R user can load this file, along with model.predict.RF.r, to make predictions from the model;
 #detach("package:NAMCr", unload = TRUE)
 
-save(bugcal.pa, predcal, grps.final, preds.final, ranfor.mod=model.final, file=('bugs analyses/RIVPACS_2022/_2024 model build/RIVPACS.2024__NoNBR_6out_9grps_6preds.Rdata')); # Notice I'm using the most parsimonious model (with 8 predictors)
+save(bugcal.pa, predcal, grps.final, preds.final, ranfor.mod=model.final, file=('bugs analyses/RIVPACS_2022/_2024 model build_REBUILD NEW OTUs/RIVPACS.2024__no.NBR_9grps_5preds.Rdata')); # Notice I'm using the most parsimonious model (with 8 predictors)
 
 
 
@@ -582,7 +587,7 @@ save(bugcal.pa, predcal, grps.final, preds.final, ranfor.mod=model.final, file=(
 #Step 5 - calculate OE scores for reference sites for chosen model;
 #-------------------------------------------------------------------#
 
-load('bugs analyses/RIVPACS_2022/_2024 model build/RIVPACS.2024__NoNBR_6out_9grps_6preds.Rdata')
+load('bugs analyses/RIVPACS_2022/_2024 model build_REBUILD NEW OTUs/RIVPACS.2024__no.NBR_9grps_5preds.Rdata')
      
 
 #Option 5.1 - Make predictions of E and O/E for calibration (reference) sites. Examine O/E statistics and plots;
@@ -630,7 +635,7 @@ RESULTS=cbind(OE.assess.cal$OE.scores,predcal,grps.final)
 
 
 
- write.csv(RESULTS, 'bugs analyses/RIVPACS_2022/RIVPACS.2024_FINAL_ref.build_OE.csv')
+ write.csv(RESULTS, 'bugs analyses/RIVPACS_2022/RIVPACS.2024_FINAL_ref.build_OE_REBUILD.new.OTUs_11.24.csv')
 
  quantile(RESULTS$OoverE,c(0.01, 0.03, 0.05, 0.08, 0.10, 0.13, 0.15, 0.18, 0.20, 0.23, 0.25, 0.28, 0.30)) 
 
@@ -798,7 +803,7 @@ bugs.mat_raw.bugs <- dm.rare %>% pivot_wider(               # new tidy method, r
 
 # export matrified bug data file to load directly in model building phase
 
-save(bugs.mat_raw.bugs, file='bugs analyses/RIVPACS_2022/_2024 model build/bugs.mat_raw.bugs.Rdata')
+save(bugs.mat_raw.bugs, file='bugs analyses/RIVPACS_2022/_2024 model build_REBUILD NEW OTUs/bugs.mat_raw.bugs.Rdata')
 
 
 

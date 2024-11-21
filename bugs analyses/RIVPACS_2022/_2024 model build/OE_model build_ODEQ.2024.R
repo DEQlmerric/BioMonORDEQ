@@ -649,62 +649,62 @@ RESULTS=cbind(OE.assess.cal$OE.scores,predcal,grps.final)
 head(OE.assess.cal$Capture.Probs); #predicted capture probabilties, 1st 5 rows;
 head(OE.assess.cal$Group.Occurrence.Probs); #predicted group occurrence probabilities, 1st 5 rows;
 
-#-----------------------------------------------------------------------------------------------#
-#Step 6 - Make predictions for degraded sites and compare scores between reference and degraded;
-#-----------------------------------------------------------------------------------------------#
-prednew=read.csv("C:/Users/jenni/Box/Nonperennial streams/Bugdata/rerun of all models_for pub/metrics_predictors.csv")
-
-prednew = preds_RIV24_no.nbr
-
-#select only reference data and exclude bug metrics
-prednew=prednew[,c(1,97:150)]
-rownames(prednew)=prednew$sampleId
-prednew=prednew[,c(-1,-2)]
-
-bugsOTU=query("sampleTaxaTranslationRarefied",projectId=387,translationId=2,fixedCount=300)
-sumrarefiedOTUTaxa = bugsOTU  %>%
-  dplyr::group_by(sampleId, otuName) %>%
-  dplyr::summarize(sumSplitCount = sum(splitCount)) # why are multiple records exported here per OTU???
-
-sumrarefiedOTUTaxa$presence = ifelse(sumrarefiedOTUTaxa$sumSplitCount >=1, 1, 0)
-bugnew = tidyr::pivot_wider(sumrarefiedOTUTaxa,id_cols = "sampleId", names_from = "otuName",values_from = "presence")
-bugnew[is.na(bugnew)]<-0
-bugnew=as.data.frame(bugnew)
-rownames(bugnew)<-bugnew$sampleId
-bugnew<-bugnew[,-1]
-
-bugnew= bugnew[order(rownames(bugnew)),];
-prednew = prednew[order(rownames(prednew)),];
-OE.assess.cal<-model.predict.RanFor.4.2(bugcal.pa,grps.final,preds.final, ranfor.mod=rf.mod.best.from.VSURF9,prednew=prednew,bugnew=bugnew,Pc=0.5,Cal.OOB=FALSE);
-
-RESULTS=cbind(OE.assess.cal$OE.scores,prednew)
-
-finalresultcompare=read.csv("C:/Users/jenni/Box/Nonperennial streams/Bugdata/rerun of all models_for pub/finalresult_compare.csv")
-boxplot(OoverE_9groups~reference,data=finalresultcompare)
-boxplot(OoverE_10groups~reference,data=finalresultcompare)
-
-finalresultcomparesub=subset(finalresultcompare,reference %in% c("Y","N"))
-t.test(OoverE_9groups~reference,data=finalresultcomparesub)
-t=t.test(OoverE_10groups~reference,data=finalresultcomparesub)
-
-
-tvalues=list()
-for (i in 2:3){
-  t=t.test(finalresultcomparesub[,i]~finalresultcomparesub$reference)
-  tvalues[[paste0(colnames(finalresultcomparesub)[i])]]=unlist(t$statistic[[1]])
-}
-
-tvaluesdf<-as.data.frame(tvalues)
-tvaluesdft=data.table::transpose(tvaluesdf,keep.names='metric')
-
-reference_only=subset(finalresultcompare,reference %in% c("Y"))
-quantile(reference_only$OoverE_10groups,0.10)
-
-
-
-
-
-
+                                                                                    #-----------------------------------------------------------------------------------------------#
+                                                                                    #Step 6 - Make predictions for degraded sites and compare scores between reference and degraded;
+                                                                                    #-----------------------------------------------------------------------------------------------#
+                                                                                    prednew=read.csv("C:/Users/jenni/Box/Nonperennial streams/Bugdata/rerun of all models_for pub/metrics_predictors.csv")
+                                                                                    
+                                                                                    prednew = preds_RIV24_no.nbr
+                                                                                    
+                                                                                    #select only reference data and exclude bug metrics
+                                                                                    prednew=prednew[,c(1,97:150)]
+                                                                                    rownames(prednew)=prednew$sampleId
+                                                                                    prednew=prednew[,c(-1,-2)]
+                                                                                    
+                                                                                    bugsOTU=query("sampleTaxaTranslationRarefied",projectId=387,translationId=2,fixedCount=300)
+                                                                                    sumrarefiedOTUTaxa = bugsOTU  %>%
+                                                                                      dplyr::group_by(sampleId, otuName) %>%
+                                                                                      dplyr::summarize(sumSplitCount = sum(splitCount)) # why are multiple records exported here per OTU???
+                                                                                    
+                                                                                    sumrarefiedOTUTaxa$presence = ifelse(sumrarefiedOTUTaxa$sumSplitCount >=1, 1, 0)
+                                                                                    bugnew = tidyr::pivot_wider(sumrarefiedOTUTaxa,id_cols = "sampleId", names_from = "otuName",values_from = "presence")
+                                                                                    bugnew[is.na(bugnew)]<-0
+                                                                                    bugnew=as.data.frame(bugnew)
+                                                                                    rownames(bugnew)<-bugnew$sampleId
+                                                                                    bugnew<-bugnew[,-1]
+                                                                                    
+                                                                                    bugnew= bugnew[order(rownames(bugnew)),];
+                                                                                    prednew = prednew[order(rownames(prednew)),];
+                                                                                    OE.assess.cal<-model.predict.RanFor.4.2(bugcal.pa,grps.final,preds.final, ranfor.mod=rf.mod.best.from.VSURF9,prednew=prednew,bugnew=bugnew,Pc=0.5,Cal.OOB=FALSE);
+                                                                                    
+                                                                                    RESULTS=cbind(OE.assess.cal$OE.scores,prednew)
+                                                                                    
+                                                                                    finalresultcompare=read.csv("C:/Users/jenni/Box/Nonperennial streams/Bugdata/rerun of all models_for pub/finalresult_compare.csv")
+                                                                                    boxplot(OoverE_9groups~reference,data=finalresultcompare)
+                                                                                    boxplot(OoverE_10groups~reference,data=finalresultcompare)
+                                                                                    
+                                                                                    finalresultcomparesub=subset(finalresultcompare,reference %in% c("Y","N"))
+                                                                                    t.test(OoverE_9groups~reference,data=finalresultcomparesub)
+                                                                                    t=t.test(OoverE_10groups~reference,data=finalresultcomparesub)
+                                                                                    
+                                                                                    
+                                                                                    tvalues=list()
+                                                                                    for (i in 2:3){
+                                                                                      t=t.test(finalresultcomparesub[,i]~finalresultcomparesub$reference)
+                                                                                      tvalues[[paste0(colnames(finalresultcomparesub)[i])]]=unlist(t$statistic[[1]])
+                                                                                    }
+                                                                                    
+                                                                                    tvaluesdf<-as.data.frame(tvalues)
+                                                                                    tvaluesdft=data.table::transpose(tvaluesdf,keep.names='metric')
+                                                                                    
+                                                                                    reference_only=subset(finalresultcompare,reference %in% c("Y"))
+                                                                                    quantile(reference_only$OoverE_10groups,0.10)
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
 
 
 
@@ -1037,21 +1037,28 @@ OE.raw_bugs2 <- OE.raw_bugs %>%
 
 OE.raw_bugs_stations <- OE.raw_bugs2 %>% 
   left_join(bio.mlocids, by = 'MLocID') %>%
-  filter(ReferenceSite == 'REFERENCE' | ReferenceSite == 'MODERATELY DISTURBED'| ReferenceSite == 'MOST DISTURBED')
+  filter(ReferenceSite == 'REFERENCE' | ReferenceSite == 'MODERATELY DISTURBED'| ReferenceSite == 'MOST DISTURBED') %>%
+  mutate(ReferenceSite = case_when(ReferenceSite == "MOST DISTURBED" ~ "MOST\nDISTURBED",
+                                   ReferenceSite == "MODERATELY DISTURBED" ~ "MODERATELY\nDISTURBED",
+                                   ReferenceSite == "REFERENCE" ~ "REFERENCE"))
 
-      @@@@@@@@ duplpicated act_id = 'dfw_2451:20080811:R:SR'
+                      @@@@@@@@ duplicated act_id = 'dfw_2451:20080811:R:SR'
+                
+                        OE.raw_bugs_stations[duplicated(OE.raw_bugs_stations$act_id),]
+                        
+                        OE.raw_bugs_stations <- OE.raw_bugs_stations[-2992, ]
+                
+                      @@@@@@@ duplicated as well???  '103WER026' 'Hardscrabble Creek above Coldwater Creek'
 
-        OE.raw_bugs_stations[duplicated(OE.raw_bugs_stations$act_id),]
-        
-        OE.raw_bugs_stations <- OE.raw_bugs_stations[-2992, ]
+ref.order <- c('REFERENCE', 'MODERATELY\nDISTURBED', 'MOST\nDISTURBED')
 
-      @@@@@@@ duplicated as well???  '103WER026' 'Hardscrabble Creek above Coldwater Creek'
 
-ref.order <- c('REFERENCE', 'MODERATELY DISTURBED', 'MOST DISTURBED')
+
+
 
 
 bp <- ggplot(OE.raw_bugs_stations, aes(x=factor(ReferenceSite, level = ref.order), y=OoverE)) + 
-  geom_boxplot( fill = 'gray') +    ylim(0,2) +
+  geom_boxplot( fill = 'gray') +    ylim(0,1.5) +
   theme_bw() + 	labs(x='', y = '', size=10) +
   theme(axis.text.y = element_text(size = 12,  face = "bold"),
         axis.title=element_text(size=10,face="bold"))  
@@ -1059,6 +1066,19 @@ bp <- ggplot(OE.raw_bugs_stations, aes(x=factor(ReferenceSite, level = ref.order
 
 bp+ facet_wrap(~EcoRegion2)
 bp+ facet_wrap(~EcoRegion3)
+
+
+
+
+mutate(ReferenceSite = case_when(ReferenceSite == "MOST DISTURBED" ~ "MOST\nDISTURBED",
+                                   ReferenceSite == "MODERATELY DISTURBED" ~ "MODERATELY\nDISTURBED",
+                                   ReferenceSite == "REFERENCE" ~ "REFERENCE"))
+
+
+
+
+
+
 
 
 ######
@@ -1109,6 +1129,70 @@ sensitivity = 178/300*100
  a<- (oe_old.vs.new$OE_new < 0.80)
 
 summary(a == TRUE)
+
+
+
+#####
+
+#       BIAS
+
+#####
+
+
+# SLH 8.22.24
+
+# bias = rf models of O/E at ref sites only, using natural preds
+
+
+# bring in Ref O/E from model build
+OE_ref.cal <- read.csv('bugs analyses/RIVPACS_2022/RIVPACS.2024_FINAL_ref.build_OE.csv') %>%
+  select(X, OoverE) %>%
+  rename('Sample' = 'X')
+
+# use 'preds_raw.bugs' and link to sample ids for ref O/E
+
+oe.predcal.full <-  preds_raw.bugs %>%
+    select(act_id, AREASQKM,SAND,CLAY,ELEV,BFI,KFFACT,PCTGLACTILCRS,PCTCARBRESID,PCTALLUVCOAST,PCTALKINTRUVOL,PCTCOLLUVSED,
+           TMAX8110,PRECIP8110,COMPSTRGTH,PCTBL2004,INORGNWETDEP_2008,N,HYDRLCOND,MGO,K2O,NA2O,SIO2,CAO,P2O5,S,
+           FE2O3,PERM,RCKDEP,OM,PRECIP09,MSST_mean08.14,MWST_mean08.14,PCTICE_mean01.19 ) %>%
+  rename('Sample' = 'act_id') %>%
+  right_join(OE_ref.cal, by = 'Sample')
+  
+  
+# remove samples with missing data - blows up RF model
+oe.predcal.full_compl <- oe.predcal.full[complete.cases(oe.predcal.full), ] # 203 samples (18 dropped)
+
+ 
+rfmod_oe.ref = randomForest(OoverE ~ AREASQKM+SAND+CLAY+ELEV+BFI+KFFACT+TMAX8110+PRECIP8110+COMPSTRGTH+INORGNWETDEP_2008+N+HYDRLCOND+MGO+K2O+NA2O+SIO2+CAO+P2O5+S+FE2O3+PERM+RCKDEP+OM+MSST_mean08.14+MWST_mean08.14+PCTICE_mean01.19,
+          data=oe.predcal.full_compl, ntree=2000, importance=TRUE, norm.votes=TRUE, keep.forest=TRUE)
+ 
+ 
+rfmod_oe.ref # % var explained = -0.12
+
+
+#######################
+
+# RESPONSIVENESS
+
+#######################
+
+
+# t-test between ref (cal) and Most Disturbed (cal) O/E scores
+
+scores_filtered <- read.xlsx('biocriteria_scores2024-08-07_filtered.xlsx')
+
+scores_filtered2 <- scores_filtered %>%
+  select(act_id, OoverE, ReferenceSite, model_status) %>%
+  filter(model_status == 'Ref_Cal' | model_status == 'Most_Cal')
+
+
+t.test(scores_filtered2$OoverE ~scores_filtered2$ReferenceSite)
+
+
+
+
+
+
 
 
 

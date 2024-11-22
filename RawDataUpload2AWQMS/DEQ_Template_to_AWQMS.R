@@ -8,10 +8,11 @@ library(RODBC)
 
 
 # Enter File Information 
-data_path <- "//deqlab1/BioMon/Bugs/2024/ODEQ.ContractLab_DateTemplate_BiomonTrend.2024.xlsx"
+# Be sure to delete unused rows on Sample and Results tabs of the template
+data_path <- "//deqlab1/BioMon/Bugs/2024/ODEQ.ContractLab_DateTemplate_BiomonTrend.2024_RAI_FINAL.xlsx"
 org = "OREGONDEQ"
 
-#pull in hybrid taxon table from SQL BioMon database 
+# pull in hybrid taxon table from SQL BioMon database 
 # this files lives and is updated in this BioMon repo 
 hybrid_taxon <- read_excel("bugs analyses/Taxonomy/ODEQ_Taxonomy_dec22.xlsx") %>% 
   mutate(AWQMS_tax_uid = as.character(AWQMS_tax_uid))

@@ -1,0 +1,78 @@
+rf.mod_10groups_200.Rdata
+rf.mod_10groups_250.Rdata
+rf.mod_10groups_300.Rdata
+rf.mod_11groups_200.Rdata
+rf.mod_11groups_250.Rdata
+rf.mod_11groups_300.Rdata
+rf.mod_12groups_200.Rdata
+rf.mod_13groups_200.Rdata
+rf.mod_6groups_300.Rdata
+rf.mod_7groups_200.Rdata
+rf.mod_7groups_250.Rdata
+rf.mod_7groups_300.Rdata
+rf.mod_8groups_200.Rdata
+rf.mod_8groups_250.Rdata
+rf.mod_8groups_300.Rdata
+rf.mod_9groups_200.Rdata
+rf.mod_9groups_250.Rdata
+rf.mod_9groups_300.Rdata
+supporting files
+Modeling results.docx
+ODEQsiteinfo.csv
+OR_OTU_full.csv
+PredictorsInitial.csv
+PredictorsInitial.xlsx
+PredictorsInitial_225.xlsx
+model.predict.RanFor.r
+WC_rf.mod.7.grps_pca_200.Rdata
+200ct_5grps_NO.out.nbr_5preds.csv
+EAST_rf.mod.4grps_pca_250.Rdata
+MWCF_rf.mod_05preds.05otu_200.Rdata
+FINAL MODEL_Explore with graphs.R
+MWCF_rf.mod_05preds.05otu_250.Rdata
+MWCF_rf.mod_05preds_200.Rdata
+MWCF_rf.mod_05preds_250.Rdata
+MWCF_rf.mod_2grps_pca_250.Rdata
+rf.mod.pca_no.eco_250.Rdata
+rf.mod.pca_250_noNBR.noOut.Rdata
+rf.mod.pca_250_7grps.Rdata
+rf.mod.pca_250.Rdata
+rf.mod.pca_200_noNBR.noOut.Rdata
+rf.mod.best.from.VSURF9_250.Rdata
+rf.mod.best.from.VSURF8_250.Rdata
+rf.mod.best.from.VSURF7_250.Rdata
+rf.mod.best.from.VSURF11_250.Rdata
+rf.mod.best.from.VSURF10_250.Rdata
+preds_slope_ecoregion.csv
+WC_rf.mod.7.grps_pca_250.Rdata
+bugcal.pa_FINAL.MOD_187ref.csv
+bugcal.pa_FINAL.MOD_187ref.xlsx
+cluster group sizes.xlsx
+dapply.r
+link RIV22 OTUs to DEQ taxonomy table.R
+model.predict.RanFor.4.2.r
+modeling results_200vs250vs300_various.grps.xlsx
+one.table_rule.all.csv
+preds.imputed_ecoregion.csv
+preds_slope.csv
+OE.assess.cal$Capture.Probs.csv
+OE.assess.cal$Capture.Probs.xlsx
+OE_USUcode_10.22.R
+OE_model build_ODEQ.2022.R
+OE_model build_ODEQ.2022_MWCF.R
+OE_model build_ODEQ.2022_MWCF_old predictors.R
+OE_model build_ODEQ.2022_MWCF_old predictors_old OTUs.R
+OE_model build_ODEQ.2022_WC.R
+OE_model build_ODEQ.2022_WCCP_old predictors.R
+OE_model build_ODEQ.2022_WCCP_old predictors_old OTUs.R
+OE_model build_ODEQ.2022_WEST.R
+OE_model build_ODEQ.2022_noNBR.R
+OE_model build_ODEQ.2022_noNBR_no outliers.R
+OR_rare300_225.csv
+RIVPACS.2024_FINAL_ref.build_OE.csv
+RIVPACS_2022_OTUDraft4.xlsx
+WCCP_rf.mod_05preds.05otu_200.Rdata
+WCCP_rf.mod_05preds.05otu_250.Rdata
+WCCP_rf.mod_05preds_200.Rdata
+WCCP_rf.mod_05preds_250.Rdata
+PCA mods_no ecos

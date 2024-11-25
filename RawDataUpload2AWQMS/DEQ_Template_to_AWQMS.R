@@ -8,10 +8,11 @@ library(RODBC)
 
 
 # Enter File Information 
-data_path <- "//deqlab1/BioMon/Bugs/2023/2022_BioMon_ColeEco_DRAFT_Data_9-1-23_SLH edited.xlsx"
+# Be sure to delete unused rows on Sample and Results tabs of the template
+data_path <- "//deqlab1/BioMon/Bugs/2024/ODEQ.ContractLab_DateTemplate_BiomonTrend.2024_RAI_FINAL.xlsx"
 org = "OREGONDEQ"
 
-#pull in hybrid taxon table from SQL BioMon database 
+# pull in hybrid taxon table from SQL BioMon database 
 # this files lives and is updated in this BioMon repo 
 hybrid_taxon <- read_excel("bugs analyses/Taxonomy/ODEQ_Taxonomy_dec22.xlsx") %>% 
   mutate(AWQMS_tax_uid = as.character(AWQMS_tax_uid))
@@ -34,7 +35,7 @@ Samp <- read_excel(data_path, sheet = "Sample") %>%
   mutate(Methods_ok = "Yes",
          Fixed_Count = "fixed count 500",
          #Subsample_fraction_value = (subsample_squares/30),
-         Area_sampled = 8)
+         Area_sampled = 8) 
 
 counts <- read_excel(data_path, sheet = "Results") %>% 
   select("Sample ID", "Taxonomic Serial Number (Locked)", # "Monitoring Location ID","Sample Date",
@@ -117,5 +118,5 @@ d <-rbind(d_count,d_density)
 
 # this is the AWQMS load file - use import configuration 1266
 
-write.csv(d,"//deqlead-lims/SERVERFOLDERS/AWQMS/BioMon/Staewide_bioMon_trend_2022.csv",na = "",row.names = FALSE)
+write.csv(d,"//deqlab1/BioMon/Bugs/2024/ODEQ.ContractLab_BiomonTrend.2024ROutput.csv",na = "",row.names = FALSE)
 

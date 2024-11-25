@@ -626,7 +626,7 @@ rep.sam.sd<-function(occprb.cal,Pc) {
 OE.assess.cal<-model.predict.RanFor.4.2(bugcal.pa,grps.final,preds.final, ranfor.mod=model.final,prednew=predcal,bugnew=bugcal.pa,Pc=0.5, Cal.OOB=TRUE); 
 rep.sam.sd(occprb.cal=OE.assess.cal$Capture.Probs,Pc=0.5);
 
-
+  
 
             
 str(OE.assess.cal)

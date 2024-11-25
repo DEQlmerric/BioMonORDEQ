@@ -370,7 +370,7 @@ nhd.or <- read.csv('bugs analyses/RIVPACS_2022/_2024 model build/nhd.slope/NHD_S
 nhd.ca <- read.csv('bugs analyses/RIVPACS_2022/_2024 model build/nhd.slope/CA_nhdslope.csv')
 nhd.gb <- read.csv('bugs analyses/RIVPACS_2022/_2024 model build/nhd.slope/GB_nhdslope.csv')
 
-
+  
 
 nhd_all <- bind_rows(nhd.or, nhd.ca, nhd.gb) %>%
   select(COMID, SLOPE)

@@ -6,7 +6,7 @@ library(randomForest)
 
 
 MMI_run <- function(df_bugs, df_sample, 
-                    attribute_table_loc = 'https://raw.githubusercontent.com/leppott/BioMonTools_SupportFiles/main/data/taxa_official/ORWA_Attributes_20240606.csv')
+                    attribute_table_loc = 'https://raw.githubusercontent.com/leppott/BioMonTools_SupportFiles/main/data/taxa_official/ORWA_Attributes_20241121.csv')
 {
   
 # Testing ---------------------------------------------------------------------------------------------------------

@@ -167,8 +167,9 @@ OE_modelrun <- function(df_bugs){
   
   print("Begin Model Run")
   # load the model to run
-  load('bugs analyses/RIVPACS_2022/_2024 model build/RIVPACS.2024__NoNBR_6out_8grps_6preds.Rdata')
-  
+  load('bugs analyses/RIVPACS_2022/_2024 model build_REBUILD NEW OTUs/RIVPACS.2024__no.NBR_9grps_5preds.Rdata')
+  #load('bugs analyses/RIVPACS_2022/_2024 model build/RIVPACS.2024__NoNBR_6out_8grps_6preds.Rdata')
+  #LAM 11/25/2024 updated this to use the new 
   
   
   
@@ -203,7 +204,7 @@ OE_modelrun <- function(df_bugs){
   bug_join <- df_bugs |> 
     select(org_id, Project1, AU_ID, MLocID, StationDes, MonLocType, EcoRegion3, EcoRegion4, 
            EcoRegion2, HUC8_Name, HUC12_Name, Lat_DD, Long_DD, Reachcode,Measure, ELEV_Ft, GNIS_Name, Conf_Score,
-           COMID, QC_Comm,  ReferenceSite,  act_id, act_comments, Activity_Type, 
+           COMID, QC_Comm,  ReferenceSite,  act_id, act_comments, Activity_Type, Result_Status,
            SampleStart_Date, SampleStart_Time, Sample_Media, Sample_Method, Assemblage) |> 
     distinct()
   

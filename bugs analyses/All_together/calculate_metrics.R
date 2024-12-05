@@ -14,7 +14,7 @@ calculate_metrics <- function(bug_data){
   df <- bug_data
   
 
-  attributes <- read.csv('https://raw.githubusercontent.com/leppott/BioMonTools_SupportFiles/main/data/taxa_official/ORWA_Attributes_20240606.csv') |> 
+  attributes <- read.csv('https://raw.githubusercontent.com/leppott/BioMonTools_SupportFiles/main/data/taxa_official/ORWA_Attributes_20241121.csv') |> 
     select(-Kingdom)
   
   df_bugs_taxa <- df |> 

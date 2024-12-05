@@ -54,8 +54,8 @@ bug_tax_data <- fetch_data(DEQ_taxonomy_table = 'bugs analyses/Taxonomy/ODEQ_Tax
 ## Filter the original datapull ------------------------------------------------------------------------------------
 
 bug_tax_data_filtered <- bug_tax_data |> 
-  filter(Result_Status != 'Rejected') |> 
-  filter(SampleStart_Date > "1999-01-01") %>%
+  #filter(Result_Status != 'Rejected') |> ### 12/2 - LAM removed this for now - will apply later ? 
+  filter(SampleStart_Date > "1997-01-01") %>% ### 12/2 - LAM modified this to 1997 -  SH used 97 and 98 data in the model builds 
   filter(Sample_Method %in% c('Benthic Kick - Riffle', 'Benthic Kick - Targeted Riffle', 'Benthic Kick - Transect','Benthic Kick - Mixed')) %>% # LAM added mixed for USU transect data inclusion
   filter(Char_Name == 'Count') %>%
   mutate(SampleStart_Date = lubridate::ymd(SampleStart_Date)) |> 
@@ -64,8 +64,8 @@ bug_tax_data_filtered <- bug_tax_data |>
   
 
 sample_info <- bug_tax_data_filtered |> 
-  select(org_id, Project1, Project2, MLocID, StationDes, MonLocType, act_id, act_comments, Activity_Type, 
-         SampleStart_Date, SampleStart_Time,Sample_Media, Sample_Method, Assemblage, EcoRegion3, 
+  select(org_id, Project1, Project2, MLocID, StationDes, MonLocType, act_id, act_comments, Activity_Type,
+         SampleStart_Date, SampleStart_Time,Sample_Media, Sample_Method,Result_Status, Assemblage, EcoRegion3, 
          EcoRegion4, EcoRegion2, HUC8_Name, HUC12_Name, Lat_DD, Long_DD, Reachcode, Measure, ELEV_Ft, 
          GNIS_Name, Conf_Score, QC_Comm,COMID, AU_ID,  ReferenceSite, Wade_Boat) |> 
   distinct()
@@ -137,3 +137,44 @@ BCG_Level.Membership <- BCG$Level.Membership
 
 BCG_sample <- sample_info |> 
   left_join(BCG_results, by = c('act_id' = 'SampleID'))
+
+
+#### merge into one df ### 
+OE <- OE_scores |> 
+  #select(MLocID,org_id, AU_ID, act_id,EcoRegion3,EcoRegion4,ReferenceSite, OoverE) |> 
+  mutate(BCG_region = case_when(EcoRegion3 %in% c(1,3,4) ~ "In region",
+                                TRUE ~ "Out Region"))
+
+BCG <- BCG_results |> 
+  select(SampleID, Primary_BCG_Level, Continuous_BCG_Level) |> 
+  rename(act_id = SampleID)
+
+
+MMI <- MMI_scores |> 
+  select(SAMPLEID, MMI) |> 
+  rename(act_id = SAMPLEID)
+
+MMI_met <- MMI_metrics |> 
+  rename(act_id = SAMPLEID)
+
+load("bugs analyses/Models_Validation/sample_info_model.Rdata") ### this comes from model_val script 
+
+### this one keeps qualifiers 
+joined_OE_BCG_MMI_all <- left_join(OE, BCG, by = join_by(act_id)) |> 
+  left_join(MMI_met) |> 
+  left_join(MMI) |> 
+  left_join(sample_info_model, by = 'act_id')
+
+### this one has all qualifiers removed 
+joined_OE_BCG_MMI_good <- left_join(OE, BCG, by = join_by(act_id)) |> 
+  left_join(MMI_met) |> 
+  left_join(MMI) |> 
+  left_join(sample_info_model, by = 'act_id') %>% 
+  filter(qualifer == 0)%>% ## removes sus data (low counts, SE, glacial sites and poor samples)
+  filter(Result_Status != 'Rejected') %>% # removes older and rejected data 
+  filter(!is.na(ReferenceSite)) # removes sites that have not gone through reference screen 
+
+
+save(joined_OE_BCG_MMI, file = 'bioassess_11-25-24.Rdata')
+save(joined_OE_BCG_MMI_all, file = 'bioassess_11-25-24_all.Rdata')
+write.xlsx(joined_OE_BCG_MMI, file = paste0("biocriteria_scores", Sys.Date(), '.xlsx'))

@@ -150,7 +150,7 @@ cats_station <- joined_OE_BCG_MMI_good %>%
         select(org_id,Project1,AU_ID,MLocID,ReferenceSite,SampleStart_Date,
                COMID,O,E,OoverE,BC,BCG_region,Primary_BCG_Level,Continuous_BCG_Level,
                ni_total,pt_tv_intol,nt_habitat_rheo,pt_ti_stenocold_cold_cool,
-               pi_EPTNoHydro, MMI,MMI_rescale,model_status_qual,qualifer_text) %>% 
+               pi_EPTNoHydro, MMI,MMI_rescale,qualifer_text) %>% 
        mutate(sample_Cat = case_when(MMI_rescale <= 0.81 & OoverE <= 0.79 ~ '5',
                                      
                                      MMI_rescale <= 0.90 & MMI_rescale > 0.81 & 
@@ -158,20 +158,20 @@ cats_station <- joined_OE_BCG_MMI_good %>%
                                      
                                      MMI_rescale > 0.90 & OoverE > 0.91 ~ '2',
                                      
-                                     MMI_rescale <= 0.81 &  OoverE > 0.91 ~ 'OE good, mmi poor',
-                                     MMI_rescale >0.90 &  OoverE <= 0.79 ~ 'OE poor, mmi good',
+                                     MMI_rescale <= 0.81 &  OoverE > 0.91 ~ '3B', #OE good, mmi poor',
+                                     MMI_rescale >0.90 &  OoverE <= 0.79 ~ '3B', #OE poor, mmi good',
                                      
                                      OoverE <= 0.91 & OoverE > 0.79 & 
-                                       MMI_rescale <= 0.81 ~ 'OE fair, mmi poor',
+                                       MMI_rescale <= 0.81 ~ '3B', #OE fair, mmi poor',
                                      
                                      OoverE <= 0.91 & OoverE > 0.79 & 
-                                       MMI_rescale > 0.90 ~ 'OE fair, mmi good',
+                                       MMI_rescale > 0.90 ~ '3C', #OE fair, mmi good',
                                      
                                      MMI_rescale <= 0.90 & MMI_rescale> 0.81 &
-                                       OoverE > 0.91 ~ 'OE good, mmi fair',
+                                       OoverE > 0.91 ~ '3C', #OE good, mmi fair',
                                      
                                      MMI_rescale <= 0.90 & MMI_rescale > 0.81 & 
-                                       OoverE <= 0.79 ~ 'OE poor, mmi fair',
+                                       OoverE <= 0.79 ~ '3B', #OE poor, mmi fair',
                                      
                                      TRUE ~ 'ERROR'))
 write.csv(cats_station,'cats_station.csv')                                    
@@ -192,7 +192,7 @@ multi_sample_station <- cats_station %>%
   filter(n > 1) 
 write.csv(multi_sample_station,'multi_sample_station.csv')  
 
-counts <- multi_sample_station %>%
+cat_counts <- multi_sample_station %>%
           arrange(SampleStart_Date) %>%
           group_by(MLocID,ReferenceSite) %>% 
           mutate(dates = paste0(SampleStart_Date, collapse = ";")) %>% 
@@ -201,16 +201,17 @@ counts <- multi_sample_station %>%
                     Cat2 = sum(sample_Cat == '2'),
                     Cat5 = sum(sample_Cat == '5'),
                     Cat3C = sum(sample_Cat == '3C'),
-                    OEfair_mmigood = sum(sample_Cat == 'OE fair, mmi good'),
-                    OEgood_mmifair = sum(sample_Cat == 'OE good, mmi fair'),
+                    Cat3B = sum(sample_Cat == '3B'),
+                    #OEfair_mmigood = sum(sample_Cat == 'OE fair, mmi good'),
+                    #OEgood_mmifair = sum(sample_Cat == 'OE good, mmi fair'),
                     
-                    OEfair_mmipoor = sum(sample_Cat == 'OE fair, mmi poor'),                 
-                    OEpoor_mmifair = sum(sample_Cat == 'OE poor, mmi fair'),
+                    #OEfair_mmipoor = sum(sample_Cat == 'OE fair, mmi poor'),                 
+                    #OEpoor_mmifair = sum(sample_Cat == 'OE poor, mmi fair'),
                     
-                    OEgood_mmipoor = sum(sample_Cat == 'OE good, mmi poor'),
-                    OEpoor_mmigood = sum(sample_Cat == 'OE poor, mmi good'),
+                    #OEgood_mmipoor = sum(sample_Cat == 'OE good, mmi poor'),
+                    #OEpoor_mmigood = sum(sample_Cat == 'OE poor, mmi good'),
                     dates = paste0(SampleStart_Date, collapse = ";"))
-write.csv(counts,'multi_sample_station_cat_counts.csv')
+write.csv(cat_counts,'multi_sample_station_cat_counts.csv')
                     
 ref_cat_count <- counts %>% 
                  filter(ReferenceSite == 'REFERENCE') 

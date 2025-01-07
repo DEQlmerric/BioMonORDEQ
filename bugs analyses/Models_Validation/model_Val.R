@@ -6,9 +6,9 @@ library(openxlsx)
 
 
 #### get samples used to build O/E model ####
-o_E_ref_modelbuild <- read.csv('bugs analyses/RIVPACS_2022/RIVPACS.2024_FINAL_ref.build_OE.csv') %>% 
-  select(X,O,E,OoverE) %>% 
-  rename(act_id = X,"O_MB"="O", "E_MB"="E","OoverE_MB"= "OoverE")
+o_E_ref_modelbuild <- read.csv('bugs analyses/RIVPACS_2022/RIVPACS.2024_FINAL_ref.build_OE_REBUILD.new.OTUs_11.24.csv') %>% 
+  select(Sample,O,E,OoverE) %>% 
+  rename(act_id = Sample,"O_MB"="O", "E_MB"="E","OoverE_MB"= "OoverE")
 
 ref_mb <- o_E_ref_modelbuild$act_id
 
@@ -200,13 +200,13 @@ mmi_cal_2 <- mmi_modelbuild %>%
 
 # get a table of MMO from model build and 
 mmi_cal <- sample_info_model %>% 
-  #left_join(mmi_modelbuild, by = "act_id") %>% 
+  left_join(mmi_modelbuild, by = "act_id") %>% 
   select(act_id,model_status_qual,MMI_MB) %>%
   left_join(MMI_scores, by = c("act_id"= "SAMPLEID")) %>% # this is from a model run using front end v2
   drop_na(MMI)
 
 mmi_stats <- sample_info_model %>% 
-  filter()
+  #filter()
   mutate(MMI_rescale = MMI/0.7292573) %>%
   group_by(model_status_qual) %>% 
   summarise(MMI_mean = mean(MMI),

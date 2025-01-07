@@ -44,7 +44,8 @@ OE_modelrun <- function(df_bugs){
   ######
   
   tot.abund_raw.bugs<-aggregate(df_rand$Count, list(Sample=df_rand$Sample, MLocID=df_rand$MLocID), sum)
-  tot.abund_raw.bugs <- dplyr::rename(tot.abund_raw.bugs, tot.abund_raw.bugs = x)
+  tot.abund_raw.bugs <- dplyr::rename(tot.abund_raw.bugs, tot.abund_raw.bugs = x, act_id = Sample) %>%
+                        select(act_id,tot.abund_raw.bugs)    
   
   
   dm.rare <- tidyr::pivot_longer(df_rand, Count, names_to = "variable", values_to = "value" )
@@ -215,7 +216,8 @@ OE_modelrun <- function(df_bugs){
   
   OE_Scores <- bug_join |> 
     left_join(  rownames_to_column(preds_raw.bugs_mod, var='act_id'),by = join_by(act_id)) |> 
-    left_join(OE.raw_bugs, by = join_by(act_id))
+    left_join(OE.raw_bugs, by = join_by(act_id)) |>
+    left_join(tot.abund_raw.bugs, by = join_by(act_id))
   
   OE_Results <- list(OE_Scores = OE_Scores, 
                      missing_streamcat = errors)

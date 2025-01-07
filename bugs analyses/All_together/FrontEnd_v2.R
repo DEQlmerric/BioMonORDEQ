@@ -163,17 +163,43 @@ load("bugs analyses/Models_Validation/sample_info_model.Rdata") ### this comes f
 joined_OE_BCG_MMI_all <- left_join(OE, BCG, by = join_by(act_id)) |> 
   left_join(MMI_met) |> 
   left_join(MMI) |> 
-  left_join(sample_info_model, by = 'act_id')
+  #left_join(sample_info_model, by = 'act_id')
+  mutate(qualifer = case_when(ni_total < 300 ~ 1,
+                              act_id %in% c('22946-ORDEQ:19980812:R:SR-2',
+                                             '22946-ORDEQ:19980812:R:SR-1',
+                                              '22946-ORDEQ:19980812:R:SR-3',
+                                               '21814-ORDEQ:20010912:R:SR',
+                                               '21814-ORDEQ:19990922:R:SR',
+                                               '21814-ORDEQ:20000920:R:SR',
+                                               '35813-ORDEQ:20000901:R:SR') ~ 2,
+                              EcoRegion3 == 80 ~ 3,
+                              act_id %in% c('24044-ORDEQ:20000913:R:SR','35618-ORDEQ:20000702:R:SR',
+                                            '32555-ORDEQ:20050801:R:SR') ~ 4,
+                              MLocID %in% c('24454-ORDEQ','24416-ORDEQ','38549-ORDEQ',
+                                               '38561-ORDEQ','30343-ORDEQ','35633-ORDEQ') ~ 5,
+                              org_id %in% c('JCWC_AW(NOSTORETID)',
+                                          'PDX_BES(NOSTORETID)',
+                                          'UDESCHUTES_WC(NOSTORETID)',
+                                          #'PBWC_WQX', keeping these for now
+                                          'CITY_GRESHAM(NOSTORETID)',
+                                          'CRBC_WQX') ~ 6,
+                             #Wade_Boat == 'boatable' ~ 7, 
+                             TRUE ~ 0),
+       qualifer_text = case_when(qualifer == 1 ~ "less than 300 count",
+                                 qualifer == 2 ~ "poor sample quality",
+                                 qualifer == 3 ~ "Southeast Oregon",
+                                 qualifer == 4 ~ "Lake Effect",
+                                 qualifer == 5 ~ "Glacier",
+                                 qualifer == 6 ~ "VolMon",
+                                 #qualifer == 7 ~ "boatable",
+                                 TRUE ~ NA))
 
 ### this one has all qualifiers removed 
-joined_OE_BCG_MMI_good <- left_join(OE, BCG, by = join_by(act_id)) |> 
-  left_join(MMI_met) |> 
-  left_join(MMI) |> 
-  left_join(sample_info_model, by = 'act_id') %>% 
+joined_OE_BCG_MMI_good <- joined_OE_BCG_MMI_all %>% 
   filter(qualifer == 0)%>% ## removes sus data (low counts, SE, glacial sites and poor samples)
   filter(Result_Status != 'Rejected') %>% # removes older and rejected data 
-  filter(!is.na(ReferenceSite)) # removes sites that have not gone through reference screen 
-
+  filter(!is.na(ReferenceSite)) %>% # removes sites that have not gone through reference screen 
+  mutate(MMI_rescale = MMI/0.7292573)
 
 save(joined_OE_BCG_MMI, file = 'bioassess_11-25-24.Rdata')
 save(joined_OE_BCG_MMI_all, file = 'bioassess_11-25-24_all.Rdata')

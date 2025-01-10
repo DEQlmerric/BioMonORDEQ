@@ -6,7 +6,8 @@ library(randomForest)
 
 
 MMI_run <- function(df_bugs, df_sample, 
-                    attribute_table_loc = 'https://raw.githubusercontent.com/leppott/BioMonTools_SupportFiles/main/data/taxa_official/ORWA_Attributes_20241121.csv')
+                    attribute_table_loc = 'https://raw.githubusercontent.com/leppott/BioMonTools_SupportFiles/main/data/taxa_official/ORWA_Attributes_20241121.csv',
+                    subsample_seed = 16412730)
 {
   
 # Testing ---------------------------------------------------------------------------------------------------------
@@ -20,7 +21,7 @@ MMI_run <- function(df_bugs, df_sample,
 
   source('bugs analyses/All_together/rand_subsample.R')
   
-  df_rand <- random_subsample(df_bugs, OTU_col = OTU_MetricCalc)
+  df_rand <- random_subsample(df_bugs, OTU_col = OTU_MetricCalc, seed = subsample_seed)
   
   
 

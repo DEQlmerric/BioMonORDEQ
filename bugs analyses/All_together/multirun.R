@@ -3,7 +3,7 @@
 
 
 
-num_runs <- 20
+num_runs <- 5
 
 
 
@@ -53,7 +53,7 @@ oe_multi <- function(){
    
     
     
-    OE_results <- OE_modelrun(df_bugs = bug_tax_data_filtered)
+    OE_results <- OE_modelrun(df_bugs = bug_tax_data_filtered, subsample_seed = NA)
     
     
     OE_scores <- OE_results$OE_Scores |> 
@@ -136,6 +136,7 @@ ggplot(result_stats_MMI, aes(x=sd_MMI)) +
 library(openxlsx)
 good_actid <- read.xlsx("C:/Users/tpritch/Oregon/DEQ - Integrated Report 🎉 - IR_2026/Methodology/FW BioCriteria/biocriteria_scores2024-08-07_filtered.xlsx") |> 
   pull(act_id)
+
 
 
 results_together <- result_stats_OE |> 

@@ -3,7 +3,7 @@
 
 
 
-num_runs <- 5
+num_runs <- 20
 
 
 
@@ -93,7 +93,7 @@ MMI_multi <- function(){
   
   
   
-  MMI_results <- MMI_run(df_bugs = bug_tax_data_filtered, df_sample= sample_info)
+  MMI_results <- MMI_run(df_bugs = bug_tax_data_filtered, df_sample= sample_info, subsample_seed = NA)
   
   MMI_scores <- MMI_results$MMI_result |> 
      dplyr::arrange(SAMPLEID) 

@@ -31,10 +31,10 @@ Samp <- read_excel(data_path, sheet = "Sample") %>%
          act_comments = Comments, Subsample_fraction_value = "Subsample Amount",
          Habitat_sampled = "Habitat Type",Field_QA = "Field QA",Lab_QA = "Lab QA",
          Date = "Sample Date", MLocID = "Monitoring Location ID",
-         act_comments = Comments) %>%
+         act_comments = Comments, Subsample_fraction_value = "Subsample Amount") %>% # changed to account for updated template 1/13/25
   mutate(Methods_ok = "Yes",
          Fixed_Count = "fixed count 500",
-         #Subsample_fraction_value = (subsample_squares/30),
+         #Subsample_fraction_value = (subsample_squares/30), #Subsample_fraction_value moved to rename because there's no need to divide by total number of caton tray squares
          Area_sampled = 8) 
 
 counts <- read_excel(data_path, sheet = "Results") %>% 

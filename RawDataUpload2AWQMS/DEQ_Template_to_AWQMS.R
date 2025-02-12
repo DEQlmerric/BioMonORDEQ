@@ -9,7 +9,7 @@ library(RODBC)
 
 # Enter File Information 
 # Be sure to delete unused rows on Sample and Results tabs of the template
-data_path <- "//deqlab1/BioMon/Bugs/2024/ODEQ.ContractLab_DateTemplate_BiomonTrend.2024_RAI_FINAL.xlsx"
+data_path <- "//deqlab1/BioMon/Bugs/2023/2022_BioMon_ColeEco_DRAFT_Data_9-1-23_SLH edited.xlsx"
 org = "OREGONDEQ"
 
 # pull in hybrid taxon table from SQL BioMon database 
@@ -31,7 +31,7 @@ Samp <- read_excel(data_path, sheet = "Sample") %>%
          act_comments = Comments, Subsample_fraction_value = "Subsample Amount",
          Habitat_sampled = "Habitat Type",Field_QA = "Field QA",Lab_QA = "Lab QA",
          Date = "Sample Date", MLocID = "Monitoring Location ID",
-         act_comments = Comments, Subsample_fraction_value = "Subsample Amount") %>% # changed to account for updated template 1/13/25
+         act_comments = Comments) %>%
   mutate(Methods_ok = "Yes",
          Fixed_Count = "fixed count 500",
          #Subsample_fraction_value = (subsample_squares/30), #Subsample_fraction_value moved to rename because there's no need to divide by total number of caton tray squares
@@ -46,7 +46,7 @@ counts <- read_excel(data_path, sheet = "Results") %>%
          Taxon = "DEQ Taxon (Locked)", DEQ_TAXON = "DEQ Taxon Code",
          res_comments = "Comments") %>% 
   mutate(Taxon = case_when(Taxon == 'Eukiefferiella Pseudomontana group' ~ 'Eukiefferiella Pseudomontana Gr.',
-                           Taxon =='Tvetenia Bavarica group' ~ 'Tvetenia Bavarica Gr.',
+                           Taxon == 'Tvetenia Bavarica group' ~ 'Tvetenia Bavarica Gr.',
                            Taxon == 'Eukiefferiella Claripennis group' ~ 'Eukiefferiella Claripennis Gr.',
                            Taxon == 'Eukiefferiella Brehmi group' ~ 'Eukiefferiella Brehmi Gr.',
                            Taxon == 'Heterotrissocladius Marcidus group' ~ 'Heterotrissocladius Marcidus Gr.',
@@ -118,5 +118,5 @@ d <-rbind(d_count,d_density)
 
 # this is the AWQMS load file - use import configuration 1266
 
-write.csv(d,"//deqlab1/BioMon/Bugs/2024/ODEQ.ContractLab_BiomonTrend.2024ROutput.csv",na = "",row.names = FALSE)
+write.csv(d,"//deqlab1/BioMon/Bugs/2023/DEQ2022_RResults2_revised.csv",na = "",row.names = FALSE)
 

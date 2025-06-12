@@ -21,10 +21,12 @@ OE_modelrun <- function(df_bugs,
   library(openxlsx)
   
   #testing
-  
-  # df_bugs <- bug_tax_data_filtered
-
-  
+  # 
+  # df_bugs <- bug_tax_data_filtered |>
+  #     filter(act_id == '12997-ORDEQ:20050914:R:SR')
+  # subsample_seed = 16412730
+  # # 
+  # 
   
   
 

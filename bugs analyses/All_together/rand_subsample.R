@@ -10,7 +10,7 @@ random_subsample <- function(df, OTU_col, subsiz = 300, seed){
   }
   
   
-df <- bug_tax_data_filtered
+# df <- bug_tax_data_filtered
   
   raw.bugs_OTUs <- as.data.frame(df %>%
                                    group_by(Sample=act_id, MLocID, OTU={{OTU_col}}) %>%

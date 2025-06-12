@@ -48,7 +48,7 @@
 source('bugs analyses/All_together/Fetch_data.R')
 
 bug_tax_data <- fetch_data(DEQ_taxonomy_table = 'bugs analyses/Taxonomy/ODEQ_Taxonomy_dec22.xlsx',
-                           leppo_taxonomy_table_url = 'https://raw.githubusercontent.com/leppott/BioMonTools_SupportFiles/main/data/taxa_official/ORWA_TaxaTranslator_20240619.csv')
+                           leppo_taxonomy_table_url = 'https://github.com/leppott/BioMonTools_SupportFiles/raw/refs/heads/main/data/taxa_official/ORWA/old/ORWA_TaxaTranslator_20250210.csv')
 
 
 ## Filter the original datapull ------------------------------------------------------------------------------------
@@ -105,7 +105,8 @@ missing_streamcat <- OE_results$missing_streamcat
 
 source('bugs analyses/All_together/MMI_run.R')
 
-MMI_results <- MMI_run(df_bugs = bug_tax_data_filtered, df_sample= sample_info)
+MMI_results <- MMI_run(df_bugs = bug_tax_data_filtered, df_sample= sample_info,
+                       attribute_table_loc = 'https://github.com/leppott/BioMonTools_SupportFiles/raw/refs/heads/main/data/taxa_official/ORWA/ORWA_Attributes_20250610.csv')
 
 MMI_scores <- MMI_results$MMI_result
 
@@ -119,7 +120,8 @@ MMI_metrics <- MMI_results$MMI_metrics
 source('bugs analyses/All_together/calculate_metrics.R')
 
 
-BCG_metric_list <- calculate_metrics(bug_tax_data_filtered)
+BCG_metric_list <- calculate_metrics(bug_tax_data_filtered,
+                                     attribute_table_loc = 'https://github.com/leppott/BioMonTools_SupportFiles/raw/refs/heads/main/data/taxa_official/ORWA/ORWA_Attributes_20250610.csv')
 
 BCG_metrics <- BCG_metric_list$Metrics
 BCG_Metric_taxa_attributes <- BCG_metric_list$metric_taxa_attribute

@@ -6,15 +6,18 @@ library(readxl)
 
 
 
-calculate_metrics <- function(bug_data){
+calculate_metrics <- function(bug_data,
+                              attribute_table_loc = 'https://raw.githubusercontent.com/leppott/BioMonTools_SupportFiles/main/data/taxa_official/ORWA_Attributes_20241121.csv'){
   
   #testing
-  #bug_data <- bug_tax_data_filtered
+  # bug_data <- bug_tax_data_filtered
+  #  attribute_table_loc = 'https://github.com/leppott/BioMonTools_SupportFiles/raw/refs/heads/main/data/taxa_official/ORWA/ORWA_Attributes_20250610.csv'
+  
   
   df <- bug_data
   
 
-  attributes <- read.csv('https://raw.githubusercontent.com/leppott/BioMonTools_SupportFiles/main/data/taxa_official/ORWA_Attributes_20241121.csv') |> 
+  attributes <- read.csv(attribute_table_loc) |> 
     select(-Kingdom)
   
   df_bugs_taxa <- df |> 

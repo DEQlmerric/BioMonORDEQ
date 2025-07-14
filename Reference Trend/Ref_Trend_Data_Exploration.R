@@ -26,6 +26,7 @@ library(dplyr)
 library(plyr)
 library(stringr)
 library(AWQMSdata)
+#SH is radmobile dood like fo realz yo
 
 # ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 # ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
@@ -50,7 +51,7 @@ stations <- c("26936-ORDEQ","35633-ORDEQ","35825-ORDEQ","35722-ORDEQ","32577-ORD
               "31495-ORDEQ","24419-ORDEQ","35720-ORDEQ","34636-ORDEQ","11850-ORDEQ","35794-ORDEQ")
 
 #PULL TREND CHEMISTRY DATA FROM AWQMS (TYPICALLY TAKES 1-2 MINUTES)
-chem <- AWQMS_Data(station = stations)
+chem <- AWQMS_Data(MLocID = stations)
 rm(stations) 
 
 #MAKE ABBREVIATED SITE NAMES
@@ -209,8 +210,8 @@ stations <- c("26936-ORDEQ","35633-ORDEQ","35825-ORDEQ","35722-ORDEQ","32577-ORD
               "31495-ORDEQ","24419-ORDEQ","35720-ORDEQ","34636-ORDEQ","11850-ORDEQ","35794-ORDEQ")
      
 #PULL BUG METRIC AND INDEX DATA FROM AWQMS
-bugs.met <- AWQMS_Bio_Metrics(station = stations)
-bugs.ind <- AWQMS_Bio_Indexes(station = stations)
+bugs.met <- AWQMS_Bio_Metrics(MLocID = stations)
+bugs.ind <- AWQMS_Bio_Indexes(MLocID = stations)
 
 #RENAME COLUMNS
 names(bugs.met)[names(bugs.met) == "Metric_Name"] <- "Char_Name"
@@ -226,16 +227,20 @@ bugs$Year <- substring(bugs$`Sample_Date`, 1, 4)
 
 #MAKE ABBREVIATED SITE NAMES
 bugs$StationDes[bugs$StationDes=="Black Canyon Cr (John Day)"] <- "Black Canyon"
+bugs$StationDes[bugs$StationDes=="Black Canyon Creek"] <- "Black Canyon"
 bugs$StationDes[bugs$StationDes=="Booze Cr_RM_0.20"] <- "Booze"
 bugs$StationDes[bugs$StationDes=="Booze Creek RM 0.20"] <- "Booze"
+bugs$StationDes[bugs$StationDes=="Booze Creek at River Mile 0.20"] <- "Booze"
 bugs$StationDes[bugs$StationDes=="Bridge Creek at Upper Reference"] <- "Bridge"
 bugs$StationDes[bugs$StationDes=="Bridge Creek at Upper reference site"] <- "Bridge"
+bugs$StationDes[bugs$StationDes=="Bridge Creek at upper reference site"] <- "Bridge"
 bugs$StationDes[bugs$StationDes=="ELK R NF AT RM 0.4"] <- "NF Elk"
 bugs$StationDes[bugs$StationDes=="Elk River NF at RM 0.4"] <- "NF Elk"
 bugs$StationDes[bugs$StationDes=="FISH LAKE CR AT RM 1.8"] <- "Fish Lake"
 bugs$StationDes[bugs$StationDes=="Fish Lake Creek at RM 1.8"] <- "Fish Lake"
 bugs$StationDes[bugs$StationDes=="Guano Creek (Hart Mountain)"] <- "Guano"
 bugs$StationDes[bugs$StationDes=="Guano_Ck_Hart_Mtn"] <- "Guano"
+bugs$StationDes[bugs$StationDes=="Guano Creek, Hart Mountain"] <- "Guano"
 bugs$StationDes[bugs$StationDes=="Kilchis R SF at RM 1.55"] <- "SF Kilchis"
 bugs$StationDes[bugs$StationDes=="Kilchis River SF at RM 1.55"] <- "SF Kilchis"
 bugs$StationDes[bugs$StationDes=="LADY CR AT RM 0.2"] <- "Lady"
@@ -243,10 +248,13 @@ bugs$StationDes[bugs$StationDes=="Lady Creek at RM 0.2"] <- "Lady"
 bugs$StationDes[bugs$StationDes=="Little Minam R at RM 1.3"] <- "Little Minam"
 bugs$StationDes[bugs$StationDes=="LITTLE MINAM R AT RM 1.3"] <- "Little Minam"
 bugs$StationDes[bugs$StationDes=="Rock Creek at RM 1.5 (Alsea)"] <- "Rock"
+bugs$StationDes[bugs$StationDes=="Rock Creek at River Mile 1.5"] <- "Rock"
 bugs$StationDes[bugs$StationDes=="WF Silver Creek 25 min D/S from end of USFS"] <- "WF Silver"
 bugs$StationDes[bugs$StationDes=="WF Silver Creek 25 min D/S from end of USFS RD 035 (Silver, Silver Lake)"] <- "WF Silver"
+bugs$StationDes[bugs$StationDes=="West Fork Silver Creek, 25 minutes downstream from end of FSR 035 (Silver, Silver Lake)"] <- "WF Silver"
 bugs$StationDes[bugs$StationDes=="SQUAW CR NF AT MOUTH"] <- "NF Whychus"
 bugs$StationDes[bugs$StationDes=="Whychus Creek NF at mouth"] <- "NF Whychus"
+bugs$StationDes[bugs$StationDes=="Whychus CR NF AT MOUTH"] <- "NF Whychus"
 
 #REMOVE 1992 DATA (UNREPRESENTATIVE METHODS)
 bugs <- subset(bugs, bugs$Year!='1992')
@@ -442,7 +450,7 @@ write_xlsx(peri_wide, path = "//deqlab1/Biomon/Projects/Biomon Redux/Trend Sites
 
 # ~ ~ ~ O/E
 #ratio of expected to observed bug taxa irrespective of model (SE sites -> 'OoverE_null')
-box_oe<-ggplot(bugs, aes(x = StationDes, y = OoverE_extract)) +
+box_oe<-ggplot(bugs, aes(x = `StationDes`, y = `O/E Ratio`)) +
   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
   labs(x = "Site", y = "O/E") +
   geom_hline(yintercept = 1.0, color = "blue", linetype = "dashed") +
@@ -451,7 +459,7 @@ print(box_oe)
 
 # ~ ~ ~ TS
 #macroinvertebrate inferred 7-day average seasonal max temperature (?C)
-box_ts<-ggplot(bugs, aes(x = StationDes, y = TS)) + 
+box_ts<-ggplot(bugs, aes(x = `StationDes`, y = `Inferred Temperature`)) + 
   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
   labs(x = "Site", y = "TS") +
   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
@@ -459,7 +467,7 @@ print(box_ts)
 
 # ~ ~ ~ BSTI
 #Biological Sediemnt Tolerance Index - macroinvertebrate inferred % fines
-box_bsti<-ggplot(bugs, aes(x = StationDes, y = BSTI)) + 
+box_bsti<-ggplot(bugs, aes(x = `StationDes`, y = `BSTI`)) + 
   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
   labs(x = "Site", y = "BSTI") +
   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
@@ -467,7 +475,7 @@ print(box_bsti)
 
 # ~ ~ ~ BC
 #Bray-Curtis Similarity Index (Van Sickle 2008)
-box_bc<-ggplot(bugs, aes(x = StationDes, y = BC)) + 
+box_bc<-ggplot(bugs, aes(x = `StationDes`, y = `Bray Curtis Similarity Index`)) + 
   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
   labs(x = "Site", y = "BC") +
   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
@@ -475,7 +483,7 @@ print(box_bc)
 
 # ~ ~ ~ TOTAL RICHNESS
 #number of unique taxa
-box_total.richness<-ggplot(bugs, aes(x = StationDes, y = total_richness)) + 
+box_total.richness<-ggplot(bugs, aes(x = `StationDes`, y = `Total Taxa Richness`)) + 
   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
   labs(x = "Site", y = "Total Richness") +
   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
@@ -483,7 +491,7 @@ print(box_total.richness)
 
 # ~ ~ ~ PERCENT EPT
 #% abundance of EPT
-box_pct.ept<-ggplot(bugs, aes(x = StationDes, y = pct_EPT)) + 
+box_pct.ept<-ggplot(bugs, aes(x = `StationDes`, y = `% EPT Taxa`)) + 
   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
   labs(x = "Site", y = "% EPT") +
   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
@@ -491,7 +499,7 @@ print(box_pct.ept)
 
 # ~ ~ ~ PERCENT NON INSECT
 #% abundance of Non Insect taxa
-box_pct.non.insect<-ggplot(bugs, aes(x = StationDes, y = pct_NonInsect)) + 
+box_pct.non.insect<-ggplot(bugs, aes(x = `StationDes`, y = `% Non-Insect Taxa`)) + 
   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
   labs(x = "Site", y = "% Non Insect") +
   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
@@ -499,28 +507,28 @@ print(box_pct.non.insect)
 
 # ~ ~ ~ VOLTINISM
 #% abundance of long-lived (semivoltine) taxa
-box_semivolt<-ggplot(bugs, aes(x = StationDes, y = pct_semivoltine)) + 
+box_semivolt<-ggplot(bugs, aes(x = `StationDes`, y = `% Semivoltine Taxa`)) + 
   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
   labs(x = "Site", y = "% Semivoltine") +
   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
 print(box_semivolt)
 
 #% abundance of short-lived (multivoltine) taxa
-box_multivolt<-ggplot(bugs, aes(x = StationDes, y = pct_multivoltine)) + 
+box_multivolt<-ggplot(bugs, aes(x = `StationDes`, y = `% Multivoltine Taxa`)) + 
   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
 labs(x = "Site", y = "% Multivoltine") +
   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
 print(box_multivolt)
 
 #% abundance of univoltine taxa
-box_univolt<-ggplot(bugs, aes(x = StationDes, y = pct_univoltine)) + 
+box_univolt<-ggplot(bugs, aes(x = `StationDes`, y = `% Univoltine Taxa`)) + 
   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
   labs(x = "Site", y = "% Univoltine") +
   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
 print(box_univolt)
 
 #ratio of semivoltine:multivoltine richness
-box_voltratio.rich<-ggplot(bugs, aes(x = StationDes, y = voltratio.rich)) + 
+box_voltratio.rich<-ggplot(bugs, aes(x = `StationDes`, y = `Semivoltine Taxa Richness`)) + 
   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
   labs(x = "Site", y = "Semivoltine : Multivoltine (Richness)") +
   geom_hline(yintercept = 1.0, color = "blue", linetype = "dashed") +
@@ -537,7 +545,7 @@ print(box_voltratio.pct)
 
 # ~ ~ ~ DIVERSITY
 #Simpson_diversity: 1 - sum(relative abundance^2)
-box_div.simpson<-ggplot(bugs, aes(x = StationDes, y = Simpson_diversity)) + 
+box_div.simpson<-ggplot(bugs, aes(x = `StationDes`, y = `Simpson Diversity`)) + 
   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
   labs(x = "Site", y = "Simpson Diversity") +
   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
@@ -545,7 +553,7 @@ print(box_div.simpson)
 
 # ~ ~ ~ TOTAL ABUNDANCE RIV
 #total abundance following subsampling for RIVPACS
-box_total.abund.riv<-ggplot(bugs, aes(x = StationDes, y = tot_abund_RIV)) + 
+box_total.abund.riv<-ggplot(bugs, aes(x = `StationDes`, y = `RIVPACS Sub-Sample Total Abundance`)) + 
   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
   labs(x = "Site", y = "Total Abundance (RIVPACS)") +
   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
@@ -553,7 +561,7 @@ print(box_total.abund.riv)
 
 # ~ ~ ~ TOTAL ABUNDANCE STR
 #total abudnance used in Stressor Models (temp and fines)
-box_total.abund.str<-ggplot(bugs, aes(x = StationDes, y = tot_abund_STR)) + 
+box_total.abund.str<-ggplot(bugs, aes(x = `StationDes`, y = `Stressor Models Total Abundance`)) + 
   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
   labs(x = "Site", y = "Total Abundance (Stressor Models)") +
   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
@@ -565,7 +573,9 @@ print(box_total.abund.str)
 #>>>>>>>>>>>>>>>>>>>>
 
 #STACKED BAR PLOT FOR O/E CONDITION CLASSES
-bar_oestack<-ggplot(bugs, aes(fill = oe_cond, x = StationDes, y = 100)) +
+bugs2<-subset(bugs, bugs$`O/E Condition`!="NA")
+
+bar_oestack<-ggplot(bugs2, aes(fill = `O/E Condition`, x = `StationDes`, y = 100)) +
   geom_bar(position = "fill", stat = "identity", colour = "black") + 
   labs(title = "O/E Condition Classes by Site, 1992-2018", x = "Site", y = "Proportion") +
   geom_text(aes(label=Year), position=position_fill(vjust = 0.5), size = 3) +
@@ -581,7 +591,7 @@ ggsave('//deqlab1/biomon/Projects/Biomon Redux/Trend Sites/R/R_Output/Bugs/OE_Co
 
 # ~ ~ ~ O/E
   #ratio of expected to observed bug taxa irrespective of model (SE sites -> 'OoverE_null')
-bar_oe<-ggplot(bugs, aes(x = StationDes, level = Year, y = `OoverE_extract`, fill = factor(oe_cond))) + #chronologically ordered & conditionally formatted by condition
+bar_oe<-ggplot(bugs, aes(x = StationDes, level = Year, y = `O/E Ratio`, fill = factor(`O/E Condition`))) + #chronologically ordered & conditionally formatted by condition
   geom_bar(stat = "identity", position = "dodge", colour = "black") + #black bar outlines
   labs(x = "Site", y = "O/E") +
   geom_hline(yintercept = 1.0, color = "black", linetype = "dashed") + #reference line at O/E = 1
@@ -596,7 +606,7 @@ bar_oe<-ggplot(bugs, aes(x = StationDes, level = Year, y = `OoverE_extract`, fil
 print(bar_oe)
 
   #facet wrap by year
-bar_oe2<-ggplot(bugs, aes(x = StationDes, level = Year, y = `OoverE_extract`, fill = factor(oe_cond))) + #chronologically ordered & conditionally formatted by condition
+bar_oe2<-ggplot(bugs, aes(x = StationDes, level = Year, y = `O/E Ratio`, fill = factor(`O/E Condition`))) + #chronologically ordered & conditionally formatted by condition
   geom_bar(stat = "identity", position = "dodge", colour = "black") + #black bar outlines
   labs(x = "Site", y = "O/E") +
   geom_hline(yintercept = 1.0, color = "black", linetype = "dashed") + #reference line at O/E = 1
@@ -612,7 +622,7 @@ print(bar_oe2)
 ggsave('//deqlab1/biomon/Projects/Biomon Redux/Trend Sites/R/R_Output/Bugs/O_over_E_FacetWrap_Year.jpeg', device = "jpeg", width = 12, height = 10)
 
   #facet wrap by site
-bar_oe3<-ggplot(bugs, aes(x = Year, level = Year, y = `OoverE_extract`, fill = factor(oe_cond))) + #chronologically ordered & conditionally formatted by condition
+bar_oe3<-ggplot(bugs, aes(x = Year, level = Year, y = `O/E Ratio`, fill = factor(`O/E Condition`))) + #chronologically ordered & conditionally formatted by condition
   geom_bar(stat = "identity", position = "dodge2", colour = "black") + #black bar outlines
   labs(x = "Year", y = "O/E") +
   geom_hline(yintercept = 1.0, color = "black", linetype = "dashed") + #reference line at O/E = 1
@@ -628,7 +638,7 @@ print(bar_oe3)
 
 # ~ ~ ~ TS
 #macroinvertebrate inferred 7-day average seasonal max temperature (?C)
-bar_ts<-ggplot(bugs, aes(x = StationDes, level = Year, y = TS, fill = factor(oe_cond))) + #chronologically ordered & conditionally formatted by condition
+bar_ts<-ggplot(bugs, aes(x = StationDes, level = Year, y = TS, fill = factor(`O/E Condition`))) + #chronologically ordered & conditionally formatted by condition
   geom_bar(stat = "identity", position = "dodge", colour = "black") + #black bar outlines
   labs(x = "Site", y = "TS") +
   geom_text(aes(label = Year), position=position_dodge(width = 0.9), hjust = -0.25, vjust = 0.5, angle = 90, size = 3, check_overlap = TRUE) +
@@ -643,7 +653,7 @@ print(bar_ts)
 
 # ~ ~ ~ BSTI
 #Biological Sediemnt Tolerance Index - macroinvertebrate inferred % fines
-bar_bsti<-ggplot(bugs, aes(x = StationDes, level = Year, y = BSTI, fill = factor(oe_cond))) + #chronologically ordered & conditionally formatted by condition
+bar_bsti<-ggplot(bugs, aes(x = StationDes, level = Year, y = BSTI, fill = factor(`O/E Condition`))) + #chronologically ordered & conditionally formatted by condition
   geom_bar(stat = "identity", position = "dodge", colour = "black") + #black bar outlines
   labs(x = "Site", y = "BSTI") +
   geom_text(aes(label = Year), position=position_dodge(width = 0.9), hjust = -0.25, vjust = 0.5, angle = 90, size = 3, check_overlap = TRUE) +
@@ -658,7 +668,7 @@ print(bar_bsti)
 
 # ~ ~ ~ BC
 #Bray-Curtis Similarity Index (Van Sickle 2008)
-bar_bc<-ggplot(bugs, aes(x = StationDes, level = Year, y = BC, fill = factor(oe_cond))) + #chronologically ordered & conditionally formatted by condition
+bar_bc<-ggplot(bugs, aes(x = StationDes, level = Year, y = BC, fill = factor(`O/E Condition`))) + #chronologically ordered & conditionally formatted by condition
   geom_bar(stat = "identity", position = "dodge", colour = "black") + #black bar outlines
   labs(x = "Site", y = "BC") +
   geom_text(aes(label = Year), position=position_dodge(width = 0.9), hjust = -0.25, vjust = 0.5, angle = 90, size = 3, check_overlap = TRUE) +
@@ -673,7 +683,7 @@ print(bar_bc)
 
 # ~ ~ ~ TOTAL RICHNESS
 #number of unique taxa
-bar_total.richness<-ggplot(bugs, aes(x = StationDes, level = Year, y = total_richness, fill = factor(oe_cond))) + #chronologically ordered & conditionally formatted by condition
+bar_total.richness<-ggplot(bugs, aes(x = StationDes, level = Year, y = total_richness, fill = factor(`O/E Condition`))) + #chronologically ordered & conditionally formatted by condition
   geom_bar(stat = "identity", position = "dodge", colour = "black") + #black bar outlines
   labs(x = "Site", y = "Total Richness") +
   geom_text(aes(label = Year), position=position_dodge(width = 0.9), hjust = -0.25, vjust = 0.5, angle = 90, size = 3, check_overlap = TRUE) +
@@ -688,7 +698,7 @@ print(bar_total.richness)
 
 # ~ ~ ~ PERCENT EPT
 #% abundance of EPT
-bar_pct.ept<-ggplot(bugs, aes(x = StationDes, level = Year, y = pct_EPT, fill = factor(oe_cond))) + #chronologically ordered & conditionally formatted by condition
+bar_pct.ept<-ggplot(bugs, aes(x = StationDes, level = Year, y = pct_EPT, fill = factor(`O/E Condition`))) + #chronologically ordered & conditionally formatted by condition
   geom_bar(stat = "identity", position = "dodge", colour = "black") + #black bar outlines
   labs(x = "Site", y = "% EPT") +
   geom_text(aes(label = Year), position=position_dodge(width = 0.9), hjust = -0.25, vjust = 0.5, angle = 90, size = 3, check_overlap = TRUE) +
@@ -703,7 +713,7 @@ print(bar_pct.ept)
 
 # ~ ~ ~ PERCENT NON INSECT
 #% abundance of Non Insect taxa
-bar_pct.non.insect<-ggplot(bugs, aes(x = StationDes, level = Year, y = pct_NonInsect, fill = factor(oe_cond))) + #chronologically ordered & conditionally formatted by condition
+bar_pct.non.insect<-ggplot(bugs, aes(x = StationDes, level = Year, y = pct_NonInsect, fill = factor(`O/E Condition`))) + #chronologically ordered & conditionally formatted by condition
   geom_bar(stat = "identity", position = "dodge", colour = "black") + #black bar outlines
   labs(x = "Site", y = "% Non Insect") +
   geom_text(aes(label = Year), position=position_dodge(width = 0.9), hjust = -0.25, vjust = 0.5, angle = 90, size = 3, check_overlap = TRUE) +
@@ -721,7 +731,7 @@ print(bar_pct.non.insect)
 
 # ~ ~ ~ DIVERSITY
 #Simpson_diversity: 1 - sum(relative abundance^2)
-bar_div.simpson<-ggplot(bugs, aes(x = StationDes, level = Year, y = Simpson_diversity, fill = factor(oe_cond))) + #chronologically ordered & conditionally formatted by condition
+bar_div.simpson<-ggplot(bugs, aes(x = StationDes, level = Year, y = Simpson_diversity, fill = factor(`O/E Condition`))) + #chronologically ordered & conditionally formatted by condition
   geom_bar(stat = "identity", position = "dodge", colour = "black") + #black bar outlines
   labs(x = "Site", y = "Simpson Diversity") +
   geom_text(aes(label = Year), position=position_dodge(width = 0.9), hjust = -0.25, vjust = 0.5, angle = 90, size = 3, check_overlap = TRUE) +
@@ -736,7 +746,7 @@ print(bar_div.simpson)
 
 # ~ ~ ~ TOTAL ABUNDANCE RIV
 #total abundance following subsampling for RIVPACS
-bar_total.abund.riv<-ggplot(bugs, aes(x = StationDes, level = Year, y = tot_abund_RIV, fill = factor(oe_cond))) + #chronologically ordered & conditionally formatted by condition
+bar_total.abund.riv<-ggplot(bugs, aes(x = StationDes, level = Year, y = tot_abund_RIV, fill = factor(`O/E Condition`))) + #chronologically ordered & conditionally formatted by condition
   geom_bar(stat = "identity", position = "dodge", colour = "black") + #black bar outlines
   labs(x = "Site", y = "Total Abundance (RIVPACS)") +
   geom_text(aes(label = Year), position=position_dodge(width = 0.9), hjust = -0.25, vjust = 0.5, angle = 90, size = 3, check_overlap = TRUE) +
@@ -751,7 +761,7 @@ print(bar_total.abund.riv)
 
 # ~ ~ ~ TOTAL ABUNDANCE STR
 #total abundance used in Stressor Models (temp and fines)
-bar_total.abund.str<-ggplot(bugs, aes(x = StationDes, level = Year, y = tot_abund_STR, fill = factor(oe_cond))) + #chronologically ordered & conditionally formatted by condition
+bar_total.abund.str<-ggplot(bugs, aes(x = StationDes, level = Year, y = tot_abund_STR, fill = factor(`O/E Condition`))) + #chronologically ordered & conditionally formatted by condition
   geom_bar(stat = "identity", position = "dodge", colour = "black") + #black bar outlines
   labs(x = "Site", y = "Total Abundance (Stressor Models)") +
   geom_text(aes(label = Year), position=position_dodge(width = 0.9), hjust = -0.25, vjust = 0.5, angle = 90, size = 3, check_overlap = TRUE) +

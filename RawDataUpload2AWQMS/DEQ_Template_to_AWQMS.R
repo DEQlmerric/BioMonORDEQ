@@ -9,8 +9,8 @@ library(RODBC)
 
 # Enter File Information 
 # Be sure to delete unused rows on Sample and Results tabs of the template
-data_path <- "//deqlab1/BioMon/Bugs/2023/2022_BioMon_ColeEco_DRAFT_Data_9-1-23_SLH edited.xlsx"
-org = "OREGONDEQ"
+data_path <- "//deqlab1/Vol_Data/Deschutes River Conservancy/2019-2021/Macroinvertebrates_2019_2021/WorkingCopy_Final_BioSubmission_Template_v6-DRC.xlsx"
+org = "DRC_(NOSTORETID)"
 
 # pull in hybrid taxon table from SQL BioMon database 
 # this files lives and is updated in this BioMon repo 
@@ -75,7 +75,7 @@ d_samp <- counts %>%
          status = if_else(Methods_ok == 'Yes','Final','Rejected'),
          value = 'Actual', #when would this be estimated? 
          method = Fixed_Count,
-         context = 'OREGONDEQ',
+         context = org, #Changed from OREGONDEQ 6/2/25 - DTB
          method_name = 'Benthic Macroinvertebrates',
          qual = if_else(Methods_ok == 'Yes','','ALT'),
          speciesID = if_else(UniqueTaxon == 'YES', 'UniqueTaxon','AmbiguousTaxon'),
@@ -118,5 +118,5 @@ d <-rbind(d_count,d_density)
 
 # this is the AWQMS load file - use import configuration 1266
 
-write.csv(d,"//deqlab1/BioMon/Bugs/2023/DEQ2022_RResults2_revised.csv",na = "",row.names = FALSE)
+write.csv(d,"//deqlab1/Vol_Data/Deschutes River Conservancy/2019-2021/Macroinvertebrates_2019_2021/DRC_Bio_RResults.csv",na = "",row.names = FALSE)
 

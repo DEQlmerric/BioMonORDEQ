@@ -9,8 +9,9 @@ library(RODBC)
 
 # Enter File Information 
 # Be sure to delete unused rows on Sample and Results tabs of the template
-data_path <- "//deqlab1/Vol_Data/Deschutes River Conservancy/2019-2021/Macroinvertebrates_2019_2021/WorkingCopy_Final_BioSubmission_Template_v6-DRC.xlsx"
-org = "DRC_(NOSTORETID)"
+data_path <- "//deqlab1/Vol_Data/Gilliam SWCD/2024/WorkingCopy_Thirtymile Creek March 2024 Benthic ODEQ.xlsx"
+out_path <- "//deqlab1/Vol_Data/Gilliam SWCD/2024/Gilliam_24Bio_RResults.csv"
+org = "GILLIAM_SWCD"
 
 # pull in hybrid taxon table from SQL BioMon database 
 # this files lives and is updated in this BioMon repo 
@@ -118,5 +119,5 @@ d <-rbind(d_count,d_density)
 
 # this is the AWQMS load file - use import configuration 1266
 
-write.csv(d,"//deqlab1/Vol_Data/Deschutes River Conservancy/2019-2021/Macroinvertebrates_2019_2021/DRC_Bio_RResults.csv",na = "",row.names = FALSE)
+write.csv(d, out_path, na = "",row.names = FALSE)
 

@@ -14,8 +14,7 @@
 # 
 #
 
-bug.stressors <- function(b_t_s = b_t_s, 
-                          taxonomy_table_url = 'https://raw.githubusercontent.com/leppott/BioMonTools_SupportFiles/main/data/taxa_official/ORWA_TaxaTranslator_20240204.csv'){
+bug.stressors <- function(bug_tax_data = bug_tax_data){
 
 
 
@@ -41,7 +40,7 @@ library(rioja)
 # Download first then read.
 ## URL BioMonTools
  
-taxonomy_MTTI <- read.csv(taxonomy_table_url)
+taxonomy_MTTI <- ORDEQBioassessment::taxonomy_leppo
 
 
 # old csv copy locally: taxa <- read.csv('ORWA_TaxaTranslator_20230112_SLH.updated.csv') \
@@ -63,7 +62,9 @@ taxa.otu <- taxonomy_MTTI %>%
 
                 
 
-bugs.MTTI <- b_t_s
+bugs.MTTI <- bug_tax_data |> 
+  mutate(Sample = act_id,
+         Count = Result_Numeric)
   
 bugs.MTTI <- bugs.MTTI %>%
   select(Sample, Taxon, Count) 
@@ -135,7 +136,7 @@ bugs.MTTI_cross <-	column_to_rownames(bugs.MTTI_cross, 'sample.id')
 
 ###
 
-
+#This will get saved to the ORDEQBioassessment package
 # load MTTI model
 load('bugs analyses/stressor/wa_MTTI.mar23.Rdata')
 
@@ -211,7 +212,8 @@ MTTI$MTTI <- ifelse(MTTI$MTTI > 30.8, 30.8, MTTI$MTTI)
                 #                    taxa.otu <- taxonomy_MTTI %>%
                 #                      select(Taxon_orig, OTU_MTTI) #%>%
                                     
- # interim until added to BiomonTools github                                   
+ # interim until added to BiomonTools github  
+#This will get saved to the ORDEQBioassessment package
 taxa.otu <- read.csv('bugs analyses/stressor/OTU_bsti_v2.csv')				
                                     
 
@@ -225,7 +227,9 @@ taxa.otu <- read.csv('bugs analyses/stressor/OTU_bsti_v2.csv')
 
 
 
-bugs.BSTI <- b_t_s
+bugs.BSTI <- bug_tax_data|> 
+  mutate(Sample = act_id,
+         Count = Result_Numeric)
 
 bugs.BSTI <- bugs.BSTI %>%
   select(Sample, Taxon, Count) 

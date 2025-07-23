@@ -668,7 +668,7 @@ print(bar_bsti)
 
 # ~ ~ ~ BC
 #Bray-Curtis Similarity Index (Van Sickle 2008)
-bar_bc<-ggplot(bugs, aes(x = StationDes, level = Year, y = BC, fill = factor(`O/E Condition`))) + #chronologically ordered & conditionally formatted by condition
+bar_bc<-ggplot(bugs, aes(x = StationDes, level = Year, y = `Bray Curtis Similarity Index`, fill = factor(`O/E Condition`))) + #chronologically ordered & conditionally formatted by condition
   geom_bar(stat = "identity", position = "dodge", colour = "black") + #black bar outlines
   labs(x = "Site", y = "BC") +
   geom_text(aes(label = Year), position=position_dodge(width = 0.9), hjust = -0.25, vjust = 0.5, angle = 90, size = 3, check_overlap = TRUE) +
@@ -698,7 +698,7 @@ print(bar_total.richness)
 
 # ~ ~ ~ PERCENT EPT
 #% abundance of EPT
-bar_pct.ept<-ggplot(bugs, aes(x = StationDes, level = Year, y = pct_EPT, fill = factor(`O/E Condition`))) + #chronologically ordered & conditionally formatted by condition
+bar_pct.ept<-ggplot(bugs, aes(x = StationDes, level = Year, y = `% EPT Taxa`, fill = factor(`O/E Condition`))) + #chronologically ordered & conditionally formatted by condition
   geom_bar(stat = "identity", position = "dodge", colour = "black") + #black bar outlines
   labs(x = "Site", y = "% EPT") +
   geom_text(aes(label = Year), position=position_dodge(width = 0.9), hjust = -0.25, vjust = 0.5, angle = 90, size = 3, check_overlap = TRUE) +

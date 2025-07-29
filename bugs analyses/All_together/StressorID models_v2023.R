@@ -14,7 +14,7 @@
 # 
 #
 
-bug.stressors_run <- function(bug_tax_data = bug_tax_data){
+bug.stressors_run <- function(df_bugs = bug_tax_data){
 
 
 
@@ -343,10 +343,17 @@ tot.abund.BSTI <- abunds.BSTI %>%
 BSTI$BSTI <- ifelse(BSTI$BSTI < 0, 0, BSTI$BSTI)
 BSTI$BSTI <- ifelse(BSTI$BSTI > 100, 100, BSTI$BSTI)
 
-stressorID <- list('MTTI' = MTTI,
-                   'BSTI' = BSTI, 
-                   'tot.abund.MTTI' = tot.abund.MTTI,
-                   'tot.abund.BSTI' = tot.abund.BSTI)
+stressorID <- MTTI %>%
+  left_join(BSTI, by = 'Sample') %>%
+  left_join(tot.abund.MTTI, by = 'Sample')%>%
+  left_join(tot.abund.BSTI, by = 'Sample')
+
+#stressorID <- list('MTTI' = MTTI,
+#                   'BSTI' = BSTI, 
+#                   'tot.abund.MTTI' = tot.abund.MTTI,
+#                   'tot.abund.BSTI' = tot.abund.BSTI)
+
+
 return(stressorID)
 
 

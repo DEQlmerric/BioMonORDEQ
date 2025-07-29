@@ -141,6 +141,20 @@ BCG_sample <- sample_info |>
   left_join(BCG_results, by = c('act_id' = 'SampleID'))
 
 
+
+# Run Stressor models ---------------------------------------------------------------------------------------------------
+
+
+source('bugs analyses/All_together/StressorID models_v2023.R')
+
+STRESS_results <- bug.stressors_run(df_bugs = bug_tax_data_filtered)
+
+STRESS_results <- STRESS_results %>%
+  dplyr::rename(act_id = Sample)
+
+#___________________________________________________________________________
+
+
 #### merge into one df ### 
 OE <- OE_scores |> 
   #select(MLocID,org_id, AU_ID, act_id,EcoRegion3,EcoRegion4,ReferenceSite, OoverE) |> 
@@ -162,9 +176,10 @@ MMI_met <- MMI_metrics |>
 load("bugs analyses/Models_Validation/sample_info_model.Rdata") ### this comes from model_val script 
 
 ### this one keeps qualifiers 
-joined_OE_BCG_MMI_all <- left_join(OE, BCG, by = join_by(act_id)) |> 
+joined_OE_BCG_MMI_STRESS_all <- left_join(OE, BCG, by = join_by(act_id)) |> 
   left_join(MMI_met) |> 
   left_join(MMI) |> 
+  left_join(STRESS_results) |>
   #left_join(sample_info_model, by = 'act_id')
   mutate(qualifer = case_when(ni_total < 300 ~ 1,
                               act_id %in% c('22946-ORDEQ:19980812:R:SR-2',
@@ -197,7 +212,7 @@ joined_OE_BCG_MMI_all <- left_join(OE, BCG, by = join_by(act_id)) |>
                                  TRUE ~ NA))
 
 ### this one has all qualifiers removed 
-joined_OE_BCG_MMI_good <- joined_OE_BCG_MMI_all %>% 
+joined_OE_BCG_MMI_STRESS_good <- joined_OE_BCG_MMI_all %>% 
   filter(qualifer == 0)%>% ## removes sus data (low counts, SE, glacial sites and poor samples)
   filter(Result_Status != 'Rejected') %>% # removes older and rejected data 
   filter(!is.na(ReferenceSite)) %>% # removes sites that have not gone through reference screen 

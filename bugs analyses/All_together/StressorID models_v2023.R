@@ -251,7 +251,7 @@ bugs.BSTI <- bugs.BSTI %>%
   dplyr::rename(Taxon_orig = Taxon) #%>%
 #rename(Count = COUNTS)
 
-
+  
 # need relative abundances
 
 abunds.BSTI <- bugs.BSTI %>% 			

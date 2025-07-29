@@ -210,7 +210,7 @@ joined_OE_BCG_MMI_STRESS_all <- left_join(OE, BCG, by = join_by(act_id)) |>
                                  qualifer == 6 ~ "VolMon",
                                  #qualifer == 7 ~ "boatable",
                                  TRUE ~ NA))
-
+  
 ### this one has all qualifiers removed 
 joined_OE_BCG_MMI_STRESS_good <- joined_OE_BCG_MMI_all %>% 
   filter(qualifer == 0)%>% ## removes sus data (low counts, SE, glacial sites and poor samples)

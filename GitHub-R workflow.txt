@@ -1,0 +1,7 @@
+GitHub-R workflow
+
+1. Open the BioMonORDEQ R project file from C:\Users\<username>\Documents\BioMonORDEQ
+2. In the Git tab, PULL to incorporate all edits/ensure you're working off the most recent versions
+3. Make edits to a script and save changes (file will turn blue in Git window)
+4. Click on the "staged" box next to the modified script and COMMIT changes (and record comment)
+5. PUSH the updated version back to Git

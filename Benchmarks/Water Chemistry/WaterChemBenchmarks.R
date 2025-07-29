@@ -14,7 +14,7 @@
 #  |__| |__||__| |__|  |___|  |_______||___|  |_|  |_______||__| |__||_______||_|   |_||___| |_______|  |___|  |___|  |_|  |___|  
 
 
-#OVERVIEW - This script <fill in>
+#OVERVIEW - This script <fill in> 
 
 #This script requires the ODEQ AWQMSdata package. Visit 'https://github.com/TravisPritchardODEQ/AWQMSdata' for installation instructions.
 
@@ -29,8 +29,7 @@ library(ggplot2)
 library(readr)
 
 #IMPORT STATIONS FROM BIOMON REFERENCE SCREEN
-#one_rule_all <- read.csv("//deqlab1/GIS_WA/Project_Working_Folders/Reference/2020/_Final outputs/one.table_rule.all.csv")
-one_rule_all <- read_csv("Reference/one.table_rule.all.csv", show_col_types = FALSE)
+one_rule_all<-read_csv("Reference/one.table_rule.all.csv", show_col_types = FALSE)
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #TEST FOR DUPLICATE ENTRIES IN ONE RULE ALL TABLE 
@@ -46,14 +45,16 @@ one_rule_all <- one_rule_all[!duplicated(one_rule_all), ]
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #REMOVE AMBIENT STATIONS FROM FURTHER ANALYSIS
   #1: IMPORT CURRENT AMBIENT STATIONS LIST (UP-TO-DATE AS OF MAY 2022, N=161) ***TO DO: Import Ambient site list directly from AWQMS to ensure up-to-date
-amb <- read_excel("//deqlab1/ATHOMPS/Files/Biomon/R Chem Benchmarks/Ambient_Stations_List.xlsx") #on E drive for testing, move file to better location
+amb <- read_excel("Benchmarks/Water Chemistry/Ambient_Stations_List.xlsx")
+#write code to pull in stations for Ambient project <- AWQMS_Projects
+
   #2: REMOVE AMBIENT STATIONS FROM ONE RULE ALL TABLE
 one_rule_all <- one_rule_all[!(one_rule_all$MLocID %in% amb$MLocID),]
 rm(amb)
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #PULL AWQMS DATA
-  #1: ADD OWNER SUFFIX TO MLOCID TO AVOID USU STATIONS (45 & 1041) GETTING ASSOICATED WITH WRONG CHEMISTRY DATA
+  #1: ADD OWNER SUFFIX TO MLOCID TO AVOID USU STATIONS (45 & 1041) GETTING ASSOCIATED WITH WRONG CHEMISTRY DATA
 one_rule_all$MLocID <- ifelse(one_rule_all$owner == "USU", paste(one_rule_all$MLocID, one_rule_all$owner, sep="-"), one_rule_all$MLocID)
 #?????????????????????what about first set of stations - are those from CA??
 
@@ -61,8 +62,15 @@ one_rule_all$MLocID <- ifelse(one_rule_all$owner == "USU", paste(one_rule_all$ML
 stations.all <- one_rule_all[c("MLocID", "Ref2020_FINAL")]
 
   #3: RETRIEVE AWQMS DATA AT ALL STATIONS (REF, MOD DIST, MOST DIST) - NOTE: DATA PULL CAN TAKE ~5-10 MINUTES
-chem.all <- AWQMS_Data(station = stations.all$MLocID)
+chem.all <- AWQMS_Data(MLocID = stations.all$MLocID)
 rm(stations.all)
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#LEARN IF REF STATUS IS SAME ACROSS STATIONS DB AND ONE-RULE TABLE
+stdb <- query_stations(mlocs = stations.all$MLocID)
+refcomp <- merge(one_rule_all$Ref2020_FINAL, stdb$ReferenceSite, by = "MLocID")
+write_xlsx(stdb, path = "C://users/athomps/Desktop/RefStatusComparison2.xlsx")
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #IDENTIFY STATIONS FROM OUR REFERENCE SCREENS THAT DON'T HAVE WATER CHEMISTRY DATA IN AWQMS
@@ -70,7 +78,7 @@ rm(stations.all)
   #1: CREATE TABLE CONTAINING SITES WITH NO CHEMISTRY DATA
 nochem <- anti_join(one_rule_all, chem.all, by = "MLocID")
   #2: OPTIONAL - WRITE TO EXCEL FOR FURTHER EXAMINATION
-write_xlsx(nochem, path = "//deqlab1/ATHOMPS/Files/Biomon/R Chem Benchmarks/NoChemData.xlsx")
+write_xlsx(nochem, path = "Benchmarks/Water Chemistry/SitesMissingChemData.xlsx")
   #3: SUMMARIZE SITES BY OWNER, REF STATUS, AND ECOREGION
 nochemsum <- nochem %>% 
   group_by(owner, Ref2020_FINAL, Eco3) %>% 
@@ -104,8 +112,8 @@ sum.eco <- chem.all %>%
 #testing isolating a parameter for further analysis
 ortho <- subset(chem.all, chem.all$Char_Name == "Orthophosphate")
 
-#testing summary pie charts
-ggplot(ortho, aes(x="", y = n.Samples, fill = EcoRegion3)) +
+#testing summary pie charts - POTENTIALLY DELETE IF NOT HELPFUL
+ggplot(ortho, aes(x="", y = `n.Samples`, fill = `EcoRegion3`)) +
   geom_bar(stat="identity", width=1, color="white") +
   coord_polar("y", start=0) +
   theme_void() + 
@@ -122,7 +130,7 @@ wrongstations$ToFix <- ifelse(wrongstations$StationDes.x == wrongstations$Statio
 view(wrongstations)
   #Sort by ToFix column
   #StationDes.x = AWQMS / StationDes.y = OneRule
-  #Resolve records that say "Fix" and redo steps above. Ignore mismatches due to extra spaces.
+  #Resolve records that say "Fix" and redo steps above. Ignore mismatches due to extra spaces or misspellings.
 rm(mlocid.awqms)
 rm(mlocid.onerule)
 rm(wrongstations)
@@ -165,10 +173,14 @@ aggregate(data=ref, Char_Name ~ MLocID, function(x) length(unique(x)))
   #XX: LIST NUMBER OF SAMPLING DATES ASSOCIATED WITH EACH REFERENCE STATION
 aggregate(data=ref, SampleStartDate ~ MLocID, function(x) length(unique(x)))
 
-
   #XX: LIST NUMBER OF PARAMETERS ASSOCIATED WITH ALL STATIONS
 aggregate(data=wqdata, Char_Name ~ MLocID, function(x) length(unique(x)))
+
+
 #!!!!!!!!!!!!!!<code>
+#For a given stressor/parameter, how many ref, mod, and most disturbed sites do we have across eco3 regions? Include #s and map.
+#SABINE TO INSERT AMAZING CODE HERE!!! :)
+
 
 
 s10355 <- subset(wqdata, wqdata$MLocID == "10355-ORDEQ") #will at harris 9dates <- unique(sort(wqdata$SampleStartDate))
@@ -441,7 +453,7 @@ pivot_longer(cols = -c(Char_Name, MLocID)) %>%
 
 ####
 
-paramxsite<-ref %>%
+paramxsite2<-ref %>%
   group_by(Char_Name) %>%
   summarise(MLocID) %>%
   select(unique.x=Char_Name)
@@ -457,7 +469,7 @@ paramxsite = paramxsite %>%
 
 distinct(ref, Char_Name, MLocID, keep_all = TRUE)
 
-paramxsite<-dcast(ref, Char_Name + MLocID ~ MLocID, fun.aggregate = list, value.var="MLocID")
+paramxsite2<-dcast(ref, Char_Name + MLocID ~ MLocID, fun.aggregate = list, value.var="MLocID")
 
 paramxsite<-ref %>% group_by(MLocID, Char_Name) %>% tidyr::nest(data = c(MLocID))
 

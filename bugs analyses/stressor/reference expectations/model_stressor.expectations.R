@@ -55,13 +55,18 @@ kitty.mets_use_met.names <- as.vector(kitty.mets_use$metric_to_send)
 ### Temporary until we figure out what years ###
 kitty.mets_use_met.names <- kitty.mets_use_met.names[!grepl("Year", kitty.mets_use_met.names)]
 
-# These don't seem to be valid metrics:
+
+# These don't seem to be valid metrics: SOLVED BELOW
 # Precip_Minus_EVT, Rckdep
-kitty.mets_use_met.names <- kitty.mets_use_met.names[!grepl("Precip_Minus_EVT", kitty.mets_use_met.names)]
-kitty.mets_use_met.names <- kitty.mets_use_met.names[!grepl("Rckdep", kitty.mets_use_met.names)]
+# kitty.mets_use_met.names <- kitty.mets_use_met.names[!grepl("Precip_Minus_EVT", kitty.mets_use_met.names)]
+# kitty.mets_use_met.names <- kitty.mets_use_met.names[!grepl("Rckdep", kitty.mets_use_met.names)]
 
 #################################################################################################################
 
+
+kitty.mets_use_met.names <- str_replace(kitty.mets_use_met.names, "Precip_Minus_EVT", "precipminusevt")
+
+kitty.mets_use_met.names <- str_replace(kitty.mets_use_met.names, "Rckdep", "rckdep")
 #area doesn't come through anymore. We get this later if we include showAreaSqKm = TRUE in sc_get_data
 kitty.mets_use_met.names <-  kitty.mets_use_met.names[!grepl("area", kitty.mets_use_met.names)]
 

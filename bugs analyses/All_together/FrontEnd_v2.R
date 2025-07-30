@@ -218,6 +218,6 @@ joined_OE_BCG_MMI_STRESS_good <- joined_OE_BCG_MMI_all %>%
   filter(!is.na(ReferenceSite)) %>% # removes sites that have not gone through reference screen 
   mutate(MMI_rescale = MMI/0.7292573)
 
-save(joined_OE_BCG_MMI, file = 'bioassess_11-25-24.Rdata')
-save(joined_OE_BCG_MMI_all, file = 'bioassess_11-25-24_all.Rdata')
-write.xlsx(joined_OE_BCG_MMI, file = paste0("biocriteria_scores", Sys.Date(), '.xlsx'))
+save(joined_OE_BCG_MMI_STRESS_good, file = 'bioassess.good_7-30-25_good.Rdata')
+save(joined_OE_BCG_MMI_STRESS_all, file = 'bioassess_7-30-25_all.Rdata')
+write.xlsx(joined_OE_BCG_MMI_STRESS_all, file = paste0("biocriteria_scores", Sys.Date(), '.xlsx'))

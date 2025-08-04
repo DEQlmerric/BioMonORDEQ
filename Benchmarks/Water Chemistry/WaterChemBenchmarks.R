@@ -93,7 +93,6 @@ chem.onerule <- inner_join(chem.all, one_rule_all, by = "MLocID")
 
 #REMOVE LEGACY AMBIENT STATIONS (VIA PROJECT NAME)
 chem.onerule <- subset(chem.onerule, chem.onerule$Project1 != "Surface Water Ambient Monitoring") 
-#????????????????check with SH to ensure we want to remove legacy amb stations
 
 #REMOVE USU SITES FROM FUTHER ANALYSIS (DON'T HAVE WATER CHEMISTRY DATA)
 chem.onerule <- subset(chem.onerule, chem.onerule$owner != 'USU')
@@ -157,6 +156,7 @@ write.xlsx(sum.eco, file = "Benchmarks/Water Chemistry/summary_by_param_eco.xlsx
 
 #testing isolating a parameter for further analysis
 ortho <- subset(wqdata, wqdata$Char_Name == "Orthophosphate")
+tss <- subset(wqdata, wqdata$Char_Name == "Total suspended solids")
 
 #testing summary pie charts - POTENTIALLY DELETE IF NOT HELPFUL
 ggplot(ortho, aes(x="", y = `n.Samples`, fill = `EcoRegion3`)) +
@@ -199,6 +199,48 @@ write.xlsx(datesuniq, file = "//deqlab1/ATHOMPS/Files/Biomon/R Chem Benchmarks/S
 #!!!!!!!!!!!!!!<code>
 
 
+# testing boxplots of ref/mod/most by ecoregion for each parameter
+reftss <- ggplot(tss, aes(x = EcoRegion3, y = Result_Numeric)) +
+  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+  labs(x = "Reference Condition", y = "DO (mg/L)") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+print(reftss)
+
+#testing function code from trend script
+#RUN BOX PLOT FUNCTION
+boxp <- function(data, x, y) {
+  ggplot(data, aes({{x}}, {{y}})) +
+    geom_boxplot(outlier.color = "red", outlier.shape = 8) + #red asterisk outliers
+    labs(x = "Ecoregion", y = c(paste(data$Char_Name, "(",data$Result_Unit,")"))) + #automatic axis labeling
+    #geom_hline(yintercept = data$MRLValue, linetype = "dashed", color = "red") + #MRL horizontal reference line
+    theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+}
+
+
+
+#GRAB WQ PARAMETERS BOX PLOTS (adjust y axis range as needed)
+tss.ref <- subset(tss, tss$ReferenceSite == "REFERENCE")
+tss.mod <- subset(tss, tss$ReferenceSite == "MODERATELY DISTURBED")
+tss.most <- subset(tss, tss$ReferenceSite == "MOST DISTURBED")
+
+boxp(tss.ref, EcoRegion3, Result_Numeric)
+boxp(tss.mod, EcoRegion3, Result_Numeric)
+boxp(tss.most, EcoRegion3, Result_Numeric)
+
+
+boxp(turb, StationDes, Result_Numeric) + coord_cartesian(ylim = c(0, 25))
+boxp(cond, StationDes, Result_Numeric_mod)
+boxp(do.sat, StationDes, Result_Numeric_mod) + coord_cartesian(ylim = c(50, 120))
+boxp(do.conc, StationDes, Result_Numeric_mod) + coord_cartesian(ylim = c(4, 12))
+boxp(ph, StationDes, Result_Numeric_mod) + coord_cartesian(ylim = c(6.5, 8.5))
+boxp(temp, StationDes, Result_Numeric_mod) + coord_cartesian(ylim = c(0, 25))
+boxp(afdm, StationDes, Result_Numeric_mod) #messy MRLs
+boxp(chla, StationDes, Result_Numeric_mod) + coord_cartesian(ylim = c(0, 0.01))
+
+#LAB WQ PARAMETERS BOX PLOTS (add chart modifiers as needed)
+boxp(tp, StationDes, Result_Numeric_mod)
+boxp(sulf, StationDes, Result_Numeric_mod)
+boxp(tn, StationDes, Result_Numeric_mod) #fix char_name
 
 
   #2: SUM NUMBER OF SITES ASSOCIATED WITH EACH PARAMETER FOR REFERENCE STATIONS ~~~~~~~~~~~~~~~~~~~~??????????? use this section  ?????

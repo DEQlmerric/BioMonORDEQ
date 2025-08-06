@@ -32,7 +32,8 @@ library(readr)
 one_rule_all<-read_csv("Reference/one.table_rule.all.csv", show_col_types = FALSE)
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
-#TEST AND REMOVE DUPLICATE ENTRIES IN ONE RULE ALL TABLE 
+#TEST AND REMOVE DUPLICATE ENTRIES IN ONE RULE ALL TABLE
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
 length(unique(one_rule_all$MLocID))
   #Value in console should match number of observations in one_rule_all.
   #If matching, assume no duplicates and proceed to 'stations.all' code.
@@ -44,6 +45,7 @@ one_rule_all <- one_rule_all[!duplicated(one_rule_all), ]
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #PULL AWQMS DATA
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
   #1: ADD OWNER SUFFIX TO MLOCID TO AVOID USU STATIONS (45 & 1041) GETTING ASSOCIATED WITH WRONG CHEMISTRY DATA
 one_rule_all$MLocID <- ifelse(one_rule_all$owner == "USU", paste(one_rule_all$MLocID, one_rule_all$owner, sep="-"), one_rule_all$MLocID)
 #?????????????????????what about first set of stations - are those from CA??
@@ -51,18 +53,21 @@ one_rule_all$MLocID <- ifelse(one_rule_all$owner == "USU", paste(one_rule_all$ML
   #2: CREATE LIST OF STATION IDS FROM ONE RULE ALL TABLE WHICH WILL BE USED FOR AWQMS DATA PULL
 stations.all <- one_rule_all[c("MLocID", "Ref2020_FINAL")]
 
-  #3: RETRIEVE AWQMS DATA AT ALL STATIONS (REF, MOD DIST, MOST DIST) - NOTE: DATA PULL CAN TAKE ~5-10 MINUTES
+  #3: RETRIEVE AWQMS DATA AT ALL STATIONS (REF, MOD DIST, MOST DIST)
+  #NOTE: DATA PULL CAN TAKE ~5-10 MINUTES; MUST BE CONNECTED TO VPN
 chem.all <- AWQMS_Data(MLocID = stations.all$MLocID)
 rm(stations.all)
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #IDENTIFY STATIONS FROM OUR REFERENCE SCREENS THAT DON'T HAVE WATER CHEMISTRY DATA IN AWQMS
-#reveals where additional data collections might be warranted
-
+  #reveals where additional data collections might be warranted
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
   #1: CREATE TABLE CONTAINING SITES WITH NO CHEMISTRY DATA
 nochem <- anti_join(one_rule_all, chem.all, by = "MLocID")
+
   #2: OPTIONAL - WRITE TO EXCEL FOR FURTHER EXAMINATION
 write_xlsx(nochem, path = "Benchmarks/Water Chemistry/SitesMissingChemData.xlsx")
+
   #3: SUMMARIZE SITES BY OWNER, REF STATUS, AND ECOREGION
 nochemsum <- nochem %>% 
   group_by(owner, Ref2020_FINAL, Eco3) %>% 
@@ -70,10 +75,12 @@ nochemsum <- nochem %>%
 view(nochemsum)
 rm(nochemsum)
 rm(nochem)
-#??????????????????some of these sites might have chem data from nearby sites - use those somehow? yyyy
+
+#??????????????????some of these sites might have chem data from nearby sites - but how close? up or downstream? land use changes? tribs? - hard to justify
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #IDENTIFY MLOCIDS IN ONE RULE ALL THAT HAVE SAME MLOCID IN AWQMS BUT CORRESPOND TO A DIFFERENT STATION
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
 mlocid.awqms <- unique(chem.all[c("MLocID", "StationDes")])
 mlocid.onerule <- unique(one_rule_all[c("MLocID", "StationDes")])
 wrongstations <- inner_join(mlocid.awqms, mlocid.onerule, by = "MLocID")
@@ -89,38 +96,79 @@ rm(wrongstations)
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #MERGE BIOMON REFERENCE SCREEN TABLE WITH AWQMS DATA PULL
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
 chem.onerule <- inner_join(chem.all, one_rule_all, by = "MLocID")
 
-#REMOVE LEGACY AMBIENT STATIONS (VIA PROJECT NAME)
-chem.onerule <- subset(chem.onerule, chem.onerule$Project1 != "Surface Water Ambient Monitoring") 
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
+#REMOVE UNWANTED DATA FROM FURTHER ANALYSIS
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
+#VOIDED/REJECTED AND PRELIMINARY WATER CHEMISTRY DATA
+chem.onerule <- subset(chem.onerule, chem.onerule$Result_status != 'Rejected' & chem.onerule$Result_status != 'Preliminary')
 
-#REMOVE USU SITES FROM FUTHER ANALYSIS (DON'T HAVE WATER CHEMISTRY DATA)
+#LEGACY AMBIENT STATIONS
+  #1: SUBSET AMBIENT PROJECT DATA
+amb <- subset(chem.onerule, chem.onerule$Project1 == "Surface Water Ambient Monitoring")
+
+  #2: MAKE LIST OF AMBIENT STATIONS
+amb.stations <- amb %>% distinct(MLocID, .keep_all=TRUE)
+amb.stations <- subset(amb.stations, select = MLocID)
+
+  #3: FILTER OUT AMBIENT STATIONS
+chem.onerule <- anti_join(chem.onerule, amb.stations, by = "MLocID")
+
+rm(amb)
+rm(amb.stations)
+
+#UTAH STATE UNIVERSITY SITES 
+  #they don't have water chemistry data
 chem.onerule <- subset(chem.onerule, chem.onerule$owner != 'USU')
+
+#CONTINUOUS DATA
+tesssst <- subset(chem.onerule, chem.onerule$SamplingMethod != "Continuous Summary")
+
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
+#POPULATE NEW NUMERIC RESULT COLUMN TO ACCOUNT FOR NON-DETECTS AND EXCEEDANCES
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
+test <- chem.onerule
+
+test$'Result_Numeric_mod' <- ifelse(chem.onerule$Result_Text == 'ND', chem.onerule$'MDLValue' * 0.5, #non-detects based on result text column
+                                    ifelse(chem.onerule$Result_Operator == '<', chem.onerule$'Result_Numeric' * 0.5, #non-detects based on "<" prefix
+                                           chem.onerule$Result_Numeric)) #otherwise provide value for standard result types
+
+comp <- subset(test, select = c("Result_Numeric_mod", "Result_Numeric"))
+
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #TRIM DATA TO LOW FLOW INDEX PERIOD (JUNE 1-OCTOBER 15)
-
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
   #1: PARSE SAMPLING DATE INTO SEPARATE M-D-Y COLUMNS, KEEPING THE ORIGINAL DATE COLUMN
 wqdata <- separate(chem.onerule, "SampleStartDate", c("Year", "Month", "Day"), sep = "-", remove = FALSE)
+
   #2: ADD NEW COLUMN AT END FOR MONTH-DAY COMBINATION
 wqdata$MonthDay <- paste(wqdata$Month, wqdata$Day, sep = "-")
+
   #3: FILTER OUT RECORDS WHERE SAMPLING DATE IS OUTSIDE OF JUNE 1 - OCTOBER 15 DATE RANGE
 wqdata <- wqdata %>% filter(MonthDay <= "10-15" & MonthDay >= "06-01")
+
   #4: DROP INTERMEDIATE DATE/TIME COLUMNS THAT ARE NO LONGER NEEDED
 wqdata <- subset(wqdata, select=-c(Year, Month, Day, MonthDay))
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #INCORPORATE REFERENCE STATUS FROM STATIONS DATABASE
-#best to use reference status from official stations DB vs one-rule-all table to avoid issues
-
+  #best to use reference status from official stations DB vs one-rule-all table to avoid issues
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
   #1: GENERATE STATIONS LIST FROM WQDATA
 stations.wq <- wqdata[c("MLocID", "Ref2020_FINAL")]
+
   #2: IMPORT REFERENCE STATUS FROM STATIONS DB
 stdb <- query_stations(mlocs = stations.wq)
+
   #3: SUBSET STATIONS DB INFO TO PREPARE FOR JOIN
 stdb2 <- subset(stdb, select = c(MLocID, ReferenceSite))
+
   #4: JOIN STATIONS DB REFERENCE STATUS WITH WQDATA
 wqdata <- inner_join(wqdata, stdb2, by = "MLocID")
+
   #5: COMPARE REF STATUS FROM STATIONS DB AND ONE-RULE TABLE
 refcomp <- subset(wqdata, select = c(MLocID, ReferenceSite, Ref2020_FINAL))
 refcomp$Ref2020_FINAL[refcomp$Ref2020_FINAL == "NO"] <- "MODERATELY DISTURBED" #rename to sync nomenclature
@@ -133,11 +181,11 @@ rm(stdb2)
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #SUMMARIZE PARAMETERS AND DATES FOR EACH STATION
-#Know for each site which parameters were collected and when (#times or min/max date)
-#Don't want to develop a parameter benchmark if bad geographic coverage
-#Look in bug metrics code in BiomonR for examples of Tidy ways.
-#Append result to data table
-
+  #Know for each site which parameters were collected and when (#times or min/max date)
+  #Don't want to develop a parameter benchmark if bad geographic coverage
+  #Look in bug metrics code in BiomonR for examples of Tidy ways.
+  #Append result to data table
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
   #1: BY LOCATION AND PARAMETER
 sum.loc <- wqdata %>%
   group_by(MLocID, StationDes.x, Char_Name) %>%
@@ -154,33 +202,32 @@ sum.eco <- wqdata %>%
   #Export to Excel if wanting to explore more via data filters
 write.xlsx(sum.eco, file = "Benchmarks/Water Chemistry/summary_by_param_eco.xlsx")
 
-#testing isolating a parameter for further analysis
-ortho <- subset(wqdata, wqdata$Char_Name == "Orthophosphate")
-tss <- subset(wqdata, wqdata$Char_Name == "Total suspended solids")
 
-#testing summary pie charts - POTENTIALLY DELETE IF NOT HELPFUL
-ggplot(ortho, aes(x="", y = `n.Samples`, fill = `EcoRegion3`)) +
-  geom_bar(stat="identity", width=1, color="white") +
-  coord_polar("y", start=0) +
-  theme_void() + 
-  theme(legend.position="none") +
-  geom_text(aes(y = n.Samples, label = EcoRegion3), color = "white", size=6) #+
-#scale_fill_brewer(palette="Set1")
+
+
+
+
+
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
+#END OF PROOFED CODE; REST BELOW IS WORK IN PROGRESS ....
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
+
 #SUMMARIZE DATA ~~~~~~~~~~~~~~~~~~~~??????????? use this section  ?????
 
   #1: SUBSET DATA BY REFERENCE CONDITION
 ref <- subset(wqdata, wqdata$ReferenceSite == "REFERENCE")
 mod <- subset(wqdata, wqdata$ReferenceSite == "MODERATELY DISTURBED")
 most <- subset(wqdata, wqdata$ReferenceSite == "MOST DISTURBED")
+
   #2: LIST NUMBER OF PARAMETERS ASSOCIATED WITH EACH REFERENCE STATION
 aggregate(data=ref, Char_Name ~ MLocID, function(x) length(unique(x)))
+
   #3: LIST NUMBER OF SAMPLING DATES ASSOCIATED WITH EACH REFERENCE STATION
 aggregate(data=ref, SampleStartDate ~ MLocID, function(x) length(unique(x)))
+
   #4: LIST NUMBER OF PARAMETERS ASSOCIATED WITH ALL STATIONS
 aggregate(data=wqdata, Char_Name ~ MLocID, function(x) length(unique(x)))
-
 
 
 
@@ -200,11 +247,30 @@ write.xlsx(datesuniq, file = "//deqlab1/ATHOMPS/Files/Biomon/R Chem Benchmarks/S
 
 
 # testing boxplots of ref/mod/most by ecoregion for each parameter
-reftss <- ggplot(tss, aes(x = EcoRegion3, y = Result_Numeric)) +
+tss <- subset(wqdata, wqdata$Char_Name == "Total suspended solids")
+
+boxtss <- ggplot(tss, aes(x = ReferenceSite, y = Result_Numeric)) +
   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Reference Condition", y = "DO (mg/L)") +
+  facet_grid(~Eco3) +
+  coord_cartesian(ylim = c(0, 25)) +
+  labs(x = "Reference Condition", y = "Total Suspended Solids (mg/L)") +
   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(reftss)
+print(boxtss)
+#avoid having one site drive results for an entire ecoregion (e.g., whychus in 9)
+#sort by ref, mod, most
+
+
+#TOTAL SUSPENDED SOLIDS
+tss<-subset(wqdata, wqdata$Char_Name == 'Total suspended solids')
+tss2<-ggplot(tss, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
+  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+  labs(x = "Reference Condition", y = "Total Suspended Solids (mg/L)") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+print(tss2)
+
+
+
+
 
 #testing function code from trend script
 #RUN BOX PLOT FUNCTION
@@ -477,6 +543,17 @@ sum.eco <- chem.all %>%
 
 
 #write_xlsx(mlocid.chem, path = "//deqlab1/ATHOMPS/Files/Biomon/R Chem Benchmarks/MLocIDs_AWQMS.xlsx")
+
+
+#testing summary pie charts - POTENTIALLY DELETE IF NOT HELPFUL
+ggplot(tss, aes(x="", y = `n.Samples`, fill = `EcoRegion3`)) +
+  geom_bar(stat="identity", width=1, color="white") +
+  coord_polar("y", start=0) +
+  theme_void() + 
+  theme(legend.position="none") +
+  geom_text(aes(y = n.Samples, label = EcoRegion3), color = "white", size=6) #+
+#scale_fill_brewer(palette="Set1")
+
 
 #CODE FOR DIAGNOSING UNIQUE MLOCIDS IN AWQMS DATA PULL
 chemIDs <- distinct(data.frame(chem.all$MLocID))

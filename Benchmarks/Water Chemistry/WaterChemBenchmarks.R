@@ -20,72 +20,59 @@
 #LOAD PACKAGES ~~~~~~~~~~~~~~~~~ clean up - do we need all these still???
 library(AWQMSdata) # Visit 'https://github.com/TravisPritchardODEQ/AWQMSdata' for installation instructions
 library(tidyverse)
-library(readxl)
+#library(readxl)
 library(writexl)
-library(openxlsx)
+#library(openxlsx)
 library(dplyr)
-library(reshape2)
+#library(reshape2)
 library(ggplot2)
-library(readr)
+#library(readr)
+# library(lubridate)
+library(leaflet)
 
-#IMPORT STATIONS FROM BIOMON REFERENCE SCREEN
+#IMPORT STATIONS WITH A REFERENCE DESIGNATION FROM STATIONS DB (N = 2522 as of 8/8/25)
 stations <- query_stations()
 ref_stations <- stations %>% 
   filter(ReferenceSite %in% c("REFERENCE" , "MODERATELY DISTURBED", "MOST DISTURBED")) %>% 
   select(MLocID, StationDes, Lat_DD, Long_DD, EcoRegion3, COMID, ReferenceSite, OrgID)
+rm(stations)
 
 # one_rule_all<-read_csv("Reference/one.table_rule.all.csv", show_col_types = FALSE) # delete
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
-#PULL AWQMS DATA
+# RETRIEVE AWQMS DATA AT REF STATIONS (REF, MOD DIST, MOST DIST)
+# NOTE: DATA PULL CAN TAKE ~5-10 MINUTES; MUST BE CONNECTED TO VPN
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
-  #1: ADD OWNER SUFFIX TO MLOCID TO AVOID USU STATIONS (45 & 1041) GETTING ASSOCIATED WITH WRONG CHEMISTRY DATA
-one_rule_all$MLocID <- ifelse(one_rule_all$owner == "USU", paste(one_rule_all$MLocID, one_rule_all$owner, sep="-"), one_rule_all$MLocID)
-#?????????????????????what about first set of stations - are those from CA??
-
-  #2: CREATE LIST OF STATION IDS FROM ONE RULE ALL TABLE WHICH WILL BE USED FOR AWQMS DATA PULL
-stations.all <- one_rule_all[c("MLocID", "Ref2020_FINAL")]
-
-  #3: RETRIEVE AWQMS DATA AT ALL STATIONS (REF, MOD DIST, MOST DIST)
-  #NOTE: DATA PULL CAN TAKE ~5-10 MINUTES; MUST BE CONNECTED TO VPN
-chem.all <- AWQMS_Data(MLocID = stations.all$MLocID)
-rm(stations.all)
+chem.all <- AWQMS_Data(MLocID = ref_stations$MLocID)
+chem.no_bio <- chem.all %>% 
+  filter(!Bio_Intent %in% c("Population Census","Species Density"))
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #IDENTIFY STATIONS FROM OUR REFERENCE SCREENS THAT DON'T HAVE WATER CHEMISTRY DATA IN AWQMS
-  #reveals where additional data collections might be warranted
+  #Reveals where additional data collections might be warranted
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
   #1: CREATE TABLE CONTAINING SITES WITH NO CHEMISTRY DATA
-nochem <- anti_join(one_rule_all, chem.all, by = "MLocID")
+nochem <- anti_join(ref_stations, chem.no_bio, by = "MLocID")
 
   #2: OPTIONAL - WRITE TO EXCEL FOR FURTHER EXAMINATION
 #write_xlsx(nochem, path = "Benchmarks/Water Chemistry/SitesMissingChemData.xlsx")
 
   #3: SUMMARIZE SITES BY OWNER, REF STATUS, AND ECOREGION
 nochemsum <- nochem %>% 
-  group_by(owner, Ref2020_FINAL, Eco3) %>% 
+  group_by(OrgID, ReferenceSite, EcoRegion3) %>% 
   summarise(n = n())
+
+  #4: MAP # needs work
+# leaflet(data = nochem) %>% 
+#   addTiles() %>% 
+#   setView(lng = -123.0, lat = 44.0, zoom = 6) %>% 
+#   addMarkers(lng = ~Long_DD, lat = ~Lat_DD)
+
 view(nochemsum)
 rm(nochemsum)
 rm(nochem)
 
-#??????????????????some of these sites might have chem data from nearby sites - but how close? up or downstream? land use changes? tribs? - hard to justify
-
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
-#IDENTIFY MLOCIDS IN ONE RULE ALL THAT HAVE SAME MLOCID IN AWQMS BUT CORRESPOND TO A DIFFERENT STATION
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
-mlocid.awqms <- unique(chem.all[c("MLocID", "StationDes")])
-mlocid.onerule <- unique(one_rule_all[c("MLocID", "StationDes")])
-wrongstations <- inner_join(mlocid.awqms, mlocid.onerule, by = "MLocID")
-wrongstations$ToFix <- ifelse(wrongstations$StationDes.x == wrongstations$StationDes.y, "Match", "Fix") 
-view(wrongstations)
-  #Sort by ToFix column
-  #StationDes.x = AWQMS / StationDes.y = OneRule
-  #Resolve records that say "Fix" and redo steps above. Ignore mismatches due to extra spaces or misspellings.
-
-rm(mlocid.awqms)
-rm(mlocid.onerule)
-rm(wrongstations)
+#Opting not to include chem data from nearby sites. (how close? up or downstream? land use changes? tribs? - hard to justify) SB/AT August 2025
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #MERGE BIOMON REFERENCE SCREEN TABLE WITH AWQMS DATA PULL
@@ -112,6 +99,19 @@ chem.onerule <- anti_join(chem.onerule, amb.stations, by = "MLocID")
 rm(amb)
 rm(amb.stations)
 
+#TRIM DATA TO LOW FLOW INDEX PERIOD (JUNE 1-OCTOBER 15)
+#1: PARSE SAMPLING DATE INTO SEPARATE M-D-Y COLUMNS, KEEPING THE ORIGINAL DATE COLUMN
+wqdata <- separate(chem.onerule, "SampleStartDate", c("Year", "Month", "Day"), sep = "-", remove = FALSE)
+
+#2: ADD NEW COLUMN AT END FOR MONTH-DAY COMBINATION
+wqdata$MonthDay <- paste(wqdata$Month, wqdata$Day, sep = "-")
+
+#3: FILTER OUT RECORDS WHERE SAMPLING DATE IS OUTSIDE OF JUNE 1 - OCTOBER 15 DATE RANGE
+wqdata <- wqdata %>% filter(MonthDay <= "10-15" & MonthDay >= "06-01")
+
+#4: DROP INTERMEDIATE DATE/TIME COLUMNS THAT ARE NO LONGER NEEDED
+wqdata <- subset(wqdata, select=-c(Year, Month, Day, MonthDay))
+
 #UTAH STATE UNIVERSITY SITES 
   #they don't have water chemistry data
 chem.onerule <- subset(chem.onerule, chem.onerule$owner != 'USU')
@@ -131,46 +131,6 @@ test$'Result_Numeric_mod' <- ifelse(chem.onerule$Result_Text == 'ND', chem.oneru
 comp <- subset(test, select = c("Result_Numeric_mod", "Result_Numeric"))
 
 
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
-#TRIM DATA TO LOW FLOW INDEX PERIOD (JUNE 1-OCTOBER 15)
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
-  #1: PARSE SAMPLING DATE INTO SEPARATE M-D-Y COLUMNS, KEEPING THE ORIGINAL DATE COLUMN
-wqdata <- separate(chem.onerule, "SampleStartDate", c("Year", "Month", "Day"), sep = "-", remove = FALSE)
-
-  #2: ADD NEW COLUMN AT END FOR MONTH-DAY COMBINATION
-wqdata$MonthDay <- paste(wqdata$Month, wqdata$Day, sep = "-")
-
-  #3: FILTER OUT RECORDS WHERE SAMPLING DATE IS OUTSIDE OF JUNE 1 - OCTOBER 15 DATE RANGE
-wqdata <- wqdata %>% filter(MonthDay <= "10-15" & MonthDay >= "06-01")
-
-  #4: DROP INTERMEDIATE DATE/TIME COLUMNS THAT ARE NO LONGER NEEDED
-wqdata <- subset(wqdata, select=-c(Year, Month, Day, MonthDay))
-
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
-#INCORPORATE REFERENCE STATUS FROM STATIONS DATABASE
-  #best to use reference status from official stations DB vs one-rule-all table to avoid issues
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
-  #1: GENERATE STATIONS LIST FROM WQDATA
-stations.wq <- wqdata[c("MLocID", "Ref2020_FINAL")]
-
-  #2: IMPORT REFERENCE STATUS FROM STATIONS DB
-stdb <- query_stations(mlocs = stations.wq)
-
-  #3: SUBSET STATIONS DB INFO TO PREPARE FOR JOIN
-stdb2 <- subset(stdb, select = c(MLocID, ReferenceSite))
-
-  #4: JOIN STATIONS DB REFERENCE STATUS WITH WQDATA
-wqdata <- inner_join(wqdata, stdb2, by = "MLocID")
-
-  #5: COMPARE REF STATUS FROM STATIONS DB AND ONE-RULE TABLE
-refcomp <- subset(wqdata, select = c(MLocID, ReferenceSite, Ref2020_FINAL))
-refcomp$Ref2020_FINAL[refcomp$Ref2020_FINAL == "NO"] <- "MODERATELY DISTURBED" #rename to sync nomenclature
-refcomp$ToFix <- ifelse(refcomp$ReferenceSite == refcomp$Ref2020_FINAL, "Match", "BAD") #make new column to run comparison
-unique(refcomp$ToFix) #all should say "Match"
-
-rm(stations.wq)
-rm(stdb)
-rm(stdb2)
 
 # N, P (& others?) math based on methods
 
@@ -196,13 +156,6 @@ sum.eco <- wqdata %>%
             maxDate = max(SampleStartDate))
   #Export to Excel if wanting to explore more via data filters
 write.xlsx(sum.eco, file = "Benchmarks/Water Chemistry/summary_by_param_eco.xlsx")
-
-
-
-
-
-
-
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #END OF PROOFED CODE; REST BELOW IS WORK IN PROGRESS ....
@@ -649,6 +602,64 @@ write_xlsx(paramxsite, path = "//deqlab1/ATHOMPS/Files/Biomon/R Chem Benchmarks/
 #write.xlsx(paramxsite, "//deqlab1/ATHOMPS/Files/Biomon/R Chem Benchmarks/Params_By_Site.xlsx", sheetName = "Rad", col.names = TRUE, row.names = TRUE)
 
 
+# SYB removed the following from above 8/8/25
+
+#IMPORT STATIONS FROM BIOMON REFERENCE SCREEN
+# one_rule_all<-read_csv("Reference/one.table_rule.all.csv", show_col_types = FALSE) # delete
+
+#TEST AND REMOVE DUPLICATE ENTRIES IN ONE RULE ALL TABLE
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
+length(unique(one_rule_all$MLocID))
+#Value in console should match number of observations in one_rule_all.
+#If matching, assume no duplicates and proceed to 'stations.all' code.
+#If not matching, run code below to reveal which records appear more than once.
+one_rule_all[duplicated(one_rule_all), ]
+#Ideally, resolve duplicate entries in the One Rule All table and restart script.
+#Alternatively, remove the duplicate records from dataframe in R.
+one_rule_all <- one_rule_all[!duplicated(one_rule_all), ]
+
+
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
+#IDENTIFY MLOCIDS IN ONE RULE ALL THAT HAVE SAME MLOCID IN AWQMS BUT CORRESPOND TO A DIFFERENT STATION
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
+mlocid.awqms <- unique(chem.all[c("MLocID", "StationDes")])
+mlocid.onerule <- unique(one_rule_all[c("MLocID", "StationDes")])
+wrongstations <- inner_join(mlocid.awqms, mlocid.onerule, by = "MLocID")
+wrongstations$ToFix <- ifelse(wrongstations$StationDes.x == wrongstations$StationDes.y, "Match", "Fix") 
+view(wrongstations)
+#Sort by ToFix column
+#StationDes.x = AWQMS / StationDes.y = OneRule
+#Resolve records that say "Fix" and redo steps above. Ignore mismatches due to extra spaces or misspellings.
+
+rm(mlocid.awqms)
+rm(mlocid.onerule)
+rm(wrongstations)
+
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
+#INCORPORATE REFERENCE STATUS FROM STATIONS DATABASE
+#best to use reference status from official stations DB vs one-rule-all table to avoid issues
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
+#1: GENERATE STATIONS LIST FROM WQDATA
+stations.wq <- wqdata[c("MLocID", "Ref2020_FINAL")]
+
+#2: IMPORT REFERENCE STATUS FROM STATIONS DB
+stdb <- query_stations(mlocs = stations.wq)
+
+#3: SUBSET STATIONS DB INFO TO PREPARE FOR JOIN
+stdb2 <- subset(stdb, select = c(MLocID, ReferenceSite))
+
+#4: JOIN STATIONS DB REFERENCE STATUS WITH WQDATA
+wqdata <- inner_join(wqdata, stdb2, by = "MLocID")
+
+#5: COMPARE REF STATUS FROM STATIONS DB AND ONE-RULE TABLE
+refcomp <- subset(wqdata, select = c(MLocID, ReferenceSite, Ref2020_FINAL))
+refcomp$Ref2020_FINAL[refcomp$Ref2020_FINAL == "NO"] <- "MODERATELY DISTURBED" #rename to sync nomenclature
+refcomp$ToFix <- ifelse(refcomp$ReferenceSite == refcomp$Ref2020_FINAL, "Match", "BAD") #make new column to run comparison
+unique(refcomp$ToFix) #all should say "Match"
+
+rm(stations.wq)
+rm(stdb)
+rm(stdb2)
 
 
 

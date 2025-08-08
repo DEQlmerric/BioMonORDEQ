@@ -27,32 +27,33 @@ library(dplyr)
 #library(reshape2)
 library(ggplot2)
 #library(readr)
-# library(lubridate)
 library(leaflet)
 
 #IMPORT STATIONS WITH A REFERENCE DESIGNATION FROM STATIONS DB (N = 2522 as of 8/8/25)
 stations <- query_stations()
 ref_stations <- stations %>% 
   filter(ReferenceSite %in% c("REFERENCE" , "MODERATELY DISTURBED", "MOST DISTURBED")) %>% 
-  select(MLocID, StationDes, Lat_DD, Long_DD, EcoRegion3, COMID, ReferenceSite, OrgID)
+  select(MLocID, COMID, ReferenceSite, OrgID)
 rm(stations)
 
 # one_rule_all<-read_csv("Reference/one.table_rule.all.csv", show_col_types = FALSE) # delete
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
-# RETRIEVE AWQMS DATA AT REF STATIONS (REF, MOD DIST, MOST DIST)
+# RETRIEVE AWQMS DATA AT REF STATIONS
 # NOTE: DATA PULL CAN TAKE ~5-10 MINUTES; MUST BE CONNECTED TO VPN
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
-chem.all <- AWQMS_Data(MLocID = ref_stations$MLocID)
-chem.no_bio <- chem.all %>% 
-  filter(!Bio_Intent %in% c("Population Census","Species Density"))
+chem.all_ref <- AWQMS_Data(MLocID = ref_stations$MLocID)
+
+#Snippet form Lesley. Filter out bug samples based on Bio_Intent column.
+chem.no_bio <- chem.all_ref %>% 
+  filter(!Bio_Intent %in% c("Population Census","Species Density")) # 1327 unique MLocIDs with no bug data.
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #IDENTIFY STATIONS FROM OUR REFERENCE SCREENS THAT DON'T HAVE WATER CHEMISTRY DATA IN AWQMS
   #Reveals where additional data collections might be warranted
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
   #1: CREATE TABLE CONTAINING SITES WITH NO CHEMISTRY DATA
-nochem <- anti_join(ref_stations, chem.no_bio, by = "MLocID")
+nochem <- anti_join(ref_stations, chem.no_bio, by = "MLocID") # All rows from ref_stations with no match in chem.no_bio
 
   #2: OPTIONAL - WRITE TO EXCEL FOR FURTHER EXAMINATION
 #write_xlsx(nochem, path = "Benchmarks/Water Chemistry/SitesMissingChemData.xlsx")
@@ -72,52 +73,61 @@ view(nochemsum)
 rm(nochemsum)
 rm(nochem)
 
-#Opting not to include chem data from nearby sites. (how close? up or downstream? land use changes? tribs? - hard to justify) SB/AT August 2025
+#We are opting NOT to include chem data from nearby sites. (How close? up or downstream? land use changes? tribs? - hard to justify) SB/AT August 2025
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
-#MERGE BIOMON REFERENCE SCREEN TABLE WITH AWQMS DATA PULL
+#MERGE CHEM AND REF STATIONS TABLE TO BRING IN REFERENCE STATUS AND COMID
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
-chem.onerule <- inner_join(chem.all, one_rule_all, by = "MLocID")
+chem.all_ref <- inner_join(chem.all_ref, ref_stations, by = "MLocID")
+
+#Get rid of some unnecessary columns for readability 
+chem.all_ref <- chem.all_ref %>% 
+  select(!c(Project2, Project3, Result_Depth, Result_Depth_Unit, Result_Depth_Reference,
+            Act_depth_Reference:Act_Depth_Bottom_Unit)) #not complete
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #REMOVE UNWANTED DATA FROM FURTHER ANALYSIS
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #VOIDED/REJECTED AND PRELIMINARY WATER CHEMISTRY DATA
-chem.onerule <- subset(chem.onerule, chem.onerule$Result_status != 'Rejected' & chem.onerule$Result_status != 'Preliminary')
+chem.ref <- subset(chem.all_ref, chem.all_ref$Result_status != 'Rejected' & chem.ref$Result_status != 'Preliminary')
+
+#CONTINUOUS DATA
+chem.ref <- subset(chem.ref, chem.ref$SamplingMethod != "Continuous Summary")
 
 #LEGACY AMBIENT STATIONS
   #1: SUBSET AMBIENT PROJECT DATA
-amb <- subset(chem.onerule, chem.onerule$Project1 == "Surface Water Ambient Monitoring")
+amb <- subset(chem.ref, chem.ref$Project1 == "Surface Water Ambient Monitoring")
 
   #2: MAKE LIST OF AMBIENT STATIONS
 amb.stations <- amb %>% distinct(MLocID, .keep_all=TRUE)
 amb.stations <- subset(amb.stations, select = MLocID)
 
   #3: FILTER OUT AMBIENT STATIONS
-chem.onerule <- anti_join(chem.onerule, amb.stations, by = "MLocID")
+chem.ref <- anti_join(chem.ref, amb.stations, by = "MLocID")
 
 rm(amb)
 rm(amb.stations)
 
 #TRIM DATA TO LOW FLOW INDEX PERIOD (JUNE 1-OCTOBER 15)
 #1: PARSE SAMPLING DATE INTO SEPARATE M-D-Y COLUMNS, KEEPING THE ORIGINAL DATE COLUMN
-wqdata <- separate(chem.onerule, "SampleStartDate", c("Year", "Month", "Day"), sep = "-", remove = FALSE)
+chem.ref <- separate(chem.ref, "SampleStartDate", c("Year", "Month", "Day"), sep = "-", remove = FALSE)
 
 #2: ADD NEW COLUMN AT END FOR MONTH-DAY COMBINATION
-wqdata$MonthDay <- paste(wqdata$Month, wqdata$Day, sep = "-")
+chem.ref$MonthDay <- paste(chem.ref$Month, chem.ref$Day, sep = "-")
 
 #3: FILTER OUT RECORDS WHERE SAMPLING DATE IS OUTSIDE OF JUNE 1 - OCTOBER 15 DATE RANGE
-wqdata <- wqdata %>% filter(MonthDay <= "10-15" & MonthDay >= "06-01")
+chem.ref <- chem.ref %>% filter(MonthDay <= "10-15" & MonthDay >= "06-01")
 
 #4: DROP INTERMEDIATE DATE/TIME COLUMNS THAT ARE NO LONGER NEEDED
-wqdata <- subset(wqdata, select=-c(Year, Month, Day, MonthDay))
+chem.ref <- subset(chem.ref, select=-c(Year, Month, Day, MonthDay))
 
 #UTAH STATE UNIVERSITY SITES 
   #they don't have water chemistry data
-chem.onerule <- subset(chem.onerule, chem.onerule$owner != 'USU')
+chem.ref <- subset(chem.ref, chem.ref$OrgID != 'USU(NOSTORETID)')
 
-#CONTINUOUS DATA
-tesssst <- subset(chem.onerule, chem.onerule$SamplingMethod != "Continuous Summary")
+# OTHER SITES THAT DON'T HAVE CHEM DATA??
+
+# Bug data
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #POPULATE NEW NUMERIC RESULT COLUMN TO ACCOUNT FOR NON-DETECTS AND EXCEEDANCES

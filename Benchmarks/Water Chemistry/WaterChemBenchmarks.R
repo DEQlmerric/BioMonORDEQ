@@ -16,10 +16,9 @@
 #OVERVIEW - This script imports, modifies, and summarizes data to support the development of water chemistry reference benchmarks.
 #AUTHORS - A. Thompson & S. Berzins
 #CREATED - 2022
-# Hi Lesley!
 
 #LOAD PACKAGES ~~~~~~~~~~~~~~~~~ clean up - do we need all these still???
-library(AWQMSdata) #visit 'https://github.com/TravisPritchardODEQ/AWQMSdata' for installation instructions
+library(AWQMSdata) # Visit 'https://github.com/TravisPritchardODEQ/AWQMSdata' for installation instructions
 library(tidyverse)
 library(readxl)
 library(writexl)
@@ -30,19 +29,12 @@ library(ggplot2)
 library(readr)
 
 #IMPORT STATIONS FROM BIOMON REFERENCE SCREEN
-one_rule_all<-read_csv("Reference/one.table_rule.all.csv", show_col_types = FALSE)
+stations <- query_stations()
+ref_stations <- stations %>% 
+  filter(ReferenceSite %in% c("REFERENCE" , "MODERATELY DISTURBED", "MOST DISTURBED")) %>% 
+  select(MLocID, StationDes, Lat_DD, Long_DD, EcoRegion3, COMID, ReferenceSite, OrgID)
 
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
-#TEST AND REMOVE DUPLICATE ENTRIES IN ONE RULE ALL TABLE
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
-length(unique(one_rule_all$MLocID))
-  #Value in console should match number of observations in one_rule_all.
-  #If matching, assume no duplicates and proceed to 'stations.all' code.
-  #If not matching, run code below to reveal which records appear more than once.
-one_rule_all[duplicated(one_rule_all), ]
-  #Ideally, resolve duplicate entries in the One Rule All table and restart script.
-  #Alternatively, remove the duplicate records from dataframe in R.
-one_rule_all <- one_rule_all[!duplicated(one_rule_all), ]
+# one_rule_all<-read_csv("Reference/one.table_rule.all.csv", show_col_types = FALSE) # delete
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #PULL AWQMS DATA
@@ -67,7 +59,7 @@ rm(stations.all)
 nochem <- anti_join(one_rule_all, chem.all, by = "MLocID")
 
   #2: OPTIONAL - WRITE TO EXCEL FOR FURTHER EXAMINATION
-write_xlsx(nochem, path = "Benchmarks/Water Chemistry/SitesMissingChemData.xlsx")
+#write_xlsx(nochem, path = "Benchmarks/Water Chemistry/SitesMissingChemData.xlsx")
 
   #3: SUMMARIZE SITES BY OWNER, REF STATUS, AND ECOREGION
 nochemsum <- nochem %>% 
@@ -179,6 +171,8 @@ unique(refcomp$ToFix) #all should say "Match"
 rm(stations.wq)
 rm(stdb)
 rm(stdb2)
+
+# N, P (& others?) math based on methods
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #SUMMARIZE PARAMETERS AND DATES FOR EACH STATION

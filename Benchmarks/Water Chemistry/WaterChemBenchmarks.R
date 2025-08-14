@@ -44,10 +44,12 @@ rm(stations)
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 chem.all_ref <- AWQMS_Data(MLocID = ref_stations$MLocID)
 
-#Snippet form Lesley. Filter out bug samples based on Bio_Intent column.
+#Snippet from Lesley. Filter out bug samples based on Bio_Intent column.
 chem.no_bio <- chem.all_ref %>% 
   filter(!Bio_Intent %in% c("Population Census","Species Density")) # 1327 unique MLocIDs with no bug data.
 
+chem.bio_only <- chem.all_ref %>% 
+  filter(Bio_Intent %in% c("Population Census", "Species Density"))
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #IDENTIFY STATIONS FROM OUR REFERENCE SCREENS THAT DON'T HAVE WATER CHEMISTRY DATA IN AWQMS
   #Reveals where additional data collections might be warranted
@@ -63,11 +65,11 @@ nochemsum <- nochem %>%
   group_by(OrgID, ReferenceSite, EcoRegion3) %>% 
   summarise(n = n())
 
-  #4: MAP # needs work
-# leaflet(data = nochem) %>% 
-#   addTiles() %>% 
-#   setView(lng = -123.0, lat = 44.0, zoom = 6) %>% 
-#   addMarkers(lng = ~Long_DD, lat = ~Lat_DD)
+#4: MAP # needs work
+leaflet(data = nochem) %>%
+  addTiles() %>%
+  setView(lng = -123.0, lat = 44.0, zoom = 6) %>%
+  addMarkers(lng = ~Long_DD, lat = ~Lat_DD)
 
 view(nochemsum)
 rm(nochemsum)
@@ -80,19 +82,23 @@ rm(nochem)
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 chem.all_ref <- inner_join(chem.all_ref, ref_stations, by = "MLocID")
 
-#Get rid of some unnecessary columns for readability 
-chem.all_ref <- chem.all_ref %>% 
-  select(!c(Project2, Project3, Result_Depth, Result_Depth_Unit, Result_Depth_Reference,
-            Act_depth_Reference:Act_Depth_Bottom_Unit)) #not complete
-
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #REMOVE UNWANTED DATA FROM FURTHER ANALYSIS
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #VOIDED/REJECTED AND PRELIMINARY WATER CHEMISTRY DATA
 chem.ref <- subset(chem.all_ref, chem.all_ref$Result_status != 'Rejected' & chem.ref$Result_status != 'Preliminary')
 
+#DQL is E                                       #  Check w/ SH, AT
+chem.ref <- chem.ref %>% filter (DQL != "E")
+
 #CONTINUOUS DATA
 chem.ref <- subset(chem.ref, chem.ref$SamplingMethod != "Continuous Summary")
+
+#LOC TYPES OTHER THAN RIVERS AND STREAMS        #  Check w/ SH, AT
+chem.ref <- chem.ref %>% filter(MonLocType == "River/Stream")
+
+#SAMPLE MEDIA OTHER THAN WATER                  #   Check w/ SH, AT
+chem.ref <- chem.ref %>%  filter(SampleMedia == "Water")
 
 #LEGACY AMBIENT STATIONS
   #1: SUBSET AMBIENT PROJECT DATA
@@ -125,9 +131,7 @@ chem.ref <- subset(chem.ref, select=-c(Year, Month, Day, MonthDay))
   #they don't have water chemistry data
 chem.ref <- subset(chem.ref, chem.ref$OrgID != 'USU(NOSTORETID)')
 
-# OTHER SITES THAT DON'T HAVE CHEM DATA??
-
-# Bug data
+#FOCUS ON CHARS OF INTEREST ONLY (From StressorID Team: Temp, pH, DO, TP, TN, TSS, NH3)
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #POPULATE NEW NUMERIC RESULT COLUMN TO ACCOUNT FOR NON-DETECTS AND EXCEEDANCES

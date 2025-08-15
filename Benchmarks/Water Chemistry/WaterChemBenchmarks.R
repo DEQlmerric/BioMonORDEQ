@@ -60,16 +60,16 @@ nochem <- anti_join(ref_stations, chem.no_bio, by = "MLocID") # All rows from re
   #2: OPTIONAL - WRITE TO EXCEL FOR FURTHER EXAMINATION
 #write_xlsx(nochem, path = "Benchmarks/Water Chemistry/SitesMissingChemData.xlsx")
 
-  #3: SUMMARIZE SITES BY OWNER, REF STATUS, AND ECOREGION
-nochemsum <- nochem %>% 
-  group_by(OrgID, ReferenceSite, EcoRegion3) %>% 
-  summarise(n = n())
-
-#4: MAP # needs work
-leaflet(data = nochem) %>%
-  addTiles() %>%
-  setView(lng = -123.0, lat = 44.0, zoom = 6) %>%
-  addMarkers(lng = ~Long_DD, lat = ~Lat_DD)
+#   #3: SUMMARIZE SITES BY OWNER, REF STATUS, AND ECOREGION  # needs work
+# nochemsum <- nochem %>% 
+#   group_by(OrgID, ReferenceSite, EcoRegion3) %>% 
+#   summarise(n = n())
+# 
+# #4: MAP # needs work
+# leaflet(data = nochem) %>%
+#   addTiles() %>%
+#   setView(lng = -123.0, lat = 44.0, zoom = 6) %>%
+#   addMarkers(lng = ~Long_DD, lat = ~Lat_DD)
 
 view(nochemsum)
 rm(nochemsum)
@@ -86,7 +86,7 @@ chem.all_ref <- inner_join(chem.all_ref, ref_stations, by = "MLocID")
 #REMOVE UNWANTED DATA FROM FURTHER ANALYSIS
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #VOIDED/REJECTED AND PRELIMINARY WATER CHEMISTRY DATA
-chem.ref <- subset(chem.all_ref, chem.all_ref$Result_status != 'Rejected' & chem.ref$Result_status != 'Preliminary')
+chem.ref <- subset(chem.all_ref, chem.all_ref$Result_status != 'Rejected' & chem.all_ref$Result_status != 'Preliminary')
 
 #DQL is E                                       #  Check w/ SH, AT
 chem.ref <- chem.ref %>% filter (DQL != "E")
@@ -132,6 +132,11 @@ chem.ref <- subset(chem.ref, select=-c(Year, Month, Day, MonthDay))
 chem.ref <- subset(chem.ref, chem.ref$OrgID != 'USU(NOSTORETID)')
 
 #FOCUS ON CHARS OF INTEREST ONLY (From StressorID Team: Temp, pH, DO, TP, TN, TSS, NH3)
+chem.ref.wq <- chem.ref %>% 
+  filter(Char_Name %in% c("Temperature, water", "pH", "Dissolved oxygen (DO)", "Dissolved oxygen saturation", "Total Phosphorus, mixed forms", 
+    "Nitrogen", "Nitrate + Nitrite", "Total Kjeldahl nitrogen", "Total suspended solids", "Ammonia")) 
+
+# need to remove old P methods Char_Name == 'Total Phosphorus, mixed forms' & Char_Speciation != 'as P'
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #POPULATE NEW NUMERIC RESULT COLUMN TO ACCOUNT FOR NON-DETECTS AND EXCEEDANCES

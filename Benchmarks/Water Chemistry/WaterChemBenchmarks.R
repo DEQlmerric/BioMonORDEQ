@@ -17,17 +17,12 @@
 #AUTHORS - A. Thompson & S. Berzins
 #CREATED - 2022
 
-#LOAD PACKAGES ~~~~~~~~~~~~~~~~~ clean up - do we need all these still???
+#LOAD PACKAGES
 library(AWQMSdata) # Visit 'https://github.com/TravisPritchardODEQ/AWQMSdata' for installation instructions
 library(tidyverse)
-#library(readxl)
 library(writexl)
-#library(openxlsx)
-#library(dplyr)
-#library(reshape2)
-#library(ggplot2)
-#library(readr)
 library(leaflet)
+library(RColorBrewer)
 
 #IMPORT STATIONS WITH A REFERENCE DESIGNATION FROM STATIONS DB (N = 2522 as of 8/8/25)
 stations <- query_stations()
@@ -43,39 +38,6 @@ rm(stations)
 # NOTE: DATA PULL CAN TAKE ~5-10 MINUTES; MUST BE CONNECTED TO VPN
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 chem.all_ref <- AWQMS_Data(MLocID = ref_stations$MLocID)
-
-#Snippet from Lesley. Filter out bug samples based on Bio_Intent column.
-chem.no_bio <- chem.all_ref %>% 
-  filter(!Bio_Intent %in% c("Population Census","Species Density")) # 1327 unique MLocIDs with no bug data.
-
-chem.bio_only <- chem.all_ref %>% 
-  filter(Bio_Intent %in% c("Population Census", "Species Density"))
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
-#IDENTIFY STATIONS FROM OUR REFERENCE SCREENS THAT DON'T HAVE WATER CHEMISTRY DATA IN AWQMS
-  #Reveals where additional data collections might be warranted
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
-  #1: CREATE TABLE CONTAINING SITES WITH NO CHEMISTRY DATA
-nochem <- anti_join(ref_stations, chem.no_bio, by = "MLocID") # All rows from ref_stations with no match in chem.no_bio
-
-  #2: OPTIONAL - WRITE TO EXCEL FOR FURTHER EXAMINATION
-#write_xlsx(nochem, path = "Benchmarks/Water Chemistry/SitesMissingChemData.xlsx")
-
-#   #3: SUMMARIZE SITES BY OWNER, REF STATUS, AND ECOREGION  # needs work
-# nochemsum <- nochem %>% 
-#   group_by(OrgID, ReferenceSite, EcoRegion3) %>% 
-#   summarise(n = n())
-# 
-# #4: MAP # needs work
-# leaflet(data = nochem) %>%
-#   addTiles() %>%
-#   setView(lng = -123.0, lat = 44.0, zoom = 6) %>%
-#   addMarkers(lng = ~Long_DD, lat = ~Lat_DD)
-
-view(nochemsum)
-rm(nochemsum)
-rm(nochem)
-
-#We are opting NOT to include chem data from nearby sites. (How close? up or downstream? land use changes? tribs? - hard to justify) SB/AT August 2025
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #MERGE CHEM AND REF STATIONS TABLE TO BRING IN REFERENCE STATUS AND COMID
@@ -131,50 +93,77 @@ chem.ref <- subset(chem.ref, select=-c(Year, Month, Day, MonthDay))
   #they don't have water chemistry data
 chem.ref <- subset(chem.ref, chem.ref$OrgID != 'USU(NOSTORETID)')
 
+# #Snippet from Lesley. Filter out bug samples based on Bio_Intent column.
+# chem.no_bio <- chem.all_ref %>% 
+#   filter(!Bio_Intent %in% c("Population Census","Species Density")) # 1327 unique MLocIDs with no bug data.
+# 
+# chem.bio_only <- chem.all_ref %>% 
+#   filter(Bio_Intent %in% c("Population Census", "Species Density"))
+
 #FOCUS ON CHARS OF INTEREST ONLY (From StressorID Team: Temp, pH, DO, TP, TN, TSS, NH3)
 chem.ref.wq <- chem.ref %>% 
   filter(Char_Name %in% c("Temperature, water", "pH", "Dissolved oxygen (DO)", "Dissolved oxygen saturation", "Total Phosphorus, mixed forms", 
-    "Nitrogen", "Nitrate + Nitrite", "Total Kjeldahl nitrogen", "Total suspended solids", "Ammonia")) 
+    "Nitrogen", "Nitrate + Nitrite", "Total Kjeldahl nitrogen", "Total suspended solids", "Ammonia")) %>% 
+  filter(!(Char_Name=='Total Phosphorus, mixed forms' & Char_Speciation=='as P')) # Excludes 1999 data with undefined method speciation)  
 
-# need to remove old P methods Char_Name == 'Total Phosphorus, mixed forms' & Char_Speciation != 'as P'
+
+# CREATE TOTAL NITROGEN COLUMN
+# SYB deal with this later.
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #POPULATE NEW NUMERIC RESULT COLUMN TO ACCOUNT FOR NON-DETECTS AND EXCEEDANCES
+# Value for non-detect calculated as 1/2 MRL.
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
-test <- chem.onerule
-
-test$'Result_Numeric_mod' <- ifelse(chem.onerule$Result_Text == 'ND', chem.onerule$'MDLValue' * 0.5, #non-detects based on result text column
-                                    ifelse(chem.onerule$Result_Operator == '<', chem.onerule$'Result_Numeric' * 0.5, #non-detects based on "<" prefix
-                                           chem.onerule$Result_Numeric)) #otherwise provide value for standard result types
-
-comp <- subset(test, select = c("Result_Numeric_mod", "Result_Numeric"))
-
-
-
-# N, P (& others?) math based on methods
-
+chem.ref.wq <- chem.ref.wq %>% 
+  mutate(Result_Numeric_mod = ifelse(Result_Text == 'ND', 
+                  MDLValue * 0.5, # Non-detects based on result text column
+                   ifelse(Result_Operator == '<', Result_Numeric * 0.5, # Non-detects based on "<" prefix
+                   Result_Numeric))) %>%  # Otherwise provide value for standard result types 
+  relocate(Result_Numeric_mod, .after = Result_Numeric)
+         
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #SUMMARIZE PARAMETERS AND DATES FOR EACH STATION
-  #Know for each site which parameters were collected and when (#times or min/max date)
+  #Know for each site which parameters were collected and when (min/max date)
   #Don't want to develop a parameter benchmark if bad geographic coverage
   #Look in bug metrics code in BiomonR for examples of Tidy ways.
   #Append result to data table
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
+
   #1: BY LOCATION AND PARAMETER
-sum.loc <- wqdata %>%
-  group_by(MLocID, StationDes.x, Char_Name) %>%
+sum.loc <- chem.ref.wq %>%
+  group_by(MLocID, StationDes, Char_Name,ReferenceSite) %>%
   summarise(n.Samples = n(),
             minDate = min(SampleStartDate),
             maxDate = max(SampleStartDate))
 
   #2: BY PARAMETER, REFERENCE STATUS, AND ECOREGION LEVEL 3
-sum.eco <- wqdata %>%
-  group_by(Char_Name, ReferenceSite, Eco3) %>%
+sum.eco <- chem.ref.wq %>%
+  group_by(EcoRegion3, ReferenceSite, Char_Name) %>%
   summarise(n.Samples = n(),
             minDate = min(SampleStartDate),
             maxDate = max(SampleStartDate))
+
   #Export to Excel if wanting to explore more via data filters
 write.xlsx(sum.eco, file = "Benchmarks/Water Chemistry/summary_by_param_eco.xlsx")
+
+#3: MAPS
+
+# Single dot for each reference site with water chemistry data (site may have been sampled multiple times):
+grylrd <- c("#1a9c34", "#f0e811", "#c91100")
+refpal <- colorFactor(grylrd, domain = chem.ref.wq$ReferenceSite)
+labs <- c("Reference", "Moderately disturbed", "Most disturbed")
+
+refplot <- leaflet(data = chem.ref.wq) %>%
+  addTiles() %>%
+  setView(lng = -120.5583, lat =44.0671, zoom =6.4) %>%
+  addCircleMarkers(lng = ~Long_DD, lat = ~Lat_DD, fillColor = refpal(chem.ref.wq$ReferenceSite), stroke = TRUE,
+                   color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
+                   popup = paste0("<strong>", "MLocID: ","</strong>", chem.ref.wq$MLocID, "<br>",
+                                  "<strong>", "Station Description:" , "</strong>", chem.ref.wq$StationDes, "<br>",
+                                  "<strong>", "Level 3 Ecoregion:" , "</strong>", chem.ref.wq$EcoRegion3, "<br>",
+                                  "<strong>", "Reference Status:" , "</strong>", chem.ref.wq$ReferenceSite, "<br>")) %>% 
+  addLegend(colors = grylrd, labels = labs, position = "bottomright",
+            title = "Sites with a reference designation", opacity = 1)
+refplot # print plot
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #END OF PROOFED CODE; REST BELOW IS WORK IN PROGRESS ....
@@ -198,19 +187,6 @@ aggregate(data=wqdata, Char_Name ~ MLocID, function(x) length(unique(x)))
 
 
 
-#!!!!!!!!!!!!!!<code>
-
-s10355 <- subset(wqdata, wqdata$MLocID == "10355-ORDEQ") #will at harris 9dates <- unique(sort(wqdata$SampleStartDate))
-s12265 <- subset(wqdata, wqdata$MLocID == "12265-ORDEQ") 
-dbcond <- subset(s12265, s12265$Char_Name == "Turbidity")
-dbnick <- subset(s12265, s12265$Char_Name == "Nickel")
-
-dates <- wqdata[c("MLocID", "SampleStartDate")]
-datesuniq <- unique(sort(dates$SampleStartDate ~ "MLocID"))
-library(openxlsx)
-write.xlsx(datesuniq, file = "//deqlab1/ATHOMPS/Files/Biomon/R Chem Benchmarks/SamplingDates.xlsx")
-
-#!!!!!!!!!!!!!!<code>
 
 
 # testing boxplots of ref/mod/most by ecoregion for each parameter
@@ -451,6 +427,24 @@ turb2<-ggplot(turb, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
 print(turb2)
 
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
+#IDENTIFY STATIONS FROM OUR REFERENCE SCREENS THAT DON'T HAVE WATER CHEMISTRY DATA IN AWQMS
+#Reveals where additional data collections might be warranted
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
+#1: CREATE TABLE CONTAINING SITES WITH NO CHEMISTRY DATA
+nochem <- anti_join(ref_stations, chem.all_ref, by = "MLocID") # All rows from ref_stations with no match in chem.no_bio
+
+#2: OPTIONAL - WRITE TO EXCEL FOR FURTHER EXAMINATION
+#write_xlsx(nochem, path = "Benchmarks/Water Chemistry/SitesMissingChemData.xlsx")
+
+#   #3: SUMMARIZE SITES BY OWNER, REF STATUS, AND ECOREGION  # needs work
+# nochemsum <- nochem %>% 
+#   group_by(OrgID, ReferenceSite, EcoRegion3) %>% 
+#   summarise(n = n())
+# 
+
+#We are opting NOT to include chem data from nearby sites. (How close? up or downstream? land use changes? tribs? - hard to justify) SB/AT August 2025
+
 
 
 ####### NOT REALLY HELPFUL - DECIDE LATER IF KEEPING ##################
@@ -680,5 +674,18 @@ rm(stations.wq)
 rm(stdb)
 rm(stdb2)
 
+#!!!!!!!!!!!!!!<code>
+
+s10355 <- subset(wqdata, wqdata$MLocID == "10355-ORDEQ") #will at harris 9dates <- unique(sort(wqdata$SampleStartDate))
+s12265 <- subset(wqdata, wqdata$MLocID == "12265-ORDEQ") 
+dbcond <- subset(s12265, s12265$Char_Name == "Turbidity")
+dbnick <- subset(s12265, s12265$Char_Name == "Nickel")
+
+dates <- wqdata[c("MLocID", "SampleStartDate")]
+datesuniq <- unique(sort(dates$SampleStartDate ~ "MLocID"))
+library(openxlsx)
+write.xlsx(datesuniq, file = "//deqlab1/ATHOMPS/Files/Biomon/R Chem Benchmarks/SamplingDates.xlsx")
+
+#!!!!!!!!!!!!!!<code>
 
 

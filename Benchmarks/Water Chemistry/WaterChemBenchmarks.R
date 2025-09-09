@@ -107,7 +107,7 @@ chem.ref <- chem.ref %>%
   relocate(L3Eco, .before = EcoRegion3)
 
 # POPULATE NEW NUMERIC RESULT COLUMN TO ACCOUNT FOR NON-DETECTS AND EXCEEDANCES
-# Value for non-detect calculated as 1/2 MRL.
+# Value for non-detect calculated as 1/2 MDL.
 chem.ref <- chem.ref %>% 
   mutate(Result_Numeric_mod = ifelse(Result_Text == 'ND', 
                                      MDLValue * 0.5, # Non-detects based on result text column
@@ -125,7 +125,7 @@ chem.ref.wq <- chem.ref %>%
     "Nitrogen", "Nitrate + Nitrite", "Total Kjeldahl nitrogen", "Total suspended solids", "Ammonia")) %>% 
   filter(!(Char_Name=='Total Phosphorus, mixed forms' & Char_Speciation=='as P')) # Excludes 1999 data with undefined method speciation 
 
-# CREATE TOTAL NITROGEN COLUMN. TN = TKN + Nitrate + Nitrite
+# CALCULATE TOTAL NITROGEN. TN = TKN + Nitrate + Nitrite
 # nits
 tn.nits<-subset(chem.ref.wq, chem.ref.wq$`Char_Name`=="Nitrate + Nitrite")
 # tkn
@@ -133,8 +133,11 @@ tn.tkn<-subset(chem.ref.wq, chem.ref.wq$`Char_Name`=="Total Kjeldahl nitrogen")
 # merge
 tn.nits.tkn<-rbind(tn.nits, tn.tkn)
 
-# Only include samples that inlude both TKN and Nitrate + Nitrite. Filter for nits and tkn samples where
+# Only include samples that inlude both TKN and Nitrate + Nitrite. Only keep nits and tkn samples where
 #  each appears once per sample time per site.
+# Need a dateTime to get unique sample events
+
+
 nit_count <- tn.nits.tkn %>% 
   group_by(MLocID, SampleStartDate) %>%   #CHANGE to dateTime field
   filter(any(Char_Name == "Nitrate + Nitrite") & any(Char_Name == "Total Kjeldahl nitrogen") 

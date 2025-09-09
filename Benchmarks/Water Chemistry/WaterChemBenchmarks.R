@@ -23,6 +23,7 @@ library(tidyverse)
 library(writexl)
 library(leaflet)
 library(RColorBrewer)
+library(lubridate)
 
 #IMPORT STATIONS WITH A REFERENCE DESIGNATION FROM STATIONS DB (N = 2522 as of 8/8/25)
 stations <- query_stations()
@@ -30,8 +31,6 @@ ref_stations <- stations %>%
   filter(ReferenceSite %in% c("REFERENCE" , "MODERATELY DISTURBED", "MOST DISTURBED")) %>% 
   select(MLocID, COMID, ReferenceSite, OrgID)
 rm(stations)
-
-# one_rule_all<-read_csv("Reference/one.table_rule.all.csv", show_col_types = FALSE) # delete
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # RETRIEVE AWQMS DATA AT REF STATIONS
@@ -77,22 +76,21 @@ rm(amb)
 rm(amb.stations)
 
 #TRIM DATA TO LOW FLOW INDEX PERIOD (JUNE 1-OCTOBER 15)
-#1: PARSE SAMPLING DATE INTO SEPARATE M-D-Y COLUMNS, KEEPING THE ORIGINAL DATE COLUMN
-chem.ref <- separate(chem.ref, "SampleStartDate", c("Year", "Month", "Day"), sep = "-", remove = FALSE)
+#1: DATE TO DATE FORMAT
+chem.ref$SampleStartDate <- ymd(chem.ref$SampleStartDate)
 
-#2: ADD NEW COLUMN AT END FOR MONTH-DAY COMBINATION
-chem.ref$MonthDay <- paste(chem.ref$Month, chem.ref$Day, sep = "-")
-
-#3: FILTER OUT RECORDS WHERE SAMPLING DATE IS OUTSIDE OF JUNE 1 - OCTOBER 15 DATE RANGE
-chem.ref <- chem.ref %>% filter(MonthDay <= "10-15" & MonthDay >= "06-01")
-
-#4: DROP INTERMEDIATE DATE/TIME COLUMNS THAT ARE NO LONGER NEEDED
-chem.ref <- subset(chem.ref, select=-c(Year, Month, Day, MonthDay))
+#2: FILTER OUT RECORDS WHERE SAMPLING DATE IS OUTSIDE OF JUNE 1 - OCTOBER 15 DATE RANGE
+chem.ref <- chem.ref %>%
+  filter((month(SampleStartDate) > 6 | (month(SampleStartDate) == 6 & day(SampleStartDate) >= 1)) &
+      (month(SampleStartDate) < 10 | (month(SampleStartDate) == 10 & day(SampleStartDate) <= 15)))
 
 #UTAH STATE UNIVERSITY SITES 
-  #they don't have water chemistry data
+  #They don't have water chemistry data
 chem.ref <- subset(chem.ref, chem.ref$OrgID != 'USU(NOSTORETID)')
 
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
+# MISC. DATA CLEAN-UP
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
 # HARDCODE IN THE LEVEL 3 ECOREGIONS
 chem.ref <- chem.ref %>% 
   mutate(L3Eco = EcoRegion3) %>%  
@@ -108,34 +106,46 @@ chem.ref <- chem.ref %>%
     L3Eco == "12" ~ "Snake River Plain")) %>% 
   relocate(L3Eco, .before = EcoRegion3)
 
-# #Snippet from Lesley. Filter out bug samples based on Bio_Intent column.
-# chem.no_bio <- chem.all_ref %>% 
-#   filter(!Bio_Intent %in% c("Population Census","Species Density")) # 1327 unique MLocIDs with no bug data.
-# 
-# chem.bio_only <- chem.all_ref %>% 
-#   filter(Bio_Intent %in% c("Population Census", "Species Density"))
+# POPULATE NEW NUMERIC RESULT COLUMN TO ACCOUNT FOR NON-DETECTS AND EXCEEDANCES
+# Value for non-detect calculated as 1/2 MRL.
+chem.ref <- chem.ref %>% 
+  mutate(Result_Numeric_mod = ifelse(Result_Text == 'ND', 
+                                     MDLValue * 0.5, # Non-detects based on result text column
+                                     ifelse(Result_Operator == '<', Result_Numeric * 0.5, # Non-detects based on "<" prefix
+                                            Result_Numeric))) %>%  # Otherwise provide value for standard result types 
+  relocate(Result_Numeric_mod, .after = Result_Numeric)
 
-#FOCUS ON CHARS OF INTEREST ONLY (From StressorID Team: Temp, pH, DO, TP, TN, TSS, NH3)
+# GET RID OF SOME UNUSED COLUMNS FOR READABILITY
+chem.ref <- chem.ref %>% 
+  select(!c(Project2, Project3, ResultCondName, Result_Depth:Result_Depth_Reference,Act_depth_Reference:stant_name))
+
+# NARROW TABLE TO CHARS OF INTEREST ONLY (From StressorID Team: Temp, pH, DO, TP, TN, TSS, NH3)
 chem.ref.wq <- chem.ref %>% 
   filter(Char_Name %in% c("Temperature, water", "pH", "Dissolved oxygen (DO)", "Dissolved oxygen saturation", "Total Phosphorus, mixed forms", 
     "Nitrogen", "Nitrate + Nitrite", "Total Kjeldahl nitrogen", "Total suspended solids", "Ammonia")) %>% 
-  filter(!(Char_Name=='Total Phosphorus, mixed forms' & Char_Speciation=='as P')) # Excludes 1999 data with undefined method speciation)  
+  filter(!(Char_Name=='Total Phosphorus, mixed forms' & Char_Speciation=='as P')) # Excludes 1999 data with undefined method speciation 
 
+# CREATE TOTAL NITROGEN COLUMN. TN = TKN + Nitrate + Nitrite
+# nits
+tn.nits<-subset(chem.ref.wq, chem.ref.wq$`Char_Name`=="Nitrate + Nitrite")
+# tkn
+tn.tkn<-subset(chem.ref.wq, chem.ref.wq$`Char_Name`=="Total Kjeldahl nitrogen")
+# merge
+tn.nits.tkn<-rbind(tn.nits, tn.tkn)
 
-# CREATE TOTAL NITROGEN COLUMN
-# SYB deal with this later.
+# Only include samples that inlude both TKN and Nitrate + Nitrite. Filter for nits and tkn samples where
+#  each appears once per sample time per site.
+nit_count <- tn.nits.tkn %>% 
+  group_by(MLocID, SampleStartDate) %>%   #CHANGE to dateTime field
+  filter(any(Char_Name == "Nitrate + Nitrite") & any(Char_Name == "Total Kjeldahl nitrogen") 
+         & sum(Char_Name == "Nitrate + Nitrite") == 1 & sum(Char_Name == "Total Kjeldahl nitrogen") == 1
+  ) %>%
+  ungroup() %>% 
+  arrange(SampleStartDate, MLocID)
+# Sum rows to calculate TN. Change the Char_Name column to TN (calculated)
+# Remove nits and tkn from chem.ref.wq and replace with TN.
+# SYB 9/9 working on it
 
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
-#POPULATE NEW NUMERIC RESULT COLUMN TO ACCOUNT FOR NON-DETECTS AND EXCEEDANCES
-# Value for non-detect calculated as 1/2 MRL.
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
-chem.ref.wq <- chem.ref.wq %>% 
-  mutate(Result_Numeric_mod = ifelse(Result_Text == 'ND', 
-                  MDLValue * 0.5, # Non-detects based on result text column
-                   ifelse(Result_Operator == '<', Result_Numeric * 0.5, # Non-detects based on "<" prefix
-                   Result_Numeric))) %>%  # Otherwise provide value for standard result types 
-  relocate(Result_Numeric_mod, .after = Result_Numeric)
-         
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #SUMMARIZE PARAMETERS AND DATES FOR EACH STATION
   #Know for each site which parameters were collected and when (min/max date)
@@ -158,16 +168,16 @@ sum.eco <- chem.ref.wq %>%
             maxDate = max(SampleStartDate))
 
   #Export to Excel if wanting to explore more via data filters
-write.xlsx(sum.eco, file = "Benchmarks/Water Chemistry/summary_by_param_eco.xlsx")
+#write.xlsx(sum.eco, file = "Benchmarks/Water Chemistry/summary_by_param_eco.xlsx")
 
 #3: MAPS
 
 # Single dot for each reference site with water chemistry data (site may have been sampled multiple times):
-grylrd <- c("#1a9c34", "#f0e811", "#c91100")
-refpal <- colorFactor(grylrd, domain = chem.ref.wq$ReferenceSite)
-labs <- c("Reference", "Moderately disturbed", "Most disturbed")
+gry <- c("#969696", "#141414", "#fff" )
+refpal <- colorFactor(gry, domain = chem.ref.wq$ReferenceSite)
+labs <- c("Moderately disturbed", "Most disturbed", "Reference")
 
-refplot <- leaflet(data = chem.ref.wq) %>%
+refmap <- leaflet(data = chem.ref.wq) %>%
   addTiles() %>%
   setView(lng = -120.5583, lat =44.0671, zoom =6.4) %>%
   addCircleMarkers(lng = ~Long_DD, lat = ~Lat_DD, fillColor = refpal(chem.ref.wq$ReferenceSite), stroke = TRUE,
@@ -176,9 +186,9 @@ refplot <- leaflet(data = chem.ref.wq) %>%
                                   "<strong>", "Station Description: ", "</strong>", chem.ref.wq$StationDes, "<br>",
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", chem.ref.wq$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", chem.ref.wq$ReferenceSite, "<br>")) %>% 
-  addLegend(colors = grylrd, labels = labs, position = "bottomright",
-            title = "Sites with a reference designation", opacity = 1)
-refplot # print plot
+  addLegend(colors = gry, labels = labs, position = "bottomright",
+            title = paste0("Sites with WQ & a reference designation<br>N = ",length(unique(chem.ref.wq$MLocID)), " unique MLocIDs"), opacity = 1)
+refmap # Print map
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #END OF PROOFED CODE; REST BELOW IS WORK IN PROGRESS ....
@@ -702,5 +712,10 @@ library(openxlsx)
 write.xlsx(datesuniq, file = "//deqlab1/ATHOMPS/Files/Biomon/R Chem Benchmarks/SamplingDates.xlsx")
 
 #!!!!!!!!!!!!!!<code>
-
+# #Snippet from Lesley. Filter out bug samples based on Bio_Intent column.
+# chem.no_bio <- chem.all_ref %>% 
+#   filter(!Bio_Intent %in% c("Population Census","Species Density")) # 1327 unique MLocIDs with no bug data.
+# 
+# chem.bio_only <- chem.all_ref %>% 
+#   filter(Bio_Intent %in% c("Population Census", "Species Density"))
 

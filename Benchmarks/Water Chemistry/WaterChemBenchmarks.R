@@ -93,6 +93,21 @@ chem.ref <- subset(chem.ref, select=-c(Year, Month, Day, MonthDay))
   #they don't have water chemistry data
 chem.ref <- subset(chem.ref, chem.ref$OrgID != 'USU(NOSTORETID)')
 
+# HARDCODE IN THE LEVEL 3 ECOREGIONS
+chem.ref <- chem.ref %>% 
+  mutate(L3Eco = EcoRegion3) %>%  
+  mutate(L3Eco = case_when(
+    L3Eco == "3" ~ "Willamette Valley",
+    L3Eco == "9" ~ "Eastern Cascades Slopes and Foothills",
+    L3Eco == "11" ~ "Blue Mountains",
+    L3Eco == "78" ~ "Klamath Mountains",
+    L3Eco == "1" ~ "Coast Range",
+    L3Eco == "4" ~ "Cascades",
+    L3Eco == "80" ~ "Northern Basin and Range",
+    L3Eco == "10" ~ "Columbia Plateau",
+    L3Eco == "12" ~ "Snake River Plain")) %>% 
+  relocate(L3Eco, .before = EcoRegion3)
+
 # #Snippet from Lesley. Filter out bug samples based on Bio_Intent column.
 # chem.no_bio <- chem.all_ref %>% 
 #   filter(!Bio_Intent %in% c("Population Census","Species Density")) # 1327 unique MLocIDs with no bug data.
@@ -137,7 +152,7 @@ sum.loc <- chem.ref.wq %>%
 
   #2: BY PARAMETER, REFERENCE STATUS, AND ECOREGION LEVEL 3
 sum.eco <- chem.ref.wq %>%
-  group_by(EcoRegion3, ReferenceSite, Char_Name) %>%
+  group_by(L3Eco, ReferenceSite, Char_Name) %>%
   summarise(n.Samples = n(),
             minDate = min(SampleStartDate),
             maxDate = max(SampleStartDate))
@@ -158,9 +173,9 @@ refplot <- leaflet(data = chem.ref.wq) %>%
   addCircleMarkers(lng = ~Long_DD, lat = ~Lat_DD, fillColor = refpal(chem.ref.wq$ReferenceSite), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
                    popup = paste0("<strong>", "MLocID: ","</strong>", chem.ref.wq$MLocID, "<br>",
-                                  "<strong>", "Station Description:" , "</strong>", chem.ref.wq$StationDes, "<br>",
-                                  "<strong>", "Level 3 Ecoregion:" , "</strong>", chem.ref.wq$EcoRegion3, "<br>",
-                                  "<strong>", "Reference Status:" , "</strong>", chem.ref.wq$ReferenceSite, "<br>")) %>% 
+                                  "<strong>", "Station Description: ", "</strong>", chem.ref.wq$StationDes, "<br>",
+                                  "<strong>", "Level 3 Ecoregion: ", "</strong>", chem.ref.wq$L3Eco, "<br>",
+                                  "<strong>", "Reference Status: ", "</strong>", chem.ref.wq$ReferenceSite, "<br>")) %>% 
   addLegend(colors = grylrd, labels = labs, position = "bottomright",
             title = "Sites with a reference designation", opacity = 1)
 refplot # print plot

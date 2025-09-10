@@ -106,6 +106,11 @@ chem.ref <- chem.ref %>%
     L3Eco == "12" ~ "Snake River Plain")) %>% 
   relocate(L3Eco, .before = EcoRegion3)
 
+# ADD A DATETIME FIELD
+chem.ref <- chem.ref %>% 
+  mutate(dateTime = str_sub(paste0(SampleStartDate, " ", SampleStartTime), end = -9)) %>%  # take 0s off the end of the time
+  relocate(dateTime, .after = SampleStartDate)
+
 # POPULATE NEW NUMERIC RESULT COLUMN TO ACCOUNT FOR NON-DETECTS AND EXCEEDANCES
 # Value for non-detect calculated as 1/2 MDL.
 chem.ref <- chem.ref %>% 
@@ -124,7 +129,7 @@ chem.ref.wq <- chem.ref %>%
   filter(Char_Name %in% c("Temperature, water", "pH", "Dissolved oxygen (DO)", "Dissolved oxygen saturation", "Total Phosphorus, mixed forms", 
     "Nitrogen", "Nitrate + Nitrite", "Total Kjeldahl nitrogen", "Total suspended solids", "Ammonia")) %>% 
   filter(!(Char_Name=='Total Phosphorus, mixed forms' & Char_Speciation=='as P')) # Excludes 1999 data with undefined method speciation 
-
+#--------------------------------------------------------------------------------------------------------------------
 # CALCULATE TOTAL NITROGEN. TN = TKN + Nitrate + Nitrite
 # nits
 tn.nits<-subset(chem.ref.wq, chem.ref.wq$`Char_Name`=="Nitrate + Nitrite")
@@ -133,21 +138,47 @@ tn.tkn<-subset(chem.ref.wq, chem.ref.wq$`Char_Name`=="Total Kjeldahl nitrogen")
 # merge
 tn.nits.tkn<-rbind(tn.nits, tn.tkn)
 
-# Only include samples that inlude both TKN and Nitrate + Nitrite. Only keep nits and tkn samples where
-#  each appears once per sample time per site.
-# Need a dateTime to get unique sample events
-
-
-nit_count <- tn.nits.tkn %>% 
-  group_by(MLocID, SampleStartDate) %>%   #CHANGE to dateTime field
+# ONLY INCLUDE SAMPLES THAT HAVE BOTH TKN AND NITRATE + NITRITE. Keep nits and tkn samples where
+#  each appears once per sampling event per site.
+tn1 <- tn.nits.tkn %>% 
+  group_by(MLocID, dateTime) %>%   
   filter(any(Char_Name == "Nitrate + Nitrite") & any(Char_Name == "Total Kjeldahl nitrogen") 
          & sum(Char_Name == "Nitrate + Nitrite") == 1 & sum(Char_Name == "Total Kjeldahl nitrogen") == 1
   ) %>%
   ungroup() %>% 
-  arrange(SampleStartDate, MLocID)
-# Sum rows to calculate TN. Change the Char_Name column to TN (calculated)
+  arrange(SampleStartTime, MLocID)
+
+# Four sites have 2 TKN but 1 Nits as of 9/2025.  "37434-ORDEQ" "24566-ORDEQ" "37422-ORDEQ" "37424-ORDEQ"
+# Remove one TKN row (if duplicate). Check to make sure there is one row TKN and one row Nits per sample.
+# Check beforehand if both TKN results are the same, will need to decide which to keep otherwise.
+tn2 <- tn.nits.tkn %>% 
+  group_by(MLocID, dateTime) %>%   
+  filter(any(Char_Name == "Nitrate + Nitrite") & any(Char_Name == "Total Kjeldahl nitrogen") 
+         & sum(Char_Name == "Nitrate + Nitrite") == 1 & sum(Char_Name == "Total Kjeldahl nitrogen") == 2
+  ) %>%
+  ungroup() %>% 
+  arrange(SampleStartDate, MLocID) %>% 
+  distinct(Char_Name, SampleStartDate, .keep_all=TRUE)
+
+# Sum rows to calculate TN. 
+TN <- rbind(tn1, tn2) %>% 
+  group_by(MLocID, dateTime) %>% 
+  mutate(TN = sum(Result_Numeric_mod)) %>% 
+  relocate(TN, .after= Result_Numeric_mod) %>% 
+  distinct(MLocID, SampleStartDate, TN, .keep_all=TRUE) %>% #Removes one of the duplicate rows
+# Need to put the table back together so it looks like chem.ref.wq
+  mutate(Result_Numeric_mod = TN) %>%  # Know that other columns (method, result_text, etc.) will only
+                                       # reflect the methods for nitrate + nitrate (not TKN). If you need to look up
+                                       # lab info for TKN you can use the act_id in chem.ref.
+  mutate(Char_Name = "TN (calc)") %>% 
+  select(-TN)
+
 # Remove nits and tkn from chem.ref.wq and replace with TN.
-# SYB 9/9 working on it
+chem.ref.wq <- rbind(TN, chem.ref.wq) %>% 
+  filter(!Char_Name %in% c("Nitrate + Nitrite", "Total Kjeldahl nitrogen")) %>% 
+  arrange(SampleStartDate)
+
+# *** Note: When you want to grab Nitrogen data, filter for both TN (calc) and Nitrogen.***
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #SUMMARIZE PARAMETERS AND DATES FOR EACH STATION
@@ -158,7 +189,7 @@ nit_count <- tn.nits.tkn %>%
 
   #1: BY LOCATION AND PARAMETER
 sum.loc <- chem.ref.wq %>%
-  group_by(MLocID, StationDes, Char_Name,ReferenceSite) %>%
+  group_by(MLocID, StationDes, Char_Name, ReferenceSite) %>%
   summarise(n.Samples = n(),
             minDate = min(SampleStartDate),
             maxDate = max(SampleStartDate))

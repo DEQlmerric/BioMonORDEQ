@@ -259,18 +259,24 @@ refmap <- leaflet(data = chem.ref.wq) %>%
 refmap # Print map
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
+# SUMMARY BOXPLOTS
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
+#SYB next time add: min/max based on Result_Numeric_mod, change color of outliers, save plots to pdf, see if the labels work.
+
+# Boxplot of each parameter by Ref Status and L3Ecoregion.
+chem.ref.wq %>% 
+  group_by(Char_Name) %>% 
+  group_map(
+    .f = ~ ggplot(.x, aes(x = ReferenceSite, y = Result_Numeric_mod)) +
+      geom_boxplot() +
+      facet_grid(~L3Eco) +
+      labs(x = "Reference Status", y = paste0(.y$Char_Name, " ", .y$Result_Unit)) +
+      theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+  )
+
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
 #END OF PROOFED CODE; REST BELOW IS WORK IN PROGRESS ....
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
-
-# Functions:
-#RUN BOX PLOT FUNCTION
-boxp <- function(data, x, y) {
-  ggplot(data, aes({{x}}, {{y}})) +
-    geom_boxplot(outlier.color = "red", outlier.shape = 8) + #red asterisk outliers
-    labs(x = "Ecoregion", y = c(paste(data$Char_Name, "(",data$Result_Unit,")"))) + #automatic axis labeling
-    #geom_hline(yintercept = data$MRLValue, linetype = "dashed", color = "red") + #MRL horizontal reference line
-    theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-}
 
 
 #SUMMARIZE DATA 
@@ -307,6 +313,15 @@ print(boxtss)
 #sort by ref, mod, most
 
 
+# Functions:
+#RUN BOX PLOT FUNCTION
+boxp <- function(data, x, y) {
+  ggplot(data, aes({{x}}, {{y}})) +
+    geom_boxplot(outlier.color = "red", outlier.shape = 8) + #red asterisk outliers
+    labs(x = "Ecoregion", y = c(paste(data$Char_Name, "(",data$Result_Unit,")"))) + #automatic axis labeling
+    #geom_hline(yintercept = data$MRLValue, linetype = "dashed", color = "red") + #MRL horizontal reference line
+    theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+}
 
 
 

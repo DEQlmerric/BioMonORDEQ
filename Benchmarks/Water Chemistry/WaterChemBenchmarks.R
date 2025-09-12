@@ -61,6 +61,9 @@ chem.ref <- chem.ref %>% filter(MonLocType == "River/Stream")
 #SAMPLE MEDIA OTHER THAN WATER                  #   Check w/ SH, AT
 chem.ref <- chem.ref %>%  filter(SampleMedia == "Water")
 
+#SAMPLE MEDIA OTHER THAN SURFACE WATER     #   Check w/ SH, AT - SOME OF THESE ARE WEIRD
+chem.ref <- chem.ref %>%  filter(SampleMedia != "Surface Water")
+
 #LEGACY AMBIENT STATIONS
   #1: SUBSET AMBIENT PROJECT DATA
 amb <- subset(chem.ref, chem.ref$Project1 == "Surface Water Ambient Monitoring")
@@ -106,6 +109,13 @@ chem.ref <- chem.ref %>%
     L3Eco == "12" ~ "Snake River Plain")) %>% 
   relocate(L3Eco, .before = EcoRegion3)
 
+# ECOREGIONS AS FACTORS (in geographic order)
+chem.ref$L3Eco <- factor(chem.ref$L3Eco, levels = c("Coast Range", "Willamette Valley", "Klamath Mountains", "Cascades",
+    "Eastern Cascades Slopes and Foothills", "Columbia Plateau", "Blue Mountains", "Northern Basin and Range", "Snake River Plain"))
+
+# REF STATUS AS FACTORS
+chem.ref$ReferenceSite <- factor(chem.ref$ReferenceSite, levels = c("REFERENCE", "MODERATELY DISTURBED", "MOST DISTURBED"))
+
 # ADD A DATETIME FIELD
 chem.ref <- chem.ref %>% 
   mutate(dateTime = str_sub(paste0(SampleStartDate, " ", SampleStartTime), end = -9)) %>%  # take 0s off the end of the time
@@ -120,11 +130,11 @@ chem.ref <- chem.ref %>%
                                             Result_Numeric))) %>%  # Otherwise provide value for standard result types 
   relocate(Result_Numeric_mod, .after = Result_Numeric)
 
-# GET RID OF SOME UNUSED COLUMNS FOR READABILITY
+# GET RID OF SOME UNUSED COLUMNS FOR READABILITY (Could get rid of more.)
 chem.ref <- chem.ref %>% 
   select(!c(Project2, Project3, ResultCondName, Result_Depth:Result_Depth_Reference,Act_depth_Reference:stant_name))
 
-# NARROW TABLE TO CHARS OF INTEREST ONLY (From StressorID Team: Temp, pH, DO, TP, TN, TSS, NH3)
+# NARROW TABLE TO CHARS OF INTEREST ONLY (From StressorID Team: Temp, pH, DO, TP, TN, TSS, NH3) # AT, SH = do we want others included?
 chem.ref.wq <- chem.ref %>% 
   filter(Char_Name %in% c("Temperature, water", "pH", "Dissolved oxygen (DO)", "Dissolved oxygen saturation", "Total Phosphorus, mixed forms", 
     "Nitrogen", "Nitrate + Nitrite", "Total Kjeldahl nitrogen", "Total suspended solids", "Ammonia")) %>% 
@@ -165,12 +175,13 @@ TN <- rbind(tn1, tn2) %>%
   group_by(MLocID, dateTime) %>% 
   mutate(TN = sum(Result_Numeric_mod)) %>% 
   relocate(TN, .after= Result_Numeric_mod) %>% 
-  distinct(MLocID, SampleStartDate, TN, .keep_all=TRUE) %>% #Removes one of the duplicate rows
+  distinct(MLocID, SampleStartDate, TN, .keep_all=TRUE) %>% #Removes one of the duplicate rows. By default removes TKN.
 # Need to put the table back together so it looks like chem.ref.wq
   mutate(Result_Numeric_mod = TN) %>%  # Know that other columns (method, result_text, etc.) will only
                                        # reflect the methods for nitrate + nitrate (not TKN). If you need to look up
                                        # lab info for TKN you can use the act_id in chem.ref.
-  mutate(Char_Name = "TN (calc)") %>% 
+  mutate(Char_Name = "Nitrogen") %>%   # SH, AT = SHOULD we add a column differentiating the calculated TN from the Char_Name = "Nitrogen" samples?
+                                          # Right now they cna't be differentiated (Char_Name = "Nitrogen" looks the same as this calculated TN)
   select(-TN)
 
 # Remove nits and tkn from chem.ref.wq and replace with TN.
@@ -178,38 +189,61 @@ chem.ref.wq <- rbind(TN, chem.ref.wq) %>%
   filter(!Char_Name %in% c("Nitrate + Nitrite", "Total Kjeldahl nitrogen")) %>% 
   arrange(SampleStartDate)
 
-# *** Note: When you want to grab Nitrogen data, filter for both TN (calc) and Nitrogen.***
-
+# Clear out intermediaries
+rm(list = c('TN', 'tn.nits', 'tn.nits.tkn', 'tn.tkn', 'tn1', 'tn2'))
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #SUMMARIZE PARAMETERS AND DATES FOR EACH STATION
   #Know for each site which parameters were collected and when (min/max date)
   #Don't want to develop a parameter benchmark if bad geographic coverage
   #Look in bug metrics code in BiomonR for examples of Tidy ways.
-  #Append result to data table
 
-  #1: BY LOCATION AND PARAMETER
-sum.loc <- chem.ref.wq %>%
+#1: BY PARAMETER
+sum.param <- chem.ref.wq %>%
+  group_by(Char_Name) %>%
+  summarise(n.Samples = n(),
+            minDate = min(SampleStartDate),
+            maxDate = max(SampleStartDate))
+
+view(sum.param)
+  
+#2: BY SITE AND PARAMETER
+sum.site <- chem.ref.wq %>%
   group_by(MLocID, StationDes, Char_Name, ReferenceSite) %>%
   summarise(n.Samples = n(),
             minDate = min(SampleStartDate),
             maxDate = max(SampleStartDate))
 
-  #2: BY PARAMETER, REFERENCE STATUS, AND ECOREGION LEVEL 3
+#3: BY PARAMETER, REFERENCE STATUS
+sum.ref <- chem.ref.wq %>%
+  group_by(Char_Name, ReferenceSite) %>%
+  summarise(n.Samples = n(),
+            minDate = min(SampleStartDate),
+            maxDate = max(SampleStartDate))
+view(sum.ref)
+
+ggplot(sum.ref, aes(fill = ReferenceSite, x = Char_Name, y = n.Samples)) +
+  geom_col(position = "dodge") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+
+
+  #4: BY PARAMETER, REFERENCE STATUS, AND ECOREGION LEVEL 3
 sum.eco <- chem.ref.wq %>%
   group_by(L3Eco, ReferenceSite, Char_Name) %>%
   summarise(n.Samples = n(),
             minDate = min(SampleStartDate),
             maxDate = max(SampleStartDate))
 
-  #Export to Excel if wanting to explore more via data filters
+view(sum.eco)
+
+  # Export to Excel if wanting to explore more via data filters
 #write.xlsx(sum.eco, file = "Benchmarks/Water Chemistry/summary_by_param_eco.xlsx")
 
-#3: MAPS
+#3: MAP
 
 # Single dot for each reference site with water chemistry data (site may have been sampled multiple times):
-gry <- c("#969696", "#141414", "#fff" )
+labs <- c("Reference", "Moderately disturbed", "Most disturbed")
+gry <- c("#fff", "#969696", "#141414")
 refpal <- colorFactor(gry, domain = chem.ref.wq$ReferenceSite)
-labs <- c("Moderately disturbed", "Most disturbed", "Reference")
 
 refmap <- leaflet(data = chem.ref.wq) %>%
   addTiles() %>%
@@ -220,7 +254,7 @@ refmap <- leaflet(data = chem.ref.wq) %>%
                                   "<strong>", "Station Description: ", "</strong>", chem.ref.wq$StationDes, "<br>",
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", chem.ref.wq$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", chem.ref.wq$ReferenceSite, "<br>")) %>% 
-  addLegend(colors = gry, labels = labs, position = "bottomright",
+  addLegend(colors = gry, labels = labs,position = "bottomright",
             title = paste0("Sites with WQ & a reference designation<br>N = ",length(unique(chem.ref.wq$MLocID)), " unique MLocIDs"), opacity = 1)
 refmap # Print map
 
@@ -228,53 +262,7 @@ refmap # Print map
 #END OF PROOFED CODE; REST BELOW IS WORK IN PROGRESS ....
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 
-#SUMMARIZE DATA ~~~~~~~~~~~~~~~~~~~~??????????? use this section  ?????
-
-  #1: SUBSET DATA BY REFERENCE CONDITION
-ref <- subset(wqdata, wqdata$ReferenceSite == "REFERENCE")
-mod <- subset(wqdata, wqdata$ReferenceSite == "MODERATELY DISTURBED")
-most <- subset(wqdata, wqdata$ReferenceSite == "MOST DISTURBED")
-
-  #2: LIST NUMBER OF PARAMETERS ASSOCIATED WITH EACH REFERENCE STATION
-aggregate(data=ref, Char_Name ~ MLocID, function(x) length(unique(x)))
-
-  #3: LIST NUMBER OF SAMPLING DATES ASSOCIATED WITH EACH REFERENCE STATION
-aggregate(data=ref, SampleStartDate ~ MLocID, function(x) length(unique(x)))
-
-  #4: LIST NUMBER OF PARAMETERS ASSOCIATED WITH ALL STATIONS
-aggregate(data=wqdata, Char_Name ~ MLocID, function(x) length(unique(x)))
-
-
-
-
-
-# testing boxplots of ref/mod/most by ecoregion for each parameter
-tss <- subset(wqdata, wqdata$Char_Name == "Total suspended solids")
-
-boxtss <- ggplot(tss, aes(x = ReferenceSite, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  facet_grid(~Eco3) +
-  coord_cartesian(ylim = c(0, 25)) +
-  labs(x = "Reference Condition", y = "Total Suspended Solids (mg/L)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(boxtss)
-#avoid having one site drive results for an entire ecoregion (e.g., whychus in 9)
-#sort by ref, mod, most
-
-
-#TOTAL SUSPENDED SOLIDS
-tss<-subset(wqdata, wqdata$Char_Name == 'Total suspended solids')
-tss2<-ggplot(tss, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Reference Condition", y = "Total Suspended Solids (mg/L)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(tss2)
-
-
-
-
-
-#testing function code from trend script
+# Functions:
 #RUN BOX PLOT FUNCTION
 boxp <- function(data, x, y) {
   ggplot(data, aes({{x}}, {{y}})) +
@@ -283,6 +271,42 @@ boxp <- function(data, x, y) {
     #geom_hline(yintercept = data$MRLValue, linetype = "dashed", color = "red") + #MRL horizontal reference line
     theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
 }
+
+
+#SUMMARIZE DATA 
+
+  #1: SUBSET DATA BY REFERENCE CONDITION
+ref <- subset(chem.ref.wq, chem.ref.wq$ReferenceSite == "REFERENCE")
+mod <- subset(chem.ref.wq, chem.ref.wq$ReferenceSite == "MODERATELY DISTURBED")
+most <- subset(chem.ref.wq, chem.ref.wq$ReferenceSite == "MOST DISTURBED")
+
+  #2: LIST NUMBER OF PARAMETERS ASSOCIATED WITH EACH REFERENCE STATION
+param <- aggregate(data=ref, Char_Name ~ MLocID, function(x) length(unique(x)))
+
+  #3: LIST NUMBER OF SAMPLING DATES ASSOCIATED WITH EACH REFERENCE STATION
+dates <- aggregate(data=ref, SampleStartDate ~ MLocID, function(x) length(unique(x)))
+
+  #4: LIST NUMBER OF PARAMETERS ASSOCIATED WITH ALL STATIONS
+parameters <- aggregate(data=ref, Char_Name ~ MLocID, function(x) length(unique(x)))
+
+
+
+
+
+# testing boxplots of ref/mod/most by ecoregion for each parameter
+tss <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Total suspended solids")
+
+boxtss <- ggplot(tss, aes(x = ReferenceSite, y = Result_Numeric)) +
+  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+  facet_grid(~L3Eco) +
+  coord_cartesian(ylim = c(0, 100)) +
+  labs(x = "Reference Condition", y = "Total Suspended Solids (mg/L)") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+print(boxtss)
+#avoid having one site drive results for an entire ecoregion (e.g., whychus in 9)
+#sort by ref, mod, most
+
+
 
 
 
@@ -506,14 +530,7 @@ nochem <- anti_join(ref_stations, chem.all_ref, by = "MLocID") # All rows from r
 
 
 
-####### NOT REALLY HELPFUL - DECIDE LATER IF KEEPING ##################
-  #Plot individual stations
-wt.30354<-subset(wt, wt$MLocID == '30354-ORDEQ')
-wt.30354<-ggplot(wt.30354, aes(x = MLocID, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Site", y = "Water Temperature") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(wt.30354)
+
 
 
 #   _   _                           _ 
@@ -753,3 +770,11 @@ write.xlsx(datesuniq, file = "//deqlab1/ATHOMPS/Files/Biomon/R Chem Benchmarks/S
 # chem.bio_only <- chem.all_ref %>% 
 #   filter(Bio_Intent %in% c("Population Census", "Species Density"))
 
+####### NOT REALLY HELPFUL - DECIDE LATER IF KEEPING ##################
+#Plot individual stations
+wt.30354<-subset(wt, wt$MLocID == '30354-ORDEQ')
+wt.30354<-ggplot(wt.30354, aes(x = MLocID, y = Result_Numeric)) +
+  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+  labs(x = "Site", y = "Water Temperature") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+print(wt.30354)

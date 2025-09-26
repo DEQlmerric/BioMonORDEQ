@@ -46,33 +46,27 @@ chem.all_ref <- inner_join(chem.all_ref, ref_stations, by = "MLocID")
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #REMOVE UNWANTED DATA FROM FURTHER ANALYSIS
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
-#VOIDED/REJECTED AND PRELIMINARY WATER CHEMISTRY DATA
-chem.ref <- subset(chem.all_ref, chem.all_ref$Result_status != 'Rejected' & chem.all_ref$Result_status != 'Preliminary')
-
-#DQL is E                                       #  Check w/ SH, AT
-chem.ref <- chem.ref %>% filter (DQL != "E")
-
-#CONTINUOUS DATA
-chem.ref <- subset(chem.ref, chem.ref$SamplingMethod != "Continuous Summary")
-
-#LOC TYPES OTHER THAN RIVERS AND STREAMS        #  Check w/ SH, AT
-chem.ref <- chem.ref %>% filter(MonLocType == "River/Stream")
-
-#SAMPLE MEDIA OTHER THAN WATER                  #   Check w/ SH, AT
-chem.ref <- chem.ref %>%  filter(SampleMedia == "Water")
-
-#SAMPLE MEDIA OTHER THAN SURFACE WATER     #   Check w/ SH, AT - SOME OF THESE ARE WEIRD
-chem.ref <- chem.ref %>%  filter(SampleMedia != "Surface Water")
-
+chem.ref <- chem.all_ref %>% 
+  filter(Result_status != 'Rejected' & Result_status != 'Preliminary') %>%
+  filter(DQL != 'E') %>% 
+  filter(SamplingMethod != 'Continuous Summary') %>%  # Remaining methods are 'Grab' and 'Unknown'. Do we want to keep 'Unknown'?
+  filter(MonLocType == 'River/Stream') %>% 
+  filter(SampleMedia == 'Water') %>% 
+  filter(SampleSubmedia == 'Surface Water') %>% 
+  filter(OrgID != 'USU(NOSTORETID)') # Utah State Univ sites - they don't have water chem data.
+  
+# Note: There are three stations with no COMID (12785-ORDEQ, 21844-ORDEQ, 34849-ORDEQ) as of 09/2025.
+  
 #LEGACY AMBIENT STATIONS
   #1: SUBSET AMBIENT PROJECT DATA
 amb <- subset(chem.ref, chem.ref$Project1 == "Surface Water Ambient Monitoring")
 
   #2: MAKE LIST OF AMBIENT STATIONS
-amb.stations <- amb %>% distinct(MLocID, .keep_all=TRUE)
-amb.stations <- subset(amb.stations, select = MLocID)
+amb.stations <- amb %>% 
+  distinct(MLocID, .keep_all=TRUE) %>% 
+  select(MLocID)
 
-  #3: FILTER OUT AMBIENT STATIONS
+  #3: REMOVE AMBIENT STATIONS
 chem.ref <- anti_join(chem.ref, amb.stations, by = "MLocID")
 
 rm(amb)
@@ -87,9 +81,12 @@ chem.ref <- chem.ref %>%
   filter((month(SampleStartDate) > 6 | (month(SampleStartDate) == 6 & day(SampleStartDate) >= 1)) &
       (month(SampleStartDate) < 10 | (month(SampleStartDate) == 10 & day(SampleStartDate) <= 15)))
 
-#UTAH STATE UNIVERSITY SITES 
-  #They don't have water chemistry data
-chem.ref <- subset(chem.ref, chem.ref$OrgID != 'USU(NOSTORETID)')
+# REMOVE FOUR YEARS/SITES WITH CONTINUOUS TEMPERATURE DATA (in AWQMS as SAMPLING METHOD = GRAB). 
+chem.ref <- chem.ref %>% 
+  filter(!(MLocID == '12054-ORDEQ' & year(SampleStartDate) == '1994')) %>%  # McCoy Creek Lower #2 (Transect 1) in 1994 (Historical LASAR data)
+  filter(!(MLocID == '12372-ORDEQ' & year(SampleStartDate) == '1994')) %>%  # Lookout Creek (Transect 6) in 1994 (Historical LASAR data)
+  filter(!(MLocID == '12060-ORDEQ' & year(SampleStartDate) == '1994')) %>%  # Dark Canyon Creek Upper (Transect 1) 1994 (Historical LASAR data)
+  filter(!(MLocID == '12057-ORDEQ' & year(SampleStartDate) == '1995')) # Meadow Creek Lower (Transect 1) in 1995 (Historical LASAR data)
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # MISC. DATA CLEAN-UP
@@ -121,6 +118,7 @@ chem.ref <- chem.ref %>%
   mutate(dateTime = str_sub(paste0(SampleStartDate, " ", SampleStartTime), end = -9)) %>%  # take 0s off the end of the time
   relocate(dateTime, .after = SampleStartDate)
 
+
 # POPULATE NEW NUMERIC RESULT COLUMN TO ACCOUNT FOR NON-DETECTS AND EXCEEDANCES
 # Value for non-detect calculated as 1/2 MDL.
 chem.ref <- chem.ref %>% 
@@ -129,6 +127,11 @@ chem.ref <- chem.ref %>%
                                      ifelse(Result_Operator == '<', Result_Numeric * 0.5, # Non-detects based on "<" prefix
                                             Result_Numeric))) %>%  # Otherwise provide value for standard result types 
   relocate(Result_Numeric_mod, .after = Result_Numeric)
+
+# IF WATER TEMP WAS REPORTED IN DEG F (why??), CONVERT TO DEG C
+chem.ref <- chem.ref %>% 
+  mutate(Result_Numeric_mod = ifelse(Result_Unit == 'deg F', (Result_Numeric_mod - 32) * (5/9), Result_Numeric_mod)) %>% 
+  mutate(Result_Unit = ifelse(Result_Unit == 'deg F', 'deg C', Result_Unit))         
 
 # GET RID OF SOME UNUSED COLUMNS FOR READABILITY (Could get rid of more.)
 chem.ref <- chem.ref %>% 
@@ -158,8 +161,8 @@ tn1 <- tn.nits.tkn %>%
   ungroup() %>% 
   arrange(SampleStartTime, MLocID)
 
-# Four sites have 2 TKN but 1 Nits as of 9/2025.  "37434-ORDEQ" "24566-ORDEQ" "37422-ORDEQ" "37424-ORDEQ"
-# Remove one TKN row (if duplicate). Check to make sure there is one row TKN and one row Nits per sample.
+# Four sites have 2 TKN but 1 Nits as of 09/2025.  "37434-ORDEQ" "24566-ORDEQ" "37422-ORDEQ" "37424-ORDEQ"
+# Remove one of those rows (if duplicate). Check to make sure there is one row TKN and one row Nits per sample.
 # Check beforehand if both TKN results are the same, will need to decide which to keep otherwise.
 tn2 <- tn.nits.tkn %>% 
   group_by(MLocID, dateTime) %>%   
@@ -181,7 +184,7 @@ TN <- rbind(tn1, tn2) %>%
                                        # reflect the methods for nitrate + nitrate (not TKN). If you need to look up
                                        # lab info for TKN you can use the act_id in chem.ref.
   mutate(Char_Name = "Nitrogen") %>%   # SH, AT = SHOULD we add a column differentiating the calculated TN from the Char_Name = "Nitrogen" samples?
-                                          # Right now they cna't be differentiated (Char_Name = "Nitrogen" looks the same as this calculated TN)
+                                          # Right now they can't be differentiated (Char_Name = "Nitrogen" looks the same as this calculated TN)
   select(-TN)
 
 # Remove nits and tkn from chem.ref.wq and replace with TN.
@@ -191,6 +194,8 @@ chem.ref.wq <- rbind(TN, chem.ref.wq) %>%
 
 # Clear out intermediaries
 rm(list = c('TN', 'tn.nits', 'tn.nits.tkn', 'tn.tkn', 'tn1', 'tn2'))
+
+write_xlsx(chem.ref.wq, path = "C://Users//sberzin//OneDrive - Oregon//Desktop//chem_ref_wq.xlsx")
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #SUMMARIZE PARAMETERS AND DATES FOR EACH STATION
   #Know for each site which parameters were collected and when (min/max date)
@@ -235,10 +240,21 @@ sum.eco <- chem.ref.wq %>%
 
 view(sum.eco)
 
+  #5: BY YEAR AND PARAMETER
+sum.year <- chem.ref.wq %>% 
+  group_by(Year = (year(SampleStartDate)), Char_Name) %>% 
+  summarise(n.Samples = n())
+
+ggplot(sum.year, aes(x = Year, y = n.Samples, fill = Char_Name)) +
+  geom_bar(position = "dodge", stat = "identity") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  xlim(1990, 2025) # There are some before 1990, but only a handful and they make the plot unreadable.
+# Q: What happened to other sample types after 2010?????
+
   # Export to Excel if wanting to explore more via data filters
 #write.xlsx(sum.eco, file = "Benchmarks/Water Chemistry/summary_by_param_eco.xlsx")
 
-#3: MAP
+# MAP
 
 # Single dot for each reference site with water chemistry data (site may have been sampled multiple times):
 labs <- c("Reference", "Moderately disturbed", "Most disturbed")
@@ -265,12 +281,13 @@ refmap # Print map
 
 # Boxplot of each parameter by Ref Status and L3Ecoregion.
 chem.ref.wq %>% 
-  group_by(Char_Name) %>% 
+  group_by(Char_Name, Result_Unit) %>% 
   group_map(
     .f = ~ ggplot(.x, aes(x = ReferenceSite, y = Result_Numeric_mod)) +
       geom_boxplot() +
       facet_grid(~L3Eco) +
       labs(x = "Reference Status", y = paste0(.y$Char_Name, " ", .y$Result_Unit)) +
+      #scale_y_continuous() +
       theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
   )
 

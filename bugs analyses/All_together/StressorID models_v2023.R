@@ -454,7 +454,7 @@ rownames(BSTI) <- NULL
 BSTI <- BSTI %>%
   select(Sample, WA.cla.tol) %>%
   dplyr::rename(BSTI = WA.cla.tol)
-
+ 
 
 # return final products
 tot.abund.MTTI <- abunds.MTTI %>%

@@ -194,7 +194,7 @@ varImpPlot(rf.mtti)
 rf.mtti.reduced <- randomForest(MTTI ~ MSST_mean08.14+clayws+tmax9120ws+bfiws+kffactws+Latitude+precip9120ws+elevws,
                                   data=mtti.preds,
                                 importance=TRUE,  keep.forest=TRUE)
-
+ 
 
 rf.mtti.reduced
 # 5 preds = 57.84 % variance explained. 

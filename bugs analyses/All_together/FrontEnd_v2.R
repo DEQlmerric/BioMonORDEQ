@@ -143,7 +143,7 @@ BCG <- run_BCG(BCG_metrics)
 BCG_results <- BCG$Levels.Flags
 BCG_Metric.Membership <- BCG$Metric.Membership
 BCG_Level.Membership <- BCG$Level.Membership
-
+ 
 
 BCG_sample <- sample_info |> 
   left_join(BCG_results, by = c('act_id' = 'SampleID'))

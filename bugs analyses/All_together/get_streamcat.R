@@ -47,7 +47,7 @@ get_streamcat <- function(comids, type = c("OE", "MMI", 'BCG','Stress', 'TEST'))
     streamcat <-purrr::map_dfr(comids_split, ~StreamCatTools::sc_get_data(comid = .,
                                                                           metric = 'TMAX8110,CLAY,OM,KFFACT,PRECIP8110,ELEV,msst2008,msst2009,msst2013,msst2014,mwst2008,mwst2009,mwst2013,mwst2014,PERM,P2O5',
                                                                           showAreaSqKm = TRUE,
-                                                                          aoi='catchment,watershed,other'))
+                                                                           aoi='catchment,watershed,other'))
     
   }
   

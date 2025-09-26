@@ -50,6 +50,14 @@ source('bugs analyses/All_together/Fetch_data.R')
 bug_tax_data <- fetch_data(DEQ_taxonomy_table = 'bugs analyses/Taxonomy/ODEQ_Taxonomy_dec22.xlsx',
                            leppo_taxonomy_table_url = 'https://github.com/leppott/BioMonTools_SupportFiles/raw/refs/heads/main/data/taxa_official/ORWA/old/ORWA_TaxaTranslator_20240619.csv')
 
+# need sample info for 'unfiltered' data
+sample_info.un <- bug_tax_data |> 
+  select(org_id, Project1, Project2, MLocID, StationDes, MonLocType, act_id, act_comments, Activity_Type,
+         SampleStart_Date, SampleStart_Time,Sample_Media, Sample_Method,Result_Status, Assemblage, EcoRegion3, 
+         EcoRegion4, EcoRegion2, HUC8_Name, HUC12_Name, Lat_DD, Long_DD, Reachcode, Measure, ELEV_Ft, 
+         GNIS_Name, Conf_Score, QC_Comm,COMID, AU_ID,  ReferenceSite, Wade_Boat) |> 
+  distinct()
+
 
 ## Filter the original datapull ------------------------------------------------------------------------------------
 
@@ -135,7 +143,7 @@ BCG <- run_BCG(BCG_metrics)
 BCG_results <- BCG$Levels.Flags
 BCG_Metric.Membership <- BCG$Metric.Membership
 BCG_Level.Membership <- BCG$Level.Membership
-
+ 
 
 BCG_sample <- sample_info |> 
   left_join(BCG_results, by = c('act_id' = 'SampleID'))
@@ -147,7 +155,7 @@ BCG_sample <- sample_info |>
 
 source('bugs analyses/All_together/StressorID models_v2023.R')
 
-STRESS_results <- bug.stressors_run(df_bugs = bug_tax_data_filtered)
+STRESS_results <- bug.stressors_run(df_bugs = bug_tax_data)
 
 STRESS_results <- STRESS_results %>%
   dplyr::rename(act_id = Sample)

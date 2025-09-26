@@ -5,7 +5,7 @@
 
 
 
-get_streamcat <- function(comids, type = c("OE", "MMI", 'BCG', 'TEST')){
+get_streamcat <- function(comids, type = c("OE", "MMI", 'BCG','Stress', 'TEST')){
   
   type <- match.arg(type)
   
@@ -47,12 +47,20 @@ get_streamcat <- function(comids, type = c("OE", "MMI", 'BCG', 'TEST')){
     streamcat <-purrr::map_dfr(comids_split, ~StreamCatTools::sc_get_data(comid = .,
                                                                           metric = 'TMAX8110,CLAY,OM,KFFACT,PRECIP8110,ELEV,msst2008,msst2009,msst2013,msst2014,mwst2008,mwst2009,mwst2013,mwst2014,PERM,P2O5',
                                                                           showAreaSqKm = TRUE,
-                                                                          aoi='catchment,watershed,other'))
+                                                                           aoi='catchment,watershed,other'))
     
   }
   
+# --------------------------------------->  
+  if(type == "Stress"){ #---------------> probably need to call MTTI and BSTI separately
+# --------------------------------------->    
   
-
+    streamcat <- purrr::map_dfr(comids_split, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'msst2008,msst2009,msst2013,msst2014,tmax9120,bfi,kffact,clay,elev,precip9120', 
+                                                                           showAreaSqKm = TRUE,
+                                                                           aoi='catchment,watershed,other'))
+          # need 'Latitude'==doesn't come from StreamCat.  Keep from STATIONS
+  }
     
   
   names(streamcat) <- base::toupper(names(streamcat))

@@ -14,12 +14,13 @@
 # 
 #
 
-bug.stressors_run <- function(df_bugs = bug_tax_data){
+bug.stressors_run <- function(df_bugs){
 
 
 
 library(tidyverse)
 library(rioja)
+library(randomForest)
 #library(RODBC) 
 
 
@@ -158,7 +159,8 @@ rownames(MTTI) <- NULL
 
 MTTI <- MTTI %>%
   select(Sample, WA.cla.tol) %>%
-  dplyr::rename(MTTI = WA.cla.tol)
+  dplyr::rename(MTTI = WA.cla.tol) 
+  #dplyr::rename(act_id = Sample)
 
 
 # rescale score to min and max of calibration datasets
@@ -173,6 +175,127 @@ MTTI$MTTI <- ifelse(MTTI$MTTI > 30.8, 30.8, MTTI$MTTI)
 #BSTI$BSTI <- ifelse(BSTI$BSTI > 100, 100, BSTI$BSTI)
 
 
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+# Get streamcat data (for "Expected") ----------------------------------------------------------------------------------------------
+
+
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+print("Begin Streamcat datapull")
+
+source('bugs analyses/All_together/get_streamcat.R')
+
+
+# Get list of COMIDs and remove blanks
+comidID <- unique(df_bugs$COMID)
+
+comidID <- comidID[!is.na(comidID)]
+
+# Get OE streamcat metrics at identifiyed comids
+
+streamcat <- get_streamcat(comids = comidID, type = "Stress" )
+
+#Get a list of unique activity ID and comids
+actids <- df_bugs |> 
+  select(act_id,  COMID, QC_Comm) |> 
+  unique()
+
+
+#Join steramcat data to the activity IDS
+actid_streamcat <- actids |> 
+  left_join(streamcat, by = join_by(COMID))
+
+
+#Produce a list of errors- used in development
+streamcat_errors <- actid_streamcat |> 
+  filter(is.na(WSAREASQKM))
+
+
+# Remove errors
+# alternate comids get catchment
+# exact comids get watershed
+# calculate MWST_mean08.14
+
+# ----------------> these are the final predictors for MTTI: MSST_mean08.14+clayws+tmax9120ws+bfiws+kffactws+Latitude+precip9120ws+elevws
+
+streamcat_mloc_data <- actid_streamcat |> 
+  filter(!is.na(WSAREASQKM)) |> 
+  mutate(MSST_mean08.14 =  (MSST2008 + MSST2009 + MSST2013 + MSST2014)/4,
+         CLAYWS = case_when(str_detect(QC_Comm, "Used closest COMID") ~ CLAYCAT,
+                          TRUE ~ CLAYWS),
+         TMAX9120WS = case_when(str_detect(QC_Comm, "Used closest COMID") ~ TMAX9120CAT,
+                              TRUE ~ TMAX9120WS),
+         BFIWS = case_when(str_detect(QC_Comm, "Used closest COMID") ~ BFICAT,
+                         TRUE ~ BFIWS),
+         KFFACTWS = case_when(str_detect(QC_Comm, "Used closest COMID") ~ KFFACTCAT,
+                          TRUE ~ KFFACTWS),
+         PRECIP9120WS = case_when(str_detect(QC_Comm, "Used closest COMID") ~ PRECIP9120CAT,
+                            TRUE ~ PRECIP9120WS),
+         ELEVWS = case_when(str_detect(QC_Comm, "Used closest COMID") ~ ELEVCAT,
+                                TRUE ~ ELEVWS),
+         
+  ) |> 
+  select(act_id, MSST_mean08.14, clayws = CLAYWS, tmax9120ws = TMAX9120WS, 
+         bfiws = BFIWS, kffactws = KFFACTWS, precip9120ws = PRECIP9120WS, elevws = ELEVWS)
+
+
+
+# need latitude as a predictor
+LAT <- sample_info.un %>% select(act_id, Latitude = Lat_DD)
+
+
+
+streamcat_mloc_data <- streamcat_mloc_data %>%
+  left_join(LAT, by = 'act_id')
+
+
+
+# drop samples with incomplete predictors
+
+preds_mtti.rf <- streamcat_mloc_data[complete.cases(streamcat_mloc_data), ]
+
+# Export a table of comids with missing streamcats
+errors <- streamcat_mloc_data[!complete.cases(streamcat_mloc_data), ] |> 
+  mutate(model_comment = "Missing streamcat features. No model run")
+
+print("End Streamcat datapull")
+
+
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+# Calculate Expected from saved RF model ----------------------------------------------------------------------------------------------
+
+
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+
+load('bugs analyses/stressor/reference expectations/rf.mtti.reduced.Rdata')
+
+predict.mtti <- predict(rf.mtti.reduced, newdata=preds_mtti.rf, type="response",
+                        norm.votes=TRUE, predict.all=FALSE, proximity=FALSE, nodes=FALSE)
+##
+###
+
+#  @@@ would be really nice to have this output contain act_ids to make a real join, rathe rthan just a paste
+
+###
+##
+
+
+# combine back with act_id
+
+MTTI.predicted <- preds_mtti.rf %>%
+  select(Sample = act_id) %>%
+  mutate(MTTI.pred = predict.mtti)
+
+
+# join MTTI with MMTI.pred
+
+MTTI_o.e <- MTTI %>% left_join(MTTI.predicted, by='Sample') %>%
+  mutate(MTTI_o.e = MTTI/MTTI.pred)
 
 
 
@@ -331,7 +454,7 @@ rownames(BSTI) <- NULL
 BSTI <- BSTI %>%
   select(Sample, WA.cla.tol) %>%
   dplyr::rename(BSTI = WA.cla.tol)
-
+ 
 
 # return final products
 tot.abund.MTTI <- abunds.MTTI %>%
@@ -343,7 +466,7 @@ tot.abund.BSTI <- abunds.BSTI %>%
 BSTI$BSTI <- ifelse(BSTI$BSTI < 0, 0, BSTI$BSTI)
 BSTI$BSTI <- ifelse(BSTI$BSTI > 100, 100, BSTI$BSTI)
 
-stressorID <- MTTI %>%
+stressorID <- MTTI_o.e %>%
   left_join(BSTI, by = 'Sample') %>%
   left_join(tot.abund.MTTI, by = 'Sample')%>%
   left_join(tot.abund.BSTI, by = 'Sample')

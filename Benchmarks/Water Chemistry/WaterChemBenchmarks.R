@@ -293,7 +293,6 @@ refmap # Print map
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # SUMMARY BOXPLOTS
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
-
 # Boxplot of each parameter by Ref Status and L3Ecoregion.
 chem.ref.wq %>% 
   group_by(Char_Name, Result_Unit) %>% 
@@ -317,7 +316,6 @@ boxp <- function(data, x, y) {
 }
 
 #MAP RESULTS FUNCTION
-
 map_results <- function(data) {
   leaflet(data) %>%
   addTiles() %>%
@@ -336,7 +334,7 @@ map_results <- function(data) {
 NH3 <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Ammonia")
 boxp(NH3, ReferenceSite, Result_Numeric_mod) +coord_cartesian(ylim = c(0, 0.5))
 
-pal <- colorNumeric(palette = "Greens",
+pal <- colorNumeric(palette = "Oranges",
                     domain = c(0, (quantile(NH3$Result_Numeric_mod, 0.75)) + 1.5 * IQR(NH3$Result_Numeric_mod)))
 map_results(NH3) 
 
@@ -358,7 +356,7 @@ map_results(DO_sat)
 TN <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Nitrogen")
 boxp(TN, ReferenceSite, Result_Numeric_mod) + coord_cartesian(ylim = c(0, 8))
 
-pal <- colorNumeric(palette = "YlOrBr", domain = c(0, (quantile(TN$Result_Numeric_mod, 0.75)) + 1.5 * IQR(TN$Result_Numeric_mod)))
+pal <- colorNumeric(palette = "Greens", domain = c(0, (quantile(TN$Result_Numeric_mod, 0.75)) + 1.5 * IQR(TN$Result_Numeric_mod)))
 map_results(TN) 
 
 # Total Phosphorus (plot cuts off far)
@@ -375,36 +373,22 @@ boxp(Temp, ReferenceSite, Result_Numeric_mod)
 pal <- colorNumeric(palette = "Blues", domain = NULL)
 map_results(Temp) 
 
-# TSS
+# TSS (Plot cuts off far outliers)
 tss <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Total suspended solids")
 boxp(tss, ReferenceSite, Result_Numeric_mod) +coord_cartesian(ylim = c(0, 100))
 
-pal <- colorNumeric(palette = "BuGn",
+pal <- colorNumeric(palette = "PuRd",
   domain = c(0, (quantile(tss$Result_Numeric_mod, 0.75)) + 1.5 * IQR(tss$Result_Numeric_mod)))
-map_results(tss) 
+map_results(tss)
 
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
-#IDENTIFY STATIONS FROM OUR REFERENCE SCREENS THAT DON'T HAVE WATER CHEMISTRY DATA IN AWQMS
-#Reveals where additional data collections might be warranted
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
-#1: CREATE TABLE CONTAINING SITES WITH NO CHEMISTRY DATA
-nochem <- anti_join(ref_stations, chem.all_ref, by = "MLocID") # All rows from ref_stations with no match in chem.no_bio
-
-#2: OPTIONAL - WRITE TO EXCEL FOR FURTHER EXAMINATION
-#write_xlsx(nochem, path = "Benchmarks/Water Chemistry/SitesMissingChemData.xlsx")
-
-#   #3: SUMMARIZE SITES BY OWNER, REF STATUS, AND ECOREGION  # needs work
-# nochemsum <- nochem %>% 
-#   group_by(OrgID, ReferenceSite, EcoRegion3) %>% 
-#   summarise(n = n())
-# 
-
-#We are opting NOT to include chem data from nearby sites. (How close? up or downstream? land use changes? tribs? - hard to justify) SB/AT August 2025
-
-
-
-
-
+summary_output <- chem.ref.wq %>% 
+  group_by(L3Eco, Char_Name) %>% 
+  summarize(mean = mean(Result_Numeric_mod),
+            median = median(Result_Numeric_mod),
+            min = min(Result_Numeric_mod),
+            max = max(Result_Numeric_mod), 
+            sd = sd(Result_Numeric_mod),
+            count = n())
 
 #   _   _                           _ 
 #  | | | |                         | |
@@ -1013,3 +997,23 @@ turb2<-ggplot(turb, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
   labs(x = "Reference Condition", y = "Turbidity (NTU)") +
   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
 print(turb2)
+
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
+#IDENTIFY STATIONS FROM OUR REFERENCE SCREENS THAT DON'T HAVE WATER CHEMISTRY DATA IN AWQMS
+#Reveals where additional data collections might be warranted
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
+#1: CREATE TABLE CONTAINING SITES WITH NO CHEMISTRY DATA
+nochem <- anti_join(ref_stations, chem.all_ref, by = "MLocID") # All rows from ref_stations with no match in chem.no_bio
+
+#2: OPTIONAL - WRITE TO EXCEL FOR FURTHER EXAMINATION
+#write_xlsx(nochem, path = "Benchmarks/Water Chemistry/SitesMissingChemData.xlsx")
+
+#   #3: SUMMARIZE SITES BY OWNER, REF STATUS, AND ECOREGION  # needs work
+# nochemsum <- nochem %>% 
+#   group_by(OrgID, ReferenceSite, EcoRegion3) %>% 
+#   summarise(n = n())
+# 
+
+#We are opting NOT to include chem data from nearby sites. (How close? up or downstream? land use changes? tribs? - hard to justify) SB/AT August 2025
+
+

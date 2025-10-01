@@ -22,10 +22,11 @@ library(AWQMSdata) # Visit 'https://github.com/TravisPritchardODEQ/AWQMSdata' fo
 library(tidyverse)
 library(writexl)
 library(leaflet)
+library(leaflet.providers)
 library(RColorBrewer)
 library(lubridate)
 
-# IMPORT STATIONS WITH A REFERENCE DESIGNATION FROM STATIONS DB (N = 2522 as of 8/8/25)
+# IMPORT STATIONS WITH A REFERENCE DESIGNATION FROM STATIONS DB (N = 2522 as of 8/8/25, 2520 10/1/25)
 stations <- query_stations()
 ref_stations <- stations %>% 
   filter(ReferenceSite %in% c("REFERENCE" , "MODERATELY DISTURBED", "MOST DISTURBED")) %>% 
@@ -196,7 +197,7 @@ chem.ref.wq <- rbind(TN, chem.ref.wq) %>%
 # Clear out intermediaries
 rm(list = c('TN', 'tn.nits', 'tn.nits.tkn', 'tn.tkn', 'tn1', 'tn2'))
 
-write_xlsx(chem.ref.wq, path = "C://Users//sberzin//OneDrive - Oregon//Desktop//chem_ref_wq.xlsx")
+#write_xlsx(chem.ref.wq, path = "C://Users//sberzin//OneDrive - Oregon//Desktop//chem_ref_wq.xlsx")
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # SUMMARY TABLES
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -267,6 +268,28 @@ sum.chars <- chem.ref.wq %>%
   summarise(n.chars = n_distinct(Char_Name))
 view(sum.chars)
 
+#8: SUMMARY STATS BY ECOREGION
+sum.stats <- chem.ref.wq %>% 
+  group_by(L3Eco, Char_Name) %>% 
+  summarize(mean = mean(Result_Numeric_mod),
+            median = median(Result_Numeric_mod),
+            min = min(Result_Numeric_mod),
+            max = max(Result_Numeric_mod), 
+            sd = sd(Result_Numeric_mod),
+            count = n())
+view(sum.stats)
+
+#9: SUMMARY STATS BY ECOREGION AND REF STATUS
+sum.stats.ref <- chem.ref.wq %>% 
+  group_by(L3Eco, ReferenceSite, Char_Name) %>% 
+  summarize(mean = mean(Result_Numeric_mod),
+            median = median(Result_Numeric_mod),
+            min = min(Result_Numeric_mod),
+            max = max(Result_Numeric_mod), 
+            sd = sd(Result_Numeric_mod),
+            count = n())
+view(sum.stats.ref)
+
   # Export to Excel if wanting to explore more via data filters
 #write.xlsx(sum.eco, file = "Benchmarks/Water Chemistry/summary_by_param_eco.xlsx")
 
@@ -274,11 +297,15 @@ view(sum.chars)
 
 # Single dot for each reference site with water chemistry data (site may have been sampled multiple times):
 labs <- c("Reference", "Moderately disturbed", "Most disturbed")
-gry <- c("#fff", "#969696", "#141414")
+gry <- c("#1d9633", "#ff9100", "#e00707")
 refpal <- colorFactor(gry, domain = chem.ref.wq$ReferenceSite)
 
 refmap <- leaflet(data = chem.ref.wq) %>%
-  addTiles() %>%
+  addProviderTiles("OpenStreetMap", group = "Basic Map") %>% 
+  addProviderTiles("OpenTopoMap", group = "Terrain") %>%
+  addLayersControl(
+    baseGroups = c("Basic Map", "Terrain"),
+    options = layersControlOptions(collapsed = FALSE)) %>% 
   setView(lng = -120.5583, lat =44.0671, zoom =6.4) %>%
   addCircleMarkers(lng = ~Long_DD, lat = ~Lat_DD, fillColor = refpal(chem.ref.wq$ReferenceSite), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
@@ -291,25 +318,26 @@ refmap <- leaflet(data = chem.ref.wq) %>%
 refmap # Print map
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
-# SUMMARY BOXPLOTS
+# SUMMARY BOXPLOTS / MAPS
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # Boxplot of each parameter by Ref Status and L3Ecoregion.
-chem.ref.wq %>% 
-  group_by(Char_Name, Result_Unit) %>% 
-  group_map(
-    .f = ~ ggplot(.x, aes(x = ReferenceSite, y = Result_Numeric_mod)) +
-      geom_boxplot() +
-      facet_grid(~L3Eco, scales = "free") +
-      labs(x = "Reference Status", y = paste0(.y$Char_Name, " (", .y$Result_Unit, ")")) +
-      theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-  )
+# Needs work, SYB to come back to this.
+# chem.ref.wq %>% 
+#   group_by(Char_Name, Result_Unit) %>% 
+#   group_map(
+#     .f = ~ ggplot(.x, aes(x = ReferenceSite, y = Result_Numeric_mod)) +
+#       geom_boxplot() +
+#       facet_grid(~L3Eco, scales = "free") +
+#       labs(x = "Reference Status", y = paste0(.y$Char_Name, " (", .y$Result_Unit, ")")) +
+#       theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+#   )
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # PLOTS AND MAPS BY INDIVIDUAL CHARS:
 #RUN BOX PLOT FUNCTION
 boxp <- function(data, x, y) {
   ggplot(data, aes(x = {{x}},y = {{y}})) +
     geom_boxplot(outlier.size = 0.9) +
-    facet_grid(~L3Eco) +
+    facet_grid(~L3Eco, labeller = label_wrap_gen(width = 18)) +
     labs(x = "Reference Status", y = c(paste(data$Char_Name, "(",data$Result_Unit,")"))) + #automatic axis labeling
     #geom_hline(yintercept = data$MRLValue, linetype = "dashed", color = "red") + #MRL horizontal reference line
     theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
@@ -318,7 +346,11 @@ boxp <- function(data, x, y) {
 #MAP RESULTS FUNCTION
 map_results <- function(data) {
   leaflet(data) %>%
-  addTiles() %>%
+  addProviderTiles("OpenStreetMap", group = "Basic Map") %>% 
+  addProviderTiles("OpenTopoMap", group = "Terrain") %>%
+  addLayersControl(
+    baseGroups = c("Basic Map", "Terrain"),
+    options = layersControlOptions(collapsed = FALSE)) %>% 
   setView(lng = -120.5583, lat =44.0671, zoom =6.4) %>%
   addCircleMarkers(lng = ~(jitter(Long_DD, factor = 0.5)), lat = ~jitter(Lat_DD, 0.5), fillColor = pal(data$Result_Numeric_mod), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
@@ -381,14 +413,7 @@ pal <- colorNumeric(palette = "PuRd",
   domain = c(0, (quantile(tss$Result_Numeric_mod, 0.75)) + 1.5 * IQR(tss$Result_Numeric_mod)))
 map_results(tss)
 
-summary_output <- chem.ref.wq %>% 
-  group_by(L3Eco, Char_Name) %>% 
-  summarize(mean = mean(Result_Numeric_mod),
-            median = median(Result_Numeric_mod),
-            min = min(Result_Numeric_mod),
-            max = max(Result_Numeric_mod), 
-            sd = sd(Result_Numeric_mod),
-            count = n())
+
 
 #   _   _                           _ 
 #  | | | |                         | |

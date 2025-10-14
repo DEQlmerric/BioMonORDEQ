@@ -198,7 +198,21 @@ chem.ref.wq <- rbind(TN, chem.ref.wq) %>%
 # Clear out intermediaries
 rm(list = c('TN', 'tn.nits', 'tn.nits.tkn', 'tn.tkn', 'tn1', 'tn2'))
 
-write_xlsx(chem.ref.wq, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//chem_ref_wq_", Sys.Date(), ".xlsx"))
+#write_xlsx(chem.ref.wq, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//chem_ref_wq_", Sys.Date(), ".xlsx"))
+
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
+# ***CHOOSE YOUR OWN ADVENTURE: DIFFERENT WAYS TO SPLIT OUT THE DATA***
+# -Run the section(s) you choose below (or run none of them for all water chem data with a ref designation),
+# then run everything below it for summary plots and tables.
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+#1  BUG SITES ONLY
+
+#2  ELIMINATE SITES ON THE SAME STREAM SEGMENT 
+
+#3  ONLY TAKE THE MOST RECENT SAMPLES IF A SITE WAS SAMPLED MORE THAN ONCE
+
+
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # SUMMARY TABLES
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -346,23 +360,29 @@ boxp <- function(data, x, y) {
 
 #MAP RESULTS FUNCTION
 map_results <- function(data) {
-  leaflet(data) %>%
+  leaflet() %>%
   addProviderTiles("OpenStreetMap", group = "Basic Map") %>% 
   addProviderTiles("OpenTopoMap", group = "Terrain") %>%
-  addLayersControl(
-    baseGroups = c("Basic Map", "Terrain"),
-    options = layersControlOptions(collapsed = FALSE)) %>% 
   setView(lng = -120.5583, lat =44.0671, zoom =6.4) %>%
-  addCircleMarkers(lng = ~(jitter(Long_DD, factor = 0.5)), lat = ~jitter(Lat_DD, 0.5), fillColor = pal(data$Result_Numeric_mod), stroke = TRUE,
+  addCircleMarkers(data = data, group = ~ReferenceSite, lng = ~(jitter(data$Long_DD, factor = 0.5)), 
+                     lat = ~jitter(data$Lat_DD, 0.5), fillColor = pal(data$Result_Numeric_mod), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
                    popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
                                   "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
                                   "<strong>", data$Char_Name, ": ", "</strong>", data$Result_Numeric_mod, " ", data$Result_Unit))  %>% 
-    addLegend(pal = pal,values = data$Result_Numeric_mod, position = "bottomright" ,title = paste0(data$Char_Name[1], " (" , data$Result_Unit[1], ")"))
+    addLayersControl(
+      baseGroups = c("Basic Map", "Terrain"),
+      overlayGroups = c("REFERENCE", "MODERATELY DISTURBED", "MOST DISTURBED"),
+      options = layersControlOptions(collapsed = FALSE)) %>% 
+    addLegend(pal = pal,values = data$Result_Numeric_mod[data$Result_Numeric_mod <= (quantile(data$Result_Numeric_mod, 0.75) + 1.5 * 
+      IQR(data$Result_Numeric_mod))], position = "bottomright" ,title = paste0(data$Char_Name[1], " (" , data$Result_Unit[1], ")"))
 }
 
+# Note for maps:  Grey circle = high outlier (beyond Q3 + 1.5IQR).
+# Note for plots: High outliers might be cut off. Where this happens it's noted in the script below.
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
 # AMMONIA (plot cuts out far outliers)
 NH3 <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Ammonia")
 boxp(NH3, ReferenceSite, Result_Numeric_mod) +coord_cartesian(ylim = c(0, 0.5))

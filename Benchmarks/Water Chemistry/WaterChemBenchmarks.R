@@ -55,8 +55,8 @@ chem.ref <- chem.all_ref %>%
   filter(SampleMedia == 'Water') %>% 
   filter(SampleSubmedia == 'Surface Water') %>% 
   filter(OrgID != 'USU(NOSTORETID)') # Utah State Univ sites - they don't have water chem data.
-  
-# Note: There are three stations with no COMID (12785-ORDEQ [this one is in Dan's list of no COMIDs], 21844-ORDEQ, 34849-ORDEQ) as of 09/2025.
+
+# Note: There are two stations with no COMID (21844-ORDEQ, 34849-ORDEQ) as of 10/2025.
   
 # LEGACY AMBIENT STATIONS
   #1: SUBSET AMBIENT PROJECT DATA
@@ -131,16 +131,17 @@ chem.ref <- chem.ref %>%
 # IF WATER TEMP WAS REPORTED IN DEG F (why??), CONVERT TO DEG C
 chem.ref <- chem.ref %>% 
   mutate(Result_Numeric_mod = ifelse(Result_Unit == 'deg F', (Result_Numeric_mod - 32) * (5/9), Result_Numeric_mod)) %>% 
-  mutate(Result_Unit = ifelse(Result_Unit == 'deg F', 'deg C', Result_Unit))         
+  mutate(Result_Unit = ifelse(Result_Unit == 'deg F', 'deg C', Result_Unit))       
 
 # GET RID OF SOME UNUSED COLUMNS FOR READABILITY (Could get rid of more.)
 chem.ref <- chem.ref %>% 
-  select(!c(Project2, Project3, ResultCondName, Result_Depth:Result_Depth_Reference,Act_depth_Reference:stant_name))
+  select(!c(Project2, Project3, ResultCondName:stant_name, WQX_submit_date:res_last_change_date))
 
 # NARROW TABLE TO CHARS OF INTEREST ONLY (From StressorID Team: Temp, pH, DO, TP, TN, TSS, NH3) # AT, SH = do we want others included?
 chem.ref.wq <- chem.ref %>% 
   filter(Char_Name %in% c("Temperature, water", "pH", "Dissolved oxygen (DO)", "Dissolved oxygen saturation", "Total Phosphorus, mixed forms", 
-    "Nitrogen", "Nitrate + Nitrite", "Total Kjeldahl nitrogen", "Total suspended solids", "Ammonia")) %>% 
+    "Nitrogen", "Nitrate + Nitrite", "Total Kjeldahl nitrogen", "Total suspended solids", "Ammonia", "Turbidity Field", "Total solids", 
+    "Conductivity", "Sulfate", "Chloride")) %>% 
   filter(!(Char_Name=='Total Phosphorus, mixed forms' & Char_Speciation=='as P')) # Excludes 1999 data with undefined method speciation 
 #--------------------------------------------------------------------------------------------------------------------
 # CALCULATE TOTAL NITROGEN. TN = TKN + Nitrate + Nitrite
@@ -197,7 +198,7 @@ chem.ref.wq <- rbind(TN, chem.ref.wq) %>%
 # Clear out intermediaries
 rm(list = c('TN', 'tn.nits', 'tn.nits.tkn', 'tn.tkn', 'tn1', 'tn2'))
 
-#write_xlsx(chem.ref.wq, path = "C://Users//sberzin//OneDrive - Oregon//Desktop//chem_ref_wq.xlsx")
+write_xlsx(chem.ref.wq, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//chem_ref_wq_", Sys.Date(), ".xlsx"))
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # SUMMARY TABLES
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -333,7 +334,7 @@ refmap # Print map
 #   )
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # PLOTS AND MAPS BY INDIVIDUAL CHARS:
-#RUN BOX PLOT FUNCTION
+# BOX PLOT FUNCTION
 boxp <- function(data, x, y) {
   ggplot(data, aes(x = {{x}},y = {{y}})) +
     geom_boxplot(outlier.size = 0.9) +
@@ -367,8 +368,24 @@ NH3 <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Ammonia")
 boxp(NH3, ReferenceSite, Result_Numeric_mod) +coord_cartesian(ylim = c(0, 0.5))
 
 pal <- colorNumeric(palette = "Oranges",
-                    domain = c(0, (quantile(NH3$Result_Numeric_mod, 0.75)) + 1.5 * IQR(NH3$Result_Numeric_mod)))
+  domain = c(0, (quantile(NH3$Result_Numeric_mod, 0.75)) + 1.5 * IQR(NH3$Result_Numeric_mod)))
 map_results(NH3) 
+
+# CHLORIDE (plot cuts out far outliers)
+chlor <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Chloride")
+boxp(chlor, ReferenceSite, Result_Numeric_mod) +coord_cartesian(ylim = c(0, 25))
+
+pal <- colorNumeric(palette = "PuBu",
+  domain = c(0, (quantile(chlor$Result_Numeric_mod, 0.75)) + 1.5 * IQR(chlor$Result_Numeric_mod)))
+map_results(chlor) 
+
+# CONDUCTIVITY (plot cuts out far outliers)
+cond <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Conductivity")
+boxp(cond, ReferenceSite, Result_Numeric_mod) +coord_cartesian(ylim = c(0, 900))
+
+pal <- colorNumeric(palette = "Greens", 
+  domain = c(0, (quantile(cond$Result_Numeric_mod, 0.75)) + 1.5 * IQR(cond$Result_Numeric_mod)))
+map_results(cond) 
 
 # DO mg
 DO_mg <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Dissolved oxygen (DO)")
@@ -384,26 +401,42 @@ boxp(DO_sat, ReferenceSite, Result_Numeric_mod)
 pal <- colorNumeric(palette = "BuPu", domain =  NULL )
 map_results(DO_sat) 
 
-# Total Nitrogen (plot cuts off far outliers)
+# SULFATE
+SO4 <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Sulfate")
+boxp(SO4, ReferenceSite, Result_Numeric_mod) + coord_cartesian(ylim = c(0, 35))
+
+pal <- colorNumeric(palette = "Oranges", 
+  domain = c(0, (quantile(SO4$Result_Numeric_mod, 0.75)) + 1.5 * IQR(SO4$Result_Numeric_mod)))
+map_results(SO4) 
+
+# TOTAL NITROGEN (plot cuts off far outliers)
 TN <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Nitrogen")
 boxp(TN, ReferenceSite, Result_Numeric_mod) + coord_cartesian(ylim = c(0, 8))
 
 pal <- colorNumeric(palette = "Greens", domain = c(0, (quantile(TN$Result_Numeric_mod, 0.75)) + 1.5 * IQR(TN$Result_Numeric_mod)))
 map_results(TN) 
 
-# Total Phosphorus (plot cuts off far)
+# TOTAL PHOSPHORUS (plot cuts off far outliers)
 TP <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Total Phosphorus, mixed forms")
 boxp(TP, ReferenceSite, Result_Numeric_mod) + coord_cartesian(ylim = c(0, 1))
 
 pal <- colorNumeric(palette = "Reds", domain = c(0, (quantile(TP$Result_Numeric_mod, 0.75)) + 1.5 * IQR(TP$Result_Numeric_mod)))
 map_results(TP) 
 
-# Temperature
+# TEMPERATURE
 Temp <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Temperature, water")
 boxp(Temp, ReferenceSite, Result_Numeric_mod) 
 
 pal <- colorNumeric(palette = "Blues", domain = NULL)
 map_results(Temp) 
+
+# TOTAL SOLIDS (Plot cuts off far outliers)
+ts <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Total solids")
+boxp(ts, ReferenceSite, Result_Numeric_mod) +coord_cartesian(ylim = c(0, 500))
+
+pal <- colorNumeric(palette = "RdPu",
+  domain = c(0, (quantile(ts$Result_Numeric_mod, 0.75)) + 1.5 * IQR(ts$Result_Numeric_mod)))
+map_results(ts)
 
 # TSS (Plot cuts off far outliers)
 tss <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Total suspended solids")
@@ -413,6 +446,13 @@ pal <- colorNumeric(palette = "PuRd",
   domain = c(0, (quantile(tss$Result_Numeric_mod, 0.75)) + 1.5 * IQR(tss$Result_Numeric_mod)))
 map_results(tss)
 
+# TURBIDITY (field) (Plot cuts off far outliers)
+turb <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Turbidity Field")
+boxp(turb, ReferenceSite, Result_Numeric_mod) +coord_cartesian(ylim = c(0, 30))
+
+pal <- colorNumeric(palette = "YlOrBr", 
+  domain = c(0, (quantile(turb$Result_Numeric_mod, 0.75)) + 1.5 * IQR(turb$Result_Numeric_mod)))
+map_results(turb) 
 
 
 #   _   _                           _ 
@@ -423,622 +463,622 @@ map_results(tss)
 #  \__|_| |_|\___|  \___|_| |_|\__,_|
                                   
 
-#-----------------------------------------------------------------------------------------
-#    ,-. ,-. ,-. .  , ,-. . . ,-. ,-. ,-| 
-#    | | |   ,-| | /  |-' | | ,-| |   | | 
-#    `-| '   `-^ `'   `-' `-| `-^ '   `-^ 
-#     ,|                   /|             
-#    `'                  `-'            
-
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
-#REMOVE AMBIENT STATIONS FROM FURTHER ANALYSIS --- this happens later in process now.
-#1: IMPORT CURRENT AMBIENT STATIONS LIST (UP-TO-DATE AS OF MAY 2022, N=161) ***TO DO: Import Ambient site list directly from AWQMS to ensure up-to-date
-#amb <- read_excel("Benchmarks/Water Chemistry/Ambient_Stations_List.xlsx")
-#write code to pull in stations for Ambient project <- AWQMS_Projects
-
-#2: REMOVE AMBIENT STATIONS FROM ONE RULE ALL TABLE
-one_rule_all <- one_rule_all[!(one_rule_all$MLocID %in% amb$MLocID),]
-rm(amb)
-
-#summarize by location and parameter --- OLD WAY
-sum.loc <- chem.all %>%
-  group_by(MLocID, Char_Name) %>%
-  summarise(n.Samples = n(),
-            minDate = min(SampleStartDate),
-            maxDate = max(SampleStartDate))
-
-#summarize by parameter and ecoregion
-sum.eco <- chem.all %>%
-  group_by(Char_Name, EcoRegion3) %>%
-  summarise(n.Samples = n(),
-            minDate = min(SampleStartDate),
-            maxDate = max(SampleStartDate))
-
-
-#write_xlsx(mlocid.chem, path = "//deqlab1/ATHOMPS/Files/Biomon/R Chem Benchmarks/MLocIDs_AWQMS.xlsx")
-
-
-#testing summary pie charts - POTENTIALLY DELETE IF NOT HELPFUL
-ggplot(tss, aes(x="", y = `n.Samples`, fill = `EcoRegion3`)) +
-  geom_bar(stat="identity", width=1, color="white") +
-  coord_polar("y", start=0) +
-  theme_void() + 
-  theme(legend.position="none") +
-  geom_text(aes(y = n.Samples, label = EcoRegion3), color = "white", size=6) #+
-#scale_fill_brewer(palette="Set1")
-
-
-#CODE FOR DIAGNOSING UNIQUE MLOCIDS IN AWQMS DATA PULL
-chemIDs <- distinct(data.frame(chem.all$MLocID))
-write_xlsx(chemIDs, path = "//deqlab1/ATHOMPS/Files/Biomon/R Chem Benchmarks/ChemAll_MLocID.xlsx")
-
-#another way of slicing out amb sites from oneruleall using dplyr anti join
-anti_join(one_rule_all, amb, by = "MLocID")
-
-#dplyr method for summarizing site numbers- DELETE?
-ref %>%
-  group_by(MLocID) %>% 
-  summarise(length(unique(Char_Name)))
-
-#alt system of identifying duplicates in one rule all. went with dplyr duplicates b/c was simpler
-dups <- data.frame(table(one_rule_all$MLocID))
-one_rule_all[one_rule_all$MLocID %in% dups$Var1[dups$Freq > 1],]
-
-#??????????????????????????????
-#TRY SH CODE INSTEAD OF ABOVE - adds 1301 records than what's in chem.all - likely sites that aren't in AWQMS
-chem.oneruletest <- one_rule_all %>%
-  left_join(chem.all, by = "MLocID")
-#??????????????????????????????
-
-###troubleshooting only
-st10332 <- subset(chem.all, chem.all$MLocID == "10332-ORDEQ")
-lady <- subset(chem.all, chem.all$MLocID == "35720-ORDEQ")
-cond <- subset(lady, lady$Char_Name == 'Conductivity')
-
-#Alternatively, enter the MLocIDs of the stations you wish to remove from the dataframe in R. -NO LONGER NEEDED B/C OF -USU SUFFIX
-chem.all <-subset(chem.all, MLocID != "45" & MLocID != "1041") #add code as needed for additional stations (& MLocID != "#####")
-
-#2: REMOVE AMBIENT STAITONS FOR WHICH WE HAVE NO BIOLOGICAL DATA
-#a: First check that Ambient stations don't have bio data (Answer: none do).
-amb <- subset(chem.onerule, chem.onerule$Project1 == 'Surface Water Ambient Monitoring') #<-- insufficient b/c amb sites hide under other projects, may need to import entire site list
-sort(unique(amb$Char_Name))
-rm(amb)
-#b: Then run subset to isolate Ambient sites.
-noamb <- subset(chem.onerule, chem.onerule$Project1 != 'Surface Water Ambient Monitoring')
-
-###summary<-sort(unique(c((ref$MLocID), (ref$Char_Name))))
-
-#paramxsite<-melt(ref, id.vars = 'MLocID', 'Char_Name')[(value = list(unique(value)))]
-
-#paramxsite<-ref %>%
-pivot_longer(cols = -c(Char_Name, MLocID)) %>%
-  group_by(Char_Name) %>%
-  summarise(value = list(unique(value))) %>%
-  unnest(value)
-
-
-#paramxsite<-cbind(paramxsite, rowSums(paramxsite[ , 2:174]))
-
-####
-
-paramxsite2<-ref %>%
-  group_by(Char_Name) %>%
-  summarise(MLocID) %>%
-  select(unique.x=Char_Name)
-
-
-paramxsite<-unique(ref[ , c("Char_Name", "MLocID")]) 
-paramxsite = paramxsite %>%
-  separate_rows(MLocID, sep=',') %>%
-  mutate(i=1) %>%
-  spread(MLocID, i, fill=0)
-
-
-
-distinct(ref, Char_Name, MLocID, keep_all = TRUE)
-
-paramxsite2<-dcast(ref, Char_Name + MLocID ~ MLocID, fun.aggregate = list, value.var="MLocID")
-
-paramxsite<-ref %>% group_by(MLocID, Char_Name) %>% tidyr::nest(data = c(MLocID))
-
-group_by(LAT, LONG) %>% 
-  summarise(value = list(unique(value)))
-
-paramxsite <- ref %>%
-  group_by(MLocID, Char_Name) %>%
-  tidyr::nest(MLocID)
-###
-paramxsite<-lapply(split(ref$MLocID, ref$Char_Name), unique)
-lapply(paramxsite, function(x) write.table(data.frame(x), 'test.csv', append= T, sep=',' ))
-
-###
-paramxsite<-as.data.frame(do.call(rbind, ref))
-
-paramxsite<-ldply (paramxsite, data.frame)
-
-paramxsite<-pivot_longer(paramxsite, -c(Char_Name), values_to = "MLocID", names_to = "Char_Name")
-
-paramxsite<-do.call(rbind, lapply(-c(paramxsite, MLocID), as.data.frame))
-
-#paramxsite< data.frame(matrix(unlist(paramxsite), ncol = max(lengths(paramxsite)), byrow = TRUE))
-
-
-write_xlsx(paramxsite, path = "//deqlab1/ATHOMPS/Files/Biomon/R Chem Benchmarks/Params_By_Site.xlsx")
-#write.xlsx(paramxsite, "//deqlab1/ATHOMPS/Files/Biomon/R Chem Benchmarks/Params_By_Site.xlsx", sheetName = "Rad", col.names = TRUE, row.names = TRUE)
-
-
-#IMPORT STATIONS FROM BIOMON REFERENCE SCREEN
-# one_rule_all<-read_csv("Reference/one.table_rule.all.csv", show_col_types = FALSE) # delete
-
-#TEST AND REMOVE DUPLICATE ENTRIES IN ONE RULE ALL TABLE
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
-length(unique(one_rule_all$MLocID))
-#Value in console should match number of observations in one_rule_all.
-#If matching, assume no duplicates and proceed to 'stations.all' code.
-#If not matching, run code below to reveal which records appear more than once.
-one_rule_all[duplicated(one_rule_all), ]
-#Ideally, resolve duplicate entries in the One Rule All table and restart script.
-#Alternatively, remove the duplicate records from dataframe in R.
-one_rule_all <- one_rule_all[!duplicated(one_rule_all), ]
-
-
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
-#IDENTIFY MLOCIDS IN ONE RULE ALL THAT HAVE SAME MLOCID IN AWQMS BUT CORRESPOND TO A DIFFERENT STATION
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
-mlocid.awqms <- unique(chem.all[c("MLocID", "StationDes")])
-mlocid.onerule <- unique(one_rule_all[c("MLocID", "StationDes")])
-wrongstations <- inner_join(mlocid.awqms, mlocid.onerule, by = "MLocID")
-wrongstations$ToFix <- ifelse(wrongstations$StationDes.x == wrongstations$StationDes.y, "Match", "Fix") 
-view(wrongstations)
-#Sort by ToFix column
-#StationDes.x = AWQMS / StationDes.y = OneRule
-#Resolve records that say "Fix" and redo steps above. Ignore mismatches due to extra spaces or misspellings.
-
-rm(mlocid.awqms)
-rm(mlocid.onerule)
-rm(wrongstations)
-
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
-#INCORPORATE REFERENCE STATUS FROM STATIONS DATABASE
-#best to use reference status from official stations DB vs one-rule-all table to avoid issues
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
-#1: GENERATE STATIONS LIST FROM WQDATA
-stations.wq <- wqdata[c("MLocID", "Ref2020_FINAL")]
-
-#2: IMPORT REFERENCE STATUS FROM STATIONS DB
-stdb <- query_stations(mlocs = stations.wq)
-
-#3: SUBSET STATIONS DB INFO TO PREPARE FOR JOIN
-stdb2 <- subset(stdb, select = c(MLocID, ReferenceSite))
-
-#4: JOIN STATIONS DB REFERENCE STATUS WITH WQDATA
-wqdata <- inner_join(wqdata, stdb2, by = "MLocID")
-
-#5: COMPARE REF STATUS FROM STATIONS DB AND ONE-RULE TABLE
-refcomp <- subset(wqdata, select = c(MLocID, ReferenceSite, Ref2020_FINAL))
-refcomp$Ref2020_FINAL[refcomp$Ref2020_FINAL == "NO"] <- "MODERATELY DISTURBED" #rename to sync nomenclature
-refcomp$ToFix <- ifelse(refcomp$ReferenceSite == refcomp$Ref2020_FINAL, "Match", "BAD") #make new column to run comparison
-unique(refcomp$ToFix) #all should say "Match"
-
-rm(stations.wq)
-rm(stdb)
-rm(stdb2)
-
-#!!!!!!!!!!!!!!<code>
-
-s10355 <- subset(wqdata, wqdata$MLocID == "10355-ORDEQ") #will at harris 9dates <- unique(sort(wqdata$SampleStartDate))
-s12265 <- subset(wqdata, wqdata$MLocID == "12265-ORDEQ") 
-dbcond <- subset(s12265, s12265$Char_Name == "Turbidity")
-dbnick <- subset(s12265, s12265$Char_Name == "Nickel")
-
-dates <- wqdata[c("MLocID", "SampleStartDate")]
-datesuniq <- unique(sort(dates$SampleStartDate ~ "MLocID"))
-library(openxlsx)
-write.xlsx(datesuniq, file = "//deqlab1/ATHOMPS/Files/Biomon/R Chem Benchmarks/SamplingDates.xlsx")
-
-#!!!!!!!!!!!!!!<code>
-# #Snippet from Lesley. Filter out bug samples based on Bio_Intent column.
-# chem.no_bio <- chem.all_ref %>% 
-#   filter(!Bio_Intent %in% c("Population Census","Species Density")) # 1327 unique MLocIDs with no bug data.
+# #-----------------------------------------------------------------------------------------
+# #    ,-. ,-. ,-. .  , ,-. . . ,-. ,-. ,-| 
+# #    | | |   ,-| | /  |-' | | ,-| |   | | 
+# #    `-| '   `-^ `'   `-' `-| `-^ '   `-^ 
+# #     ,|                   /|             
+# #    `'                  `-'            
 # 
-# chem.bio_only <- chem.all_ref %>% 
-#   filter(Bio_Intent %in% c("Population Census", "Species Density"))
-
-####### NOT REALLY HELPFUL - DECIDE LATER IF KEEPING ##################
-#Plot individual stations
-wt.30354<-subset(wt, wt$MLocID == '30354-ORDEQ')
-wt.30354<-ggplot(wt.30354, aes(x = MLocID, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Site", y = "Water Temperature") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(wt.30354)
-
-
-#SUMMARIZE DATA 
-
-#1: SUBSET DATA BY REFERENCE CONDITION
-ref <- subset(chem.ref.wq, chem.ref.wq$ReferenceSite == "REFERENCE")
-mod <- subset(chem.ref.wq, chem.ref.wq$ReferenceSite == "MODERATELY DISTURBED")
-most <- subset(chem.ref.wq, chem.ref.wq$ReferenceSite == "MOST DISTURBED")
-
-#2: LIST NUMBER OF PARAMETERS ASSOCIATED WITH EACH REFERENCE STATION
-param <- aggregate(data=ref, Char_Name ~ MLocID, function(x) length(unique(x)))
-
-#3: LIST NUMBER OF SAMPLING DATES ASSOCIATED WITH EACH REFERENCE STATION
-dates <- aggregate(data=ref, SampleStartDate ~ MLocID, function(x) length(unique(x)))
-
-#4: LIST NUMBER OF PARAMETERS ASSOCIATED WITH ALL STATIONS
-parameters <- aggregate(data=ref, Char_Name ~ MLocID, function(x) length(unique(x)))
-
-#2: SUM NUMBER OF SITES ASSOCIATED WITH EACH PARAMETER FOR REFERENCE STATIONS ~~~~~~~~~~~~~~~~~~~~??????????? use this section  ?????
-paramxsite <- ref %>% distinct(Char_Name, MLocID)
-paramxsite <- dcast(paramxsite, Char_Name ~ MLocID, 
-                    value.var = "Char_Name", fun.aggregate = length)
-paramxsite$nsites <- rowSums(paramxsite[, 2:ncol(paramxsite)])
-
-#3: MAKE PLOT OF NUMBER OF SITES BY PARAMETER - ~~~~~~~~~~~~~~~~~~~~??????????? use this section  ?????
-Params_by_site <- ggplot(paramxsite[paramxsite$nsites > 25,], aes(x = Char_Name, y = nsites)) + 
-  geom_bar(stat="identity", position = position_dodge(), fill = "steelblue", color = "Black") +
-  labs(x = "WQ Parameter", y = "Number of Samples (Reference)") +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
-#geom_text(position = position_dodge(width = 0.9, angle = 90, check_overlap = TRUE))
-print(Params_by_site)
-
-#4: SAVE OUTPUT FOR FURTHER EXPLORATION
-write_xlsx(paramxsite, path = "//deqlab1/ATHOMPS/Files/Biomon/R Chem Benchmarks/Params_By_Site.xlsx")
-
-# testing boxplots of ref/mod/most by ecoregion for each parameter
-tss <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Total suspended solids")
-
-boxtss <- ggplot(tss, aes(x = ReferenceSite, y = Result_Numeric_mod)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  facet_grid(~L3Eco) +
-  coord_cartesian(ylim = c(0, 100)) +
-  labs(x = "Reference Condition", y = "Total Suspended Solids (mg/L)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(boxtss)
-#avoid having one site drive results for an entire ecoregion (e.g., whychus in 9)
-#sort by ref, mod, most
-
-#BOX PLOTS OF PARAMETERS
-#CONDUCTIVITY
-cond<-subset(wqdata, wqdata$Char_Name == 'Conductivity')
-cond2<-ggplot(cond, aes(x = ReferenceSite, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Reference Condition", y = "Conductivity (uS/cm)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(cond2)
-
-#transformation
-#CONDUCTIVITY - NO OUTLIERS
-cond<-subset(wqdata, wqdata$Char_Name == 'Conductivity')
-cond2<-ggplot(cond, aes(x = ReferenceSite, y = Result_Numeric)) +
-  geom_boxplot(outlier.shape = NA) + 
-  coord_cartesian(ylim =  c(0, 300)) +
-  labs(x = "Reference Condition", y = "Conductivity (uS/cm)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(cond2)
-
-#CONDUCTIVITY - NO OUTLIERS BY ECOREGION
-cond<-subset(wqdata, wqdata$Char_Name == 'Conductivity')
-cond2<-ggplot(cond, aes(x = EcoRegion3, y = Result_Numeric)) +
-  geom_boxplot(outlier.shape = NA) + 
-  coord_cartesian(ylim =  c(0, 1000)) +
-  labs(x = "Ecoregion 3", y = "Conductivity (uS/cm)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(cond2)
-
-#DO mg/L
-do_conc<-subset(wqdata, wqdata$Char_Name == 'Dissolved oxygen (DO)')
-do_conc2<-ggplot(do_conc, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Reference Condition", y = "DO (mg/L)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(do_conc2)
-
-#DO %
-do_perc<-subset(wqdata, wqdata$Char_Name == 'Dissolved oxygen saturation')
-do_perc2<-ggplot(do_perc, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Reference Condition", y = "DO (%)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(do_perc2)
-
-#pH
-ph<-subset(wqdata, wqdata$Char_Name == 'pH')
-ph2<-ggplot(ph, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Reference Condition", y = "pH (SU)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(ph2)
-
-#AMMONIA
-ammonia<-subset(wqdata, wqdata$Char_Name == 'Ammonia')
-ammonia2<-ggplot(ammonia, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Reference Condition", y = "Ammonia (mg/L)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(ammonia2)
-
-#TOTAL SUSPENDED SOLIDS
-tss<-subset(wqdata, wqdata$Char_Name == 'Total suspended solids')
-tss2<-ggplot(tss, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Reference Condition", y = "Total Suspended Solids (mg/L)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(tss2)
-
-#NITRATE + NITRITE
-nits<-subset(wqdata, wqdata$Char_Name == 'Nitrate + Nitrite')
-nits2<-ggplot(nits, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Reference Condition", y = "Nitrate + Nitrite (mg/L)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(nits2)
-
-#TOTAL SOLIDS
-ts<-subset(wqdata, wqdata$Char_Name == 'Total solids')
-ts2<-ggplot(ts, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Reference Condition", y = "Total solids (mg/L)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(ts2)
-
-#TOTAL KJELDAHL NITROGEN
-tkn<-subset(wqdata, wqdata$Char_Name == 'Total Kjeldahl nitrogen')
-tkn2<-ggplot(tkn, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Reference Condition", y = "Total Kjeldahl nitrogen (mg/L)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(tkn2)
-
-#ORTHOPHOSPHATE
-ortho<-subset(wqdata, wqdata$Char_Name == 'Orthophosphate')
-ortho2<-ggplot(ortho, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Reference Condition", y = "Orthophosphate (mg/L)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(ortho2)
-
-#TOTAL PHOSPHORUS
-tp<-subset(wqdata, wqdata$Char_Name == 'Total Phosphorus, mixed forms')
-tp2<-ggplot(tp, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Reference Condition", y = "Total phosphorus (mg/L)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(tp2)
-
-#ORGANIC CARBON
-orgc<-subset(wqdata, wqdata$Char_Name == 'Organic carbon')
-orgc2<-ggplot(orgc, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Reference Condition", y = "Organic carbon (mg/L)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(orgc2)
-
-#ALKALINITY
-alk<-subset(wqdata, wqdata$Char_Name == 'Alkalinity, total')
-alk2<-ggplot(alk, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Reference Condition", y = "Total alkalinity (mg/L)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(alk2)
-
-#BIOLOGICAL OXYGEN DEMAND
-bod<-subset(wqdata, wqdata$Char_Name == 'Biochemical oxygen demand, non-standard conditions')
-bod2<-ggplot(bod, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Reference Condition", y = "Biological oxygen demand (mg/L)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(bod2)
-
-#SULFATE
-sulf<-subset(wqdata, wqdata$Char_Name == 'Sulfate')
-sulf2<-ggplot(sulf, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Reference Condition", y = "Sulfate (mg/L)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(sulf2)
-
-#CHLORIDE
-cl<-subset(wqdata, wqdata$Char_Name == 'Chloride')
-cl2<-ggplot(cl, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Reference Condition", y = "Chloride (mg/L)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(cl2)
-
-#TURBIDITY <-need to merge w/ lab turb?
-turb<-subset(wqdata, wqdata$Char_Name == 'Turbidity Field')
-turb2<-ggplot(turb, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Reference Condition", y = "Turbidity (NTU)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(turb2)
-
-boxp(turb, StationDes, Result_Numeric) + coord_cartesian(ylim = c(0, 25))
-boxp(cond, StationDes, Result_Numeric_mod)
-boxp(do.sat, StationDes, Result_Numeric_mod) + coord_cartesian(ylim = c(50, 120))
-boxp(do.conc, StationDes, Result_Numeric_mod) + coord_cartesian(ylim = c(4, 12))
-boxp(ph, StationDes, Result_Numeric_mod) + coord_cartesian(ylim = c(6.5, 8.5))
-boxp(temp, StationDes, Result_Numeric_mod) + coord_cartesian(ylim = c(0, 25))
-boxp(afdm, StationDes, Result_Numeric_mod) #messy MRLs
-boxp(chla, StationDes, Result_Numeric_mod) + coord_cartesian(ylim = c(0, 0.01))
-
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
-
-#BOX PLOTS OF PARAMETERS
-#CONDUCTIVITY
-cond<-subset(wqdata, wqdata$Char_Name == 'Conductivity')
-cond2<-ggplot(cond, aes(x = ReferenceSite, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Reference Condition", y = "Conductivity (uS/cm)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(cond2)
-
-#transformation
-#CONDUCTIVITY - NO OUTLIERS
-cond<-subset(wqdata, wqdata$Char_Name == 'Conductivity')
-cond2<-ggplot(cond, aes(x = ReferenceSite, y = Result_Numeric)) +
-  geom_boxplot(outlier.shape = NA) + 
-  coord_cartesian(ylim =  c(0, 300)) +
-  labs(x = "Reference Condition", y = "Conductivity (uS/cm)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(cond2)
-
-#CONDUCTIVITY - NO OUTLIERS BY ECOREGION
-cond<-subset(wqdata, wqdata$Char_Name == 'Conductivity')
-cond2<-ggplot(cond, aes(x = EcoRegion3, y = Result_Numeric)) +
-  geom_boxplot(outlier.shape = NA) + 
-  coord_cartesian(ylim =  c(0, 1000)) +
-  labs(x = "Ecoregion 3", y = "Conductivity (uS/cm)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(cond2)
-
-#DO mg/L
-do_conc<-subset(wqdata, wqdata$Char_Name == 'Dissolved oxygen (DO)')
-do_conc2<-ggplot(do_conc, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Reference Condition", y = "DO (mg/L)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(do_conc2)
-
-#DO %
-do_perc<-subset(wqdata, wqdata$Char_Name == 'Dissolved oxygen saturation')
-do_perc2<-ggplot(do_perc, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Reference Condition", y = "DO (%)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(do_perc2)
-
-#pH
-ph<-subset(wqdata, wqdata$Char_Name == 'pH')
-ph2<-ggplot(ph, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Reference Condition", y = "pH (SU)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(ph2)
-
-#AMMONIA
-ammonia<-subset(wqdata, wqdata$Char_Name == 'Ammonia')
-ammonia2<-ggplot(ammonia, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Reference Condition", y = "Ammonia (mg/L)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(ammonia2)
-
-#TOTAL SUSPENDED SOLIDS
-tss<-subset(wqdata, wqdata$Char_Name == 'Total suspended solids')
-tss2<-ggplot(tss, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Reference Condition", y = "Total Suspended Solids (mg/L)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(tss2)
-
-#NITRATE + NITRITE
-nits<-subset(wqdata, wqdata$Char_Name == 'Nitrate + Nitrite')
-nits2<-ggplot(nits, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Reference Condition", y = "Nitrate + Nitrite (mg/L)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(nits2)
-
-#TOTAL SOLIDS
-ts<-subset(wqdata, wqdata$Char_Name == 'Total solids')
-ts2<-ggplot(ts, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Reference Condition", y = "Total solids (mg/L)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(ts2)
-
-#TOTAL KJELDAHL NITROGEN
-tkn<-subset(wqdata, wqdata$Char_Name == 'Total Kjeldahl nitrogen')
-tkn2<-ggplot(tkn, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Reference Condition", y = "Total Kjeldahl nitrogen (mg/L)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(tkn2)
-
-#ORTHOPHOSPHATE
-ortho<-subset(wqdata, wqdata$Char_Name == 'Orthophosphate')
-ortho2<-ggplot(ortho, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Reference Condition", y = "Orthophosphate (mg/L)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(ortho2)
-
-#TOTAL PHOSPHORUS
-tp<-subset(wqdata, wqdata$Char_Name == 'Total Phosphorus, mixed forms')
-tp2<-ggplot(tp, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Reference Condition", y = "Total phosphorus (mg/L)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(tp2)
-
-#ORGANIC CARBON
-orgc<-subset(wqdata, wqdata$Char_Name == 'Organic carbon')
-orgc2<-ggplot(orgc, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Reference Condition", y = "Organic carbon (mg/L)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(orgc2)
-
-#ALKALINITY
-alk<-subset(wqdata, wqdata$Char_Name == 'Alkalinity, total')
-alk2<-ggplot(alk, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Reference Condition", y = "Total alkalinity (mg/L)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(alk2)
-
-#BIOLOGICAL OXYGEN DEMAND
-bod<-subset(wqdata, wqdata$Char_Name == 'Biochemical oxygen demand, non-standard conditions')
-bod2<-ggplot(bod, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Reference Condition", y = "Biological oxygen demand (mg/L)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(bod2)
-
-#SULFATE
-sulf<-subset(wqdata, wqdata$Char_Name == 'Sulfate')
-sulf2<-ggplot(sulf, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Reference Condition", y = "Sulfate (mg/L)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(sulf2)
-
-#CHLORIDE
-cl<-subset(wqdata, wqdata$Char_Name == 'Chloride')
-cl2<-ggplot(cl, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Reference Condition", y = "Chloride (mg/L)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(cl2)
-
-#TURBIDITY <-need to merge w/ lab turb?
-turb<-subset(wqdata, wqdata$Char_Name == 'Turbidity Field')
-turb2<-ggplot(turb, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
-  geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
-  labs(x = "Reference Condition", y = "Turbidity (NTU)") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-print(turb2)
-
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
-#IDENTIFY STATIONS FROM OUR REFERENCE SCREENS THAT DON'T HAVE WATER CHEMISTRY DATA IN AWQMS
-#Reveals where additional data collections might be warranted
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
-#1: CREATE TABLE CONTAINING SITES WITH NO CHEMISTRY DATA
-nochem <- anti_join(ref_stations, chem.all_ref, by = "MLocID") # All rows from ref_stations with no match in chem.no_bio
-
-#2: OPTIONAL - WRITE TO EXCEL FOR FURTHER EXAMINATION
-#write_xlsx(nochem, path = "Benchmarks/Water Chemistry/SitesMissingChemData.xlsx")
-
-#   #3: SUMMARIZE SITES BY OWNER, REF STATUS, AND ECOREGION  # needs work
-# nochemsum <- nochem %>% 
-#   group_by(OrgID, ReferenceSite, EcoRegion3) %>% 
-#   summarise(n = n())
+# #-----------------------------------------------------------------------------------------------------------------------------------------------------
+# #REMOVE AMBIENT STATIONS FROM FURTHER ANALYSIS --- this happens later in process now.
+# #1: IMPORT CURRENT AMBIENT STATIONS LIST (UP-TO-DATE AS OF MAY 2022, N=161) ***TO DO: Import Ambient site list directly from AWQMS to ensure up-to-date
+# #amb <- read_excel("Benchmarks/Water Chemistry/Ambient_Stations_List.xlsx")
+# #write code to pull in stations for Ambient project <- AWQMS_Projects
 # 
-
-#We are opting NOT to include chem data from nearby sites. (How close? up or downstream? land use changes? tribs? - hard to justify) SB/AT August 2025
-
-
+# #2: REMOVE AMBIENT STATIONS FROM ONE RULE ALL TABLE
+# one_rule_all <- one_rule_all[!(one_rule_all$MLocID %in% amb$MLocID),]
+# rm(amb)
+# 
+# #summarize by location and parameter --- OLD WAY
+# sum.loc <- chem.all %>%
+#   group_by(MLocID, Char_Name) %>%
+#   summarise(n.Samples = n(),
+#             minDate = min(SampleStartDate),
+#             maxDate = max(SampleStartDate))
+# 
+# #summarize by parameter and ecoregion
+# sum.eco <- chem.all %>%
+#   group_by(Char_Name, EcoRegion3) %>%
+#   summarise(n.Samples = n(),
+#             minDate = min(SampleStartDate),
+#             maxDate = max(SampleStartDate))
+# 
+# 
+# #write_xlsx(mlocid.chem, path = "//deqlab1/ATHOMPS/Files/Biomon/R Chem Benchmarks/MLocIDs_AWQMS.xlsx")
+# 
+# 
+# #testing summary pie charts - POTENTIALLY DELETE IF NOT HELPFUL
+# ggplot(tss, aes(x="", y = `n.Samples`, fill = `EcoRegion3`)) +
+#   geom_bar(stat="identity", width=1, color="white") +
+#   coord_polar("y", start=0) +
+#   theme_void() + 
+#   theme(legend.position="none") +
+#   geom_text(aes(y = n.Samples, label = EcoRegion3), color = "white", size=6) #+
+# #scale_fill_brewer(palette="Set1")
+# 
+# 
+# #CODE FOR DIAGNOSING UNIQUE MLOCIDS IN AWQMS DATA PULL
+# chemIDs <- distinct(data.frame(chem.all$MLocID))
+# write_xlsx(chemIDs, path = "//deqlab1/ATHOMPS/Files/Biomon/R Chem Benchmarks/ChemAll_MLocID.xlsx")
+# 
+# #another way of slicing out amb sites from oneruleall using dplyr anti join
+# anti_join(one_rule_all, amb, by = "MLocID")
+# 
+# #dplyr method for summarizing site numbers- DELETE?
+# ref %>%
+#   group_by(MLocID) %>% 
+#   summarise(length(unique(Char_Name)))
+# 
+# #alt system of identifying duplicates in one rule all. went with dplyr duplicates b/c was simpler
+# dups <- data.frame(table(one_rule_all$MLocID))
+# one_rule_all[one_rule_all$MLocID %in% dups$Var1[dups$Freq > 1],]
+# 
+# #??????????????????????????????
+# #TRY SH CODE INSTEAD OF ABOVE - adds 1301 records than what's in chem.all - likely sites that aren't in AWQMS
+# chem.oneruletest <- one_rule_all %>%
+#   left_join(chem.all, by = "MLocID")
+# #??????????????????????????????
+# 
+# ###troubleshooting only
+# st10332 <- subset(chem.all, chem.all$MLocID == "10332-ORDEQ")
+# lady <- subset(chem.all, chem.all$MLocID == "35720-ORDEQ")
+# cond <- subset(lady, lady$Char_Name == 'Conductivity')
+# 
+# #Alternatively, enter the MLocIDs of the stations you wish to remove from the dataframe in R. -NO LONGER NEEDED B/C OF -USU SUFFIX
+# chem.all <-subset(chem.all, MLocID != "45" & MLocID != "1041") #add code as needed for additional stations (& MLocID != "#####")
+# 
+# #2: REMOVE AMBIENT STAITONS FOR WHICH WE HAVE NO BIOLOGICAL DATA
+# #a: First check that Ambient stations don't have bio data (Answer: none do).
+# amb <- subset(chem.onerule, chem.onerule$Project1 == 'Surface Water Ambient Monitoring') #<-- insufficient b/c amb sites hide under other projects, may need to import entire site list
+# sort(unique(amb$Char_Name))
+# rm(amb)
+# #b: Then run subset to isolate Ambient sites.
+# noamb <- subset(chem.onerule, chem.onerule$Project1 != 'Surface Water Ambient Monitoring')
+# 
+# ###summary<-sort(unique(c((ref$MLocID), (ref$Char_Name))))
+# 
+# #paramxsite<-melt(ref, id.vars = 'MLocID', 'Char_Name')[(value = list(unique(value)))]
+# 
+# #paramxsite<-ref %>%
+# pivot_longer(cols = -c(Char_Name, MLocID)) %>%
+#   group_by(Char_Name) %>%
+#   summarise(value = list(unique(value))) %>%
+#   unnest(value)
+# 
+# 
+# #paramxsite<-cbind(paramxsite, rowSums(paramxsite[ , 2:174]))
+# 
+# ####
+# 
+# paramxsite2<-ref %>%
+#   group_by(Char_Name) %>%
+#   summarise(MLocID) %>%
+#   select(unique.x=Char_Name)
+# 
+# 
+# paramxsite<-unique(ref[ , c("Char_Name", "MLocID")]) 
+# paramxsite = paramxsite %>%
+#   separate_rows(MLocID, sep=',') %>%
+#   mutate(i=1) %>%
+#   spread(MLocID, i, fill=0)
+# 
+# 
+# 
+# distinct(ref, Char_Name, MLocID, keep_all = TRUE)
+# 
+# paramxsite2<-dcast(ref, Char_Name + MLocID ~ MLocID, fun.aggregate = list, value.var="MLocID")
+# 
+# paramxsite<-ref %>% group_by(MLocID, Char_Name) %>% tidyr::nest(data = c(MLocID))
+# 
+# group_by(LAT, LONG) %>% 
+#   summarise(value = list(unique(value)))
+# 
+# paramxsite <- ref %>%
+#   group_by(MLocID, Char_Name) %>%
+#   tidyr::nest(MLocID)
+# ###
+# paramxsite<-lapply(split(ref$MLocID, ref$Char_Name), unique)
+# lapply(paramxsite, function(x) write.table(data.frame(x), 'test.csv', append= T, sep=',' ))
+# 
+# ###
+# paramxsite<-as.data.frame(do.call(rbind, ref))
+# 
+# paramxsite<-ldply (paramxsite, data.frame)
+# 
+# paramxsite<-pivot_longer(paramxsite, -c(Char_Name), values_to = "MLocID", names_to = "Char_Name")
+# 
+# paramxsite<-do.call(rbind, lapply(-c(paramxsite, MLocID), as.data.frame))
+# 
+# #paramxsite< data.frame(matrix(unlist(paramxsite), ncol = max(lengths(paramxsite)), byrow = TRUE))
+# 
+# 
+# write_xlsx(paramxsite, path = "//deqlab1/ATHOMPS/Files/Biomon/R Chem Benchmarks/Params_By_Site.xlsx")
+# #write.xlsx(paramxsite, "//deqlab1/ATHOMPS/Files/Biomon/R Chem Benchmarks/Params_By_Site.xlsx", sheetName = "Rad", col.names = TRUE, row.names = TRUE)
+# 
+# 
+# #IMPORT STATIONS FROM BIOMON REFERENCE SCREEN
+# # one_rule_all<-read_csv("Reference/one.table_rule.all.csv", show_col_types = FALSE) # delete
+# 
+# #TEST AND REMOVE DUPLICATE ENTRIES IN ONE RULE ALL TABLE
+# #-----------------------------------------------------------------------------------------------------------------------------------------------------
+# length(unique(one_rule_all$MLocID))
+# #Value in console should match number of observations in one_rule_all.
+# #If matching, assume no duplicates and proceed to 'stations.all' code.
+# #If not matching, run code below to reveal which records appear more than once.
+# one_rule_all[duplicated(one_rule_all), ]
+# #Ideally, resolve duplicate entries in the One Rule All table and restart script.
+# #Alternatively, remove the duplicate records from dataframe in R.
+# one_rule_all <- one_rule_all[!duplicated(one_rule_all), ]
+# 
+# 
+# #-----------------------------------------------------------------------------------------------------------------------------------------------------
+# #IDENTIFY MLOCIDS IN ONE RULE ALL THAT HAVE SAME MLOCID IN AWQMS BUT CORRESPOND TO A DIFFERENT STATION
+# #-----------------------------------------------------------------------------------------------------------------------------------------------------
+# mlocid.awqms <- unique(chem.all[c("MLocID", "StationDes")])
+# mlocid.onerule <- unique(one_rule_all[c("MLocID", "StationDes")])
+# wrongstations <- inner_join(mlocid.awqms, mlocid.onerule, by = "MLocID")
+# wrongstations$ToFix <- ifelse(wrongstations$StationDes.x == wrongstations$StationDes.y, "Match", "Fix") 
+# view(wrongstations)
+# #Sort by ToFix column
+# #StationDes.x = AWQMS / StationDes.y = OneRule
+# #Resolve records that say "Fix" and redo steps above. Ignore mismatches due to extra spaces or misspellings.
+# 
+# rm(mlocid.awqms)
+# rm(mlocid.onerule)
+# rm(wrongstations)
+# 
+# #-----------------------------------------------------------------------------------------------------------------------------------------------------
+# #INCORPORATE REFERENCE STATUS FROM STATIONS DATABASE
+# #best to use reference status from official stations DB vs one-rule-all table to avoid issues
+# #-----------------------------------------------------------------------------------------------------------------------------------------------------
+# #1: GENERATE STATIONS LIST FROM WQDATA
+# stations.wq <- wqdata[c("MLocID", "Ref2020_FINAL")]
+# 
+# #2: IMPORT REFERENCE STATUS FROM STATIONS DB
+# stdb <- query_stations(mlocs = stations.wq)
+# 
+# #3: SUBSET STATIONS DB INFO TO PREPARE FOR JOIN
+# stdb2 <- subset(stdb, select = c(MLocID, ReferenceSite))
+# 
+# #4: JOIN STATIONS DB REFERENCE STATUS WITH WQDATA
+# wqdata <- inner_join(wqdata, stdb2, by = "MLocID")
+# 
+# #5: COMPARE REF STATUS FROM STATIONS DB AND ONE-RULE TABLE
+# refcomp <- subset(wqdata, select = c(MLocID, ReferenceSite, Ref2020_FINAL))
+# refcomp$Ref2020_FINAL[refcomp$Ref2020_FINAL == "NO"] <- "MODERATELY DISTURBED" #rename to sync nomenclature
+# refcomp$ToFix <- ifelse(refcomp$ReferenceSite == refcomp$Ref2020_FINAL, "Match", "BAD") #make new column to run comparison
+# unique(refcomp$ToFix) #all should say "Match"
+# 
+# rm(stations.wq)
+# rm(stdb)
+# rm(stdb2)
+# 
+# #!!!!!!!!!!!!!!<code>
+# 
+# s10355 <- subset(wqdata, wqdata$MLocID == "10355-ORDEQ") #will at harris 9dates <- unique(sort(wqdata$SampleStartDate))
+# s12265 <- subset(wqdata, wqdata$MLocID == "12265-ORDEQ") 
+# dbcond <- subset(s12265, s12265$Char_Name == "Turbidity")
+# dbnick <- subset(s12265, s12265$Char_Name == "Nickel")
+# 
+# dates <- wqdata[c("MLocID", "SampleStartDate")]
+# datesuniq <- unique(sort(dates$SampleStartDate ~ "MLocID"))
+# library(openxlsx)
+# write.xlsx(datesuniq, file = "//deqlab1/ATHOMPS/Files/Biomon/R Chem Benchmarks/SamplingDates.xlsx")
+# 
+# #!!!!!!!!!!!!!!<code>
+# # #Snippet from Lesley. Filter out bug samples based on Bio_Intent column.
+# # chem.no_bio <- chem.all_ref %>% 
+# #   filter(!Bio_Intent %in% c("Population Census","Species Density")) # 1327 unique MLocIDs with no bug data.
+# # 
+# # chem.bio_only <- chem.all_ref %>% 
+# #   filter(Bio_Intent %in% c("Population Census", "Species Density"))
+# 
+# ####### NOT REALLY HELPFUL - DECIDE LATER IF KEEPING ##################
+# #Plot individual stations
+# wt.30354<-subset(wt, wt$MLocID == '30354-ORDEQ')
+# wt.30354<-ggplot(wt.30354, aes(x = MLocID, y = Result_Numeric)) +
+#   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+#   labs(x = "Site", y = "Water Temperature") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(wt.30354)
+# 
+# 
+# #SUMMARIZE DATA 
+# 
+# #1: SUBSET DATA BY REFERENCE CONDITION
+# ref <- subset(chem.ref.wq, chem.ref.wq$ReferenceSite == "REFERENCE")
+# mod <- subset(chem.ref.wq, chem.ref.wq$ReferenceSite == "MODERATELY DISTURBED")
+# most <- subset(chem.ref.wq, chem.ref.wq$ReferenceSite == "MOST DISTURBED")
+# 
+# #2: LIST NUMBER OF PARAMETERS ASSOCIATED WITH EACH REFERENCE STATION
+# param <- aggregate(data=ref, Char_Name ~ MLocID, function(x) length(unique(x)))
+# 
+# #3: LIST NUMBER OF SAMPLING DATES ASSOCIATED WITH EACH REFERENCE STATION
+# dates <- aggregate(data=ref, SampleStartDate ~ MLocID, function(x) length(unique(x)))
+# 
+# #4: LIST NUMBER OF PARAMETERS ASSOCIATED WITH ALL STATIONS
+# parameters <- aggregate(data=ref, Char_Name ~ MLocID, function(x) length(unique(x)))
+# 
+# #2: SUM NUMBER OF SITES ASSOCIATED WITH EACH PARAMETER FOR REFERENCE STATIONS ~~~~~~~~~~~~~~~~~~~~??????????? use this section  ?????
+# paramxsite <- ref %>% distinct(Char_Name, MLocID)
+# paramxsite <- dcast(paramxsite, Char_Name ~ MLocID, 
+#                     value.var = "Char_Name", fun.aggregate = length)
+# paramxsite$nsites <- rowSums(paramxsite[, 2:ncol(paramxsite)])
+# 
+# #3: MAKE PLOT OF NUMBER OF SITES BY PARAMETER - ~~~~~~~~~~~~~~~~~~~~??????????? use this section  ?????
+# Params_by_site <- ggplot(paramxsite[paramxsite$nsites > 25,], aes(x = Char_Name, y = nsites)) + 
+#   geom_bar(stat="identity", position = position_dodge(), fill = "steelblue", color = "Black") +
+#   labs(x = "WQ Parameter", y = "Number of Samples (Reference)") +
+#   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+# #geom_text(position = position_dodge(width = 0.9, angle = 90, check_overlap = TRUE))
+# print(Params_by_site)
+# 
+# #4: SAVE OUTPUT FOR FURTHER EXPLORATION
+# write_xlsx(paramxsite, path = "//deqlab1/ATHOMPS/Files/Biomon/R Chem Benchmarks/Params_By_Site.xlsx")
+# 
+# # testing boxplots of ref/mod/most by ecoregion for each parameter
+# tss <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Total suspended solids")
+# 
+# boxtss <- ggplot(tss, aes(x = ReferenceSite, y = Result_Numeric_mod)) +
+#   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+#   facet_grid(~L3Eco) +
+#   coord_cartesian(ylim = c(0, 100)) +
+#   labs(x = "Reference Condition", y = "Total Suspended Solids (mg/L)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(boxtss)
+# #avoid having one site drive results for an entire ecoregion (e.g., whychus in 9)
+# #sort by ref, mod, most
+# 
+# #BOX PLOTS OF PARAMETERS
+# #CONDUCTIVITY
+# cond<-subset(wqdata, wqdata$Char_Name == 'Conductivity')
+# cond2<-ggplot(cond, aes(x = ReferenceSite, y = Result_Numeric)) +
+#   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+#   labs(x = "Reference Condition", y = "Conductivity (uS/cm)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(cond2)
+# 
+# #transformation
+# #CONDUCTIVITY - NO OUTLIERS
+# cond<-subset(wqdata, wqdata$Char_Name == 'Conductivity')
+# cond2<-ggplot(cond, aes(x = ReferenceSite, y = Result_Numeric)) +
+#   geom_boxplot(outlier.shape = NA) + 
+#   coord_cartesian(ylim =  c(0, 300)) +
+#   labs(x = "Reference Condition", y = "Conductivity (uS/cm)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(cond2)
+# 
+# #CONDUCTIVITY - NO OUTLIERS BY ECOREGION
+# cond<-subset(wqdata, wqdata$Char_Name == 'Conductivity')
+# cond2<-ggplot(cond, aes(x = EcoRegion3, y = Result_Numeric)) +
+#   geom_boxplot(outlier.shape = NA) + 
+#   coord_cartesian(ylim =  c(0, 1000)) +
+#   labs(x = "Ecoregion 3", y = "Conductivity (uS/cm)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(cond2)
+# 
+# #DO mg/L
+# do_conc<-subset(wqdata, wqdata$Char_Name == 'Dissolved oxygen (DO)')
+# do_conc2<-ggplot(do_conc, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
+#   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+#   labs(x = "Reference Condition", y = "DO (mg/L)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(do_conc2)
+# 
+# #DO %
+# do_perc<-subset(wqdata, wqdata$Char_Name == 'Dissolved oxygen saturation')
+# do_perc2<-ggplot(do_perc, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
+#   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+#   labs(x = "Reference Condition", y = "DO (%)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(do_perc2)
+# 
+# #pH
+# ph<-subset(wqdata, wqdata$Char_Name == 'pH')
+# ph2<-ggplot(ph, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
+#   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+#   labs(x = "Reference Condition", y = "pH (SU)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(ph2)
+# 
+# #AMMONIA
+# ammonia<-subset(wqdata, wqdata$Char_Name == 'Ammonia')
+# ammonia2<-ggplot(ammonia, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
+#   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+#   labs(x = "Reference Condition", y = "Ammonia (mg/L)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(ammonia2)
+# 
+# #TOTAL SUSPENDED SOLIDS
+# tss<-subset(wqdata, wqdata$Char_Name == 'Total suspended solids')
+# tss2<-ggplot(tss, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
+#   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+#   labs(x = "Reference Condition", y = "Total Suspended Solids (mg/L)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(tss2)
+# 
+# #NITRATE + NITRITE
+# nits<-subset(wqdata, wqdata$Char_Name == 'Nitrate + Nitrite')
+# nits2<-ggplot(nits, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
+#   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+#   labs(x = "Reference Condition", y = "Nitrate + Nitrite (mg/L)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(nits2)
+# 
+# #TOTAL SOLIDS
+# ts<-subset(wqdata, wqdata$Char_Name == 'Total solids')
+# ts2<-ggplot(ts, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
+#   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+#   labs(x = "Reference Condition", y = "Total solids (mg/L)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(ts2)
+# 
+# #TOTAL KJELDAHL NITROGEN
+# tkn<-subset(wqdata, wqdata$Char_Name == 'Total Kjeldahl nitrogen')
+# tkn2<-ggplot(tkn, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
+#   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+#   labs(x = "Reference Condition", y = "Total Kjeldahl nitrogen (mg/L)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(tkn2)
+# 
+# #ORTHOPHOSPHATE
+# ortho<-subset(wqdata, wqdata$Char_Name == 'Orthophosphate')
+# ortho2<-ggplot(ortho, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
+#   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+#   labs(x = "Reference Condition", y = "Orthophosphate (mg/L)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(ortho2)
+# 
+# #TOTAL PHOSPHORUS
+# tp<-subset(wqdata, wqdata$Char_Name == 'Total Phosphorus, mixed forms')
+# tp2<-ggplot(tp, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
+#   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+#   labs(x = "Reference Condition", y = "Total phosphorus (mg/L)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(tp2)
+# 
+# #ORGANIC CARBON
+# orgc<-subset(wqdata, wqdata$Char_Name == 'Organic carbon')
+# orgc2<-ggplot(orgc, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
+#   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+#   labs(x = "Reference Condition", y = "Organic carbon (mg/L)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(orgc2)
+# 
+# #ALKALINITY
+# alk<-subset(wqdata, wqdata$Char_Name == 'Alkalinity, total')
+# alk2<-ggplot(alk, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
+#   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+#   labs(x = "Reference Condition", y = "Total alkalinity (mg/L)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(alk2)
+# 
+# #BIOLOGICAL OXYGEN DEMAND
+# bod<-subset(wqdata, wqdata$Char_Name == 'Biochemical oxygen demand, non-standard conditions')
+# bod2<-ggplot(bod, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
+#   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+#   labs(x = "Reference Condition", y = "Biological oxygen demand (mg/L)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(bod2)
+# 
+# #SULFATE
+# sulf<-subset(wqdata, wqdata$Char_Name == 'Sulfate')
+# sulf2<-ggplot(sulf, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
+#   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+#   labs(x = "Reference Condition", y = "Sulfate (mg/L)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(sulf2)
+# 
+# #CHLORIDE
+# cl<-subset(wqdata, wqdata$Char_Name == 'Chloride')
+# cl2<-ggplot(cl, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
+#   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+#   labs(x = "Reference Condition", y = "Chloride (mg/L)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(cl2)
+# 
+# #TURBIDITY <-need to merge w/ lab turb?
+# turb<-subset(wqdata, wqdata$Char_Name == 'Turbidity Field')
+# turb2<-ggplot(turb, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
+#   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+#   labs(x = "Reference Condition", y = "Turbidity (NTU)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(turb2)
+# 
+# boxp(turb, StationDes, Result_Numeric) + coord_cartesian(ylim = c(0, 25))
+# boxp(cond, StationDes, Result_Numeric_mod)
+# boxp(do.sat, StationDes, Result_Numeric_mod) + coord_cartesian(ylim = c(50, 120))
+# boxp(do.conc, StationDes, Result_Numeric_mod) + coord_cartesian(ylim = c(4, 12))
+# boxp(ph, StationDes, Result_Numeric_mod) + coord_cartesian(ylim = c(6.5, 8.5))
+# boxp(temp, StationDes, Result_Numeric_mod) + coord_cartesian(ylim = c(0, 25))
+# boxp(afdm, StationDes, Result_Numeric_mod) #messy MRLs
+# boxp(chla, StationDes, Result_Numeric_mod) + coord_cartesian(ylim = c(0, 0.01))
+# 
+# #-----------------------------------------------------------------------------------------------------------------------------------------------------
+# 
+# #BOX PLOTS OF PARAMETERS
+# #CONDUCTIVITY
+# cond<-subset(wqdata, wqdata$Char_Name == 'Conductivity')
+# cond2<-ggplot(cond, aes(x = ReferenceSite, y = Result_Numeric)) +
+#   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+#   labs(x = "Reference Condition", y = "Conductivity (uS/cm)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(cond2)
+# 
+# #transformation
+# #CONDUCTIVITY - NO OUTLIERS
+# cond<-subset(wqdata, wqdata$Char_Name == 'Conductivity')
+# cond2<-ggplot(cond, aes(x = ReferenceSite, y = Result_Numeric)) +
+#   geom_boxplot(outlier.shape = NA) + 
+#   coord_cartesian(ylim =  c(0, 300)) +
+#   labs(x = "Reference Condition", y = "Conductivity (uS/cm)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(cond2)
+# 
+# #CONDUCTIVITY - NO OUTLIERS BY ECOREGION
+# cond<-subset(wqdata, wqdata$Char_Name == 'Conductivity')
+# cond2<-ggplot(cond, aes(x = EcoRegion3, y = Result_Numeric)) +
+#   geom_boxplot(outlier.shape = NA) + 
+#   coord_cartesian(ylim =  c(0, 1000)) +
+#   labs(x = "Ecoregion 3", y = "Conductivity (uS/cm)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(cond2)
+# 
+# #DO mg/L
+# do_conc<-subset(wqdata, wqdata$Char_Name == 'Dissolved oxygen (DO)')
+# do_conc2<-ggplot(do_conc, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
+#   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+#   labs(x = "Reference Condition", y = "DO (mg/L)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(do_conc2)
+# 
+# #DO %
+# do_perc<-subset(wqdata, wqdata$Char_Name == 'Dissolved oxygen saturation')
+# do_perc2<-ggplot(do_perc, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
+#   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+#   labs(x = "Reference Condition", y = "DO (%)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(do_perc2)
+# 
+# #pH
+# ph<-subset(wqdata, wqdata$Char_Name == 'pH')
+# ph2<-ggplot(ph, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
+#   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+#   labs(x = "Reference Condition", y = "pH (SU)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(ph2)
+# 
+# #AMMONIA
+# ammonia<-subset(wqdata, wqdata$Char_Name == 'Ammonia')
+# ammonia2<-ggplot(ammonia, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
+#   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+#   labs(x = "Reference Condition", y = "Ammonia (mg/L)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(ammonia2)
+# 
+# #TOTAL SUSPENDED SOLIDS
+# tss<-subset(wqdata, wqdata$Char_Name == 'Total suspended solids')
+# tss2<-ggplot(tss, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
+#   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+#   labs(x = "Reference Condition", y = "Total Suspended Solids (mg/L)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(tss2)
+# 
+# #NITRATE + NITRITE
+# nits<-subset(wqdata, wqdata$Char_Name == 'Nitrate + Nitrite')
+# nits2<-ggplot(nits, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
+#   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+#   labs(x = "Reference Condition", y = "Nitrate + Nitrite (mg/L)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(nits2)
+# 
+# #TOTAL SOLIDS
+# ts<-subset(wqdata, wqdata$Char_Name == 'Total solids')
+# ts2<-ggplot(ts, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
+#   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+#   labs(x = "Reference Condition", y = "Total solids (mg/L)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(ts2)
+# 
+# #TOTAL KJELDAHL NITROGEN
+# tkn<-subset(wqdata, wqdata$Char_Name == 'Total Kjeldahl nitrogen')
+# tkn2<-ggplot(tkn, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
+#   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+#   labs(x = "Reference Condition", y = "Total Kjeldahl nitrogen (mg/L)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(tkn2)
+# 
+# #ORTHOPHOSPHATE
+# ortho<-subset(wqdata, wqdata$Char_Name == 'Orthophosphate')
+# ortho2<-ggplot(ortho, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
+#   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+#   labs(x = "Reference Condition", y = "Orthophosphate (mg/L)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(ortho2)
+# 
+# #TOTAL PHOSPHORUS
+# tp<-subset(wqdata, wqdata$Char_Name == 'Total Phosphorus, mixed forms')
+# tp2<-ggplot(tp, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
+#   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+#   labs(x = "Reference Condition", y = "Total phosphorus (mg/L)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(tp2)
+# 
+# #ORGANIC CARBON
+# orgc<-subset(wqdata, wqdata$Char_Name == 'Organic carbon')
+# orgc2<-ggplot(orgc, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
+#   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+#   labs(x = "Reference Condition", y = "Organic carbon (mg/L)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(orgc2)
+# 
+# #ALKALINITY
+# alk<-subset(wqdata, wqdata$Char_Name == 'Alkalinity, total')
+# alk2<-ggplot(alk, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
+#   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+#   labs(x = "Reference Condition", y = "Total alkalinity (mg/L)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(alk2)
+# 
+# #BIOLOGICAL OXYGEN DEMAND
+# bod<-subset(wqdata, wqdata$Char_Name == 'Biochemical oxygen demand, non-standard conditions')
+# bod2<-ggplot(bod, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
+#   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+#   labs(x = "Reference Condition", y = "Biological oxygen demand (mg/L)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(bod2)
+# 
+# #SULFATE
+# sulf<-subset(wqdata, wqdata$Char_Name == 'Sulfate')
+# sulf2<-ggplot(sulf, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
+#   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+#   labs(x = "Reference Condition", y = "Sulfate (mg/L)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(sulf2)
+# 
+# #CHLORIDE
+# cl<-subset(wqdata, wqdata$Char_Name == 'Chloride')
+# cl2<-ggplot(cl, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
+#   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+#   labs(x = "Reference Condition", y = "Chloride (mg/L)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(cl2)
+# 
+# #TURBIDITY <-need to merge w/ lab turb?
+# turb<-subset(wqdata, wqdata$Char_Name == 'Turbidity Field')
+# turb2<-ggplot(turb, aes(x = Ref2020_FINAL, y = Result_Numeric)) +
+#   geom_boxplot(outlier.color = "red", outlier.shape = 8) + 
+#   labs(x = "Reference Condition", y = "Turbidity (NTU)") +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# print(turb2)
+# 
+# #-----------------------------------------------------------------------------------------------------------------------------------------------------
+# #IDENTIFY STATIONS FROM OUR REFERENCE SCREENS THAT DON'T HAVE WATER CHEMISTRY DATA IN AWQMS
+# #Reveals where additional data collections might be warranted
+# #-----------------------------------------------------------------------------------------------------------------------------------------------------
+# #1: CREATE TABLE CONTAINING SITES WITH NO CHEMISTRY DATA
+# nochem <- anti_join(ref_stations, chem.all_ref, by = "MLocID") # All rows from ref_stations with no match in chem.no_bio
+# 
+# #2: OPTIONAL - WRITE TO EXCEL FOR FURTHER EXAMINATION
+# #write_xlsx(nochem, path = "Benchmarks/Water Chemistry/SitesMissingChemData.xlsx")
+# 
+# #   #3: SUMMARIZE SITES BY OWNER, REF STATUS, AND ECOREGION  # needs work
+# # nochemsum <- nochem %>% 
+# #   group_by(OrgID, ReferenceSite, EcoRegion3) %>% 
+# #   summarise(n = n())
+# # 
+# 
+# #We are opting NOT to include chem data from nearby sites. (How close? up or downstream? land use changes? tribs? - hard to justify) SB/AT August 2025
+# 
+# 

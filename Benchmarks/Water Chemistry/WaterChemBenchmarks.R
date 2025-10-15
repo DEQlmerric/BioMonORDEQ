@@ -207,8 +207,8 @@ rm(list = c('TN', 'tn.nits', 'tn.nits.tkn', 'tn.tkn', 'tn1', 'tn2'))
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 
 #1  ONLY SITES THAT HAVE BUG SAMPLES
-# bugs_sites  <- chem.all_ref %>% 
-#   filter(Bio_Intent %in% c("Population Census", "Species Density")) %>% 
+# bugs_sites  <- chem.all_ref %>%
+#   filter(Bio_Intent %in% c("Population Census", "Species Density")) %>%
 #   select(MLocID)
 # 
 # bugs_only <- semi_join(chem.ref.wq, bugs_sites, by = 'MLocID')
@@ -216,14 +216,20 @@ rm(list = c('TN', 'tn.nits', 'tn.nits.tkn', 'tn.tkn', 'tn1', 'tn2'))
 # chem.ref.wq <- bugs_only # Turn this back into chem.ref.wq so you can run everything below here.
 
 #2  ELIMINATE SITES ON THE SAME STREAM SEGMENT 
-
-# coming soon
+## This does not work yet!
+# chem.ref.wq.stream <- chem.ref.wq %>% 
+#   group_by(AU_ID) %>% 
+#   ungroup()
+#   slice(which.min(Measure)) %>% # Keep the more downstream site (0 = downstream, 100 = upstream)
+#   ungroup()
+# 
+# chem.ref.wq <- chem.ref.wq.stream # Turn this back into chem.ref.wq so you can run everything below here.
 
 #3  ONLY TAKE THE MOST RECENT SAMPLES IF A SITE WAS SAMPLED MORE THAN ONCE
-# SYB double check if this works!
-# chem.ref.wq.recent <- chem.ref.wq %>% 
-#   group_by(MLocID) %>% 
-#   slice(which.max(SampleStartDate)) %>% 
+## SYB double check that this works!
+# chem.ref.wq.recent <- chem.ref.wq %>%
+#   group_by(MLocID, Char_Name) %>%
+#   slice(which.max(SampleStartDate)) %>%
 #   ungroup()
 # 
 # chem.ref.wq <- chem.ref.wq.recent # Turn this back into chem.ref.wq so you can run everything below here.
@@ -436,7 +442,7 @@ boxp(DO_sat, ReferenceSite, Result_Numeric_mod)
 pal <- colorNumeric(palette = "BuPu", domain =  NULL )
 map_results(DO_sat) 
 
-# SULFATE
+# SULFATE (plot cust off high outliers)
 SO4 <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Sulfate")
 boxp(SO4, ReferenceSite, Result_Numeric_mod) + coord_cartesian(ylim = c(0, 35))
 

@@ -202,16 +202,31 @@ rm(list = c('TN', 'tn.nits', 'tn.nits.tkn', 'tn.tkn', 'tn1', 'tn2'))
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # ***CHOOSE YOUR OWN ADVENTURE: DIFFERENT WAYS TO SPLIT OUT THE DATA***
-# -Run the section(s) you choose below (or run none of them for all water chem data with a ref designation),
+# Run the section(s) you choose below (or run none of them for all water chem data with a ref designation),
 # then run everything below it for summary plots and tables.
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 
-#1  BUG SITES ONLY
+#1  ONLY SITES THAT HAVE BUG SAMPLES
+# bugs_sites  <- chem.all_ref %>% 
+#   filter(Bio_Intent %in% c("Population Census", "Species Density")) %>% 
+#   select(MLocID)
+# 
+# bugs_only <- semi_join(chem.ref.wq, bugs_sites, by = 'MLocID')
+# 
+# chem.ref.wq <- bugs_only # Turn this back into chem.ref.wq so you can run everything below here.
 
 #2  ELIMINATE SITES ON THE SAME STREAM SEGMENT 
 
-#3  ONLY TAKE THE MOST RECENT SAMPLES IF A SITE WAS SAMPLED MORE THAN ONCE
+# coming soon
 
+#3  ONLY TAKE THE MOST RECENT SAMPLES IF A SITE WAS SAMPLED MORE THAN ONCE
+# SYB double check if this works!
+# chem.ref.wq.recent <- chem.ref.wq %>% 
+#   group_by(MLocID) %>% 
+#   slice(which.max(SampleStartDate)) %>% 
+#   ungroup()
+# 
+# chem.ref.wq <- chem.ref.wq.recent # Turn this back into chem.ref.wq so you can run everything below here.
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # SUMMARY TABLES
@@ -317,7 +332,7 @@ refpal <- colorFactor(gry, domain = chem.ref.wq$ReferenceSite)
 
 refmap <- leaflet(data = chem.ref.wq) %>%
   addProviderTiles("OpenStreetMap", group = "Basic Map") %>% 
-  addProviderTiles("OpenTopoMap", group = "Terrain") %>%
+  addProviderTiles(providers$Esri.WorldTopoMap, group = "Terrain") %>%
   addLayersControl(
     baseGroups = c("Basic Map", "Terrain"),
     options = layersControlOptions(collapsed = FALSE)) %>% 
@@ -362,7 +377,7 @@ boxp <- function(data, x, y) {
 map_results <- function(data) {
   leaflet() %>%
   addProviderTiles("OpenStreetMap", group = "Basic Map") %>% 
-  addProviderTiles("OpenTopoMap", group = "Terrain") %>%
+  addProviderTiles(providers$Esri.WorldTopoMap, group = "Terrain") %>%
   setView(lng = -120.5583, lat =44.0671, zoom =6.4) %>%
   addCircleMarkers(data = data, group = ~ReferenceSite, lng = ~(jitter(data$Long_DD, factor = 0.5)), 
                      lat = ~jitter(data$Lat_DD, 0.5), fillColor = pal(data$Result_Numeric_mod), stroke = TRUE,

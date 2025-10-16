@@ -53,7 +53,7 @@ chem.ref <- chem.all_ref %>%
   filter(SamplingMethod != 'Continuous Summary') %>%  # Remaining methods are 'Grab' and 'Unknown'. Do we want to keep 'Unknown'?
   filter(MonLocType == 'River/Stream') %>% 
   filter(SampleMedia == 'Water') %>% 
-  filter(SampleSubmedia == 'Surface Water') %>% 
+  filter(SampleSubmedia == 'Surface Water' | is.na(SampleSubmedia))  %>% 
   filter(OrgID != 'USU(NOSTORETID)') # Utah State Univ sites - they don't have water chem data.
 
 # Note: There are two stations with no COMID (21844-ORDEQ, 34849-ORDEQ) as of 10/2025.

@@ -393,7 +393,7 @@ map_results <- function(data) {
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # AMMONIA (Plot = y axis log scaled.  Map = High outliers plot as grey circles.)
 NH3 <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Ammonia")
-boxp(NH3, ReferenceSite, Result_Numeric_mod) +scale_y_log10()
+boxp(NH3, ReferenceSite, Result_Numeric_mod) +scale_y_log10() +labs(subtitle = '* log scale y-axis')
 
 pal <- colorNumeric(palette = "Oranges",
   domain = c(0, (quantile(NH3$Result_Numeric_mod, 0.75)) + 1.5 * IQR(NH3$Result_Numeric_mod)))
@@ -401,7 +401,7 @@ map_results(NH3)
 
 # CHLORIDE (Plot = y axis log scaled.  Map = High outliers plot as grey circles.)
 chlor <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Chloride")
-boxp(chlor, ReferenceSite, Result_Numeric_mod) +scale_y_log10()
+boxp(chlor, ReferenceSite, Result_Numeric_mod) +scale_y_log10() +labs(subtitle = '* log scale y-axis')
 
 pal <- colorNumeric(palette = "PuBu",
   domain = c(0, (quantile(chlor$Result_Numeric_mod, 0.75)) + 1.5 * IQR(chlor$Result_Numeric_mod)))
@@ -409,7 +409,7 @@ map_results(chlor)
 
 # CONDUCTIVITY (Plot = y axis log scaled.  Map = High outliers plot as grey circles.)
 cond <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Conductivity")
-boxp(cond, ReferenceSite, Result_Numeric_mod) +scale_y_log10()
+boxp(cond, ReferenceSite, Result_Numeric_mod) +scale_y_log10() +labs(subtitle = '* log scale y-axis')
 
 pal <- colorNumeric(palette = "Greens", 
   domain = c(0, (quantile(cond$Result_Numeric_mod, 0.75)) + 1.5 * IQR(cond$Result_Numeric_mod)))
@@ -431,7 +431,7 @@ map_results(DO_sat)
 
 # SULFATE (Plot = y axis log scaled.  Map = High outliers plot as grey circles.)
 SO4 <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Sulfate")
-boxp(SO4, ReferenceSite, Result_Numeric_mod) +scale_y_log10()
+boxp(SO4, ReferenceSite, Result_Numeric_mod) +scale_y_log10() +labs(subtitle = '* log scale y-axis')
 
 pal <- colorNumeric(palette = "Oranges", 
   domain = c(0, (quantile(SO4$Result_Numeric_mod, 0.75)) + 1.5 * IQR(SO4$Result_Numeric_mod)))
@@ -439,7 +439,7 @@ map_results(SO4)
 
 # TOTAL NITROGEN (Plot = y axis log scaled.  Map = High outliers plot as grey circles.)
 TN <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Nitrogen")
-boxp(TN, ReferenceSite, Result_Numeric_mod) +scale_y_log10()
+boxp(TN, ReferenceSite, Result_Numeric_mod) +scale_y_log10() +labs(subtitle = '* log scale y-axis')
 
 pal <- colorNumeric(palette = "Greens", domain = c(0, (quantile(TN$Result_Numeric_mod, 0.75)) + 1.5 * IQR(TN$Result_Numeric_mod)))
 map_results(TN) 
@@ -453,7 +453,7 @@ map_results(pH)
 
 # TOTAL PHOSPHORUS (Plot = y axis log scaled.  Map = High outliers plot as grey circles.)
 TP <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Total Phosphorus, mixed forms")
-boxp(TP, ReferenceSite, Result_Numeric_mod) +scale_y_log10()
+boxp(TP, ReferenceSite, Result_Numeric_mod) +scale_y_log10() +labs(subtitle = '* log scale y-axis')
 
 pal <- colorNumeric(palette = "Reds", domain = c(0, (quantile(TP$Result_Numeric_mod, 0.75)) + 1.5 * IQR(TP$Result_Numeric_mod)))
 map_results(TP) 
@@ -467,7 +467,7 @@ map_results(Temp)
 
 # TOTAL SOLIDS (Plot = y axis log scaled.  Map = High outliers plot as grey circles.)
 ts <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Total solids")
-boxp(ts, ReferenceSite, Result_Numeric_mod) +scale_y_log10()
+boxp(ts, ReferenceSite, Result_Numeric_mod) +scale_y_log10() +labs(subtitle = '* log scale y-axis')
 
 pal <- colorNumeric(palette = "RdPu",
   domain = c(0, (quantile(ts$Result_Numeric_mod, 0.75)) + 1.5 * IQR(ts$Result_Numeric_mod)))
@@ -475,7 +475,7 @@ map_results(ts)
 
 # TSS (Plot = y axis log scaled.  Map = High outliers plot as grey circles.)
 tss <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Total suspended solids")
-boxp(tss, ReferenceSite, Result_Numeric_mod) +scale_y_log10()
+boxp(tss, ReferenceSite, Result_Numeric_mod) +scale_y_log10() +labs(subtitle = '* log scale y-axis')
 
 pal <- colorNumeric(palette = "PuRd",
   domain = c(0, (quantile(tss$Result_Numeric_mod, 0.75)) + 1.5 * IQR(tss$Result_Numeric_mod)))
@@ -483,7 +483,7 @@ map_results(tss)
 
 # TURBIDITY (field) (Plot = y axis log scaled.  Map = High outliers plot as grey circles.)
 turb <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Turbidity Field")
-boxp(turb, ReferenceSite, Result_Numeric_mod) +scale_y_log10()
+boxp(turb, ReferenceSite, Result_Numeric_mod) +scale_y_log10() +labs(subtitle = '* log scale y-axis')
 
 pal <- colorNumeric(palette = "YlOrBr", 
   domain = c(0, (quantile(turb$Result_Numeric_mod, 0.75)) + 1.5 * IQR(turb$Result_Numeric_mod)))

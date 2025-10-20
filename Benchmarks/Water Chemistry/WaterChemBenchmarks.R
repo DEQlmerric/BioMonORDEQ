@@ -50,7 +50,9 @@ chem.all_ref <- inner_join(chem.all_ref, ref_stations, by = "MLocID")
 chem.ref <- chem.all_ref %>% 
   filter(Result_status != 'Rejected' & Result_status != 'Preliminary') %>%
   filter(DQL != 'E') %>% 
-  filter(SamplingMethod != 'Continuous Summary') %>%  # Remaining methods are 'Grab' and 'Unknown'. Do we want to keep 'Unknown'?
+  filter(SamplingMethod != 'Continuous Summary' | is.na(SamplingMethod)) %>% # Note: Sampling Method starts to be left as NA (as opposed to Grab) for some (but not all) samples from four projects 
+                                                                             # (Statewide Toxics, Statewide Biomon, TMDL, and Volmon) starting in 06/2012 through present day.
+                                                                             # Remaining methods are 'Grab' and 'Unknown'. Do we want to keep 'Unknown'?
   filter(MonLocType == 'River/Stream') %>% 
   filter(SampleMedia == 'Water') %>% 
   filter(SampleSubmedia == 'Surface Water' | is.na(SampleSubmedia))  %>% 
@@ -133,7 +135,7 @@ chem.ref <- chem.ref %>%
   mutate(Result_Numeric_mod = ifelse(Result_Unit == 'deg F', (Result_Numeric_mod - 32) * (5/9), Result_Numeric_mod)) %>% 
   mutate(Result_Unit = ifelse(Result_Unit == 'deg F', 'deg C', Result_Unit))       
 
-# GET RID OF SOME UNUSED COLUMNS FOR READABILITY (Could get rid of more.)
+# GET RID OF SOME UNUSED COLUMNS FOR READABILITY. (Could get rid of more.)
 chem.ref <- chem.ref %>% 
   select(!c(Project2, Project3, ResultCondName:stant_name, WQX_submit_date:res_last_change_date))
 
@@ -141,7 +143,7 @@ chem.ref <- chem.ref %>%
 chem.ref.wq <- chem.ref %>% 
   filter(Char_Name %in% c("Temperature, water", "pH", "Dissolved oxygen (DO)", "Dissolved oxygen saturation", "Total Phosphorus, mixed forms", 
     "Nitrogen", "Nitrate + Nitrite", "Total Kjeldahl nitrogen", "Total suspended solids", "Ammonia", "Turbidity Field", "Total solids", 
-    "Conductivity", "Sulfate", "Chloride")) %>% 
+    "Conductivity", "Sulfate", "Chloride", "Specific conductance", "Orthophosphate", "Turbidity")) %>% 
   filter(!(Char_Name=='Total Phosphorus, mixed forms' & Char_Speciation=='as P')) # Excludes 1999 data with undefined method speciation 
 #--------------------------------------------------------------------------------------------------------------------
 # CALCULATE TOTAL NITROGEN. TN = TKN + Nitrate + Nitrite
@@ -354,20 +356,6 @@ refmap <- leaflet(data = chem.ref.wq) %>%
 refmap # Print map
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
-# SUMMARY BOXPLOTS / MAPS
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
-# Boxplot of each parameter by Ref Status and L3Ecoregion.
-# Needs work, SYB to come back to this.
-# chem.ref.wq %>% 
-#   group_by(Char_Name, Result_Unit) %>% 
-#   group_map(
-#     .f = ~ ggplot(.x, aes(x = ReferenceSite, y = Result_Numeric_mod)) +
-#       geom_boxplot() +
-#       facet_grid(~L3Eco, scales = "free") +
-#       labs(x = "Reference Status", y = paste0(.y$Char_Name, " (", .y$Result_Unit, ")")) +
-#       theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
-#   )
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
 # PLOTS AND MAPS BY INDIVIDUAL CHARS:
 # BOX PLOT FUNCTION
 boxp <- function(data, x, y) {
@@ -402,27 +390,26 @@ map_results <- function(data) {
 }
 
 # Note for maps:  Grey circle = high outlier (beyond Q3 + 1.5IQR).
-# Note for plots: High outliers might be cut off. Where this happens it's noted in the script below.
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
-# AMMONIA (plot cuts out far outliers)
+# AMMONIA (Plot = y axis log scaled.  Map = High outliers plot as grey circles.)
 NH3 <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Ammonia")
-boxp(NH3, ReferenceSite, Result_Numeric_mod) +coord_cartesian(ylim = c(0, 0.5))
+boxp(NH3, ReferenceSite, Result_Numeric_mod) +scale_y_log10()
 
 pal <- colorNumeric(palette = "Oranges",
   domain = c(0, (quantile(NH3$Result_Numeric_mod, 0.75)) + 1.5 * IQR(NH3$Result_Numeric_mod)))
 map_results(NH3) 
 
-# CHLORIDE (plot cuts out far outliers)
+# CHLORIDE (Plot = y axis log scaled.  Map = High outliers plot as grey circles.)
 chlor <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Chloride")
-boxp(chlor, ReferenceSite, Result_Numeric_mod) +coord_cartesian(ylim = c(0, 25))
+boxp(chlor, ReferenceSite, Result_Numeric_mod) +scale_y_log10()
 
 pal <- colorNumeric(palette = "PuBu",
   domain = c(0, (quantile(chlor$Result_Numeric_mod, 0.75)) + 1.5 * IQR(chlor$Result_Numeric_mod)))
 map_results(chlor) 
 
-# CONDUCTIVITY (plot cuts out far outliers)
+# CONDUCTIVITY (Plot = y axis log scaled.  Map = High outliers plot as grey circles.)
 cond <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Conductivity")
-boxp(cond, ReferenceSite, Result_Numeric_mod) +coord_cartesian(ylim = c(0, 900))
+boxp(cond, ReferenceSite, Result_Numeric_mod) +scale_y_log10()
 
 pal <- colorNumeric(palette = "Greens", 
   domain = c(0, (quantile(cond$Result_Numeric_mod, 0.75)) + 1.5 * IQR(cond$Result_Numeric_mod)))
@@ -442,24 +429,31 @@ boxp(DO_sat, ReferenceSite, Result_Numeric_mod)
 pal <- colorNumeric(palette = "BuPu", domain =  NULL )
 map_results(DO_sat) 
 
-# SULFATE (plot cust off high outliers)
+# SULFATE (Plot = y axis log scaled.  Map = High outliers plot as grey circles.)
 SO4 <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Sulfate")
-boxp(SO4, ReferenceSite, Result_Numeric_mod) + coord_cartesian(ylim = c(0, 35))
+boxp(SO4, ReferenceSite, Result_Numeric_mod) +scale_y_log10()
 
 pal <- colorNumeric(palette = "Oranges", 
   domain = c(0, (quantile(SO4$Result_Numeric_mod, 0.75)) + 1.5 * IQR(SO4$Result_Numeric_mod)))
 map_results(SO4) 
 
-# TOTAL NITROGEN (plot cuts off far outliers)
+# TOTAL NITROGEN (Plot = y axis log scaled.  Map = High outliers plot as grey circles.)
 TN <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Nitrogen")
-boxp(TN, ReferenceSite, Result_Numeric_mod) + coord_cartesian(ylim = c(0, 8))
+boxp(TN, ReferenceSite, Result_Numeric_mod) +scale_y_log10()
 
 pal <- colorNumeric(palette = "Greens", domain = c(0, (quantile(TN$Result_Numeric_mod, 0.75)) + 1.5 * IQR(TN$Result_Numeric_mod)))
 map_results(TN) 
 
-# TOTAL PHOSPHORUS (plot cuts off far outliers)
+# pH
+pH <- subset(chem.ref.wq, chem.ref.wq$Char_Name == 'pH')
+boxp(pH, ReferenceSite, Result_Numeric_mod)
+
+pal <- colorNumeric(palette = "RdYlBu", domain = NULL)
+map_results(pH) 
+
+# TOTAL PHOSPHORUS (Plot = y axis log scaled.  Map = High outliers plot as grey circles.)
 TP <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Total Phosphorus, mixed forms")
-boxp(TP, ReferenceSite, Result_Numeric_mod) + coord_cartesian(ylim = c(0, 1))
+boxp(TP, ReferenceSite, Result_Numeric_mod) +scale_y_log10()
 
 pal <- colorNumeric(palette = "Reds", domain = c(0, (quantile(TP$Result_Numeric_mod, 0.75)) + 1.5 * IQR(TP$Result_Numeric_mod)))
 map_results(TP) 
@@ -471,25 +465,25 @@ boxp(Temp, ReferenceSite, Result_Numeric_mod)
 pal <- colorNumeric(palette = "Blues", domain = NULL)
 map_results(Temp) 
 
-# TOTAL SOLIDS (Plot cuts off far outliers)
+# TOTAL SOLIDS (Plot = y axis log scaled.  Map = High outliers plot as grey circles.)
 ts <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Total solids")
-boxp(ts, ReferenceSite, Result_Numeric_mod) +coord_cartesian(ylim = c(0, 500))
+boxp(ts, ReferenceSite, Result_Numeric_mod) +scale_y_log10()
 
 pal <- colorNumeric(palette = "RdPu",
   domain = c(0, (quantile(ts$Result_Numeric_mod, 0.75)) + 1.5 * IQR(ts$Result_Numeric_mod)))
 map_results(ts)
 
-# TSS (Plot cuts off far outliers)
+# TSS (Plot = y axis log scaled.  Map = High outliers plot as grey circles.)
 tss <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Total suspended solids")
-boxp(tss, ReferenceSite, Result_Numeric_mod) +coord_cartesian(ylim = c(0, 100))
+boxp(tss, ReferenceSite, Result_Numeric_mod) +scale_y_log10()
 
 pal <- colorNumeric(palette = "PuRd",
   domain = c(0, (quantile(tss$Result_Numeric_mod, 0.75)) + 1.5 * IQR(tss$Result_Numeric_mod)))
 map_results(tss)
 
-# TURBIDITY (field) (Plot cuts off far outliers)
+# TURBIDITY (field) (Plot = y axis log scaled.  Map = High outliers plot as grey circles.)
 turb <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Turbidity Field")
-boxp(turb, ReferenceSite, Result_Numeric_mod) +coord_cartesian(ylim = c(0, 30))
+boxp(turb, ReferenceSite, Result_Numeric_mod) +scale_y_log10()
 
 pal <- colorNumeric(palette = "YlOrBr", 
   domain = c(0, (quantile(turb$Result_Numeric_mod, 0.75)) + 1.5 * IQR(turb$Result_Numeric_mod)))
@@ -1123,3 +1117,17 @@ map_results(turb)
 # #We are opting NOT to include chem data from nearby sites. (How close? up or downstream? land use changes? tribs? - hard to justify) SB/AT August 2025
 # 
 # 
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
+# SUMMARY BOXPLOTS / MAPS
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
+# Boxplot of each parameter by Ref Status and L3Ecoregion.
+# Needs work, SYB to come back to this.
+# chem.ref.wq %>% 
+#   group_by(Char_Name, Result_Unit) %>% 
+#   group_map(
+#     .f = ~ ggplot(.x, aes(x = ReferenceSite, y = Result_Numeric_mod)) +
+#       geom_boxplot() +
+#       facet_grid(~L3Eco, scales = "free") +
+#       labs(x = "Reference Status", y = paste0(.y$Char_Name, " (", .y$Result_Unit, ")")) +
+#       theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+#   )

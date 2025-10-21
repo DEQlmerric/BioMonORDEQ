@@ -1,0 +1,9 @@
+---
+title: "TSS Reference Benchmarks"
+author: "S. Berzins, A. Thompson"
+date: "2025-10-21"
+output: html_document
+---
+
+#### **PREFACE:** This script explores the creation of a site-specific reference benchmark for total suspended solids (TSS) for ESM 566 Fall Environmental Statistics final project.
+

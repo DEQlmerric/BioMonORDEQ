@@ -158,7 +158,8 @@ source('bugs analyses/All_together/StressorID models_v2023.R')
 STRESS_results <- bug.stressors_run(df_bugs = bug_tax_data)
 
 STRESS_results <- STRESS_results %>%
-  dplyr::rename(act_id = Sample)
+  dplyr::rename(act_id = Sample, tot.abund.stress = tot.abund.x) %>%
+  select(-tot.abund.y)
 
 #___________________________________________________________________________
 
@@ -229,3 +230,6 @@ joined_OE_BCG_MMI_STRESS_good <- joined_OE_BCG_MMI_all %>%
 save(joined_OE_BCG_MMI_STRESS_good, file = 'bioassess.good_7-30-25_good.Rdata')
 save(joined_OE_BCG_MMI_STRESS_all, file = 'bioassess_7-30-25_all.Rdata')
 write.xlsx(joined_OE_BCG_MMI_STRESS_all, file = paste0("biocriteria_scores", Sys.Date(), '.xlsx'))
+
+
+

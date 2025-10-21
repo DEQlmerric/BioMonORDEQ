@@ -7,3 +7,97 @@ output: html_document
 
 #### **PREFACE:** This script explores the creation of a site-specific reference benchmark for total suspended solids (TSS) for ESM 566 Fall Environmental Statistics final project.
 
+# **1 - LOAD PACKAGES**
+
+```{r}
+library(AWQMSdata) #visit 'https://github.com/TravisPritchardODEQ/AWQMSdata' for installation instructions
+library(StreamCatTools) #visit 'https://github.com/USEPA/StreamCatTools' for installation instructions
+library(tidyverse)
+```
+
+# **2 - IMPORT DATA**
+
+## STATIONS - *FROM DEQ STATIONS DATABASE*
+
+#### Pull all sites with a reference status designation
+
+```{r}
+stations <- query_stations()
+ref_stations <- stations %>% 
+  filter(ReferenceSite %in% c("REFERENCE" , "MODERATELY DISTURBED", "MOST DISTURBED")) %>% 
+  select(MLocID, COMID, ReferenceSite, OrgID)
+rm(stations)
+```
+
+## WATER CHEMISTRY DATA - *FROM AWQMS*
+
+#### Total suspended solids (TSS) data for sites with a reference status designation
+
+```{r}
+tss <- AWQMS_Data(MLocID = ref_stations$MLocID, Char_Name = 'Total suspended solids')
+```
+
+#### Merge AWQMS and Stations data into single dataframe
+
+```{r}
+tss.all <- inner_join(tss, ref_stations, by = "MLocID")
+```
+
+## WATERSHED METRICS - *FROM EPA STREAMCAT*
+
+#### Can search for predictors of interest here: <https://www.epa.gov/national-aquatic-resource-surveys/streamcat-metrics-and-definitions>
+
+```{r}
+#scpar <- sc_get_params(param='metric_names') 
+#print(scpar) #reveal full list of StreamCat parameter names
+
+comids <- data.frame(tss.all$COMID) #create dataframe containing all COMIDs from merged file
+#test.pull <- StreamCatTools::sc_get_data(metric = 'pctcrop2019', comid = 'comids', aoi = 'watershed')
+
+#travis method
+comid_narm <- na.omit(comids)
+comids_split <- split(comid_narm, ceiling(seq_along(comids)/750))
+
+{
+streamcat <- purrr::map_dfr(comids_split, ~StreamCatTools::sc_get_data(comid = .,
+                                                                           metric = 'pctcrop2019', 
+                                                                           showAreaSqKm = TRUE,
+                                                                           aoi='catchment,watershed,other'))
+
+names(streamcat) <- base::toupper(names(streamcat))
+
+return(streamcat)
+}
+
+```
+
+
+```{r}
+#Get list of COMIDs 
+comids <- unique(tss.all$COMID)
+
+#Remove blanks
+comids <- comids[!is.na(comids)]
+
+#Run function
+get_streamcat <- function(comids){
+  
+comid_narm <- na.omit(comids)
+comids_split <- split(comid_narm, ceiling(seq_along(comids)/750))
+
+streamcat <- purrr::map_dfr(comids_split, ~StreamCatTools::sc_get_data(comid = .,
+                                                                           metric = 'pctcrop2019',
+                                                                           showAreaSqKm = TRUE,
+                                                                           aoi='catchment,watershed,other'))
+
+streamcat <- get_streamcat(comids = comids)
+
+names(streamcat) <- base::toupper(names(streamcat))
+
+return(streamcat)
+}
+
+streamcat <- get_streamcat(comids = comids)
+```
+
+

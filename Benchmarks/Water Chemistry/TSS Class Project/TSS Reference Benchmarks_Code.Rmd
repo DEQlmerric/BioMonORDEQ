@@ -13,6 +13,7 @@ output: html_document
 library(AWQMSdata) #visit 'https://github.com/TravisPritchardODEQ/AWQMSdata' for installation instructions
 library(StreamCatTools) #visit 'https://github.com/USEPA/StreamCatTools' for installation instructions
 library(tidyverse)
+library(readxl)
 ```
 
 # **2 - IMPORT DATA**
@@ -47,29 +48,28 @@ tss.all <- inner_join(tss, ref_stations, by = "MLocID")
 
 #### Can search for predictors of interest here: <https://www.epa.gov/national-aquatic-resource-surveys/streamcat-metrics-and-definitions>
 
+# do correlation analysis for streamcat predictors - which covary with each other? Get all predictors for watersheds. 
+# need to query catchment data when we "Used closest COMID"
+
 ```{r}
-#scpar <- sc_get_params(param='metric_names') 
-#print(scpar) #reveal full list of StreamCat parameter names
+comids <- read_excel("TSS_COMIDs.xlsx") #output file from ref benchmarks script
+scpar <- StreamCatTools::sc_get_params(param = 'metric_names')
 
-comids <- data.frame(tss.all$COMID) #create dataframe containing all COMIDs from merged file
-#test.pull <- StreamCatTools::sc_get_data(metric = 'pctcrop2019', comid = 'comids', aoi = 'watershed')
 
-#travis method
-comid_narm <- na.omit(comids)
-comids_split <- split(comid_narm, ceiling(seq_along(comids)/750))
+comids_split <- split(comids, ceiling(seq_along(comids)/750))
+metrics_split <- split(scpar, ceiling(seq_along(scpar)/750))
 
-{
 streamcat <- purrr::map_dfr(comids_split, ~StreamCatTools::sc_get_data(comid = .,
-                                                                           metric = 'pctcrop2019', 
+                                                                           metric = .,
                                                                            showAreaSqKm = TRUE,
                                                                            aoi='catchment,watershed,other'))
 
-names(streamcat) <- base::toupper(names(streamcat))
-
-return(streamcat)
-}
 
 ```
+
+
+
+
 
 
 ```{r}
@@ -83,7 +83,7 @@ comids <- comids[!is.na(comids)]
 get_streamcat <- function(comids){
   
 comid_narm <- na.omit(comids)
-comids_split <- split(comid_narm, ceiling(seq_along(comids)/750))
+comids_split <- split(comid_narm, ceiling(seq_along(comids)/650))
 
 streamcat <- purrr::map_dfr(comids_split, ~StreamCatTools::sc_get_data(comid = .,
                                                                            metric = 'pctcrop2019',

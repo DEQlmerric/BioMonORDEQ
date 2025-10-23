@@ -53,18 +53,57 @@ tss.all <- inner_join(tss, ref_stations, by = "MLocID")
 
 ```{r}
 comids <- read_excel("TSS_COMIDs.xlsx") #output file from ref benchmarks script
-scpar <- StreamCatTools::sc_get_params(param = 'metric_names')
+
+scaoi <-StreamCatTools::sc_get_params(param = 'aoi') #make list of all sc aois
+print(paste0('Area of interest available parameters are: ', paste(scaoi, collapse = ', ')))
+
+scpar <- StreamCatTools::sc_get_params(param = 'metric_names') #make list of all sc metrics
+print(paste0('Parameters names are: ', paste(scpar, collapse = ', ')))
 
 
-comids_split <- split(comids, ceiling(seq_along(comids)/750))
-metrics_split <- split(scpar, ceiling(seq_along(scpar)/750))
+comids_split <- split(comids2, ceiling(seq_along(comids2)/750)) #this isn't really splitting them into chunks of 750 ???
+metrics_split <- split(scpar, ceiling(seq_along(scpar)/750)) #seems to work, as now have two lists, first one cutting off at 750
 
 streamcat <- purrr::map_dfr(comids_split, ~StreamCatTools::sc_get_data(comid = .,
-                                                                           metric = .,
+                                                                           metric = "all",
                                                                            showAreaSqKm = TRUE,
                                                                            aoi='catchment,watershed,other'))
 
 
+# single comid, all metrics, one aoi (can't handle all metrics and all aois)
+single <- StreamCatTools::sc_get_data(comid = '23648454', metric = 'all', showAreaSqKm = TRUE, aoi='catchment')
+
+
+
+myfunction <- function(comids, scaoi) {
+  comids <- read_excel("TSS_COMIDs.xlsx") #output file from ref benchmarks script
+  scaoi <-StreamCatTools::sc_get_params(param = 'aoi') #make list of all sc aois
+
+streamcat <- purrr::map_dfr(comids, scaoi, ~StreamCatTools::sc_get_data(comid = .,
+                                                                          metric = 'all',
+                                                                          showAreaSqKm = TRUE,
+                                                                          aoi = .))
+return(streamcat)
+}
+
+doit <- myfunction(comids = comids, scaoi = scaoi)
+
+
+
+
+for (i in comids) {
+ws <- StreamCatTools::sc_get_data(i, metric = 'all', showAreaSqKm = TRUE, aoi='watershed')
+}
+
+for (i in comids) {
+ca <- StreamCatTools::sc_get_data(i, metric = 'all', showAreaSqKm = TRUE, aoi='catchment')
+}
+
+for (i in comids) {
+ot <- StreamCatTools::sc_get_data(i, metric = 'all', showAreaSqKm = TRUE, aoi='other')
+}
+
+allmets <- left_join(ws, ca, by = "comid")
 ```
 
 

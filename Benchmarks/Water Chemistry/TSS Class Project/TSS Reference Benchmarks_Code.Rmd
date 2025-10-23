@@ -71,25 +71,28 @@ streamcat <- purrr::map_dfr(comids_split, ~StreamCatTools::sc_get_data(comid = .
 
 
 # single comid, all metrics, one aoi (can't handle all metrics and all aois)
-single <- StreamCatTools::sc_get_data(comid = '23648454', metric = 'all', showAreaSqKm = TRUE, aoi='catchment')
+test <- StreamCatTools::sc_get_data(comid = '23648454', metric = 'pctow2001', showAreaSqKm = TRUE, aoi='ws, cat')
 
+
+
+comids <- read_excel("TSS_COMIDs.xlsx") #output file from ref benchmarks script
+scaoi <-StreamCatTools::sc_get_params(param = 'aoi') #make list of all sc aois
 
 
 myfunction <- function(comids, scaoi) {
-  comids <- read_excel("TSS_COMIDs.xlsx") #output file from ref benchmarks script
-  scaoi <-StreamCatTools::sc_get_params(param = 'aoi') #make list of all sc aois
 
-streamcat <- purrr::map_dfr(comids, scaoi, ~StreamCatTools::sc_get_data(comid = .,
+
+streamcat <- purrr::map_dfr(comids, scaoi, ~StreamCatTools::sc_get_data(comid = comids,
                                                                           metric = 'all',
                                                                           showAreaSqKm = TRUE,
-                                                                          aoi = .))
+                                                                          aoi = scaoi))
 return(streamcat)
 }
 
 doit <- myfunction(comids = comids, scaoi = scaoi)
 
 
-
+#````````````````````````for loops
 
 for (i in comids) {
 ws <- StreamCatTools::sc_get_data(i, metric = 'all', showAreaSqKm = TRUE, aoi='watershed')
@@ -100,12 +103,51 @@ ca <- StreamCatTools::sc_get_data(i, metric = 'all', showAreaSqKm = TRUE, aoi='c
 }
 
 for (i in comids) {
-ot <- StreamCatTools::sc_get_data(i, metric = 'all', showAreaSqKm = TRUE, aoi='other')
+ot <- StreamCatTools::sc_get_data(i, metric = 'all', showAreaSqKm = TRUE, aoi='other') #times out for 'other' aoi
 }
 
-allmets <- left_join(ws, ca, by = "comid")
+allmets <- left_join(ws, ca, by = "comid") #join catchment and watershed
+
+
+core <- cor(allmets, method = "spearman")
+corews <- cor(ws, method = "spearman")
+
+look <- which(abs(corews) > .80 & abs(corews) < 1, arr.ind = T)
+
+
+
+#export full correl table into excel. conditional format >0.8, sort out.
+#lots of temp data highly correlated, decide which metric to use
+look <- corews[corews < abs(0.8) | corews == 1] <- ""
+look <- filter(core, array > abs(0.8))
+look <- filter_all(any_vars(abs(.) > 0.8))
+
+look <- core %>% 
+  select_if(is.numeric) %>% 
+  cor() %>% 
+  round(digits = 2) %>% 
+  as.data.frame() %>%
+  select_if(funs(all(abs(.) > 0.8)))
+
 ```
 
+```{r}
+
+usablemetrics <- subset full list of metrics by USE ==  "YES"
+
+if(type == "immutable area"){
+    
+
+
+    streamcat <- purrr::map_dfr(comids_split, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'TMAX8110,BFI,ELEV,clay,precip8110,mwst2008,mwst2009,mwst2013,mwst2014', 
+                                                                           showAreaSqKm = TRUE,
+                                                                           aoi='catchment,watershed,other'))
+    
+  }
+  
+  if(type == "disturbance wildfire"){
+```
 
 
 

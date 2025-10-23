@@ -30,7 +30,7 @@ library(lubridate)
 stations <- query_stations()
 ref_stations <- stations %>% 
   filter(ReferenceSite %in% c("REFERENCE" , "MODERATELY DISTURBED", "MOST DISTURBED")) %>% 
-  select(MLocID, COMID, ReferenceSite, OrgID)
+  select(MLocID, COMID, ReferenceSite, QC_Comm, OrgID)
 rm(stations)
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -134,6 +134,7 @@ chem.ref <- chem.ref %>%
                                      ifelse(Result_Operator == '<', Result_Numeric * 0.5, # Non-detects based on "<" prefix
                                             Result_Numeric))) %>%  # Otherwise provide value for standard result types 
   relocate(Result_Numeric_mod, .after = Result_Numeric)
+# Note 10/23: need to add code for exceedences. There are only 2 in the dataset (both Turbidity) so let's worry about this later.  -SB
 
 # IF WATER TEMP WAS REPORTED IN DEG F (why??), CONVERT TO DEG C
 chem.ref <- chem.ref %>% 
@@ -210,53 +211,72 @@ rm(list = c('TN', 'tn.nits', 'tn.nits.tkn', 'tn.tkn', 'tn1', 'tn2'))
 #write_xlsx(chem.ref.wq, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//chem_ref_wq_", Sys.Date(), ".xlsx"))
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
-# REMOVE SITES SAMPLED MORE THAN ONCE AND CREATE CAL AND VAL DATASETS
+# RANDOMLY SELECT ONE SITE FROM SITES THAT WERE SAMPLED MORE THAN ONCE, &
+# FROM SITES THAT SHARE A STREAM SEGMENT.  CREATE CAL AND VAL DATASETS.
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
-set.seed(42) # 
+set.seed(42) # If you run random functions (sample_n() in this case), this will give the same result on subsequent runs.
+# Don't change the integer or you will get a different result!  (Currently it's 42.)
 
-# Select one sample for sites that were sampled more than once.
-mult_samp <- chem.ref.wq %>% 
+#1 Randomly select one sample for sites that were sampled more than once per char.
+samp_mult_dates <- chem.ref.wq %>% 
   group_by(MLocID, Char_Name) %>% 
   filter(n()>1) %>% 
-  sample_n(1) 
+  sample_n(1) # randomly choose one sampling date  For most recent, try slice(which.max(SampleStartDate))
 
-# List sites that were sampled only one time
-single_samp <- chem.ref.wq %>% 
+  # List sites that were sampled only one time per char.
+samp_single_dates <- chem.ref.wq %>% 
   group_by(MLocID, Char_Name) %>% 
   filter(n()==1)
 
-# Join previous two tables together
-one_samp <- rbind(single_samp,mult_samp)
+  # Join previous two tables together
+samp_dates <- rbind(samp_single_dates,samp_mult_dates)
+
+#2  ELIMINATE SITES ON THE SAME STREAM SEGMENT 
+  # Randomly select one site for sites that share a Reachcode.
+reach_mult <- samp_dates %>%
+  group_by(Reachcode, Char_Name) %>%
+  filter(n()>1) %>% 
+  sample_n(1)
+
+  # List sites that have only one sample per stream segment.
+reach_single <- samp_dates %>%
+  group_by(Reachcode, Char_Name) %>%
+  filter(n()==1)
+
+  # Join the previous two tables together.
+chem.ref.wq_all <- rbind(reach_mult, reach_single)
+
+# Clear out intermediaries
+rm(list = c('samp_mult_dates', 'samp_single_dates', 'samp_dates', 'reach_mult', 'reach_single'))
 
 # FOR EACH CHAR
 # Calculate sample quantiles for each char
+chem.ref.wq_all <- chem.ref.wq_all %>% 
+  group_by(Char_Name, L3Eco) %>% 
+  mutate(
+    quantile_category = case_when(
+      Result_Numeric_mod < quantile(Result_Numeric_mod, probs = 0.25) ~ "Q1",
+      Result_Numeric_mod >= quantile(Result_Numeric_mod, probs = 0.25) & Result_Numeric_mod < quantile(Result_Numeric_mod, probs = 0.50) ~ "Q2",
+      Result_Numeric_mod >= quantile(Result_Numeric_mod, probs = 0.50) & Result_Numeric_mod < quantile(Result_Numeric_mod, probs = 0.75) ~ "Q3",
+      Result_Numeric_mod >= quantile(Result_Numeric_mod, probs = 0.75) ~ "Q4")
+    )
 
+write_xlsx(chem.ref.wq_all, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//chem_ref_wq_ALL", Sys.Date(), ".xlsx"))
 
-for (char in study_chars){
-one_samp <- one_samp %>% 
-  group_by(Char_Name) %>% 
-  paste0(Char_Name,"q")
-}
-  
+Cal_val <- chem.ref.wq_all %>% 
+  mutate(cal_val_group = paste0(quantile_category, "_", L3Eco, "_", Char_Name)) %>% 
+  group_by(cal_val_group) %>% 
+  mutate(cal_val = sample(c("CAL", "VAL"), size = n(), replace = TRUE)) %>%  
+  ungroup()
 
-#2  ELIMINATE SITES ON THE SAME STREAM SEGMENT 
-## This does not work yet!
-# chem.ref.wq.stream <- chem.ref.wq %>% 
-#   group_by(AU_ID) %>% 
-#   ungroup()
-#   slice(which.min(Measure)) %>% # Keep the more downstream site (0 = downstream, 100 = upstream)
-#   ungroup()
-# 
-# chem.ref.wq <- chem.ref.wq.stream # Turn this back into chem.ref.wq so you can run everything below here.
-
-#3  ONLY TAKE THE MOST RECENT SAMPLES IF A SITE WAS SAMPLED MORE THAN ONCE
-## SYB double check that this works!
-# chem.ref.wq.recent <- chem.ref.wq %>%
-#   group_by(MLocID, Char_Name) %>%
-#   slice(which.max(SampleStartDate)) %>%
-#   ungroup()
-# 
-# chem.ref.wq <- chem.ref.wq.recent # Turn this back into chem.ref.wq so you can run everything below here.
+cal_val_sum <- Cal_val %>% 
+  group_by(Char_Name, L3Eco, cal_val) %>% 
+  summarize(n.Samples = n(),
+            mean = mean(Result_Numeric_mod),
+          median = median(Result_Numeric_mod),
+          min = min(Result_Numeric_mod),
+          max = max(Result_Numeric_mod), 
+          sd = sd(Result_Numeric_mod))
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # SUMMARY TABLES

@@ -76,7 +76,7 @@ chem.ref <- anti_join(chem.ref, amb.stations, by = "MLocID")
 rm(amb)
 rm(amb.stations)
 
-# TRIM DATA TO LOW FLOW INDEX PERIOD (JUNE 1-OCTOBER 15)
+# TRIM DATA TO LOW FLOW INDEX PERIOD (JUNE 1-OCTOBER 15) and >=1997 ONLY
 #1: DATE TO DATE FORMAT
 chem.ref$SampleStartDate <- ymd(chem.ref$SampleStartDate)
 
@@ -215,7 +215,6 @@ rm(list = c('TN', 'tn.nits', 'tn.nits.tkn', 'tn.tkn', 'tn1', 'tn2'))
 # FROM SITES THAT SHARE A STREAM SEGMENT.  CREATE CAL AND VAL DATASETS.
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 set.seed(42) # If you run random functions (sample_n() in this case), this will give the same result on subsequent runs.
-# Don't change the integer or you will get a different result!  (Currently it's 42.)
 
 #1 Randomly select one sample for sites that were sampled more than once per char.
 samp_mult_dates <- chem.ref.wq %>% 
@@ -244,14 +243,14 @@ reach_single <- samp_dates %>%
   filter(n()==1)
 
   # Join the previous two tables together.
-chem.ref.wq_all <- rbind(reach_mult, reach_single)
+cal.val_chem.ref.wq <- rbind(reach_mult, reach_single)
 
 # Clear out intermediaries
 rm(list = c('samp_mult_dates', 'samp_single_dates', 'samp_dates', 'reach_mult', 'reach_single'))
 
 # FOR EACH CHAR
 # Calculate sample quantiles for each char
-chem.ref.wq_all <- chem.ref.wq_all %>% 
+cal.val_chem.ref.wq <- cal.val_chem.ref.wq %>% 
   group_by(Char_Name, L3Eco) %>% 
   mutate(
     quantile_category = case_when(
@@ -261,15 +260,15 @@ chem.ref.wq_all <- chem.ref.wq_all %>%
       Result_Numeric_mod >= quantile(Result_Numeric_mod, probs = 0.75) ~ "Q4")
     )
 
-write_xlsx(chem.ref.wq_all, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//chem_ref_wq_ALL", Sys.Date(), ".xlsx"))
+#write_xlsx(chem.ref.wq_all, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//chem_ref_wq_ALL", Sys.Date(), ".xlsx"))
 
-Cal_val <- chem.ref.wq_all %>% 
+cal.val_chem.ref.wq <- cal.val_chem.ref.wq %>% 
   mutate(cal_val_group = paste0(quantile_category, "_", L3Eco, "_", Char_Name)) %>% 
   group_by(cal_val_group) %>% 
-  mutate(cal_val = sample(c("CAL", "VAL"), size = n(), replace = TRUE)) %>%  
+  mutate(cal_val = sample(c("CAL", "VAL"), size = n(), replace = TRUE, prob = c(0.5, 0.5))) %>%  
   ungroup()
 
-cal_val_sum <- Cal_val %>% 
+cal_val_sum <- cal.val_chem.ref.wq %>% 
   group_by(Char_Name, L3Eco, cal_val) %>% 
   summarize(n.Samples = n(),
             mean = mean(Result_Numeric_mod),
@@ -278,6 +277,8 @@ cal_val_sum <- Cal_val %>%
           max = max(Result_Numeric_mod), 
           sd = sd(Result_Numeric_mod))
 
+# SYB Note 10/24/25 All maps, tables, and figures below are for all the water chem data. Figures for
+#   CAL/VAL coming soon.
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # SUMMARY TABLES
 #-----------------------------------------------------------------------------------------------------------------------------------------------------

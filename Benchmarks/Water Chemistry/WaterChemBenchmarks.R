@@ -248,6 +248,33 @@ cal.val_chem.ref.wq <- rbind(reach_mult, reach_single)
 # Clear out intermediaries
 rm(list = c('samp_mult_dates', 'samp_single_dates', 'samp_dates', 'reach_mult', 'reach_single'))
 
+# There are some sites where there is more than one COMID per reachcode.  We should randomly select
+# one of those sites to keep in the dataset (so we don't have different water chem results for the same set of predictors.)
+# HOWEVER there are some misidentified COMIDs in the dataset, so these will need to be screened for each parameter. 
+# Below are some manual edits FOR TSS ONLY.  Lackeys will need to revisit this for other parameters.
+
+# Delete this once Dan updates Stations.
+cal.val_chem.ref.wq <- cal.val_chem.ref.wq %>% 
+  mutate(COMID = ifelse(MLocID == '33492-ORDEQ', -99999, COMID)) %>% # Tour Creek
+  filter(COMID != '-99999') %>% # Drop this new one since we don't want -99999s.
+  mutate(COMID = ifelse(MLocID == '29942-ORDEQ', 23872091, COMID)) %>% # Rock Creek 2
+  mutate(COMID = ifelse(MLocID == '30345-ORDEQ', 24505034, COMID)) # Dog River
+
+# Sample 1 randomly from sites that have more than one COMID
+mult.comids <- cal.val_chem.ref.wq %>% 
+  group_by(Char_Name, COMID) %>% 
+  filter(n() > 1) %>% 
+  sample_n(1) #%>% 
+  #filter(Char_Name == 'Total suspended solids') # Look at this per each char and double-check COMIDs.
+
+# List all sites with just 1 COMID
+single.comids <- cal.val_chem.ref.wq %>% 
+  group_by(Char_Name, COMID) %>% 
+  filter(n() == 1)
+
+# Join the previous two tables together.
+cal.val_chem.ref.wq <- rbind(mult.comids, single.comids)
+
 # FOR EACH CHAR
 # Calculate sample quantiles for each char
 cal.val_chem.ref.wq <- cal.val_chem.ref.wq %>% 
@@ -276,6 +303,7 @@ cal_val_sum <- cal.val_chem.ref.wq %>%
           min = min(Result_Numeric_mod),
           max = max(Result_Numeric_mod), 
           sd = sd(Result_Numeric_mod))
+
 
 # SYB Note 10/24/25 All maps, tables, and figures below are for all the water chem data. Figures for
 #   CAL/VAL coming soon.
@@ -600,7 +628,3 @@ map_results(turb)
 # bugs_only <- semi_join(chem.ref.wq, bugs_sites, by = 'MLocID')
 # 
 # chem.ref.wq <- bugs_only # Turn this back into chem.ref.wq so you can run everything below here.
-
-metric_names <- sc_get_params(param = 'metric_names')
-metric_names.sub <- metric_names[1:35]
-test <- StreamCatTools::sc_get_data(unique(tss$COMID[1:200]), metric = metric_names.sub, showAreaSqKm = TRUE, aoi='watershed,other')

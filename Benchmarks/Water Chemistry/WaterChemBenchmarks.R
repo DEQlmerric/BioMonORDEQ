@@ -212,7 +212,7 @@ rm(list = c('TN', 'tn.nits', 'tn.nits.tkn', 'tn.tkn', 'tn1', 'tn2'))
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # RANDOMLY SELECT ONE SITE FROM SITES THAT WERE SAMPLED MORE THAN ONCE, &
-# FROM SITES THAT SHARE A STREAM SEGMENT.  CREATE CAL AND VAL DATASETS.
+# FROM SITES THAT SHARE A STREAM SEGMENT.  
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 set.seed(42) # If you run random functions (sample_n() in this case), this will give the same result on subsequent runs.
 
@@ -250,7 +250,7 @@ cal.val_chem.ref.wq <- rbind(reach_mult, reach_single)
 # one of those sites to keep in the dataset (so we don't have different water chem results for the same set of predictors.)
 # HOWEVER there are some misidentified COMIDs in the dataset, so these will need to be screened for each parameter. 
 
-# Below are some manual edits FOR TSS ONLY.  Lackeys will need to revisit this for other parameters.
+# Below are some manual edits, vetted FOR TSS ONLY.  Lackeys will need to revisit this for other parameters.
 # Delete this once Dan updates Stations.
 cal.val_chem.ref.wq <- cal.val_chem.ref.wq %>% 
   mutate(COMID = ifelse(MLocID == '33492-ORDEQ', -99999, COMID)) %>% # Tour Creek
@@ -275,7 +275,9 @@ cal.val_chem.ref.wq <- rbind(mult.comids, single.comids)
 
 # Clear out intermediaries
 rm(list = c('samp_mult_dates', 'samp_single_dates', 'samp_dates', 'reach_mult', 'reach_single', 'mult.comids', 'single.comids'))
-
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
+# CREATE CAL AND VAL DATASETS 
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
 # FOR EACH CHAR
 # Calculate sample quantiles for each char by L3 Ecoregion.
 cal.val_chem.ref.wq <- cal.val_chem.ref.wq %>% 
@@ -290,11 +292,20 @@ cal.val_chem.ref.wq <- cal.val_chem.ref.wq %>%
 
 #write_xlsx(chem.ref.wq_all, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//chem_ref_wq_ALL", Sys.Date(), ".xlsx"))
 
-cal.val_chem.ref.wq <- cal.val_chem.ref.wq %>% 
+# Randomly take half of samples and create CAL group
+cal_chem.ref.wq <- cal.val_chem.ref.wq %>% 
   mutate(cal_val_group = paste0(quantile_category, "_", L3Eco, "_", Char_Name)) %>% 
   group_by(cal_val_group) %>% 
-  mutate(cal_val = sample(c("CAL", "VAL"), size = n(), replace = TRUE, prob = c(0.5, 0.5))) %>%  
+  slice_sample(prop = 0.5) %>% 
+  mutate(cal_val = "CAL") %>% 
   ungroup()
+  
+# Take remaining samples and create VAL group  
+val_chem.ref.wq <- cal_chem.ref.wq[!cal_chem.ref.wq %in% cal.val_chem.ref.wq]
+val_chem.ref.wq <- val_chem.ref.wq %>% 
+  mutate(cal_val = "VAL")
+
+cal.val_chem.ref.wq <- rbind(cal_chem.ref.wq, val_chem.ref.wq)
 
 cal_val_sum <- cal.val_chem.ref.wq %>% 
   group_by(Char_Name, L3Eco, cal_val) %>% 

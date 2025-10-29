@@ -22,32 +22,32 @@ library(writexl)
 ## STATIONS/TSS - *FROM WATER CHEMISTRY BENCHMARKS SCRIPT*
 
 ```{r}
-#placeholder for pulling in all TSS data
+tss <- read_excel("TSS_10292025.xlsx") #output file from ref benchmarks script
 
-comids <- read_excel("C:/Users/athomps/Oregon/DEQ - Biomonitoring is Fun! - General/Env't Stats Class Project 2025/TSS_10282025.xlsx") #output file from ref benchmarks script used to pull StreamCat metrics
-comids <- comids %>% select(COMID) %>% distinct #select unique COMIDs
+comids <- tss %>% select(COMID) #get just the COMIDs for next step
 
+comids <- comids %>% select(COMID) %>% distinct #select unique COMIDs (number should match above)
 comids <- subset(comids,comids$COMID != "-99999") #don't include sites on high res sans COMID
 ```
 
 ## WATERSHED PREDICTOR VARIABLES - *FROM EPA STREAMCAT*
 
-#### Can search for predictors of interest here: <https://www.epa.gov/national-aquatic-resource-surveys/streamcat-metrics-and-definitions>
+#### Learn about StreamCat predictors here: <https://www.epa.gov/national-aquatic-resource-surveys/streamcat-metrics-and-definitions>
 
-#### Make table of StreamCat metric metadata and clean up in Excel
+#### Make table of StreamCat metadata and clean up in Excel
 
 ```{r}
-partable <- StreamCatTools::sc_get_metric_names() #supposedly best source for query-able metric names
-scpar <- StreamCatTools::sc_get_params(param = 'metric_names') #name mismatch error message suggests consulting this list
-write_xlsx(partable, path = "C:/Users/athomps/OneDrive - Oregon/Desktop/partable.xlsx") #saved as intermediate file, which moved to Teams and got cleaned up
+#partable <- StreamCatTools::sc_get_metric_names() #supposedly best source for query-able metric names
+#scpar <- StreamCatTools::sc_get_params(param = 'metric_names') #name mismatch error message suggests consulting this list
+#write_xlsx(partable, path = "C:/Users/athomps/OneDrive - Oregon/Desktop/partable.xlsx") #saved as intermediate file, which moved to Teams and got cleaned up
 
 kitty <- read_excel("C:/Users/athomps/Oregon/DEQ - Biomonitoring is Fun! - General/Env't Stats Class Project 2025/StreamCat/StreamCatMetrics_new.xlsx") #final metrics table
 
-keepers <- subset(kitty, kitty$`Use?`=='y') #keep only parameters of interest
-mets <- keepers[,5] #make data frame of keeper metric names capable of querying data
+#keepers <- subset(kitty, kitty$`Use?`=='y') #keep only parameters of interest
+#mets <- keepers[,5] #make data frame of keeper metric names capable of querying data
 ```
 
-#### Run function and pull StreamCat data by subcategory
+#### Run function to query StreamCat data by subcategory
 
 ```{r}
 #use this to test individual metrics (e.g., to ensure names match)
@@ -167,13 +167,17 @@ names(streamcat) <- base::toupper(names(streamcat))
 return(streamcat)
 }
 # FUNCTION - END  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+```
 
+#### Pull StreamCat data by subcategory and merge
+
+```{r}
 # PULL DATA BY SUBCATEGORY/TYPE
 ag <- get_streamcat(comids = comids, type = "Agriculture")
 clim <- get_streamcat(comids = comids, type = "Climate")
 dams <- get_streamcat(comids = comids, type = "Dams")
 flow <- get_streamcat(comids = comids, type = "Flow")
-iwi <- get_streamcat(comids = comids, type = "IWI") #except prg_bmmi0809
+iwi <- get_streamcat(comids = comids, type = "IWI") #except prg_bmmi0809 b/c it crashes API
 cover <- get_streamcat(comids = comids, type = "Land Cover")
 litho <- get_streamcat(comids = comids, type = "Lithology") 
 mintox <- get_streamcat(comids = comids, type = "Mining_Toxics")

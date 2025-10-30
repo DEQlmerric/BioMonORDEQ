@@ -143,7 +143,8 @@ chem.ref <- chem.ref %>%
 
 # GET RID OF SOME UNUSED COLUMNS FOR READABILITY. (Could get rid of more.)
 chem.ref <- chem.ref %>% 
-  select(!c(Project2, Project3, ResultCondName:stant_name, WQX_submit_date:res_last_change_date))
+  select(!c(Project2, Project3, act_id,Activity_Type, SampleStartTZ:chr_uid, Result_Text, URLType:URLUnit, Sample_Fraction:Result_UID, 
+            Unit_UID:Analytical_Lab, WQX_submit_date:res_last_change_date))
 
 # NARROW TABLE TO CHARS OF INTEREST ONLY (From StressorID Team: Temp, pH, DO, TP, TN, TSS, NH3) # AT, SH = do we want others included?
 study_chars = c("Temperature, water", "pH", "Dissolved oxygen (DO)", "Dissolved oxygen saturation", "Total Phosphorus, mixed forms", 
@@ -253,10 +254,10 @@ cal.val_chem.ref.wq <- rbind(reach_mult, reach_single)
 # Below are some manual edits, vetted FOR TSS ONLY.  Lackeys will need to revisit this for other parameters.
 # Delete this once Dan updates Stations.
 cal.val_chem.ref.wq <- cal.val_chem.ref.wq %>% 
-  mutate(COMID = ifelse(MLocID == '33492-ORDEQ', -99999, COMID)) %>% # Tour Creek
+  mutate(COMID = ifelse(MLocID == '12868-ORDEQ', -99999, COMID)) %>% # A-3 Channel.  Still need to ask Dan to update. Changed from 23764745.
   filter(COMID != '-99999') %>% # Drop this new one since we don't want -99999s.
-  mutate(COMID = ifelse(MLocID == '29942-ORDEQ', 23872091, COMID)) %>% # Rock Creek 2
-  mutate(COMID = ifelse(MLocID == '30345-ORDEQ', 24505034, COMID)) # Dog River
+  mutate(COMID = ifelse(MLocID == '33518-ORDEQ', 23815014, COMID)) %>%  # Miller Creek.  Still need to ask Dan to update.  Changed from 23815386.
+  mutate(COMID = ifelse(MLocID== '16999-ORDEQ',24515990, COMID )) # Fox Creek at FSR.  Still need to ask Dan to update. Changed from 24516234.
 
 # List sites that have more than one COMID.  Randomly sample 1 site to keep.
 mult.comids <- cal.val_chem.ref.wq %>% 
@@ -273,6 +274,9 @@ single.comids <- cal.val_chem.ref.wq %>%
 # Join the previous two tables together.
 cal.val_chem.ref.wq <- rbind(mult.comids, single.comids)
 
+# TSS save
+#write_xlsx(cal.val_chem.ref.wq[cal.val_chem.ref.wq$Char_Name == 'Total suspended solids',], path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//tss", Sys.Date(), ".xlsx"))
+
 # Clear out intermediaries
 rm(list = c('samp_mult_dates', 'samp_single_dates', 'samp_dates', 'reach_mult', 'reach_single', 'mult.comids', 'single.comids'))
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -287,85 +291,72 @@ cal.val_chem.ref.wq <- cal.val_chem.ref.wq %>%
       Result_Numeric_mod < quantile(Result_Numeric_mod, probs = 0.25) ~ "Q1",
       Result_Numeric_mod >= quantile(Result_Numeric_mod, probs = 0.25) & Result_Numeric_mod < quantile(Result_Numeric_mod, probs = 0.50) ~ "Q2",
       Result_Numeric_mod >= quantile(Result_Numeric_mod, probs = 0.50) & Result_Numeric_mod < quantile(Result_Numeric_mod, probs = 0.75) ~ "Q3",
-      Result_Numeric_mod >= quantile(Result_Numeric_mod, probs = 0.75) ~ "Q4")
-    )
+      Result_Numeric_mod >= quantile(Result_Numeric_mod, probs = 0.75) ~ "Q4")) %>% 
+  mutate(cal_val_group = paste0(quantile_category, "_", L3Eco, "_", Char_Name))
 
-#write_xlsx(chem.ref.wq_all, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//chem_ref_wq_ALL", Sys.Date(), ".xlsx"))
+set.seed(42) # If you run random functions (sample_n() in this case), this will give the same result on subsequent runs.
+# Randomly take half of samples and create CAL group.
+# Note:  Group sizes are not exactly equal. slice_sample uses 'floor' to round, which means that When specifying the proportion of rows to include 
+#   non-integer sizes are rounded down, so group a gets 0 rows.  In this case VAL has more rows than CAL.    
 
-# Randomly take half of samples and create CAL group
 cal_chem.ref.wq <- cal.val_chem.ref.wq %>% 
-  mutate(cal_val_group = paste0(quantile_category, "_", L3Eco, "_", Char_Name)) %>% 
   group_by(cal_val_group) %>% 
-  slice_sample(prop = 0.5) %>% 
-  mutate(cal_val = "CAL") %>% 
+  slice_sample(prop=0.5, replace = FALSE) %>% 
   ungroup()
-  
-# Take remaining samples and create VAL group  
-val_chem.ref.wq <- cal_chem.ref.wq[!cal_chem.ref.wq %in% cal.val_chem.ref.wq]
-val_chem.ref.wq <- val_chem.ref.wq %>% 
-  mutate(cal_val = "VAL")
 
+# Take remaining samples and create VAL group  
+val_chem.ref.wq <- setdiff(cal.val_chem.ref.wq, cal_chem.ref.wq)
+
+#Label groups 
+val_chem.ref.wq <- val_chem.ref.wq %>% 
+  mutate(cal_val = 'VAL')
+cal_chem.ref.wq <- cal_chem.ref.wq %>% 
+  mutate(cal_val = 'CAL')
+
+# Combine the previous two tables.
 cal.val_chem.ref.wq <- rbind(cal_chem.ref.wq, val_chem.ref.wq)
 
-cal_val_sum <- cal.val_chem.ref.wq %>% 
-  group_by(Char_Name, L3Eco, cal_val) %>% 
-  summarize(n.Samples = n(),
-            mean = mean(Result_Numeric_mod),
-          median = median(Result_Numeric_mod),
-          min = min(Result_Numeric_mod),
-          max = max(Result_Numeric_mod), 
-          sd = sd(Result_Numeric_mod))
-
-# SYB Note 10/24/25 All maps, tables, and figures below are for all the water chem data. Figures for
-#   CAL/VAL coming soon.
+#write_xlsx(cal.val_chem.ref.wq, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//cal.val_chem.ref.wq", Sys.Date(), ".xlsx"))
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
-# SUMMARY TABLES
+# SUMMARY TABLES, FIGURES
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
-#SUMMARIZE PARAMETERS AND DATES FOR EACH STATION
-  #Know for each site which parameters were collected and when (min/max date)
-  #Don't want to develop a parameter benchmark if bad geographic coverage
-  #Look in bug metrics code in BiomonR for examples of Tidy ways.
-
 #1: BY PARAMETER
-sum.param <- chem.ref.wq %>%
-  group_by(Char_Name) %>%
+
+sum.param <- cal.val_chem.ref.wq %>%
+  group_by(Char_Name, cal_val) %>%
   summarise(n.Samples = n(),
             minDate = min(SampleStartDate),
             maxDate = max(SampleStartDate))
 
 view(sum.param)
-  
-#2: BY SITE AND PARAMETER
-sum.site <- chem.ref.wq %>%
-  group_by(MLocID, StationDes, Char_Name, ReferenceSite) %>%
-  summarise(n.Samples = n(),
-            minDate = min(SampleStartDate),
-            maxDate = max(SampleStartDate))
 
-#3: BY PARAMETER, REFERENCE STATUS
-sum.ref <- chem.ref.wq %>%
-  group_by(Char_Name, ReferenceSite) %>%
+#2: BY PARAMETER, REFERENCE STATUS
+sum.ref <- cal.val_chem.ref.wq %>%
+  group_by(Char_Name, ReferenceSite, cal_val) %>%
   summarise(n.Samples = n(),
             minDate = min(SampleStartDate),
             maxDate = max(SampleStartDate))
 view(sum.ref)
 
-ggplot(sum.ref, aes(fill = ReferenceSite, x = Char_Name, y = n.Samples)) +
-  geom_col(position = "dodge") +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+ggplot(sum.ref, aes(x = ReferenceSite, y = n.Samples, fill = cal_val)) +
+  geom_bar(position = "dodge", stat = "identity") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) + facet_wrap(~Char_Name)
 
-
-  #4: BY PARAMETER, REFERENCE STATUS, AND ECOREGION LEVEL 3
-sum.eco <- chem.ref.wq %>%
-  group_by(L3Eco, ReferenceSite, Char_Name) %>%
+  #3: BY PARAMETER, REFERENCE STATUS, AND ECOREGION LEVEL 3
+sum.eco <- cal.val_chem.ref.wq %>%
+  group_by(L3Eco, ReferenceSite, Char_Name, cal_val) %>%
   summarise(n.Samples = n(),
             minDate = min(SampleStartDate),
             maxDate = max(SampleStartDate))
 
 view(sum.eco)
 
-  #5: BY YEAR AND PARAMETER
-sum.year <- chem.ref.wq %>% 
+ggplot(sum.eco, aes(x = ReferenceSite, y = n.Samples, fill = cal_val)) +
+  geom_bar(position = "dodge", stat = "identity") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) + facet_wrap(~L3Eco)
+
+  #4: BY YEAR AND PARAMETER
+sum.year <- cal.val_chem.ref.wq %>% 
   group_by(Year = (year(SampleStartDate)), Char_Name) %>% 
   summarise(n.Samples = n())
 view(sum.year)
@@ -373,35 +364,29 @@ view(sum.year)
 ggplot(sum.year, aes(x = Year, y = n.Samples, fill = Char_Name)) +
   geom_bar(position = "dodge", stat = "identity") +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
-  xlim(1990, 2025) # There are some before 1990, but only a handful and they make the plot unreadable.
-# Q: What happened to other sample types after 2010??
+  xlim(1995, 2025) 
 
- #6: HOW MANY TIMES WAS A SITE VISITED?
-sum.visits <- chem.ref.wq %>% 
-  group_by(MLocID) %>% 
-  summarise(num_visits = n_distinct(SampleStartDate))
-view(sum.visits)
-
-#7: HOW MANY PARAMS PER SITE?
-sum.chars <- chem.ref.wq %>% 
+#5: HOW MANY PARAMS PER SITE?
+sum.chars <- cal.val_chem.ref.wq %>% 
   group_by(MLocID) %>% 
   summarise(n.chars = n_distinct(Char_Name))
 view(sum.chars)
 
-#8: SUMMARY STATS BY ECOREGION
-sum.stats <- chem.ref.wq %>% 
-  group_by(L3Eco, Char_Name) %>% 
-  summarize(mean = mean(Result_Numeric_mod),
+#6: SUMMARY STATS BY ECOREGION
+sum.stats <- cal.val_chem.ref.wq %>% 
+  group_by(Char_Name, L3Eco, cal_val) %>% 
+  summarize(n.Samples = n(),
+            mean = mean(Result_Numeric_mod),
             median = median(Result_Numeric_mod),
             min = min(Result_Numeric_mod),
             max = max(Result_Numeric_mod), 
-            sd = sd(Result_Numeric_mod),
-            count = n())
+            sd = sd(Result_Numeric_mod))
+
 view(sum.stats)
 
 #9: SUMMARY STATS BY ECOREGION AND REF STATUS
-sum.stats.ref <- chem.ref.wq %>% 
-  group_by(L3Eco, ReferenceSite, Char_Name) %>% 
+sum.stats.ref <- cal.val_chem.ref.wq %>% 
+  group_by(L3Eco, ReferenceSite, Char_Name, cal_val) %>% 
   summarize(mean = mean(Result_Numeric_mod),
             median = median(Result_Numeric_mod),
             min = min(Result_Numeric_mod),
@@ -410,38 +395,41 @@ sum.stats.ref <- chem.ref.wq %>%
             count = n())
 view(sum.stats.ref)
 
-  # Export to Excel if wanting to explore more via data filters
-#write.xlsx(sum.eco, file = "Benchmarks/Water Chemistry/summary_by_param_eco.xlsx")
+# TSS only
+ggplot(cal.val_chem.ref.wq[cal.val_chem.ref.wq$Char_Name == 'Total suspended solids',], aes(x = Result_Numeric_mod, fill = cal_val)) +
+  geom_histogram(alpha = 0.6, position = "identity", bins = 10) + facet_wrap(~L3Eco) + scale_x_log10() +
+  labs(x = "TSS mg/L (log scale x)", y = "Count")
 
 # MAP
 
 # Single dot for each reference site with water chemistry data (site may have been sampled multiple times):
 labs <- c("Reference", "Moderately disturbed", "Most disturbed")
 gry <- c("#1d9633", "#ff9100", "#e00707")
-refpal <- colorFactor(gry, domain = chem.ref.wq$ReferenceSite)
+refpal <- colorFactor(gry, domain = cal.val_chem.ref.wq$ReferenceSite)
 
-refmap <- leaflet(data = chem.ref.wq) %>%
+refmap <- leaflet(data = cal.val_chem.ref.wq) %>%
   addProviderTiles("OpenStreetMap", group = "Basic Map") %>% 
   addProviderTiles(providers$Esri.WorldTopoMap, group = "Terrain") %>%
   addLayersControl(
     baseGroups = c("Basic Map", "Terrain"),
+    overlayGroups = c("REFERENCE", "MODERATELY DISTURBED", "MOST DISTURBED"),
     options = layersControlOptions(collapsed = FALSE)) %>% 
   setView(lng = -120.5583, lat =44.0671, zoom =6.4) %>%
-  addCircleMarkers(lng = ~Long_DD, lat = ~Lat_DD, fillColor = refpal(chem.ref.wq$ReferenceSite), stroke = TRUE,
+  addCircleMarkers(lng = ~Long_DD, lat = ~Lat_DD, group = ~ReferenceSite, fillColor = refpal(cal.val_chem.ref.wq$ReferenceSite), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
-                   popup = paste0("<strong>", "MLocID: ","</strong>", chem.ref.wq$MLocID, "<br>",
-                                  "<strong>", "Station Description: ", "</strong>", chem.ref.wq$StationDes, "<br>",
-                                  "<strong>", "Level 3 Ecoregion: ", "</strong>", chem.ref.wq$L3Eco, "<br>",
-                                  "<strong>", "Reference Status: ", "</strong>", chem.ref.wq$ReferenceSite, "<br>")) %>% 
+                   popup = paste0("<strong>", "MLocID: ","</strong>", cal.val_chem.ref.wq$MLocID, "<br>",
+                                  "<strong>", "Station Description: ", "</strong>", cal.val_chem.ref.wq$StationDes, "<br>",
+                                  "<strong>", "Level 3 Ecoregion: ", "</strong>", cal.val_chem.ref.wq$L3Eco, "<br>",
+                                  "<strong>", "Reference Status: ", "</strong>", cal.val_chem.ref.wq$ReferenceSite, "<br>")) %>% 
   addLegend(colors = gry, labels = labs,position = "bottomright",
-            title = paste0("Sites with WQ & a reference designation<br>N = ",length(unique(chem.ref.wq$MLocID)), " unique MLocIDs"), opacity = 1)
+            title = paste0("Sites with WQ & a reference designation<br>N = ",length(unique(cal.val_chem.ref.wq$MLocID)), " unique MLocIDs"), opacity = 1)
 refmap # Print map
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # PLOTS AND MAPS BY INDIVIDUAL CHARS:
 # BOX PLOT FUNCTION
-boxp <- function(data, x, y) {
-  ggplot(data, aes(x = {{x}},y = {{y}})) +
+boxp <- function(data, x, y, fill) {
+  ggplot(data, aes(x = {{x}},y = {{y}}, fill = {{fill}})) +
     geom_boxplot(outlier.size = 0.9) +
     facet_grid(~L3Eco, labeller = label_wrap_gen(width = 18)) +
     labs(x = "Reference Status", y = c(paste(data$Char_Name, "(",data$Result_Unit,")"))) + #automatic axis labeling
@@ -475,98 +463,98 @@ map_results <- function(data) {
 # Note for maps:  Grey circle = high outlier (beyond Q3 + 1.5IQR).
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # AMMONIA (Plot = y axis log scaled.  Map = High outliers plot as grey circles.)
-NH3 <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Ammonia")
-boxp(NH3, ReferenceSite, Result_Numeric_mod) +scale_y_log10() +labs(subtitle = '* log scale y-axis')
+NH3 <- subset(cal.val_chem.ref.wq, cal.val_chem.ref.wq$Char_Name == "Ammonia")
+boxp(NH3, ReferenceSite, Result_Numeric_mod, cal_val) +scale_y_log10() +labs(subtitle = '* log scale y-axis')
 
 pal <- colorNumeric(palette = "Oranges",
   domain = c(0, (quantile(NH3$Result_Numeric_mod, 0.75)) + 1.5 * IQR(NH3$Result_Numeric_mod)))
 map_results(NH3) 
 
 # CHLORIDE (Plot = y axis log scaled.  Map = High outliers plot as grey circles.)
-chlor <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Chloride")
-boxp(chlor, ReferenceSite, Result_Numeric_mod) +scale_y_log10() +labs(subtitle = '* log scale y-axis')
+chlor <- subset(cal.val_chem.ref.wq, cal.val_chem.ref.wq$Char_Name == "Chloride")
+boxp(chlor, ReferenceSite, Result_Numeric_mod, cal_val) +scale_y_log10() +labs(subtitle = '* log scale y-axis')
 
 pal <- colorNumeric(palette = "PuBu",
   domain = c(0, (quantile(chlor$Result_Numeric_mod, 0.75)) + 1.5 * IQR(chlor$Result_Numeric_mod)))
 map_results(chlor) 
 
 # CONDUCTIVITY (Plot = y axis log scaled.  Map = High outliers plot as grey circles.)
-cond <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Conductivity")
-boxp(cond, ReferenceSite, Result_Numeric_mod) +scale_y_log10() +labs(subtitle = '* log scale y-axis')
+cond <- subset(cal.val_chem.ref.wq, cal.val_chem.ref.wq$Char_Name == "Conductivity")
+boxp(cond, ReferenceSite, Result_Numeric_mod, cal_val) +scale_y_log10() +labs(subtitle = '* log scale y-axis')
 
 pal <- colorNumeric(palette = "Greens", 
   domain = c(0, (quantile(cond$Result_Numeric_mod, 0.75)) + 1.5 * IQR(cond$Result_Numeric_mod)))
 map_results(cond) 
 
 # DO mg
-DO_mg <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Dissolved oxygen (DO)")
-boxp(DO_mg, ReferenceSite, Result_Numeric_mod) 
+DO_mg <- subset(cal.val_chem.ref.wq, cal.val_chem.ref.wq$Char_Name == "Dissolved oxygen (DO)")
+boxp(DO_mg, ReferenceSite, Result_Numeric_mod, cal_val) 
 
 pal <- colorNumeric(palette = "Purples", domain = NULL) 
 map_results(DO_mg) 
 
 # DO percent
-DO_sat <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Dissolved oxygen saturation")
-boxp(DO_sat, ReferenceSite, Result_Numeric_mod) 
+DO_sat <- subset(cal.val_chem.ref.wq, cal.val_chem.ref.wq$Char_Name == "Dissolved oxygen saturation")
+boxp(DO_sat, ReferenceSite, Result_Numeric_mod, cal_val) 
 
 pal <- colorNumeric(palette = "BuPu", domain =  NULL )
 map_results(DO_sat) 
 
 # SULFATE (Plot = y axis log scaled.  Map = High outliers plot as grey circles.)
-SO4 <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Sulfate")
-boxp(SO4, ReferenceSite, Result_Numeric_mod) +scale_y_log10() +labs(subtitle = '* log scale y-axis')
+SO4 <- subset(cal.val_chem.ref.wq, cal.val_chem.ref.wq$Char_Name == "Sulfate")
+boxp(SO4, ReferenceSite, Result_Numeric_mod, cal_val) +scale_y_log10() +labs(subtitle = '* log scale y-axis')
 
 pal <- colorNumeric(palette = "Oranges", 
   domain = c(0, (quantile(SO4$Result_Numeric_mod, 0.75)) + 1.5 * IQR(SO4$Result_Numeric_mod)))
 map_results(SO4) 
 
 # TOTAL NITROGEN (Plot = y axis log scaled.  Map = High outliers plot as grey circles.)
-TN <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Nitrogen")
-boxp(TN, ReferenceSite, Result_Numeric_mod) +scale_y_log10() +labs(subtitle = '* log scale y-axis')
+TN <- subset(cal.val_chem.ref.wq, cal.val_chem.ref.wq$Char_Name == "Nitrogen")
+boxp(TN, ReferenceSite, Result_Numeric_mod, cal_val) +scale_y_log10() +labs(subtitle = '* log scale y-axis')
 
 pal <- colorNumeric(palette = "Greens", domain = c(0, (quantile(TN$Result_Numeric_mod, 0.75)) + 1.5 * IQR(TN$Result_Numeric_mod)))
 map_results(TN) 
 
 # pH
-pH <- subset(chem.ref.wq, chem.ref.wq$Char_Name == 'pH')
-boxp(pH, ReferenceSite, Result_Numeric_mod)
+pH <- subset(cal.val_chem.ref.wq, cal.val_chem.ref.wq$Char_Name == 'pH')
+boxp(pH, ReferenceSite, Result_Numeric_mod, cal_val)
 
 pal <- colorNumeric(palette = "RdYlBu", domain = NULL)
 map_results(pH) 
 
 # TOTAL PHOSPHORUS (Plot = y axis log scaled.  Map = High outliers plot as grey circles.)
-TP <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Total Phosphorus, mixed forms")
-boxp(TP, ReferenceSite, Result_Numeric_mod) +scale_y_log10() +labs(subtitle = '* log scale y-axis')
+TP <- subset(cal.val_chem.ref.wq, cal.val_chem.ref.wq$Char_Name == "Total Phosphorus, mixed forms")
+boxp(TP, ReferenceSite, Result_Numeric_mod, cal_val) +scale_y_log10() +labs(subtitle = '* log scale y-axis')
 
 pal <- colorNumeric(palette = "Reds", domain = c(0, (quantile(TP$Result_Numeric_mod, 0.75)) + 1.5 * IQR(TP$Result_Numeric_mod)))
 map_results(TP) 
 
 # TEMPERATURE
-Temp <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Temperature, water")
-boxp(Temp, ReferenceSite, Result_Numeric_mod) 
+Temp <- subset(cal.val_chem.ref.wq, cal.val_chem.ref.wq$Char_Name == "Temperature, water")
+boxp(Temp, ReferenceSite, Result_Numeric_mod, cal_val) 
 
 pal <- colorNumeric(palette = "Blues", domain = NULL)
 map_results(Temp) 
 
 # TOTAL SOLIDS (Plot = y axis log scaled.  Map = High outliers plot as grey circles.)
-ts <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Total solids")
-boxp(ts, ReferenceSite, Result_Numeric_mod) +scale_y_log10() +labs(subtitle = '* log scale y-axis')
+ts <- subset(cal.val_chem.ref.wq, cal.val_chem.ref.wq$Char_Name == "Total solids")
+boxp(ts, ReferenceSite, Result_Numeric_mod, cal_val) +scale_y_log10() +labs(subtitle = '* log scale y-axis')
 
 pal <- colorNumeric(palette = "RdPu",
   domain = c(0, (quantile(ts$Result_Numeric_mod, 0.75)) + 1.5 * IQR(ts$Result_Numeric_mod)))
 map_results(ts)
 
 # TSS (Plot = y axis log scaled.  Map = High outliers plot as grey circles.)
-tss <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Total suspended solids")
-boxp(tss, ReferenceSite, Result_Numeric_mod) +scale_y_log10() +labs(subtitle = '* log scale y-axis')
+tss <- subset(cal.val_chem.ref.wq, cal.val_chem.ref.wq$Char_Name == "Total suspended solids")
+boxp(tss, ReferenceSite, Result_Numeric_mod, cal_val) +scale_y_log10() +labs(subtitle = '* log scale y-axis')
 
 pal <- colorNumeric(palette = "PuRd",
   domain = c(0, (quantile(tss$Result_Numeric_mod, 0.75)) + 1.5 * IQR(tss$Result_Numeric_mod)))
 map_results(tss)
 
 # TURBIDITY (field) (Plot = y axis log scaled.  Map = High outliers plot as grey circles.)
-turb <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Turbidity Field")
-boxp(turb, ReferenceSite, Result_Numeric_mod) +scale_y_log10() +labs(subtitle = '* log scale y-axis')
+turb <- subset(cal.val_chem.ref.wq, cal.val_chem.ref.wq$Char_Name == "Turbidity Field")
+boxp(turb, ReferenceSite, Result_Numeric_mod, cal_val) +scale_y_log10() +labs(subtitle = '* log scale y-axis')
 
 pal <- colorNumeric(palette = "YlOrBr", 
   domain = c(0, (quantile(turb$Result_Numeric_mod, 0.75)) + 1.5 * IQR(turb$Result_Numeric_mod)))
@@ -639,3 +627,262 @@ map_results(turb)
 # bugs_only <- semi_join(chem.ref.wq, bugs_sites, by = 'MLocID')
 # 
 # chem.ref.wq <- bugs_only # Turn this back into chem.ref.wq so you can run everything below here.
+
+# #-----------------------------------------------------------------------------------------------------------------------------------------------------
+# # SUMMARY TABLES - for all samples, including dupe reachcode and n()>1
+# #-----------------------------------------------------------------------------------------------------------------------------------------------------
+# #SUMMARIZE PARAMETERS AND DATES FOR EACH STATION
+# #Know for each site which parameters were collected and when (min/max date)
+# #Don't want to develop a parameter benchmark if bad geographic coverage
+# #Look in bug metrics code in BiomonR for examples of Tidy ways.
+# 
+# #1: BY PARAMETER
+# sum.param <- chem.ref.wq %>%
+#   group_by(Char_Name) %>%
+#   summarise(n.Samples = n(),
+#             minDate = min(SampleStartDate),
+#             maxDate = max(SampleStartDate))
+# 
+# view(sum.param)
+# 
+# #2: BY SITE AND PARAMETER
+# sum.site <- chem.ref.wq %>%
+#   group_by(MLocID, StationDes, Char_Name, ReferenceSite) %>%
+#   summarise(n.Samples = n(),
+#             minDate = min(SampleStartDate),
+#             maxDate = max(SampleStartDate))
+# 
+# #3: BY PARAMETER, REFERENCE STATUS
+# sum.ref <- chem.ref.wq %>%
+#   group_by(Char_Name, ReferenceSite) %>%
+#   summarise(n.Samples = n(),
+#             minDate = min(SampleStartDate),
+#             maxDate = max(SampleStartDate))
+# view(sum.ref)
+# 
+# ggplot(sum.ref, aes(fill = ReferenceSite, x = Char_Name, y = n.Samples)) +
+#   geom_col(position = "dodge") +
+#   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+# 
+# 
+# #4: BY PARAMETER, REFERENCE STATUS, AND ECOREGION LEVEL 3
+# sum.eco <- chem.ref.wq %>%
+#   group_by(L3Eco, ReferenceSite, Char_Name) %>%
+#   summarise(n.Samples = n(),
+#             minDate = min(SampleStartDate),
+#             maxDate = max(SampleStartDate))
+# 
+# view(sum.eco)
+# 
+# #5: BY YEAR AND PARAMETER
+# sum.year <- chem.ref.wq %>% 
+#   group_by(Year = (year(SampleStartDate)), Char_Name) %>% 
+#   summarise(n.Samples = n())
+# view(sum.year)
+# 
+# ggplot(sum.year, aes(x = Year, y = n.Samples, fill = Char_Name)) +
+#   geom_bar(position = "dodge", stat = "identity") +
+#   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+#   xlim(1990, 2025) # There are some before 1990, but only a handful and they make the plot unreadable.
+# # Q: What happened to other sample types after 2010??
+# 
+# #6: HOW MANY TIMES WAS A SITE VISITED?
+# sum.visits <- chem.ref.wq %>% 
+#   group_by(MLocID) %>% 
+#   summarise(num_visits = n_distinct(SampleStartDate))
+# view(sum.visits)
+# 
+# #7: HOW MANY PARAMS PER SITE?
+# sum.chars <- chem.ref.wq %>% 
+#   group_by(MLocID) %>% 
+#   summarise(n.chars = n_distinct(Char_Name))
+# view(sum.chars)
+# 
+# #8: SUMMARY STATS BY ECOREGION
+# sum.stats <- chem.ref.wq %>% 
+#   group_by(L3Eco, Char_Name) %>% 
+#   summarize(mean = mean(Result_Numeric_mod),
+#             median = median(Result_Numeric_mod),
+#             min = min(Result_Numeric_mod),
+#             max = max(Result_Numeric_mod), 
+#             sd = sd(Result_Numeric_mod),
+#             count = n())
+# view(sum.stats)
+# 
+# #9: SUMMARY STATS BY ECOREGION AND REF STATUS
+# sum.stats.ref <- chem.ref.wq %>% 
+#   group_by(L3Eco, ReferenceSite, Char_Name) %>% 
+#   summarize(mean = mean(Result_Numeric_mod),
+#             median = median(Result_Numeric_mod),
+#             min = min(Result_Numeric_mod),
+#             max = max(Result_Numeric_mod), 
+#             sd = sd(Result_Numeric_mod),
+#             count = n())
+# view(sum.stats.ref)
+# 
+# # Export to Excel if wanting to explore more via data filters
+# #write.xlsx(sum.eco, file = "Benchmarks/Water Chemistry/summary_by_param_eco.xlsx")
+# 
+# # MAP
+# 
+# # Single dot for each reference site with water chemistry data (site may have been sampled multiple times):
+# labs <- c("Reference", "Moderately disturbed", "Most disturbed")
+# gry <- c("#1d9633", "#ff9100", "#e00707")
+# refpal <- colorFactor(gry, domain = chem.ref.wq$ReferenceSite)
+# 
+# refmap <- leaflet(data = chem.ref.wq) %>%
+#   addProviderTiles("OpenStreetMap", group = "Basic Map") %>% 
+#   addProviderTiles(providers$Esri.WorldTopoMap, group = "Terrain") %>%
+#   addLayersControl(
+#     baseGroups = c("Basic Map", "Terrain"),
+#     options = layersControlOptions(collapsed = FALSE)) %>% 
+#   setView(lng = -120.5583, lat =44.0671, zoom =6.4) %>%
+#   addCircleMarkers(lng = ~Long_DD, lat = ~Lat_DD, fillColor = refpal(chem.ref.wq$ReferenceSite), stroke = TRUE,
+#                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
+#                    popup = paste0("<strong>", "MLocID: ","</strong>", chem.ref.wq$MLocID, "<br>",
+#                                   "<strong>", "Station Description: ", "</strong>", chem.ref.wq$StationDes, "<br>",
+#                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", chem.ref.wq$L3Eco, "<br>",
+#                                   "<strong>", "Reference Status: ", "</strong>", chem.ref.wq$ReferenceSite, "<br>")) %>% 
+#   addLegend(colors = gry, labels = labs,position = "bottomright",
+#             title = paste0("Sites with WQ & a reference designation<br>N = ",length(unique(chem.ref.wq$MLocID)), " unique MLocIDs"), opacity = 1)
+# refmap # Print map
+# 
+# #-----------------------------------------------------------------------------------------------------------------------------------------------------
+# # PLOTS AND MAPS BY INDIVIDUAL CHARS:
+# # BOX PLOT FUNCTION
+# boxp <- function(data, x, y) {
+#   ggplot(data, aes(x = {{x}},y = {{y}})) +
+#     geom_boxplot(outlier.size = 0.9) +
+#     facet_grid(~L3Eco, labeller = label_wrap_gen(width = 18)) +
+#     labs(x = "Reference Status", y = c(paste(data$Char_Name, "(",data$Result_Unit,")"))) + #automatic axis labeling
+#     #geom_hline(yintercept = data$MRLValue, linetype = "dashed", color = "red") + #MRL horizontal reference line
+#     theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+# }
+# 
+# #MAP RESULTS FUNCTION
+# map_results <- function(data) {
+#   leaflet() %>%
+#     addProviderTiles("OpenStreetMap", group = "Basic Map") %>% 
+#     addProviderTiles(providers$Esri.WorldTopoMap, group = "Terrain") %>%
+#     setView(lng = -120.5583, lat =44.0671, zoom =6.4) %>%
+#     addCircleMarkers(data = data, group = ~ReferenceSite, lng = ~(jitter(data$Long_DD, factor = 0.5)), 
+#                      lat = ~jitter(data$Lat_DD, 0.5), fillColor = pal(data$Result_Numeric_mod), stroke = TRUE,
+#                      color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
+#                      popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
+#                                     "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
+#                                     "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
+#                                     "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
+#                                     "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
+#                                     "<strong>", data$Char_Name, ": ", "</strong>", data$Result_Numeric_mod, " ", data$Result_Unit))  %>% 
+#     addLayersControl(
+#       baseGroups = c("Basic Map", "Terrain"),
+#       overlayGroups = c("REFERENCE", "MODERATELY DISTURBED", "MOST DISTURBED"),
+#       options = layersControlOptions(collapsed = FALSE)) %>% 
+#     addLegend(pal = pal,values = data$Result_Numeric_mod[data$Result_Numeric_mod <= (quantile(data$Result_Numeric_mod, 0.75) + 1.5 * 
+#                                                                                        IQR(data$Result_Numeric_mod))], position = "bottomright" ,title = paste0(data$Char_Name[1], " (" , data$Result_Unit[1], ")"))
+# }
+# 
+# # Note for maps:  Grey circle = high outlier (beyond Q3 + 1.5IQR).
+# #-----------------------------------------------------------------------------------------------------------------------------------------------------
+# # AMMONIA (Plot = y axis log scaled.  Map = High outliers plot as grey circles.)
+# NH3 <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Ammonia")
+# boxp(NH3, ReferenceSite, Result_Numeric_mod) +scale_y_log10() +labs(subtitle = '* log scale y-axis')
+# 
+# pal <- colorNumeric(palette = "Oranges",
+#                     domain = c(0, (quantile(NH3$Result_Numeric_mod, 0.75)) + 1.5 * IQR(NH3$Result_Numeric_mod)))
+# map_results(NH3) 
+# 
+# # CHLORIDE (Plot = y axis log scaled.  Map = High outliers plot as grey circles.)
+# chlor <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Chloride")
+# boxp(chlor, ReferenceSite, Result_Numeric_mod) +scale_y_log10() +labs(subtitle = '* log scale y-axis')
+# 
+# pal <- colorNumeric(palette = "PuBu",
+#                     domain = c(0, (quantile(chlor$Result_Numeric_mod, 0.75)) + 1.5 * IQR(chlor$Result_Numeric_mod)))
+# map_results(chlor) 
+# 
+# # CONDUCTIVITY (Plot = y axis log scaled.  Map = High outliers plot as grey circles.)
+# cond <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Conductivity")
+# boxp(cond, ReferenceSite, Result_Numeric_mod) +scale_y_log10() +labs(subtitle = '* log scale y-axis')
+# 
+# pal <- colorNumeric(palette = "Greens", 
+#                     domain = c(0, (quantile(cond$Result_Numeric_mod, 0.75)) + 1.5 * IQR(cond$Result_Numeric_mod)))
+# map_results(cond) 
+# 
+# # DO mg
+# DO_mg <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Dissolved oxygen (DO)")
+# boxp(DO_mg, ReferenceSite, Result_Numeric_mod) 
+# 
+# pal <- colorNumeric(palette = "Purples", domain = NULL) 
+# map_results(DO_mg) 
+# 
+# # DO percent
+# DO_sat <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Dissolved oxygen saturation")
+# boxp(DO_sat, ReferenceSite, Result_Numeric_mod) 
+# 
+# pal <- colorNumeric(palette = "BuPu", domain =  NULL )
+# map_results(DO_sat) 
+# 
+# # SULFATE (Plot = y axis log scaled.  Map = High outliers plot as grey circles.)
+# SO4 <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Sulfate")
+# boxp(SO4, ReferenceSite, Result_Numeric_mod) +scale_y_log10() +labs(subtitle = '* log scale y-axis')
+# 
+# pal <- colorNumeric(palette = "Oranges", 
+#                     domain = c(0, (quantile(SO4$Result_Numeric_mod, 0.75)) + 1.5 * IQR(SO4$Result_Numeric_mod)))
+# map_results(SO4) 
+# 
+# # TOTAL NITROGEN (Plot = y axis log scaled.  Map = High outliers plot as grey circles.)
+# TN <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Nitrogen")
+# boxp(TN, ReferenceSite, Result_Numeric_mod) +scale_y_log10() +labs(subtitle = '* log scale y-axis')
+# 
+# pal <- colorNumeric(palette = "Greens", domain = c(0, (quantile(TN$Result_Numeric_mod, 0.75)) + 1.5 * IQR(TN$Result_Numeric_mod)))
+# map_results(TN) 
+# 
+# # pH
+# pH <- subset(chem.ref.wq, chem.ref.wq$Char_Name == 'pH')
+# boxp(pH, ReferenceSite, Result_Numeric_mod)
+# 
+# pal <- colorNumeric(palette = "RdYlBu", domain = NULL)
+# map_results(pH) 
+# 
+# # TOTAL PHOSPHORUS (Plot = y axis log scaled.  Map = High outliers plot as grey circles.)
+# TP <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Total Phosphorus, mixed forms")
+# boxp(TP, ReferenceSite, Result_Numeric_mod) +scale_y_log10() +labs(subtitle = '* log scale y-axis')
+# 
+# pal <- colorNumeric(palette = "Reds", domain = c(0, (quantile(TP$Result_Numeric_mod, 0.75)) + 1.5 * IQR(TP$Result_Numeric_mod)))
+# map_results(TP) 
+# 
+# # TEMPERATURE
+# Temp <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Temperature, water")
+# boxp(Temp, ReferenceSite, Result_Numeric_mod) 
+# 
+# pal <- colorNumeric(palette = "Blues", domain = NULL)
+# map_results(Temp) 
+# 
+# # TOTAL SOLIDS (Plot = y axis log scaled.  Map = High outliers plot as grey circles.)
+# ts <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Total solids")
+# boxp(ts, ReferenceSite, Result_Numeric_mod) +scale_y_log10() +labs(subtitle = '* log scale y-axis')
+# 
+# pal <- colorNumeric(palette = "RdPu",
+#                     domain = c(0, (quantile(ts$Result_Numeric_mod, 0.75)) + 1.5 * IQR(ts$Result_Numeric_mod)))
+# map_results(ts)
+# 
+# # TSS (Plot = y axis log scaled.  Map = High outliers plot as grey circles.)
+# tss <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Total suspended solids")
+# boxp(tss, ReferenceSite, Result_Numeric_mod) +scale_y_log10() +labs(subtitle = '* log scale y-axis')
+# 
+# pal <- colorNumeric(palette = "PuRd",
+#                     domain = c(0, (quantile(tss$Result_Numeric_mod, 0.75)) + 1.5 * IQR(tss$Result_Numeric_mod)))
+# map_results(tss)
+# 
+# # TURBIDITY (field) (Plot = y axis log scaled.  Map = High outliers plot as grey circles.)
+# turb <- subset(chem.ref.wq, chem.ref.wq$Char_Name == "Turbidity Field")
+# boxp(turb, ReferenceSite, Result_Numeric_mod) +scale_y_log10() +labs(subtitle = '* log scale y-axis')
+# 
+# pal <- colorNumeric(palette = "YlOrBr", 
+#                     domain = c(0, (quantile(turb$Result_Numeric_mod, 0.75)) + 1.5 * IQR(turb$Result_Numeric_mod)))
+# # map_results(turb) 
+
+
+
+# Export to Excel if wanting to explore more via data filters
+#write.xlsx(sum.eco, file = "Benchmarks/Water Chemistry/summary_by_param_eco.xlsx")

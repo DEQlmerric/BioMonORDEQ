@@ -11,9 +11,6 @@ output: html_document
 
 <<<<<<< HEAD
 ```{r warning=TRUE}
-=======
-```{r, warning=FALSE}
->>>>>>> 1e20f5f10168f21725741d15cb98f4e65ee16ddc
 library(StreamCatTools) #visit 'https://github.com/USEPA/StreamCatTools' for installation instructions
 library(tidyverse)
 library(readxl)

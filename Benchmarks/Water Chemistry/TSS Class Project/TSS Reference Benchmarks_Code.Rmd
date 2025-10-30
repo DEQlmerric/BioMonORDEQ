@@ -9,8 +9,7 @@ output: html_document
 
 # **1 - LOAD PACKAGES**
 
-```{r}
-library(AWQMSdata) #visit 'https://github.com/TravisPritchardODEQ/AWQMSdata' for installation instructions
+```{r warning=TRUE}
 library(StreamCatTools) #visit 'https://github.com/USEPA/StreamCatTools' for installation instructions
 library(tidyverse)
 library(readxl)

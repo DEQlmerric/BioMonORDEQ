@@ -9,8 +9,7 @@ output: html_document
 
 # **1 - LOAD PACKAGES**
 
-```{r}
-library(AWQMSdata) #visit 'https://github.com/TravisPritchardODEQ/AWQMSdata' for installation instructions
+```{r, warning=FALSE}
 library(StreamCatTools) #visit 'https://github.com/USEPA/StreamCatTools' for installation instructions
 library(tidyverse)
 library(readxl)
@@ -26,8 +25,9 @@ tss <- read_excel("TSS_10292025.xlsx") #output file from ref benchmarks script
 
 comids <- tss %>% select(COMID) #get just the COMIDs for next step
 
-comids <- comids %>% select(COMID) %>% distinct #select unique COMIDs (number should match above)
-comids <- subset(comids,comids$COMID != "-99999") #don't include sites on high res sans COMID
+# OPTIONAL CHECKS FOR DUPS AND -99999's
+#comids <- comids %>% select(COMID) %>% distinct #select unique COMIDs (number should match above)
+#comids <- subset(comids,comids$COMID != "-99999") #don't include sites on high res sans COMID
 ```
 
 ## WATERSHED PREDICTOR VARIABLES - *FROM EPA STREAMCAT*
@@ -50,8 +50,9 @@ kitty <- read_excel("C:/Users/athomps/Oregon/DEQ - Biomonitoring is Fun! - Gener
 #### Run function to query StreamCat data by subcategory
 
 ```{r}
-#use this to test individual metrics (e.g., to ensure names match)
+# FOR TESTING INDIVIDUAL METRICS/COMIDS (e.g., to ensure names match)
 #test <- StreamCatTools::sc_get_data(comid = '23648454', metric = 'wwtpminordens', showAreaSqKm = TRUE, aoi='ws, cat')
+
 
 # full data pulls use aoi='catchment,watershed,other')) 
 # generating Spearman ranks use aoi='watershed')) 
@@ -189,7 +190,10 @@ fire <- get_streamcat(comids = comids, type = "Wildfire")
 meow <- list(ag, clim, dams, flow, iwi, cover, litho, mintox, roads, urb, fire)
 meow <- meow %>% reduce(full_join, by='COMID')
 
-# TO DO - identify which COMIDs didn't have any StreamCat data
+# IDENTIFY WHICH COMID(S) DIDN'T YIELD STREAMCAT RESULTS AND INVESTIGATE (FIX IN STATIONS DB BEFORE PROCEEDING)
+nomatch <- comids[!comids$COMID %in% kcomids$COMID, ] #make data frame showing which COMIDs aren't pulling StreamCat data
+nomatch.c <- subset(tss, tss$COMID == "23764745" | tss$COMID == "24516234" | tss$COMID == "23815386") #change COMIDs as needed
+rm(list = c('nomatch', 'nomatch.c')) #clean up environment
 
 # GROUP PREDICTORS BY HUMAN VS NATURAL
 human <- subset(kitty, kitty$Category == "Anthropogenic" & kitty$`Use?` == 'y')
@@ -201,10 +205,12 @@ natural.mets <- natural[,6] #just the natural metric names
 
 #### Make Spearman correlation matrix to identify covaried parameters
 
-```{r}
+```{r, warning=FALSE}
 spear <- cor(meow, method = "spearman")
 spear <- as.data.frame(spear)
 spear.rows <- tibble::rownames_to_column(spear)
+
+spear2 <- spear.rows %>% mutate(new_column = ifelse(rowname > 40, "High Pages", "Low Pages"))
 
 write_xlsx(spear.rows, path = "C:/Users/athomps/Oregon/DEQ - Biomonitoring is Fun! - General/Env't Stats Class Project 2025/StreamCat/Spearmans.xlsx")
 ```

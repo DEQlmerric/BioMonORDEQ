@@ -9,7 +9,11 @@ output: html_document
 
 # **1 - LOAD PACKAGES**
 
+<<<<<<< HEAD
 ```{r warning=TRUE}
+=======
+```{r, warning=FALSE}
+>>>>>>> 1e20f5f10168f21725741d15cb98f4e65ee16ddc
 library(StreamCatTools) #visit 'https://github.com/USEPA/StreamCatTools' for installation instructions
 library(tidyverse)
 library(readxl)
@@ -21,12 +25,13 @@ library(writexl)
 ## STATIONS/TSS - *FROM WATER CHEMISTRY BENCHMARKS SCRIPT*
 
 ```{r}
-tss <- read_excel("TSS_10292025.xlsx") #output file from ref benchmarks script
+tss <- read_excel("tss2025-10-30.xlsx") #output file from ref benchmarks script
 
 comids <- tss %>% select(COMID) #get just the COMIDs for next step
 
-comids <- comids %>% select(COMID) %>% distinct #select unique COMIDs (number should match above)
-comids <- subset(comids,comids$COMID != "-99999") #don't include sites on high res sans COMID
+# OPTIONAL CHECKS FOR DUPS AND -99999's
+#comids <- comids %>% select(COMID) %>% distinct #select unique COMIDs (number should match above)
+#comids <- subset(comids,comids$COMID != "-99999") #don't include sites on high res sans COMID
 ```
 
 ## WATERSHED PREDICTOR VARIABLES - *FROM EPA STREAMCAT*
@@ -37,7 +42,7 @@ comids <- subset(comids,comids$COMID != "-99999") #don't include sites on high r
 
 ```{r}
 #partable <- StreamCatTools::sc_get_metric_names() #supposedly best source for query-able metric names
-#scpar <- StreamCatTools::sc_get_params(param = 'metric_names') #name mismatch error message suggests consulting this list
+scpar <- StreamCatTools::sc_get_params(param = 'metric_names') #name mismatch error message suggests consulting this list
 #write_xlsx(partable, path = "C:/Users/athomps/OneDrive - Oregon/Desktop/partable.xlsx") #saved as intermediate file, which moved to Teams and got cleaned up
 
 kitty <- read_excel("C:/Users/athomps/Oregon/DEQ - Biomonitoring is Fun! - General/Env't Stats Class Project 2025/StreamCat/StreamCatMetrics_new.xlsx") #final metrics table
@@ -49,25 +54,24 @@ kitty <- read_excel("C:/Users/athomps/Oregon/DEQ - Biomonitoring is Fun! - Gener
 #### Run function to query StreamCat data by subcategory
 
 ```{r}
-#use this to test individual metrics (e.g., to ensure names match)
-#test <- StreamCatTools::sc_get_data(comid = '23648454', metric = 'wwtpminordens', showAreaSqKm = TRUE, aoi='ws, cat')
+# FOR TESTING INDIVIDUAL METRICS/COMIDS (e.g., to ensure names match)
+test <- StreamCatTools::sc_get_data(comid = '23910659', metric = 'precipminusevt', showAreaSqKm = FALSE, aoi='watershed')
+
 
 # full data pulls use aoi='catchment,watershed,other')) 
-# generating Spearman ranks use aoi='watershed')) 
+# generating Spearman ranks use aoi='watershed')) Run separate line for aoi = Other since they don't pull unless on their own
 
 
 # FUNCTION - START +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 get_streamcat <- function(comids, type = c("Agriculture","Climate","Dams","Flow","IWI","Land Cover","Lithology","Mining_Toxics","Roads",
-                                           "Urban","Wildfire")){
+                                           "Urban","Wildfire","Others")){
 type <- match.arg(type)
 #comids_split <- split(comids, ceiling(seq_along(comids)/750)) #removed b/c doesn't seem to be doing anything - wrong data class??
 
 if(type == "Agriculture"){
 
   streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'canaldens,pctagdrainage,pctagslphigh2001,pctagslpmid2001,pestic1997,
-                                                                           sw_flux,waterinput,wdrw_LD,pctcrop2001,pcthay2001,cbnf,fert,manure,nani,nsurp,
-                                                                           agkffact', 
+                                                                           metric = 'canaldens,pctagdrainage,pctagslphigh2001,pctagslpmid2001,pestic1997,sw_flux,waterinput,wdrw_LD,pctcrop2001,pcthay2001,cbnf,fert,manure,nani,nsurp,agkffact',
                                                                            showAreaSqKm = FALSE,
                                                                            aoi='watershed')) 
   }
@@ -75,9 +79,7 @@ if(type == "Agriculture"){
 if(type == "Climate"){
 
   streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'precip2008,precip8110,precip9120,tmax8110,tmax9120,tmean2008,tmean8110,
-                                                                           tmean9120,tmin8110,tmin9120,inorgnwetdep2008,nh42008,no32008,sn2008,mast2008,
-                                                                           msst2008,mwst2008,precipminusevt,wetindex', 
+                                                                           metric = 'precip2008,precip8110,precip9120,tmax8110,tmax9120,tmean2008,tmean8110,tmean9120,tmin8110,tmin9120,inorgnwetdep2008,nh42008,no32008,sn2008,precipminusevt,wetindex', 
                                                                            showAreaSqKm = FALSE,
                                                                            aoi='watershed'))
   }
@@ -93,7 +95,7 @@ if(type == "Dams"){
 if(type == "Flow"){
 
   streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'bfi,bankfulldepth,bankfullwidth,elev,runoff,thalwagdepth,wettedwidth', 
+                                                                           metric = 'bfi,elev,runoff', 
                                                                            showAreaSqKm = FALSE,
                                                                            aoi='watershed'))
   }
@@ -101,7 +103,7 @@ if(type == "Flow"){
 if(type == "IWI"){
 
   streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'chem,conn,habt,hyd,ici,iwi,sed,temp', 
+                                                                           metric = 'chem,conn,habt,hyd,sed,temp', 
                                                                            showAreaSqKm = FALSE,
                                                                            aoi='watershed'))
   }
@@ -109,9 +111,7 @@ if(type == "IWI"){
 if(type == "Land Cover"){
 
   streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'pctbl2001,pctconif2001,pctdecid2001,pctgrs2001,pcthbwet2001,pctice2001,
-                                                                           pctmxfst2001,pctow2001,pctshrb2001,pcturbhi2001,pcturblo2001,pcturbmd2001,
-                                                                           pcturbop2001,pctwdwet2001,pctfrstloss2002', 
+                                                                           metric = 'pctbl2001,pctconif2001,pctdecid2001,pctgrs2001,pcthbwet2001,pctice2001,pctmxfst2001,pctow2001,pctshrb2001,pcturbhi2001,pcturblo2001,pcturbmd2001,pcturbop2001,pctwdwet2001,pctfrstloss2002', 
                                                                            showAreaSqKm = FALSE,
                                                                            aoi='watershed'))
   }
@@ -119,11 +119,7 @@ if(type == "Land Cover"){
 if(type == "Lithology"){ 
 
   streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'al2o3,cao,compstrgth,fe2o3,hydrlcond,k2o,mgo,n,na2o,p2o5,pctalkintruvol,
-                                                                           pctalluvcoast,pctcarbresid,pctcoastcrs,pctcolluvsed,pcteolcrs,pcteolfine,pctextruvol,
-                                                                           pctglaclakecrs,pctglaclakefine,pctglactilclay,pctglactilcrs,pctglactilloam,pcthydric,
-                                                                           pctnoncarbresid,pctsallake,pctsilicic,pctwater,rockn,s,sio2,clay,kffact,om,perm,
-                                                                           Rckdep,rckdep,sand,wtdep',
+                                                                           metric = 'al2o3,cao,compstrgth,fe2o3,hydrlcond,k2o,mgo,na2o,p2o5,pctalkintruvol,pctalluvcoast,pctcarbresid,pctcoastcrs,pctcolluvsed,pcteolcrs,pcteolfine,pctextruvol,pctglaclakecrs,pctglaclakefine,pctglactilclay,pctglactilcrs,pctglactilloam,pcthydric,pctnoncarbresid,pctsallake,pctsilicic,pctwater,rockn,s,sio2,clay,kffact,om,perm,Rckdep,rckdep,sand,wtdep,n',
                                                                            showAreaSqKm = FALSE,
                                                                            aoi='watershed'))
   }
@@ -147,8 +143,7 @@ if(type == "Roads"){
 if(type == "Urban"){ 
 
   streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'huden2010,npdesdens,popden2010,septic,wwtpalldens,wwtpmajordens,
-                                                                           wwtpminordens,pctimp2001,pctimpslphigh2001,pctimpslpmid2001,pctnonagintrodmanagveg', 
+                                                                           metric = 'huden2010,npdesdens,popden2010,septic,wwtpalldens,wwtpmajordens,wwtpminordens,pctimp2001,pctimpslphigh2001,pctimpslpmid2001,pctnonagintrodmanagveg', 
                                                                            showAreaSqKm = FALSE,
                                                                            aoi='watershed'))
   }
@@ -156,10 +151,17 @@ if(type == "Urban"){
 if(type == "Wildfire"){ 
 
   streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'pctfire2002,pctburnarea2002,pcthighsev2002,pctincvegresp2002,pctlowsev2002,
-                                                                           pctmodsev2002,pctnonprocmask2002,pctundsev2002', 
+                                                                           metric = 'pctfire2002,pctburnarea2002,pcthighsev2002,pctincvegresp2002,pctlowsev2002,pctmodsev2002,pctnonprocmask2002,pctundsev2002', 
                                                                            showAreaSqKm = FALSE,
                                                                            aoi='watershed'))
+  }
+
+if(type == "Others"){
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'bankfulldepth,bankfullwidth,ici,iwi,mast2008,msst2008,mwst2008,thalwagdepth,wettedwidth', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='other')) 
   }
 
 names(streamcat) <- base::toupper(names(streamcat))
@@ -183,12 +185,17 @@ mintox <- get_streamcat(comids = comids, type = "Mining_Toxics")
 roads <- get_streamcat(comids = comids, type = "Roads")
 urb <- get_streamcat(comids = comids, type = "Urban")
 fire <- get_streamcat(comids = comids, type = "Wildfire")
+other <- get_streamcat(comids = comids, type = "Others")
 
 # MERGE INTO ONE TABLE
-meow <- list(ag, clim, dams, flow, iwi, cover, litho, mintox, roads, urb, fire)
+meow <- list(ag, clim, dams, flow, iwi, cover, litho, mintox, roads, urb, fire, other)
 meow <- meow %>% reduce(full_join, by='COMID')
 
-# TO DO - identify which COMIDs didn't have any StreamCat data
+# IDENTIFY WHICH COMID(S) DIDN'T YIELD STREAMCAT RESULTS AND INVESTIGATE (FIX IN STATIONS DB BEFORE PROCEEDING)
+kcomids <- meow %>% select(COMID)
+nomatch <- comids[!comids$COMID %in% kcomids$COMID, ] #make data frame showing which COMIDs aren't pulling StreamCat data
+#nomatch.c <- subset(tss, tss$COMID == "23764745" | tss$COMID == "24516234" | tss$COMID == "23815386") #change COMIDs as needed
+rm(list = c('nomatch', 'nomatch.c', 'kcomids')) #clean up environment
 
 # GROUP PREDICTORS BY HUMAN VS NATURAL
 human <- subset(kitty, kitty$Category == "Anthropogenic" & kitty$`Use?` == 'y')
@@ -200,12 +207,19 @@ natural.mets <- natural[,6] #just the natural metric names
 
 #### Make Spearman correlation matrix to identify covaried parameters
 
-```{r}
-spear <- cor(meow, method = "spearman")
+```{r, warning=FALSE}
+spear <- cor(meow, method = "spearman", use = "pairwise.complete.obs")
 spear <- as.data.frame(spear)
 spear.rows <- tibble::rownames_to_column(spear)
 
 write_xlsx(spear.rows, path = "C:/Users/athomps/Oregon/DEQ - Biomonitoring is Fun! - General/Env't Stats Class Project 2025/StreamCat/Spearmans.xlsx")
+
+
+matrix <- spear.rows %>%  
+  gather(-rowname, key = "colname", value = "cor") %>% 
+  filter(abs(cor) > 0.8)
+
+write_xlsx(matrix, path = "C:/Users/athomps/Oregon/DEQ - Biomonitoring is Fun! - General/Env't Stats Class Project 2025/StreamCat/Spearmans2.xlsx")
 ```
 
 ## EXPLORE CO-VARIED PARAMETERS AND SELECT WHICH WE WANT TO RETAIN FOR MODELLING PURPOSES
@@ -213,7 +227,7 @@ write_xlsx(spear.rows, path = "C:/Users/athomps/Oregon/DEQ - Biomonitoring is Fu
 ## PULL STREAMCAT AGAIN BUT ONLY FOR PARAMETERS OF INTEREST
 
 ```{r}
-
+#++++++++++++++++++++++++placeholder for final metrics function+++++++++++++++++++++++
 ```
 
 # do correlation analysis for streamcat predictors - which covary with each other? Get all predictors for watersheds.

@@ -216,7 +216,7 @@ matrix <- spear.rows %>%
   gather(-rowname, key = "colname", value = "cor") %>% 
   filter(abs(cor) > 0.8)
 
-write_xlsx(matrix, path = "C:/Users/athomps/Oregon/DEQ - Biomonitoring is Fun! - General/Env't Stats Class Project 2025/StreamCat/Spearmans2.xlsx")
+write_xlsx(matrix, path = "C:/Users/athomps/Oregon/DEQ - Biomonitoring is Fun! - General/Env't Stats Class Project 2025/StreamCat/Spearmans2_rerun.xlsx")
 ```
 
 ## EXPLORE CO-VARIED PARAMETERS AND SELECT WHICH WE WANT TO RETAIN FOR MODELLING PURPOSES
@@ -224,9 +224,137 @@ write_xlsx(matrix, path = "C:/Users/athomps/Oregon/DEQ - Biomonitoring is Fun! -
 ## PULL STREAMCAT AGAIN BUT ONLY FOR PARAMETERS OF INTEREST
 
 ```{r}
-#++++++++++++++++++++++++placeholder for final metrics function+++++++++++++++++++++++
+# FUNCTION - START +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+get_streamcat <- function(comids, type = c("Agriculture2","Climate2","Dams2","Flow2","IWI2","Land Cover2","Lithology2","Mining_Toxics2","Roads2",
+                                           "Urban","Wildfire","Others")){
+type <- match.arg(type)
+#comids_split <- split(comids, ceiling(seq_along(comids)/750)) #removed b/c doesn't seem to be doing anything - wrong data class??
+
+if(type == "Agriculture2"){
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'canaldens,pctagdrainage,pctagslpmid2001,pestic1997,wdrw_LD,pctcrop2001,sw_flux',
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed')) 
+  }
+
+if(type == "Climate2"){ #### NEEDS WORK
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'precip2008,precip8110,precip9120,tmax8110,tmax9120,tmean2008,tmean8110,tmean9120,tmin8110,tmin9120,inorgnwetdep2008,nh42008,no32008,sn2008,precipminusevt,wetindex', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "Dams2"){
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'damdens', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "Flow2"){
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'bfi,elev',
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "IWI2"){
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'chem,conn,hyd',
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "Land Cover2"){ #### NEEDS WORK
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pctbl2001,pctconif2001,pctdecid2001,pctgrs2001,pcthbwet2001,pctice2001,pctmxfst2001,pctow2001,pctshrb2001,pcturbhi2001,pcturbmd2001,pcturbop2001,pctwdwet2001,pctfrstloss2002', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "Lithology2"){ #### NEEDS WORK
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'al2o3,cao,compstrgth,fe2o3,hydrlcond,k2o,mgo,na2o,p2o5,pctalkintruvol,pctalluvcoast,pctcarbresid,pctcoastcrs,pctcolluvsed,pcteolcrs,pcteolfine,pctextruvol,pctglaclakecrs,pctglaclakefine,pctglactilclay,pctglactilcrs,pctglactilloam,pcthydric,pctnoncarbresid,pctsallake,pctsilicic,pctwater,rockn,s,sio2,clay,kffact,om,perm,Rckdep,rckdep,sand,wtdep,n',
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "Mining_Toxics2"){ #### NEEDS WORK - DON'T THINK ANY ARE CORRELATED
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'coalminedens,minedens,superfunddens,tridens', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "Roads2"){ #### NEEDS WORK - KEPT DENSITY - IS THIS NOT CORRELATED WITH OTHERS?
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'rdcrs,rdcrsslpwtd,rddens', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "Urban2"){ #### NEEDS WORK
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'huden2010,npdesdens,popden2010,septic,wwtpalldens,wwtpmajordens,wwtpminordens,pctimp2001,pctimpslphigh2001,pctimpslpmid2001,pctnonagintrodmanagveg', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "Wildfire2"){ #### PRETTY SURE OK BUT DOUBLE CHECK
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pctfire2002,pctincvegresp2002,pctnonprocmask2002', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "Others2"){ #### PRETTY SURE OK BUT DOUBLE CHECK
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'bankfullwidth,iwi,msst2008',
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='other')) 
+  }
+
+names(streamcat) <- base::toupper(names(streamcat))
+return(streamcat)
+}
+# FUNCTION - END  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ```
 
-# do correlation analysis for streamcat predictors - which covary with each other? Get all predictors for watersheds.
+## PULL STREAMCAT AGAIN BUT ONLY FOR PARAMETERS OF INTEREST
 
-# need to query catchment data when we "Used closest COMID"
+```{r}
+# PULL DATA BY SUBCATEGORY/TYPE
+ag2 <- get_streamcat(comids = comids, type = "Agriculture2")
+clim2 <- get_streamcat(comids = comids, type = "Climate2")
+dams2 <- get_streamcat(comids = comids, type = "Dams2")
+flow2 <- get_streamcat(comids = comids, type = "Flow2")
+iwi2 <- get_streamcat(comids = comids, type = "IWI2") #except prg_bmmi0809 b/c it crashes API
+cover2 <- get_streamcat(comids = comids, type = "Land Cover2")
+litho2 <- get_streamcat(comids = comids, type = "Lithology2") 
+mintox2 <- get_streamcat(comids = comids, type = "Mining_Toxics2")
+roads2 <- get_streamcat(comids = comids, type = "Roads2")
+urb2 <- get_streamcat(comids = comids, type = "Urban2")
+fire2 <- get_streamcat(comids = comids, type = "Wildfire2")
+other2 <- get_streamcat(comids = comids, type = "Others2")
+
+# MERGE INTO ONE TABLE
+meow2 <- list(ag2, clim2, dams2, flow2, iwi2, cover2, litho2, mintox2, roads2, urb2, fire2, other2)
+meow2 <- meow %>% reduce(full_join, by='COMID')
+```
+
+
+
+
+# need to query catchment data when we "Used closest COMID" ???

@@ -371,6 +371,9 @@ matrix2 <- spear.rows2 %>%
 
 # REMOVE METRICS FOR UNWANTED REPRESENTATIVE COMIDS FOR SITES ON HIGH RES NHD LAYER
 scmets <- subset(meow2, meow2$COMID != '23774647' & meow2$COMID != '23877125' & meow2$COMID != '23810652')
+
+# CLEAN UP ENVIRONMENT
+rm(list=c('ag2','clim2','cover2','dams2','fire2','flow2','iwi2','litho2','mintox2','other2','roads2','urb2'))
 ```
 
 # **3 - BUILD MODEL**
@@ -378,7 +381,54 @@ scmets <- subset(meow2, meow2$COMID != '23774647' & meow2$COMID != '23877125' & 
 ## Random forests...
 
 ```{r}
+# EXPLORE IF REMOVED COMIDS WERE OUTLIERS 
+removed <- subset(meow2, meow2$COMID == '23774647' | meow2$COMID == '23877125' | meow2$COMID == '23810652')
 
+
+# MESSING AROUND WITH KERNEL DENSITY PLOTS TO SUMMARIZE METRICS
+colnames(scmets)
+attach(scmets)
+
+hist(ELEVWS, breaks=100)
+hist(BFIWS, breaks=100)
+hist(CANALDENSWS, breaks=100)
+hist(CLAYWS, breaks=100)
+hist(KFFACTWS, breaks=100)
+
+density(CLAYWS)
+#-----------
+library(KernSmooth)
+
+bkde(CLAYWS)
+summary(CLAYWS)
+
+clay.ws<-CLAYWS[!is.na(CLAYWS)]
+summary(clay.ws)
+
+plot(bkde(clay.ws))
+
+plot(density(clay.ws))
+rug(jitter(clay.ws))
+#-----------
+kern <- scmets %>%
+  select(CLAYWS, BFIWS, ELEVWS, KFFACTWS, IWI, RDDENSWS)
+
+kern %>%
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_density() +
+  geom_rug() 
+
+
+
+
+
+tss.sc <- left_join(tss, scmets, by = "COMID")
+#tss.r <- tss.sc %>% select(Result_Numeric_mod)
+r <- randomForest(Result_Numeric_mod ~ CLAYWS + BFIWS + ELEVWS + KFFACTWS + IWI + RDDENSWS, data = tss.sc, na.action = na.exclude)
+print(r)
 ```
 
 

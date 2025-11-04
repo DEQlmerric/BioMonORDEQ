@@ -15,6 +15,7 @@ library(tidyverse)
 library(readxl)
 library(writexl)
 library(ggplot2)
+library(randomForest)
 ```
 
 # **2 - IMPORT DATA**
@@ -204,6 +205,15 @@ natural <- subset(kitty, kitty$Category == "Natural" & kitty$`Use?` == 'y')
 human.mets <- human[,6] #just the human related metric names
 natural.mets <- natural[,6] #just the natural metric names
 #then use these to filter out streamcat for human vs natural
+
+# EXPLORE VARIANCE FOR EACH METRIC TO GUIDE WHICH TO KEEP
+meow.sca <- as.data.frame(scale(meow[,-10])) #not used
+
+var <- meow %>%
+  select(where(is.numeric)) %>%
+  pivot_longer(cols = everything()) %>%
+  group_by(name) %>%
+  summarise(var_value = var(value))
 ```
 
 #### Make Spearman correlation matrix to identify covaried parameters
@@ -423,12 +433,43 @@ kern %>%
 
 
 
+# RANDOM FORESTS
+sapply(scmets, function(x) sum(is.na(x))) #find out which columns have NAs
+
+scmets$BANKFULLWIDTH <- na.roughfix(scmets$BANKFULLWIDTH) #perform na.roughfix on all metrics with at least 1 NA; create extra code rows as needed
+scmets$SW_FLUXWS <- na.roughfix(scmets$SW_FLUXWS)
+
+tss.r <- tss.sc %>% select(Result_Numeric_mod, COMID)
+tss.r <- subset(tss.r, tss.r$COMID != '23774647' & tss.r$COMID != '23877125' & tss.r$COMID != '23810652' & tss.r$COMID != '23764745')
 
 
-tss.sc <- left_join(tss, scmets, by = "COMID")
+tss.sc <- left_join(tss.r, scmets, by = "COMID") #merge TSS AWQMS data pull with desired StreamCat metrics
+
+r <- randomForest(y = tss.sc$Result_Numeric_mod, x = tss.sc[3:81], importance = TRUE,  keep.forest = TRUE)
+
+sapply(tss.sc, function(x) sum(is.na(x))) #find out which columns have NAs
+
+
+```
+
+
+
+
+
+# TO DELETE
+
+```{r}
 #tss.r <- tss.sc %>% select(Result_Numeric_mod)
 r <- randomForest(Result_Numeric_mod ~ CLAYWS + BFIWS + ELEVWS + KFFACTWS + IWI + RDDENSWS, data = tss.sc, na.action = na.exclude)
 print(r)
-```
 
+t <- tss.sc[!is.na(tss.sc$BANKFULLWIDTH),]
+
+new_df <- df[!is.na(df)]
+  
+tss.sc$BANKFULLWIDTH <- na.roughfix(tss.sc$BANKFULLWIDTH) 
+
+missing <- rownames(scmets)[rowSums(is.na(scmets))]
+missing <- sum(is.na(scmets))
+```
 

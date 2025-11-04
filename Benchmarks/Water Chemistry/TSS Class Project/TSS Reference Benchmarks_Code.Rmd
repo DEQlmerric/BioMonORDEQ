@@ -378,7 +378,7 @@ matrix2 <- spear.rows2 %>%
 scmets <- subset(meow2, meow2$COMID != '23774647' & meow2$COMID != '23877125' & meow2$COMID != '23810652')
 
 # CLEAN UP ENVIRONMENT
-rm(list=c('ag2','clim2','cover2','dams2','fire2','flow2','iwi2','litho2','mintox2','other2','roads2','urb2'))
+rm(list=c('ag2','clim2','cover2','dams2','fire2','flow2','iwi2','litho2','mintox2','other2','roads2','urb2','meow2'))
 ```
 
 # **3 - BUILD MODEL**
@@ -426,7 +426,7 @@ kern %>%
   geom_density() +
   geom_rug() 
 
-<<<<<<< HEAD
+
 
 
 # RANDOM FORESTS
@@ -435,23 +435,40 @@ sapply(scmets, function(x) sum(is.na(x))) #find out which columns have NAs
 scmets$BANKFULLWIDTH <- na.roughfix(scmets$BANKFULLWIDTH) #perform na.roughfix on all metrics with at least 1 NA; create extra code rows as needed
 scmets$SW_FLUXWS <- na.roughfix(scmets$SW_FLUXWS)
 
-tss.r <- tss.sc %>% select(Result_Numeric_mod, COMID)
-tss.r <- subset(tss.r, tss.r$COMID != '23774647' & tss.r$COMID != '23877125' & tss.r$COMID != '23810652' & tss.r$COMID != '23764745')
+tss.sc <- inner_join(tss, scmets, by = "COMID") #merge TSS AWQMS data pull with desired StreamCat metrics
+
+# SUBSET DATA
+tss.cal <- subset(tss.sc, tss.sc$cal_val == "CAL") #subset calibration dataset
+tss.val <- subset(tss.sc, tss.sc$cal_val == "VAL") #subset validation dataset
+tss.ref <- subset(tss.sc, tss.sc$ReferenceSite == "REFERENCE") #subset reference only dataset
+
+# FULL MODEL
+set.seed(42)
+
+rf.full <- randomForest(y = tss.cal$Result_Numeric_mod, x = tss.cal[52:130], importance = TRUE,  keep.forest = TRUE, ntree = 500) #run random forest model on all predictors for 500 trees, calibration dataset
+print(rf.full)
+
+varImpPlot(rf.full, type = 1, n.var = 20) #variable importance plot
+
+# REDUCED MODEL
+rf.red <- randomForest(Result_Numeric_mod ~ CHEMWS+HYDWS+RDCRSWS+PESTIC1997WS+CONNWS+PCTCROP2001WS+WETINDEXWS+PCTSHRB2001WS+ELEVWS+WDRW_LDWS+IWI, data = tss.cal, importance = TRUE,  keep.forest = TRUE, ntree = 500) #only w/ predictors >4% MSE
+print(rf.red)
+
+varImpPlot(rf.red, type = 1) #variable importance plot
+
+importance(rf.red)
 
 
-tss.sc <- left_join(tss.r, scmets, by = "COMID") #merge TSS AWQMS data pull with desired StreamCat metrics
-
-r <- randomForest(y = tss.sc$Result_Numeric_mod, x = tss.sc[3:81], importance = TRUE,  keep.forest = TRUE)
-
-sapply(tss.sc, function(x) sum(is.na(x))) #find out which columns have NAs
+# RUN REDUCED MODEL ON VALIDATION DATASET
 
 
-=======
-tss.sc <- left_join(tss, scmets, by = "COMID")
-#tss.r <- tss.sc %>% select(Result_Numeric_mod)
-r <- randomForest(Result_Numeric_mod ~ CLAYWS + BFIWS + ELEVWS + KFFACTWS + IWI + RDDENSWS, data = tss.sc, na.action = na.exclude)
-print(r)
->>>>>>> 9375d54e8534673bb2ec383cadc4be6a58a3efbe
+# REFERENCE ONLY
+rf.ref <- randomForest(y = tss.ref$Result_Numeric_mod, x = tss.ref[52:130], importance = TRUE,  keep.forest = TRUE, ntree = 500) #run random forest model on all predictors for 500 trees, calibration dataset
+print(rf.ref)
+
+varImpPlot(rf.ref, type = 1)
+
+
 ```
 
 
@@ -462,6 +479,7 @@ print(r)
 
 ```{r}
 #tss.r <- tss.sc %>% select(Result_Numeric_mod)
+#tss.r <- tss.sc %>% select(Result_Numeric_mod, COMID, cal_val)
 r <- randomForest(Result_Numeric_mod ~ CLAYWS + BFIWS + ELEVWS + KFFACTWS + IWI + RDDENSWS, data = tss.sc, na.action = na.exclude)
 print(r)
 
@@ -473,5 +491,12 @@ tss.sc$BANKFULLWIDTH <- na.roughfix(tss.sc$BANKFULLWIDTH)
 
 missing <- rownames(scmets)[rowSums(is.na(scmets))]
 missing <- sum(is.na(scmets))
+
+
+
+tss.sc <- left_join(tss, scmets, by = "COMID")
+#tss.r <- tss.sc %>% select(Result_Numeric_mod)
+r <- randomForest(Result_Numeric_mod ~ CLAYWS + BFIWS + ELEVWS + KFFACTWS + IWI + RDDENSWS, data = tss.sc, na.action = na.exclude)
+print(r)
 ```
 

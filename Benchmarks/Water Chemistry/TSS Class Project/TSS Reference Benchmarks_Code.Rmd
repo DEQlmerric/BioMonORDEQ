@@ -29,7 +29,9 @@ comids <- tss %>% select(COMID) #get just the COMIDs for next step
 
 ## WATERSHED PREDICTOR VARIABLES - *FROM EPA STREAMCAT*
 
-#### Learn about StreamCat predictors here: <https://www.epa.gov/national-aquatic-resource-surveys/streamcat-metrics-and-definitions>
+#### Learn about StreamCat predictors: <https://www.epa.gov/national-aquatic-resource-surveys/streamcat-metrics-and-definitions>
+
+#### View recent StreamCat updates: <https://www.epa.gov/national-aquatic-resource-surveys/streamcat-updates>
 
 #### Make table of StreamCat metadata and clean up in Excel
 
@@ -201,7 +203,7 @@ human.mets <- human[,6] #just the human related metric names
 natural.mets <- natural[,6] #just the natural metric names
 #then use these to filter out streamcat for human vs natural
 
-# EXPLORE VARIANCE FOR EACH METRIC TO GUIDE WHICH TO KEEP
+# EXPLORE VARIANCE FOR EACH METRIC TO GUIDE WHICH TO KEEP <----- DELETE WHEN DONE
 meow.sca <- as.data.frame(scale(meow[,-10])) #not used
 
 var <- meow %>%
@@ -458,6 +460,19 @@ varImpPlot(rf.red, type = 1) #variable importance plot
 
 importance(rf.red)
 
+
+
+tss.r <- tss.sc %>% select(Result_Numeric_mod, COMID, cal_val)
+tss.test <- inner_join(tss.r, scmets, by = "COMID") 
+tss.cal.test <- subset(tss.test, tss.test$cal_val == "CAL")
+tss.cal.test <- tss.cal.test[,-c(2:3)]
+
+library(rpart)
+mod <- rpart(Result_Numeric_mod ~ ., data = tss.cal.test)
+plot(mod)
+text(mod, use.n = TRUE)
+
+summary(mod)
 
 # RUN REDUCED MODEL ON VALIDATION DATASET
 

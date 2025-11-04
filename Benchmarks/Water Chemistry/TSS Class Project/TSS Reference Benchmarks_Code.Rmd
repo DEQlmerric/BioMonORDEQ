@@ -10,7 +10,6 @@ output: html_document
 # **1 - LOAD PACKAGES**
 
 ```{r warning=TRUE}
-library(StreamCatTools) #visit 'https://github.com/USEPA/StreamCatTools' for installation instructions
 library(tidyverse)
 library(readxl)
 library(writexl)
@@ -22,13 +21,9 @@ library(ggplot2)
 ## STATIONS/TSS - *FROM WATER CHEMISTRY BENCHMARKS SCRIPT*
 
 ```{r}
-tss <- read_excel("tss2025-10-30.xlsx") #output file from ref benchmarks script
+tss <- read_excel("tss_2025-11-04.xlsx") #output file from ref benchmarks script
 
 comids <- tss %>% select(COMID) #get just the COMIDs for next step
-
-# OPTIONAL CHECKS FOR DUPS AND -99999's
-#comids <- comids %>% select(COMID) %>% distinct #select unique COMIDs (number should match above)
-#comids <- subset(comids,comids$COMID != "-99999") #don't include sites on high res sans COMID
 ```
 
 ## WATERSHED PREDICTOR VARIABLES - *FROM EPA STREAMCAT*
@@ -433,6 +428,8 @@ print(r)
 
 
 ```{r, warning=FALSE}
+
+
 meow1 <- meow[,-1] # drop COMID
 meow1<-scale(meow1[,-10]) #convert each variable to its Z-scores
 meow1[is.na(meow1)] <- 0
@@ -504,4 +501,6 @@ vif(mod)
 ``
 
 ```
+
+write_xlsx(meow, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//sc", Sys.Date(), ".xlsx"))
 

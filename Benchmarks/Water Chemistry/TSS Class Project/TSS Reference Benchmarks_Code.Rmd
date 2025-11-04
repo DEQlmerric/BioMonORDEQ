@@ -188,10 +188,10 @@ meow <- list(ag, clim, dams, flow, iwi, cover, litho, mintox, roads, urb, fire, 
 meow <- meow %>% reduce(full_join, by='COMID')
 
 # IDENTIFY WHICH COMID(S) DIDN'T YIELD STREAMCAT RESULTS AND INVESTIGATE (FIX IN STATIONS DB BEFORE PROCEEDING)
-kcomids <- meow %>% select(COMID)
-nomatch <- comids[!comids$COMID %in% kcomids$COMID, ] #make data frame showing which COMIDs aren't pulling StreamCat data
-#nomatch.c <- subset(tss, tss$COMID == "23764745" | tss$COMID == "24516234" | tss$COMID == "23815386") #change COMIDs as needed
-rm(list = c('nomatch', 'nomatch.c', 'kcomids')) #clean up environment
+# kcomids <- meow %>% select(COMID)
+# nomatch <- comids[!comids$COMID %in% kcomids$COMID, ] #make data frame showing which COMIDs aren't pulling StreamCat data
+# #nomatch.c <- subset(tss, tss$COMID == "23764745" | tss$COMID == "24516234" | tss$COMID == "23815386") #change COMIDs as needed
+# rm(list = c('nomatch', 'nomatch.c', 'kcomids')) #clean up environment
 
 # GROUP PREDICTORS BY HUMAN VS NATURAL
 human <- subset(kitty, kitty$Category == "Anthropogenic" & kitty$`Use?` == 'y')
@@ -416,91 +416,10 @@ kern %>%
   geom_density() +
   geom_rug() 
 
-
-
-
-
 tss.sc <- left_join(tss, scmets, by = "COMID")
 #tss.r <- tss.sc %>% select(Result_Numeric_mod)
 r <- randomForest(Result_Numeric_mod ~ CLAYWS + BFIWS + ELEVWS + KFFACTWS + IWI + RDDENSWS, data = tss.sc, na.action = na.exclude)
 print(r)
 ```
 
-
-```{r, warning=FALSE}
-
-
-meow1 <- meow[,-1] # drop COMID
-meow1<-scale(meow1[,-10]) #convert each variable to its Z-scores
-meow1[is.na(meow1)] <- 0
-
-
-
-```
-
-### **Using PCA to summarize covaried predictors**
-```{r, warning=FALSE}
-pca<-princomp(meow1, na.action = na.omit)
-names(pca) #list all outputs from PCA
-```
-
-Let's find out the importance of each principal component (eigenvalues)
-```{r, warning=FALSE}
-summary(pca)
-```
-
-**Note** 
-
-The output includes all PCs (Comp.1 to Comp.4). **Standard deviation** is the standard deviations of the principal component (its variance) which is related to its **eigenvalue**). It is often expressed as **Proportion of Variance explained**. The third row is the **Cumulative Proportion of Variance explained** which should be added up to 1.
-
-The first PC explains 60.88% of total variance in the dataset while the 2nd PC explains additional 11.8% of total variance. If we only focus on these two, 73% of variance in the dataset with all predictors are represented by these two variables.
-
-Let's find out the interpretation of the first two principal components (eigenvectors)
-```{r, warning=FALSE}
-pca$loadings[1:20,]
-
-```
-
-**Note**
-
-  + "*Loadings*" are also referred to '*contributions*' which define the relationships between each of original variables and a PC. The larger the coefficient of the original variable is, the larger contribution of the original variable to the PC (in other words, the PC '*represents*' this particular variable well). We may interpret these coefficients including their + or - sign in a similar way as the '*correlation of coefficients*' between each original variable and the PC.
-  + "*Comp.1*": Principal component 1
-  + All coefficients with a blank space mean the coefficients are very small and thus their contributions to PCs can be negligible. 
-  + Please ignore the bottom four lines.
-  
-  In this case, PC1 largely represents a urban-natural gradient while PC2 represents a water quality gradient.
-  
-### **PCA plot**
-
-We can visualize what we just did with a PCA biplot.
-
-```{r, warning=FALSE}
-library(devtools)
-library(ggbiplot)
-g <- ggbiplot(pca, obs.scale = 1, var.scale = 1) 
-g<-g + scale_color_discrete(name = '') 
-g<-g + theme(legend.direction = 'horizontal', legend.position = 'top')
-print(g)
-```
-
-### **Running a multiple regression model with two PCs**
-
-We can make a new dataset containing our Y (EPTR) and two PCs as Xs
-
-```{r, warning=FALSE}
-dta3<-data.frame(EPT=dta$EPTR,PC1=pca$score[,1],PC2=pca$scores[,2])
-```
-
-Let's fit a new multiple regression model with two PCs as predictors and then check for multi-collearity
-
-```{r, warning=FALSE}
-mod<-lm(EPT~PC1+PC2, data=dta3)
-summary(mod)
-library(car)
-vif(mod)
-``
-
-```
-
-write_xlsx(meow, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//sc", Sys.Date(), ".xlsx"))
 

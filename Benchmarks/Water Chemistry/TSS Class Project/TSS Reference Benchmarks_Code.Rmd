@@ -10,7 +10,6 @@ output: html_document
 # **1 - LOAD PACKAGES**
 
 ```{r warning=TRUE}
-library(StreamCatTools) #visit 'https://github.com/USEPA/StreamCatTools' for installation instructions
 library(tidyverse)
 library(readxl)
 library(writexl)
@@ -23,13 +22,9 @@ library(randomForest)
 ## STATIONS/TSS - *FROM WATER CHEMISTRY BENCHMARKS SCRIPT*
 
 ```{r}
-tss <- read_excel("tss2025-10-30.xlsx") #output file from ref benchmarks script
+tss <- read_excel("tss_2025-11-04.xlsx") #output file from ref benchmarks script
 
 comids <- tss %>% select(COMID) #get just the COMIDs for next step
-
-# OPTIONAL CHECKS FOR DUPS AND -99999's
-#comids <- comids %>% select(COMID) %>% distinct #select unique COMIDs (number should match above)
-#comids <- subset(comids,comids$COMID != "-99999") #don't include sites on high res sans COMID
 ```
 
 ## WATERSHED PREDICTOR VARIABLES - *FROM EPA STREAMCAT*
@@ -194,10 +189,10 @@ meow <- list(ag, clim, dams, flow, iwi, cover, litho, mintox, roads, urb, fire, 
 meow <- meow %>% reduce(full_join, by='COMID')
 
 # IDENTIFY WHICH COMID(S) DIDN'T YIELD STREAMCAT RESULTS AND INVESTIGATE (FIX IN STATIONS DB BEFORE PROCEEDING)
-kcomids <- meow %>% select(COMID)
-nomatch <- comids[!comids$COMID %in% kcomids$COMID, ] #make data frame showing which COMIDs aren't pulling StreamCat data
-#nomatch.c <- subset(tss, tss$COMID == "23764745" | tss$COMID == "24516234" | tss$COMID == "23815386") #change COMIDs as needed
-rm(list = c('nomatch', 'nomatch.c', 'kcomids')) #clean up environment
+# kcomids <- meow %>% select(COMID)
+# nomatch <- comids[!comids$COMID %in% kcomids$COMID, ] #make data frame showing which COMIDs aren't pulling StreamCat data
+# #nomatch.c <- subset(tss, tss$COMID == "23764745" | tss$COMID == "24516234" | tss$COMID == "23815386") #change COMIDs as needed
+# rm(list = c('nomatch', 'nomatch.c', 'kcomids')) #clean up environment
 
 # GROUP PREDICTORS BY HUMAN VS NATURAL
 human <- subset(kitty, kitty$Category == "Anthropogenic" & kitty$`Use?` == 'y')
@@ -431,6 +426,7 @@ kern %>%
   geom_density() +
   geom_rug() 
 
+<<<<<<< HEAD
 
 
 # RANDOM FORESTS
@@ -450,6 +446,12 @@ r <- randomForest(y = tss.sc$Result_Numeric_mod, x = tss.sc[3:81], importance = 
 sapply(tss.sc, function(x) sum(is.na(x))) #find out which columns have NAs
 
 
+=======
+tss.sc <- left_join(tss, scmets, by = "COMID")
+#tss.r <- tss.sc %>% select(Result_Numeric_mod)
+r <- randomForest(Result_Numeric_mod ~ CLAYWS + BFIWS + ELEVWS + KFFACTWS + IWI + RDDENSWS, data = tss.sc, na.action = na.exclude)
+print(r)
+>>>>>>> 9375d54e8534673bb2ec383cadc4be6a58a3efbe
 ```
 
 

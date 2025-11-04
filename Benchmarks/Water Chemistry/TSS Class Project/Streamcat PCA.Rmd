@@ -1,0 +1,60 @@
+---
+title: "Streamcat PCA"
+author: "Sabine Berzins"
+date: "2025-11-04"
+output: html_document
+---
+
+```{r, warning=FALSE}
+# Read in file - all StreamCat variables for 762 COMIDs
+sc <- read_excel("C:/Users/sberzin/OneDrive - Oregon/Desktop/sc2025-11-04.xlsx")
+
+sc <- sc[,-1] # drop COMID column
+sc<-scale(sc[,-10]) #convert each variable to its Z-scores
+sc[is.na(sc)] <- 0 # NAs to 0s
+```
+
+### **Using PCA to summarize covaried predictors**
+```{r, warning=FALSE}
+pca<-princomp(sc, na.action = na.omit)
+names(pca) #list all outputs from PCA
+```
+
+Let's find out the importance of each principal component (eigenvalues)
+```{r, warning=FALSE}
+summary(sc)
+```
+
+**Note** 
+
+The output includes all PCs (Comp.1 to Comp.4). **Standard deviation** is the standard deviations of the principal component (its variance) which is related to its **eigenvalue**). It is often expressed as **Proportion of Variance explained**. The third row is the **Cumulative Proportion of Variance explained** which should be added up to 1.
+
+The first PC explains 60.88% of total variance in the dataset while the 2nd PC explains additional 11.8% of total variance. If we only focus on these two, 73% of variance in the dataset with all predictors are represented by these two variables.
+
+Let's find out the interpretation of the first two principal components (eigenvectors)
+```{r, warning=FALSE}
+pca$loadings[1:20,]
+
+```
+
+**Note**
+
+  + "*Loadings*" are also referred to '*contributions*' which define the relationships between each of original variables and a PC. The larger the coefficient of the original variable is, the larger contribution of the original variable to the PC (in other words, the PC '*represents*' this particular variable well). We may interpret these coefficients including their + or - sign in a similar way as the '*correlation of coefficients*' between each original variable and the PC.
+  + "*Comp.1*": Principal component 1
+  + All coefficients with a blank space mean the coefficients are very small and thus their contributions to PCs can be negligible. 
+  + Please ignore the bottom four lines.
+  
+  In this case, PC1 largely represents a urban-natural gradient while PC2 represents a water quality gradient.
+  
+### **PCA plot**
+
+We can visualize what we just did with a PCA biplot.
+
+```{r, warning=FALSE}
+library(devtools)
+library(ggbiplot)
+g <- ggbiplot(pca, obs.scale = 1, var.scale = 1) 
+g<-g + scale_color_discrete(name = '') 
+g<-g + theme(legend.direction = 'horizontal', legend.position = 'top')
+print(g)
+```

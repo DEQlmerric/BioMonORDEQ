@@ -384,7 +384,7 @@ sum.stats <- cal.val_chem.ref.wq %>%
 
 view(sum.stats)
 
-#9: SUMMARY STATS BY ECOREGION AND REF STATUS
+#7: SUMMARY STATS BY ECOREGION AND REF STATUS
 sum.stats.ref <- cal.val_chem.ref.wq %>% 
   group_by(L3Eco, ReferenceSite, Char_Name, cal_val) %>% 
   summarize(mean = mean(Result_Numeric_mod),

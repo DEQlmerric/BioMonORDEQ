@@ -21,7 +21,11 @@ library(randomForest)
 ## STATIONS/TSS - *FROM WATER CHEMISTRY BENCHMARKS SCRIPT*
 
 ```{r}
-tss <- read_excel("tss_2025-11-04.xlsx") #output file from ref benchmarks script
+tss <- read_excel("tss_2025-11-05.xlsx") #output file from ref benchmarks script
+tss <- tss %>% 
+  select(c(MLocID, StationDes, Lat_DD, Long_DD, Result_Numeric_mod, L3Eco, EcoRegion3, EcoRegion4, HUC8, ReferenceSite, COMID)) %>% 
+  mutate(TSS = Result_Numeric_mod) %>% 
+  select(-Result_Numeric_mod)
 
 comids <- tss %>% select(COMID) #get just the COMIDs for next step
 ```
@@ -356,7 +360,7 @@ fire2 <- get_streamcat(comids = comids, type = "Wildfire2")
 other2 <- get_streamcat(comids = comids, type = "Others2")
 
 # MERGE INTO ONE TABLE
-meow2 <- list(ag2, clim2, dams2, flow2, iwi2, cover2, litho2, mintox2, roads2, urb2, fire2, other2)
+meow2 <- list(ag2, clim2, dams2, flow2, iwi2, cover2, litho2, mintox2, roads2, urb2, fire2) # Removed other2 to remove IWI metrics.  11/5/25.
 meow2 <- meow2 %>% reduce(full_join, by='COMID')
 
 # FINAL CHECK FOR CORRELATED VARIABLES

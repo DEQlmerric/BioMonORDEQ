@@ -52,7 +52,7 @@ kitty <- read_excel("C:/Users/athomps/Oregon/DEQ - Biomonitoring is Fun! - Gener
 #test <- StreamCatTools::sc_get_data(comid = '23910659', metric = 'precipminusevt', showAreaSqKm = FALSE, aoi='watershed')
 ```
 
-#### Run function to query StreamCat data by subcategory
+#### Run function to query all StreamCat data for selected COMIDs by subcategory
 
 ```{r}
 # full data pulls use aoi='catchment,watershed,other')) 
@@ -202,13 +202,13 @@ natural.mets <- natural[,6] #just the natural metric names
 #then use these to filter out streamcat for human vs natural
 
 # EXPLORE VARIANCE FOR EACH METRIC TO GUIDE WHICH TO KEEP
-meow.sca <- as.data.frame(scale(meow[,-10])) #not used
-
-var <- meow %>%
-  select(where(is.numeric)) %>%
-  pivot_longer(cols = everything()) %>%
-  group_by(name) %>%
-  summarise(var_value = var(value))
+# meow.sca <- as.data.frame(scale(meow[,-10])) #not used
+# 
+# var <- meow %>%
+#   select(where(is.numeric)) %>%
+#   pivot_longer(cols = everything()) %>%
+#   group_by(name) %>%
+#   summarise(var_value = var(value))
 ```
 
 #### Make Spearman correlation matrix to identify covaried parameters
@@ -229,11 +229,13 @@ matrix <- spear.rows %>%
 
 #export once, then clean up in Excel
 #write_xlsx(matrix, path = "C:/Users/athomps/Oregon/DEQ - Biomonitoring is Fun! - General/Env't Stats Class Project 2025/StreamCat/Spearmans2_rerun.xlsx")
+
+rm(list=c('ag', 'clim', 'dams', 'flow','iwi', 'cover', 'litho', 'mintox', 'roads', 'urb', 'fire', 'other', 'spear', 'spear.rows'))
 ```
 
-## EXPLORE CO-VARIED PARAMETERS AND SELECT WHICH WE WANT TO RETAIN FOR MODELLING PURPOSES
+## EXPLORE CO-VARIED PARAMETERS AND SELECT WHICH WE WANT TO RETAIN FOR MODELLING PURPOSES - SB, SH, AT did this together in Excel.  See https://stateoforegon.sharepoint.com/:x:/r/sites/BiomonitoringisFun/Shared%20Documents/General/Env%27t%20Stats%20Class%20Project%202025/StreamCat/Spearmans2.xlsx?d=wc5d82026542a417589be75842d6fafe3&csf=1&web=1&e=dhYR5Q for decisions, and https://stateoforegon.sharepoint.com/:x:/r/sites/BiomonitoringisFun/Shared%20Documents/General/Env%27t%20Stats%20Class%20Project%202025/StreamCat/Spearmans2.xlsx?d=wc5d82026542a417589be75842d6fafe3&csf=1&web=1&e=dhYR5Q for full list of metric names.
 
-## PULL STREAMCAT AGAIN BUT ONLY FOR PARAMETERS OF INTEREST
+## PULL STREAMCAT AGAIN, BUT ONLY FOR PARAMETERS OF INTEREST
 
 ```{r}
 # FUNCTION - START +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -378,7 +380,7 @@ matrix2 <- spear.rows2 %>%
 scmets <- subset(meow2, meow2$COMID != '23774647' & meow2$COMID != '23877125' & meow2$COMID != '23810652')
 
 # CLEAN UP ENVIRONMENT
-rm(list=c('ag2','clim2','cover2','dams2','fire2','flow2','iwi2','litho2','mintox2','other2','roads2','urb2','meow2'))
+rm(list=c('ag2','clim2','cover2','dams2','fire2','flow2','iwi2','litho2','mintox2','other2','roads2','urb2','meow2', 'spear.rows2', 'spear2'))
 ```
 
 # **3 - BUILD MODEL**

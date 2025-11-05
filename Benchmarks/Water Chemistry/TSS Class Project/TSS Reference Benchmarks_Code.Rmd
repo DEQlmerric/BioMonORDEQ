@@ -388,47 +388,6 @@ rm(list=c('ag2','clim2','cover2','dams2','fire2','flow2','iwi2','litho2','mintox
 ## Random forests...
 
 ```{r}
-# EXPLORE IF REMOVED COMIDS WERE OUTLIERS 
-removed <- subset(meow2, meow2$COMID == '23774647' | meow2$COMID == '23877125' | meow2$COMID == '23810652')
-
-
-# MESSING AROUND WITH KERNEL DENSITY PLOTS TO SUMMARIZE METRICS
-colnames(scmets)
-attach(scmets)
-
-hist(ELEVWS, breaks=100)
-hist(BFIWS, breaks=100)
-hist(CANALDENSWS, breaks=100)
-hist(CLAYWS, breaks=100)
-hist(KFFACTWS, breaks=100)
-
-density(CLAYWS)
-#-----------
-library(KernSmooth)
-
-bkde(CLAYWS)
-summary(CLAYWS)
-
-clay.ws<-CLAYWS[!is.na(CLAYWS)]
-summary(clay.ws)
-
-plot(bkde(clay.ws))
-
-plot(density(clay.ws))
-rug(jitter(clay.ws))
-#-----------
-kern <- scmets %>%
-  select(CLAYWS, BFIWS, ELEVWS, KFFACTWS, IWI, RDDENSWS)
-
-kern %>%
-  keep(is.numeric) %>% 
-  gather() %>% 
-  ggplot(aes(value)) +
-  facet_wrap(~ key, scales = "free") +
-  geom_density() +
-  geom_rug() 
-
-
 
 
 # RANDOM FORESTS
@@ -475,6 +434,50 @@ varImpPlot(rf.ref, type = 1)
 
 
 
+```{r}
+# EXPLORE IF REMOVED COMIDS WERE OUTLIERS 
+removed <- subset(meow2, meow2$COMID == '23774647' | meow2$COMID == '23877125' | meow2$COMID == '23810652')
+
+
+# MESSING AROUND WITH KERNEL DENSITY PLOTS TO SUMMARIZE METRICS
+colnames(scmets)
+attach(scmets)
+
+hist(ELEVWS, breaks=100)
+hist(BFIWS, breaks=100)
+hist(CANALDENSWS, breaks=100)
+hist(CLAYWS, breaks=100)
+hist(KFFACTWS, breaks=100)
+
+density(CLAYWS)
+#-----------
+library(KernSmooth)
+
+bkde(CLAYWS)
+summary(CLAYWS)
+
+clay.ws<-CLAYWS[!is.na(CLAYWS)]
+summary(clay.ws)
+
+plot(bkde(clay.ws))
+
+plot(density(clay.ws))
+rug(jitter(clay.ws))
+#-----------
+kern <- scmets %>%
+  select(CLAYWS, BFIWS, ELEVWS, KFFACTWS, IWI, RDDENSWS)
+
+kern %>%
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_density() +
+  geom_rug() 
+
+
+
+```
 
 
 # TO DELETE

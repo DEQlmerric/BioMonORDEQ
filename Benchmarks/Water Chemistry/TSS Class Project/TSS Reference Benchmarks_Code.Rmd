@@ -13,7 +13,6 @@ output: html_document
 library(tidyverse)
 library(readxl)
 library(writexl)
-library(ggplot2)
 library(randomForest)
 ```
 
@@ -29,9 +28,7 @@ comids <- tss %>% select(COMID) #get just the COMIDs for next step
 
 ## WATERSHED PREDICTOR VARIABLES - *FROM EPA STREAMCAT*
 
-#### Learn about StreamCat predictors: <https://www.epa.gov/national-aquatic-resource-surveys/streamcat-metrics-and-definitions>
-
-#### View recent StreamCat updates: <https://www.epa.gov/national-aquatic-resource-surveys/streamcat-updates>
+#### Learn about StreamCat predictors here: <https://www.epa.gov/national-aquatic-resource-surveys/streamcat-metrics-and-definitions>
 
 #### Make table of StreamCat metadata and clean up in Excel
 
@@ -45,7 +42,7 @@ comids <- tss %>% select(COMID) #get just the COMIDs for next step
 #save intermediate file initially; switch to Teams to clean up, then no need to run these first steps
 #write_xlsx(partable, path = "C:/Users/athomps/OneDrive - Oregon/Desktop/partable.xlsx") 
 
-kitty <- read_excel("C:/Users/athomps/Oregon/DEQ - Biomonitoring is Fun! - General/Env't Stats Class Project 2025/StreamCat/StreamCatMetrics_new.xlsx") #final metrics table
+kitty <- read_excel("~/BioMonORDEQ/Benchmarks/Water Chemistry/TSS Class Project/StreamCatMetrics_new.xlsx") #final metrics table
 
 #keepers <- subset(kitty, kitty$`Use?`=='y') #keep only parameters of interest
 #mets <- keepers[,5] #make data frame of keeper metric names capable of querying data
@@ -54,7 +51,7 @@ kitty <- read_excel("C:/Users/athomps/Oregon/DEQ - Biomonitoring is Fun! - Gener
 #test <- StreamCatTools::sc_get_data(comid = '23910659', metric = 'precipminusevt', showAreaSqKm = FALSE, aoi='watershed')
 ```
 
-#### Run function to query StreamCat data by subcategory
+#### Run function to query all StreamCat data for selected COMIDs by subcategory
 
 ```{r}
 # full data pulls use aoi='catchment,watershed,other')) 
@@ -196,21 +193,14 @@ meow <- meow %>% reduce(full_join, by='COMID')
 # #nomatch.c <- subset(tss, tss$COMID == "23764745" | tss$COMID == "24516234" | tss$COMID == "23815386") #change COMIDs as needed
 # rm(list = c('nomatch', 'nomatch.c', 'kcomids')) #clean up environment
 
-# GROUP PREDICTORS BY HUMAN VS NATURAL
-human <- subset(kitty, kitty$Category == "Anthropogenic" & kitty$`Use?` == 'y')
-natural <- subset(kitty, kitty$Category == "Natural" & kitty$`Use?` == 'y')
-human.mets <- human[,6] #just the human related metric names
-natural.mets <- natural[,6] #just the natural metric names
-#then use these to filter out streamcat for human vs natural
-
-# EXPLORE VARIANCE FOR EACH METRIC TO GUIDE WHICH TO KEEP <----- DELETE WHEN DONE
-meow.sca <- as.data.frame(scale(meow[,-10])) #not used
-
-var <- meow %>%
-  select(where(is.numeric)) %>%
-  pivot_longer(cols = everything()) %>%
-  group_by(name) %>%
-  summarise(var_value = var(value))
+# EXPLORE VARIANCE FOR EACH METRIC TO GUIDE WHICH TO KEEP
+# meow.sca <- as.data.frame(scale(meow[,-10])) #not used
+# 
+# var <- meow %>%
+#   select(where(is.numeric)) %>%
+#   pivot_longer(cols = everything()) %>%
+#   group_by(name) %>%
+#   summarise(var_value = var(value))
 ```
 
 #### Make Spearman correlation matrix to identify covaried parameters
@@ -231,11 +221,13 @@ matrix <- spear.rows %>%
 
 #export once, then clean up in Excel
 #write_xlsx(matrix, path = "C:/Users/athomps/Oregon/DEQ - Biomonitoring is Fun! - General/Env't Stats Class Project 2025/StreamCat/Spearmans2_rerun.xlsx")
+
+rm(list=c('ag', 'clim', 'dams', 'flow','iwi', 'cover', 'litho', 'mintox', 'roads', 'urb', 'fire', 'other', 'spear', 'spear.rows'))
 ```
 
-## EXPLORE CO-VARIED PARAMETERS AND SELECT WHICH WE WANT TO RETAIN FOR MODELLING PURPOSES
+## EXPLORE CO-VARIED PARAMETERS AND SELECT WHICH WE WANT TO RETAIN FOR MODELLING PURPOSES - SB, SH, AT did this together in Excel.  See https://stateoforegon.sharepoint.com/:x:/r/sites/BiomonitoringisFun/Shared%20Documents/General/Env%27t%20Stats%20Class%20Project%202025/StreamCat/Spearmans2.xlsx?d=wc5d82026542a417589be75842d6fafe3&csf=1&web=1&e=dhYR5Q for decisions, and https://stateoforegon.sharepoint.com/:x:/r/sites/BiomonitoringisFun/Shared%20Documents/General/Env%27t%20Stats%20Class%20Project%202025/StreamCat/Spearmans2.xlsx?d=wc5d82026542a417589be75842d6fafe3&csf=1&web=1&e=dhYR5Q for full list of metric names.
 
-## PULL STREAMCAT AGAIN BUT ONLY FOR PARAMETERS OF INTEREST
+## PULL STREAMCAT AGAIN, BUT ONLY FOR PARAMETERS OF INTEREST
 
 ```{r}
 # FUNCTION - START +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -380,12 +372,79 @@ matrix2 <- spear.rows2 %>%
 scmets <- subset(meow2, meow2$COMID != '23774647' & meow2$COMID != '23877125' & meow2$COMID != '23810652')
 
 # CLEAN UP ENVIRONMENT
-rm(list=c('ag2','clim2','cover2','dams2','fire2','flow2','iwi2','litho2','mintox2','other2','roads2','urb2','meow2'))
+rm(list=c('ag2','clim2','cover2','dams2','fire2','flow2','iwi2','litho2','mintox2','other2','roads2','urb2','meow2', 'spear.rows2', 'spear2'))
+
+# GROUP PREDICTORS BY HUMAN VS NATURAL
+human.mets <- kitty %>% 
+  filter(Category == "Anthropogenic" & kitty$`Use?` == 'y') %>% 
+  select(Metric_Query) 
+
+natural.mets <- kitty %>% 
+  filter(Category == "Natural" & kitty$`Use?` == 'y') %>% 
+  select(Metric_Query)
+
+# Select out scmets by human and natural.
+
+# SB working on this.
 ```
 
 ## KERNEL DENSITY PLOTS - decide if helpful
 
 ```{r}
+<<<<<<< HEAD
+=======
+
+
+# RANDOM FORESTS
+sapply(scmets, function(x) sum(is.na(x))) #find out which columns have NAs
+
+scmets$BANKFULLWIDTH <- na.roughfix(scmets$BANKFULLWIDTH) #perform na.roughfix on all metrics with at least 1 NA; create extra code rows as needed
+scmets$SW_FLUXWS <- na.roughfix(scmets$SW_FLUXWS)
+
+tss.sc <- inner_join(tss, scmets, by = "COMID") #merge TSS AWQMS data pull with desired StreamCat metrics
+
+# SUBSET DATA
+tss.cal <- subset(tss.sc, tss.sc$cal_val == "CAL") #subset calibration dataset
+tss.val <- subset(tss.sc, tss.sc$cal_val == "VAL") #subset validation dataset
+tss.ref <- subset(tss.sc, tss.sc$ReferenceSite == "REFERENCE") #subset reference only dataset
+
+# FULL MODEL
+set.seed(42)
+
+rf.full <- randomForest(y = tss.cal$Result_Numeric_mod, x = tss.cal[52:130], importance = TRUE,  keep.forest = TRUE, ntree = 500) #run random forest model on all predictors for 500 trees, calibration dataset
+print(rf.full)
+
+varImpPlot(rf.full, type = 1, n.var = 20) #variable importance plot
+
+# REDUCED MODEL
+rf.red <- randomForest(Result_Numeric_mod ~ CHEMWS+HYDWS+RDCRSWS+PESTIC1997WS+CONNWS+PCTCROP2001WS+WETINDEXWS+PCTSHRB2001WS+ELEVWS+WDRW_LDWS+IWI, data = tss.cal, importance = TRUE,  keep.forest = TRUE, ntree = 500) #only w/ predictors >4% MSE
+print(rf.red)
+
+varImpPlot(rf.red, type = 1) #variable importance plot
+
+importance(rf.red)
+
+
+# RUN REDUCED MODEL ON VALIDATION DATASET
+
+
+# REFERENCE ONLY
+rf.ref <- randomForest(y = tss.ref$Result_Numeric_mod, x = tss.ref[52:130], importance = TRUE,  keep.forest = TRUE, ntree = 500) #run random forest model on all predictors for 500 trees, calibration dataset
+print(rf.ref)
+
+varImpPlot(rf.ref, type = 1)
+
+
+```
+
+
+
+```{r}
+# EXPLORE IF REMOVED COMIDS WERE OUTLIERS 
+removed <- subset(meow2, meow2$COMID == '23774647' | meow2$COMID == '23877125' | meow2$COMID == '23810652')
+
+
+>>>>>>> aee75da575663b3534d8fae084b04755d64cda5f
 # MESSING AROUND WITH KERNEL DENSITY PLOTS TO SUMMARIZE METRICS
 colnames(scmets)
 attach(scmets)
@@ -426,6 +485,7 @@ kern %>%
 
 # **3 - BUILD MODEL**
 
+<<<<<<< HEAD
 ## ASSESS NAs AND SUBSET DATA
 
 ```{r}
@@ -624,6 +684,11 @@ anova(rt, rt.r) #error  - no applicable method for "rpart"
 
 
 
+=======
+```
+
+
+>>>>>>> aee75da575663b3534d8fae084b04755d64cda5f
 # TO DELETE
 
 ```{r}

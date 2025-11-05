@@ -377,15 +377,40 @@ rm(list=c('ag2','clim2','cover2','dams2','fire2','flow2','iwi2','litho2','mintox
 # GROUP PREDICTORS BY HUMAN VS NATURAL
 human.mets <- kitty %>% 
   filter(Category == "Anthropogenic" & kitty$`Use?` == 'y') %>% 
-  select(Metric_Query) 
+  select(Metric_Query)
+
+human.mets <- toupper(human.mets$Metric_Query)
 
 natural.mets <- kitty %>% 
   filter(Category == "Natural" & kitty$`Use?` == 'y') %>% 
   select(Metric_Query)
 
-# Select out scmets by human and natural.
+natural.mets <- toupper(natural.mets$Metric_Query)
 
-# SB working on this.
+# Select out scmets by human and natural.
+# Ending in WS only
+scmetsws <- scmets %>% 
+    select(ends_with("ws")) 
+# Remove 'WS' suffix so can match to metric names in 'kitty' table
+colnames(scmetsws) <- substr(colnames(scmetsws), 1, nchar(colnames(scmetsws))-2)
+
+# Subset only column names that are in human or natural mets
+scmetws_human <- scmetsws[ , names(scmetsws) %in% human.mets] # 29 variables
+scmetws_natural <- scmetsws[ , names(scmetsws) %in% natural.mets] # 47 variables
+
+# Add 'WS' suffix back in
+colnames(scmetws_human) <- paste0(colnames(scmetws_human), "WS")
+colnames(scmetws_natural) <- paste0(colnames(scmetws_natural), "WS")
+  
+# Do the same thing for metrics not ending in 'WS'
+scmetsnows <- scmets %>% 
+    select(!ends_with("ws"))
+
+scmet_human <- scmetsnows[ , names(scmetsnows) %in% human.mets] # 1 variable
+scmet_natural <- scmetsnows[ , names(scmetsnows) %in% natural.mets] # 2 variables
+
+sc_human <- cbind(scmetws_human, scmet_human) # 30 variables
+sc_natural <- cbind(scmetws_natural, scmet_natural) # 49 variables (Total of 79, matches scmets)
 ```
 
 # **3 - BUILD MODEL**

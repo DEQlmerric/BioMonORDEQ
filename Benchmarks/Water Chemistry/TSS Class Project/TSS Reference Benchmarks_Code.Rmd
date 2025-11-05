@@ -331,7 +331,7 @@ if(type == "Wildfire2"){
 if(type == "Others2"){
 
   streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'bankfullwidth,iwi,msst2008',
+                                                                           metric = 'bankfullwidth,msst2008',
                                                                            showAreaSqKm = FALSE,
                                                                            aoi='other')) 
   }
@@ -350,7 +350,7 @@ ag2 <- get_streamcat(comids = comids, type = "Agriculture2")
 clim2 <- get_streamcat(comids = comids, type = "Climate2")
 dams2 <- get_streamcat(comids = comids, type = "Dams2")
 flow2 <- get_streamcat(comids = comids, type = "Flow2")
-iwi2 <- get_streamcat(comids = comids, type = "IWI2") #except prg_bmmi0809 b/c it crashes API
+#iwi2 <- get_streamcat(comids = comids, type = "IWI2") #except prg_bmmi0809 b/c it crashes API
 cover2 <- get_streamcat(comids = comids, type = "Land Cover2")
 litho2 <- get_streamcat(comids = comids, type = "Lithology2") 
 mintox2 <- get_streamcat(comids = comids, type = "Mining_Toxics2")
@@ -360,7 +360,7 @@ fire2 <- get_streamcat(comids = comids, type = "Wildfire2")
 other2 <- get_streamcat(comids = comids, type = "Others2")
 
 # MERGE INTO ONE TABLE
-meow2 <- list(ag2, clim2, dams2, flow2, iwi2, cover2, litho2, mintox2, roads2, urb2, fire2) # Removed other2 to remove IWI metrics.  11/5/25.
+meow2 <- list(ag2, clim2, dams2, flow2, cover2, litho2, mintox2, roads2, urb2, fire2, other2) # Removed other2 to remove IWI metrics.  11/5/25.
 meow2 <- meow2 %>% reduce(full_join, by='COMID')
 
 # FINAL CHECK FOR CORRELATED VARIABLES

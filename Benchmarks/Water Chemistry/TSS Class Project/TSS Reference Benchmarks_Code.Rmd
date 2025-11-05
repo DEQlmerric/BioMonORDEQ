@@ -383,15 +383,9 @@ scmets <- subset(meow2, meow2$COMID != '23774647' & meow2$COMID != '23877125' & 
 rm(list=c('ag2','clim2','cover2','dams2','fire2','flow2','iwi2','litho2','mintox2','other2','roads2','urb2','meow2'))
 ```
 
-# **3 - BUILD MODEL**
-
-## Random forests...
+## KERNEL DENSITY PLOTS - decide if helpful
 
 ```{r}
-# EXPLORE IF REMOVED COMIDS WERE OUTLIERS 
-removed <- subset(meow2, meow2$COMID == '23774647' | meow2$COMID == '23877125' | meow2$COMID == '23810652')
-
-
 # MESSING AROUND WITH KERNEL DENSITY PLOTS TO SUMMARIZE METRICS
 colnames(scmets)
 attach(scmets)
@@ -427,11 +421,14 @@ kern %>%
   facet_wrap(~ key, scales = "free") +
   geom_density() +
   geom_rug() 
+```
 
 
+# **3 - BUILD MODEL**
 
+## ASSESS NAs AND SUBSET DATA
 
-# RANDOM FORESTS
+```{r}
 sapply(scmets, function(x) sum(is.na(x))) #find out which columns have NAs
 
 scmets$BANKFULLWIDTH <- na.roughfix(scmets$BANKFULLWIDTH) #perform na.roughfix on all metrics with at least 1 NA; create extra code rows as needed
@@ -443,48 +440,185 @@ tss.sc <- inner_join(tss, scmets, by = "COMID") #merge TSS AWQMS data pull with 
 tss.cal <- subset(tss.sc, tss.sc$cal_val == "CAL") #subset calibration dataset
 tss.val <- subset(tss.sc, tss.sc$cal_val == "VAL") #subset validation dataset
 tss.ref <- subset(tss.sc, tss.sc$ReferenceSite == "REFERENCE") #subset reference only dataset
+```
 
+## RANDOM FORESTS
+
+#### FULL MODEL
+
+```{r}
 # FULL MODEL
 set.seed(42)
 
-rf.full <- randomForest(y = tss.cal$Result_Numeric_mod, x = tss.cal[52:130], importance = TRUE,  keep.forest = TRUE, ntree = 500) #run random forest model on all predictors for 500 trees, calibration dataset
+rf.full <- randomForest(y = tss.cal$Result_Numeric_mod, x = tss.cal[52:130], importance = TRUE,  keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
 print(rf.full)
 
 varImpPlot(rf.full, type = 1, n.var = 20) #variable importance plot
+library(vip)
+vip(rf.full, aesthetics = list(color = "blue", fill = "blue")) #another plot
 
+importance(rf.full)
+
+# PARTIAL DEPENDENCE PLOTS - SINGLE ONLY, NEED TO INCORPORATE FOR LOOP FOR ALL VBLS
+rf.full <- randomForest(Result_Numeric_mod ~ ., data = tss.cal.test)
+partialPlot(rf.full, as.data.frame(tss.cal.test), ELEVWS, ylab = "Predicted TSS")
+
+
+# MODEL'S PREDICTION ERROR
+pred.rf <- predict(rf.full, newdata = tss.val.test)
+plot(pred.rf ~ tss.val.test$Result_Numeric_mod, xlab="Observed TSS", ylab="Predicted TSS")
+abline(a=0,b=1)
+(rmse<-sqrt(sum((pred.rf - tss.val.test$Result_Numeric_mod)^2)/length(tss.val.test$Result_Numeric_mod)))#prediction error
+```
+
+#### REDUCED MODEL
+
+```{r}
 # REDUCED MODEL
+set.seed(42)
+
 rf.red <- randomForest(Result_Numeric_mod ~ CHEMWS+HYDWS+RDCRSWS+PESTIC1997WS+CONNWS+PCTCROP2001WS+WETINDEXWS+PCTSHRB2001WS+ELEVWS+WDRW_LDWS+IWI, data = tss.cal, importance = TRUE,  keep.forest = TRUE, ntree = 500) #only w/ predictors >4% MSE
 print(rf.red)
 
 varImpPlot(rf.red, type = 1) #variable importance plot
-
 importance(rf.red)
+```
+
+
+#### TEST FULL MODEL WITH VAL DATA
+```{r}
+# REMAKE CAL RF WITHOUT EXTRA AWQMS COLUMNS 
+rf.test <- randomForest(Result_Numeric_mod ~., data = tss.cal.test)
+
+
+# CONFUSION MATRIX
+library(caret)
+tss.val$RFtss <- predict(rf.test, tss.val.test) #model prediction on 'VAL' dataset
+RFtss <- tss.val %>% select(RFtss, COMID)
+RFval <- tss.val %>% select(Result_Numeric_mod, COMID)
+
+cm <- inner_join(RFtss, RFval, by = "COMID")
+confusionMatrix(data = as.factor(cm$RFtss), reference = as.factor(cm$Result_Numeric_mod)) #NOT WORKING YET
+
+plot(cm$RFtss, cm$Result_Numeric_mod)
+```
 
 
 
-tss.r <- tss.sc %>% select(Result_Numeric_mod, COMID, cal_val)
-tss.test <- inner_join(tss.r, scmets, by = "COMID") 
-tss.cal.test <- subset(tss.test, tss.test$cal_val == "CAL")
-tss.cal.test <- tss.cal.test[,-c(2:3)]
-
-library(rpart)
-mod <- rpart(Result_Numeric_mod ~ ., data = tss.cal.test)
-plot(mod)
-text(mod, use.n = TRUE)
-
-summary(mod)
-
-# RUN REDUCED MODEL ON VALIDATION DATASET
 
 
+
+
+
+
+
+
+#### REFERENCE ONLY MODEL
+
+```{r}
 # REFERENCE ONLY
-rf.ref <- randomForest(y = tss.ref$Result_Numeric_mod, x = tss.ref[52:130], importance = TRUE,  keep.forest = TRUE, ntree = 500) #run random forest model on all predictors for 500 trees, calibration dataset
+rf.ref <- randomForest(y = tss.ref$Result_Numeric_mod, x = tss.ref[52:130], importance = TRUE,  keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
 print(rf.ref)
 
 varImpPlot(rf.ref, type = 1)
-
-
+importance(rf.ref)
 ```
+
+
+
+#### MULTIPLE LINEAR REGRESSION 
+
+```{r}
+# LINEAR REGRESSION MODEL FIT
+lr.f <- lm(Result_Numeric_mod ~ ., data = tss.cal.test)
+#lr.r <- lm(Result_Numeric_mod ~ PCTAGSLPMID2001WS+PCTAGSLPMID2001WS+WETINDEXWS+PRECIP9120WS+CHEMWS+PCTBL2001WS+PCTICE2001WS+
+           PCTURBMD2001WS+HYDRLCONDWS+SANDWS+MINEDENSWS+SUPERFUNDDENSWS+RDCRSSLPWTDWS+RDCRSWS+WWTPALLDENSWS, data = tss.cal.test) #subset significant predictors
+lr.r2 <- lm(Result_Numeric_mod ~ CONNWS+HYDWS+IWI+PCTSHRB2001WS+PESTIC1997WS+PCTURBMD2001WS+PCTAGSLPMID2001WS+PCTGRS2001WS+PRECIP9120WS+PCTCONIF2001WS, data = tss.cal.test) #subset significant predictors
+
+
+summary(lr.f)
+summary(lr.r)
+summary(lr.r2)
+
+par(mfrow=c(2,2))
+plot(lr.f)
+
+
+
+
+t <- tss.cal.test %>% select(Result_Numeric_mod,PCTAGSLPMID2001WS,PCTAGSLPMID2001WS,WETINDEXWS,PRECIP9120WS,CHEMWS,PCTBL2001WS,PCTICE2001WS,
+           PCTURBMD2001WS,HYDRLCONDWS,SANDWS,MINEDENSWS,SUPERFUNDDENSWS,RDCRSSLPWTDWS,RDCRSWS,WWTPALLDENSWS) #subset significant predictors
+#sapply(t, function(x) sum(is.na(x))) #find out which columns have NAs
+#source("D:/ESM 566/3_Worksheets/cor.matrix.r")
+#cor.matrix(t)
+```
+
+
+#### REGRESSION TREES
+
+```{r}
+# REGRESSION TREES EXPERIMENTATION
+tss.r <- tss.sc %>% select(Result_Numeric_mod, COMID, cal_val)
+tss.test <- inner_join(tss.r, scmets, by = "COMID") 
+
+tss.cal.test <- subset(tss.test, tss.test$cal_val == "CAL")
+tss.cal.test <- tss.cal.test[,-c(2:3)]
+
+tss.val.test <- subset(tss.test, tss.test$cal_val == "VAL")
+tss.val.test <- tss.val.test[,-c(2:3)]
+
+library(rpart)
+library(rpart.plot)
+
+# FULL MODEL
+rt <- rpart(Result_Numeric_mod ~ ., data = tss.cal.test)
+plot(rt)
+text(rt, use.n = TRUE)
+
+names(rt)
+print(rt)
+summary(rt)
+
+prp(rt, #plot the tree model
+    faclen=0,#use full names for factor labels
+    extra=1)#display number of obs. for each terminal node
+#-----------------------------------------------------------------------------------------------
+library(vip)# for variable importance plots. you may need to install it first
+vip(rt, aesthetics = list(color = "blue", fill = "blue")) #variable importance plot
+plotcp(rt) #model cross-validation
+
+
+
+
+# REDUCED MODEL
+rt.r <- rpart(Result_Numeric_mod ~ CONNWS+HYDWS+IWI+PCTSHRB2001WS+PESTIC1997WS+PCTURBMD2001WS+PCTAGSLPMID2001WS+PCTGRS2001WS+PRECIP9120WS+PCTCONIF2001WS, data = tss.cal.test)
+plot(rt.r)
+text(rt.r, use.n = TRUE)
+
+summary(rt.r)
+
+prp(rt.r, #plot the tree model
+    faclen=0,#use full names for factor labels
+    extra=1)#display number of obs. for each terminal node
+#-----------------------------------------------------------------------------------------------
+vip(rt.r, aesthetics = list(color = "blue", fill = "blue")) #variable importance plot
+plotcp(rt.r) #model cross-validation
+
+
+
+
+# TEST REDUCED MODEL ON VAL DATASET
+p <- predict(rt.r, newdata = tss.val) #OLS model prediction
+plot(p ~ tss.val$Result_Numeric_mod, ylab = "Predicted TSS", xlab = "Observed TSS", ylim=c(0,30))
+abline(a = 0, b = 1) #1:1 line
+sqrt(sum((p-tss.val$Result_Numeric_mod)^2)/length(tss.val$Result_Numeric_mod)) #predictive error
+
+# Test if the final reduced model is statistically different from the full model
+anova(rt, rt.r) #error  - no applicable method for "rpart"
+```
+
+
+
 
 
 

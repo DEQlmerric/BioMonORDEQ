@@ -13,7 +13,6 @@ output: html_document
 library(tidyverse)
 library(readxl)
 library(writexl)
-library(ggplot2)
 library(randomForest)
 ```
 
@@ -43,7 +42,7 @@ comids <- tss %>% select(COMID) #get just the COMIDs for next step
 #save intermediate file initially; switch to Teams to clean up, then no need to run these first steps
 #write_xlsx(partable, path = "C:/Users/athomps/OneDrive - Oregon/Desktop/partable.xlsx") 
 
-kitty <- read_excel("C:/Users/athomps/Oregon/DEQ - Biomonitoring is Fun! - General/Env't Stats Class Project 2025/StreamCat/StreamCatMetrics_new.xlsx") #final metrics table
+kitty <- read_excel("~/BioMonORDEQ/Benchmarks/Water Chemistry/TSS Class Project/StreamCatMetrics_new.xlsx") #final metrics table
 
 #keepers <- subset(kitty, kitty$`Use?`=='y') #keep only parameters of interest
 #mets <- keepers[,5] #make data frame of keeper metric names capable of querying data
@@ -193,13 +192,6 @@ meow <- meow %>% reduce(full_join, by='COMID')
 # nomatch <- comids[!comids$COMID %in% kcomids$COMID, ] #make data frame showing which COMIDs aren't pulling StreamCat data
 # #nomatch.c <- subset(tss, tss$COMID == "23764745" | tss$COMID == "24516234" | tss$COMID == "23815386") #change COMIDs as needed
 # rm(list = c('nomatch', 'nomatch.c', 'kcomids')) #clean up environment
-
-# GROUP PREDICTORS BY HUMAN VS NATURAL
-human <- subset(kitty, kitty$Category == "Anthropogenic" & kitty$`Use?` == 'y')
-natural <- subset(kitty, kitty$Category == "Natural" & kitty$`Use?` == 'y')
-human.mets <- human[,6] #just the human related metric names
-natural.mets <- natural[,6] #just the natural metric names
-#then use these to filter out streamcat for human vs natural
 
 # EXPLORE VARIANCE FOR EACH METRIC TO GUIDE WHICH TO KEEP
 # meow.sca <- as.data.frame(scale(meow[,-10])) #not used
@@ -381,6 +373,19 @@ scmets <- subset(meow2, meow2$COMID != '23774647' & meow2$COMID != '23877125' & 
 
 # CLEAN UP ENVIRONMENT
 rm(list=c('ag2','clim2','cover2','dams2','fire2','flow2','iwi2','litho2','mintox2','other2','roads2','urb2','meow2', 'spear.rows2', 'spear2'))
+
+# GROUP PREDICTORS BY HUMAN VS NATURAL
+human.mets <- kitty %>% 
+  filter(Category == "Anthropogenic" & kitty$`Use?` == 'y') %>% 
+  select(Metric_Query) 
+
+natural.mets <- kitty %>% 
+  filter(Category == "Natural" & kitty$`Use?` == 'y') %>% 
+  select(Metric_Query)
+
+# Select out scmets by human and natural.
+
+# SB working on this.
 ```
 
 # **3 - BUILD MODEL**

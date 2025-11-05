@@ -411,15 +411,13 @@ scmet_natural <- scmetsnows[ , names(scmetsnows) %in% natural.mets] # 2 variable
 
 sc_human <- cbind(scmetws_human, scmet_human) # 30 variables
 sc_natural <- cbind(scmetws_natural, scmet_natural) # 49 variables (Total of 79, matches scmets)
+
+# SYB figure out how to keep COMID as a column.
 ```
 
 ## KERNEL DENSITY PLOTS - decide if helpful
 
 ```{r}
-<<<<<<< HEAD
-=======
-
-
 # RANDOM FORESTS
 sapply(scmets, function(x) sum(is.na(x))) #find out which columns have NAs
 
@@ -468,8 +466,6 @@ varImpPlot(rf.ref, type = 1)
 # EXPLORE IF REMOVED COMIDS WERE OUTLIERS 
 removed <- subset(meow2, meow2$COMID == '23774647' | meow2$COMID == '23877125' | meow2$COMID == '23810652')
 
-
->>>>>>> aee75da575663b3534d8fae084b04755d64cda5f
 # MESSING AROUND WITH KERNEL DENSITY PLOTS TO SUMMARIZE METRICS
 colnames(scmets)
 attach(scmets)
@@ -509,8 +505,6 @@ kern %>%
 
 
 # **3 - BUILD MODEL**
-
-<<<<<<< HEAD
 ## ASSESS NAs AND SUBSET DATA
 
 ```{r}

@@ -316,7 +316,13 @@ cal_chem.ref.wq <- cal_chem.ref.wq %>%
 # Combine the previous two tables.
 cal.val_chem.ref.wq <- rbind(cal_chem.ref.wq, val_chem.ref.wq)
 
-write_xlsx(cal.val_chem.ref.wq, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//cal.val_chem.ref.wq", Sys.Date(), ".xlsx"))
+tss <- cal.val_chem.ref.wq %>%
+  filter(Char_Name == 'Total suspended solids') %>% 
+  select(c(MLocID, StationDes, Lat_DD, Long_DD, Result_Numeric_mod, L3Eco, EcoRegion3, EcoRegion4, HUC8, ReferenceSite, cal_val, COMID)) %>%
+  mutate(TSS = Result_Numeric_mod) %>%
+  select(-Result_Numeric_mod)
+
+write_xlsx(tss, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//cal.val_chem.ref.wq", Sys.Date(), ".xlsx"))
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # SUMMARY TABLES, FIGURES
 #-----------------------------------------------------------------------------------------------------------------------------------------------------

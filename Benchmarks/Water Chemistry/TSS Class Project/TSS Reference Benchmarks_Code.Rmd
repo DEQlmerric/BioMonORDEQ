@@ -504,7 +504,7 @@ hist(scmets$PCTAGSLPMID2001WS, main = "", xlab = "% Ag 20% slopes (???), 2001")
 
 ## RANDOM FORESTS
 
-#### Full model - all predictors included (n = 79??)
+#### Full model - all predictors included (n = 75)
 
 ```{r}
 # FULL MODEL
@@ -519,10 +519,19 @@ vip(rf.full, aesthetics = list(color = "blue", fill = "blue")) #another plot
 importance(rf.full)
 
 # PARTIAL DEPENDENCE PLOTS - SINGLE ONLY, NEED TO INCORPORATE FOR LOOP FOR ALL VBLS
+partialPlot(rf.full, as.data.frame(tss.cal), POPDEN2010WS, ylab = "Predicted TSS")
+partialPlot(rf.full, as.data.frame(tss.cal), PCTAGSLPMID2001WS, ylab = "Predicted TSS")
+partialPlot(rf.full, as.data.frame(tss.cal), WDRW_LDWS, ylab = "Predicted TSS")
+partialPlot(rf.full, as.data.frame(tss.cal), PESTIC1997WS, ylab = "Predicted TSS")
 partialPlot(rf.full, as.data.frame(tss.cal), ELEVWS, ylab = "Predicted TSS")
+partialPlot(rf.full, as.data.frame(tss.cal), SWS, ylab = "Predicted TSS")
+partialPlot(rf.full, as.data.frame(tss.cal), PCTCONIF2001WS, ylab = "Predicted TSS")
+partialPlot(rf.full, as.data.frame(tss.cal), ROCKNWS, ylab = "Predicted TSS")
+partialPlot(rf.full, as.data.frame(tss.cal), RDCRSWS, ylab = "Predicted TSS")
+partialPlot(rf.full, as.data.frame(tss.cal), SANDWS, ylab = "Predicted TSS")
 
 # PARTIAL DEPENDENCE PLOTS - VARIABLES IN ORDER OF DECREASING IMPORTANCE
-# AVOIDS MARGINS TOO SMALL ERROR
+# maybe helps with margins too large error
 graphics.off()
 par("mar")
 par(mar=c(1,1,1,1))

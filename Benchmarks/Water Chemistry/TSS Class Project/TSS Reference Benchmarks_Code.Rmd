@@ -11,6 +11,7 @@ output: html_document
 
 ```{r warning=TRUE}
 library(tidyverse)
+library(StreamCatTools) #why was this removed? Is it needed for pulls?
 library(readxl)
 library(writexl)
 library(randomForest)
@@ -32,7 +33,9 @@ comids <- tss %>% select(COMID) #get just the COMIDs for next step
 
 ## WATERSHED PREDICTOR VARIABLES - *FROM EPA STREAMCAT*
 
-#### Learn about StreamCat predictors here: <https://www.epa.gov/national-aquatic-resource-surveys/streamcat-metrics-and-definitions>
+#### Learn about StreamCat predictors: <https://www.epa.gov/national-aquatic-resource-surveys/streamcat-metrics-and-definitions>
+
+#### View StreamCat updates: <https://www.epa.gov/national-aquatic-resource-surveys/streamcat-updates>
 
 #### Make table of StreamCat metadata and clean up in Excel
 
@@ -207,18 +210,18 @@ meow <- meow %>% reduce(full_join, by='COMID')
 #   summarise(var_value = var(value))
 ```
 
-#### Make Spearman correlation matrix to identify covaried parameters
+#### Make Spearman correlation matrix to identify co-varied parameters
 
 ```{r, warning=FALSE}
-# FULL CORRELATION MATRIX - ALL VARIABLES
+# FULL CORRELATION MATRIX
 spear <- cor(meow, method = "spearman", use = "pairwise.complete.obs")
 spear <- as.data.frame(spear)
 spear.rows <- tibble::rownames_to_column(spear)
 
 #export once, then clean up in Excel
-#write_xlsx(spear.rows, path = "C:/Users/athomps/Oregon/DEQ - Biomonitoring is Fun! - General/Env't Stats Class Project 2025/StreamCat/Spearmans.xlsx")
+#write_xlsx(spear.rows, path = "C:/Users/athomps/Oregon/DEQ - Biomonitoring is Fun! - General/Env't Stats Class Project 2025/StreamCat/Spearmans_rerun.xlsx")
 
-# CONDENSED CORRELATION MATRIX - ONLY VARIABLES >|0.8|
+# CONDENSED CORRELATION MATRIX (>0.8 ONLY)
 matrix <- spear.rows %>%  
   gather(-rowname, key = "colname", value = "cor") %>% 
   filter(abs(cor) > 0.8)
@@ -229,9 +232,9 @@ matrix <- spear.rows %>%
 rm(list=c('ag', 'clim', 'dams', 'flow','iwi', 'cover', 'litho', 'mintox', 'roads', 'urb', 'fire', 'other', 'spear', 'spear.rows'))
 ```
 
-#### EXPLORE CO-VARIED PARAMETERS AND SELECT WHICH WE WANT TO RETAIN FOR MODELLING PURPOSES - SB, SH, AT did this together in Excel. See <https://stateoforegon.sharepoint.com/:x:/r/sites/BiomonitoringisFun/Shared%20Documents/General/Env%27t%20Stats%20Class%20Project%202025/StreamCat/Spearmans2.xlsx?d=wc5d82026542a417589be75842d6fafe3&csf=1&web=1&e=dhYR5Q> for decisions, and <https://stateoforegon.sharepoint.com/:x:/r/sites/BiomonitoringisFun/Shared%20Documents/General/Env%27t%20Stats%20Class%20Project%202025/StreamCat/Spearmans2.xlsx?d=wc5d82026542a417589be75842d6fafe3&csf=1&web=1&e=dhYR5Q> for full list of metric names.
+#### Explore co-varied metrics and select which we want to retain for modeling purposes (SB, SH, AT did together in Excel). See <https://stateoforegon.sharepoint.com/:x:/r/sites/BiomonitoringisFun/Shared%20Documents/General/Env%27t%20Stats%20Class%20Project%202025/StreamCat/Spearmans2.xlsx?d=wc5d82026542a417589be75842d6fafe3&csf=1&web=1&e=dhYR5Q> for decisions, and <https://stateoforegon.sharepoint.com/:x:/r/sites/BiomonitoringisFun/Shared%20Documents/General/Env%27t%20Stats%20Class%20Project%202025/StreamCat/Spearmans2.xlsx?d=wc5d82026542a417589be75842d6fafe3&csf=1&web=1&e=dhYR5Q> for full list of metric names.
 
-## PULL STREAMCAT AGAIN, BUT ONLY FOR PARAMETERS OF INTEREST
+#### Run StreamCat function again, but only for parameters of interest
 
 ```{r}
 # FUNCTION - START +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -342,7 +345,7 @@ return(streamcat)
 # FUNCTION - END  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ```
 
-## PULL STREAMCAT AGAIN BUT ONLY FOR PARAMETERS OF INTEREST
+#### Pull and merge StreamCat data for parameters of interest
 
 ```{r}
 # PULL DATA BY SUBCATEGORY/TYPE
@@ -359,27 +362,50 @@ urb2 <- get_streamcat(comids = comids, type = "Urban2")
 fire2 <- get_streamcat(comids = comids, type = "Wildfire2")
 other2 <- get_streamcat(comids = comids, type = "Others2")
 
-# MERGE INTO ONE TABLE
+# MERGE STREAMCAT DATA PULL
 meow2 <- list(ag2, clim2, dams2, flow2, cover2, litho2, mintox2, roads2, urb2, fire2, other2) # Removed iwi2 to remove IWI metrics.  11/5/25.
 meow2 <- meow2 %>% reduce(full_join, by='COMID')
 
-# FINAL CHECK FOR CORRELATED VARIABLES
+# REMOVE METRICS FOR UNWANTED REPRESENTATIVE COMIDS FOR SITES ON HIGH RES NHD LAYER
+scmets <- subset(meow2, meow2$COMID != '23774647' & meow2$COMID != '23877125' & meow2$COMID != '23810652')
+```
+
+#### Pefrorm final correlation check
+
+```{r}
+# FULL CORRELATION MATRIX
 spear2 <- cor(meow2, method = "spearman", use = "pairwise.complete.obs")
 spear2 <- as.data.frame(spear2)
 spear.rows2 <- tibble::rownames_to_column(spear2)
 
+# CONDENSED CORRELATION MATRIX (>0.8 ONLY)
 matrix2 <- spear.rows2 %>%  
   gather(-rowname, key = "colname", value = "cor") %>% 
   filter(abs(cor) > 0.8)
 
-# REMOVE METRICS FOR UNWANTED REPRESENTATIVE COMIDS FOR SITES ON HIGH RES NHD LAYER
-scmets <- subset(meow2, meow2$COMID != '23774647' & meow2$COMID != '23877125' & meow2$COMID != '23810652')
+# CONTINUE ONCE NO CORRELATED VARIABLES REMAIN
+```
+
+## PREPARE DATA FOR MODELING
+
+#### Handle NA values and merge predictors with TSS data
+
+```{r}
+# FIND OUT WHICH COLUMNS HAVE NAs (AND WRITE CODE FOR THEM BELOW)
+sapply(scmets, function(x) sum(is.na(x)))
+
+# PERFORM NA ROUGHFIX FUNCTION ON ALL METRICS WITH AT LEAST 1 NA VALUE (ADD CODE AS NEEDED)
+scmets$BANKFULLWIDTH <- na.roughfix(scmets$BANKFULLWIDTH) #bankfull width (n = 71 NAs)
+scmets$SW_FLUXWS <- na.roughfix(scmets$SW_FLUXWS) #surface water flux (n = 2 NAs)
+
+# MERGE THE DESIRED STREAMCAT METRIC DATA WITH THE TSS AWQMS DATA PULL
+tss.sc <- inner_join(tss, scmets, by = "COMID")
 
 # CLEAN UP ENVIRONMENT
 rm(list=c('ag2','clim2','cover2','dams2','fire2','flow2','iwi2','litho2','mintox2','other2','roads2','urb2','meow2', 'spear.rows2', 'spear2'))
 ```
 
-## GROUP PREDICTORS BY HUMAN VS NATURAL
+#### Group predictors by human vs natural disturbances
 
 ```{r}
 human.mets <- kitty %>% 
@@ -421,18 +447,9 @@ sc_human <- cbind(scmetws_human, scmet_human) # 30 variables  #Why is there a co
 sc_natural <- cbind(scmetws_natural, scmet_natural) # 49 variables (Total of 79, matches scmets)
 ```
 
-# **3 - BUILD MODEL**
-
-## ASSESS NAs AND SUBSET DATA
+#### Subset data - CALibration, VALidation, and Reference Only
 
 ```{r}
-sapply(scmets, function(x) sum(is.na(x))) #find out which columns have NAs
-
-scmets$BANKFULLWIDTH <- na.roughfix(scmets$BANKFULLWIDTH) #perform na.roughfix on all metrics with at least 1 NA; create extra code rows as needed
-scmets$SW_FLUXWS <- na.roughfix(scmets$SW_FLUXWS)
-
-tss.sc <- inner_join(tss, scmets, by = "COMID") #merge TSS AWQMS data pull with desired StreamCat metrics
-
 # SUBSET DATA AND REMOVE NON-VARIABLE ROWS
 tss.cal <- tss.sc %>% 
   filter(cal_val == 'CAL') %>%  
@@ -440,16 +457,18 @@ tss.cal <- tss.sc %>%
 
 tss.val <- tss.sc %>% 
   filter(cal_val == 'VAL') %>%  
-  select(-c(MLocID:COMID))  #subset calibration dataset
+  select(-c(MLocID:COMID))  #subset validation dataset
 
 tss.ref <- tss.sc %>% 
   filter(ReferenceSite == 'REFERENCE') %>%  
   select(-c(MLocID:COMID)) #subset reference only dataset
 ```
 
+# **3 - BUILD MODELS**
+
 ## RANDOM FORESTS
 
-#### FULL MODEL
+#### Full model - all predictors included (n = 79??)
 
 ```{r}
 # FULL MODEL
@@ -467,6 +486,9 @@ importance(rf.full)
 rf.full <- randomForest(TSS ~ ., data = tss.cal)
 partialPlot(rf.full, as.data.frame(tss.cal), ELEVWS, ylab = "Predicted TSS")
 
+
+
+
 # MODEL'S PREDICTION ERROR
 pred.rf <- predict(rf.full, newdata = tss.cal)
 plot(pred.rf ~ tss.cal$TSS, xlab="Observed TSS", ylab="Predicted TSS")
@@ -474,7 +496,7 @@ abline(a=0,b=1)
 (rmse<-sqrt(sum((pred.rf - tss.cal$TSS)^2)/length(tss.cal$TSS)))#prediction error
 ```
 
-#### REDUCED MODEL
+#### Reduced model - only important predictors included (n = 12)
 
 ```{r}
 # REDUCED MODEL
@@ -494,7 +516,7 @@ abline(a=0,b=1)
 (rmse<-sqrt(sum((pred.rf.red - tss.cal$TSS)^2)/length(tss.cal$TSS)))#prediction error
 ```
 
-#### TEST FULL MODEL WITH VAL DATA
+#### Test full model with validation data
 
 ```{r}
 # CONFUSION MATRIX
@@ -508,7 +530,7 @@ confusionMatrix(data = as.factor(cm$RFtss), reference = as.factor(cm$TSS)) #NOT 
 plot(cm$RFtss, cm$TSS)
 ```
 
-#### REFERENCE ONLY MODEL
+## REFERENCE ONLY MODEL
 
 ```{r}
 # REFERENCE ONLY
@@ -519,7 +541,7 @@ varImpPlot(rf.ref, type = 1)
 importance(rf.ref)
 ```
 
-#### REGRESSION TREES
+## REGRESSION TREES
 
 ```{r}
 # REGRESSION TREES EXPERIMENTATION
@@ -536,6 +558,8 @@ prp(rt, #plot the tree model
     faclen=0,#use full names for factor labels
     extra=1)#display number of obs. for each terminal node
 ```
+
+
 
 #---------------------------------------------------------------------------
 

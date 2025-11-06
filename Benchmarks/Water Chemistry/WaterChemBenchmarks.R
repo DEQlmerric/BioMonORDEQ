@@ -301,7 +301,7 @@ set.seed(42) # If you run random functions (sample_n() in this case), this will 
 
 cal_chem.ref.wq <- cal.val_chem.ref.wq %>% 
   group_by(cal_val_group) %>% 
-  slice_sample(prop=0.5, replace = FALSE) %>% 
+  slice_sample(prop=0.8, replace = FALSE) %>% 
   ungroup()
 
 # Take remaining samples and create VAL group  
@@ -316,7 +316,7 @@ cal_chem.ref.wq <- cal_chem.ref.wq %>%
 # Combine the previous two tables.
 cal.val_chem.ref.wq <- rbind(cal_chem.ref.wq, val_chem.ref.wq)
 
-#write_xlsx(cal.val_chem.ref.wq, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//cal.val_chem.ref.wq", Sys.Date(), ".xlsx"))
+write_xlsx(cal.val_chem.ref.wq, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//cal.val_chem.ref.wq", Sys.Date(), ".xlsx"))
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # SUMMARY TABLES, FIGURES
 #-----------------------------------------------------------------------------------------------------------------------------------------------------

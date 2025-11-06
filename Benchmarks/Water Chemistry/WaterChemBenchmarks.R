@@ -118,6 +118,18 @@ chem.ref <- chem.ref %>%
 chem.ref$L3Eco <- factor(chem.ref$L3Eco, levels = c("Coast Range", "Willamette Valley", "Klamath Mountains", "Cascades",
     "Eastern Cascades Slopes and Foothills", "Columbia Plateau", "Blue Mountains", "Northern Basin and Range", "Snake River Plain"))
 
+# ADD LEVEL 2 ECOREGIONS 
+chem.ref <- chem.ref %>% 
+  mutate(L2Eco = case_when(
+    L3Eco %in%  c("Willamette Valley", "Coast Range") ~ "Marine West Coast Forest",
+    L3Eco %in% c("Columbia Plateau", "Northern Basin and Range", "Snake River Plain") ~ "Cold Deserts",
+    L3Eco %in% c("Eastern Cascades Slopes and Foothills", "Blue Mountains", "Klamath Mountains", "Cascades") ~ "Western Cordillera"
+  )) %>% 
+  relocate(L2Eco, .before = L3Eco)
+
+# ECOREGIONS AS FACTORS (in geographic order)
+chem.ref$L2Eco <- factor(chem.ref$L2Eco, levels = c("Marine West Coast Forest", "Western Cordillera", "Cold Deserts"))
+
 # REF STATUS AS FACTORS
 chem.ref$ReferenceSite <- factor(chem.ref$ReferenceSite, levels = c("REFERENCE", "MODERATELY DISTURBED", "MOST DISTURBED"))
 
@@ -318,11 +330,11 @@ cal.val_chem.ref.wq <- rbind(cal_chem.ref.wq, val_chem.ref.wq)
 
 tss <- cal.val_chem.ref.wq %>%
   filter(Char_Name == 'Total suspended solids') %>% 
-  select(c(MLocID, StationDes, Lat_DD, Long_DD, Result_Numeric_mod, L3Eco, EcoRegion3, EcoRegion4, HUC8, ReferenceSite, cal_val, COMID)) %>%
-  mutate(TSS = Result_Numeric_mod) %>%
+  select(c(MLocID, StationDes, Lat_DD, Long_DD, Result_Numeric_mod, L2Eco, L3Eco, EcoRegion4, HUC8, ReferenceSite, cal_val, COMID)) %>%
+  mutate(TSS = Result_Numeric_mod) %>% 
   select(-Result_Numeric_mod)
 
-write_xlsx(tss, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//cal.val_chem.ref.wq", Sys.Date(), ".xlsx"))
+write_xlsx(tss, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//TSS_", Sys.Date(), ".xlsx"))
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # SUMMARY TABLES, FIGURES
 #-----------------------------------------------------------------------------------------------------------------------------------------------------

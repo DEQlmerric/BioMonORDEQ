@@ -58,7 +58,7 @@ kitty <- read_excel("~/BioMonORDEQ/Benchmarks/Water Chemistry/TSS Class Project/
 #test <- StreamCatTools::sc_get_data(comid = '23910659', metric = 'precipminusevt', showAreaSqKm = FALSE, aoi='watershed')
 ```
 
-#### Run function to query all StreamCat data for selected COMIDs by subcategory
+#### Run function to query ALL StreamCat data for selected COMIDs by subcategory
 
 ```{r}
 # full data pulls use aoi='catchment,watershed,other')) 
@@ -173,7 +173,7 @@ return(streamcat)
 # FUNCTION - END  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ```
 
-#### Pull StreamCat data by subcategory and merge
+#### Pull ALL StreamCat data by subcategory and merge
 
 ```{r}
 # PULL DATA BY SUBCATEGORY/TYPE
@@ -372,7 +372,7 @@ scmets <- subset(meow2, meow2$COMID != '23774647' & meow2$COMID != '23877125' & 
 
 #### Pefrorm final correlation check
 
-```{r}
+```{r, warning=FALSE}
 # FULL CORRELATION MATRIX
 spear2 <- cor(meow2, method = "spearman", use = "pairwise.complete.obs")
 spear2 <- as.data.frame(spear2)
@@ -386,9 +386,9 @@ matrix2 <- spear.rows2 %>%
 # CONTINUE ONCE NO CORRELATED VARIABLES REMAIN
 ```
 
-## PREPARE DATA FOR MODELING
+# **3 - PREPARE DATA FOR MODELS**
 
-#### Handle NA values and merge predictors with TSS data
+## HANDLE NA VALUES AND MERGE PREDICTORS WITH TSS DATA 
 
 ```{r}
 # FIND OUT WHICH COLUMNS HAVE NAs (AND WRITE CODE FOR THEM BELOW)
@@ -405,7 +405,7 @@ tss.sc <- inner_join(tss, scmets, by = "COMID")
 rm(list=c('ag2','clim2','cover2','dams2','fire2','flow2','iwi2','litho2','mintox2','other2','roads2','urb2','meow2', 'spear.rows2', 'spear2'))
 ```
 
-#### Group predictors by human vs natural disturbances
+## GROUP PREDICTORS BY HUMAN VS NATURAL DISTURBANCES
 
 ```{r}
 human.mets <- kitty %>% 
@@ -447,7 +447,7 @@ sc_human <- cbind(scmetws_human, scmet_human) # 30 variables  #Why is there a co
 sc_natural <- cbind(scmetws_natural, scmet_natural) # 49 variables (Total of 79, matches scmets)
 ```
 
-#### Subset data - CALibration, VALidation, and Reference Only
+## SUBSET DATA - CALIBRATION, VALIDATION, AND REFERENCE ONLY Subset data
 
 ```{r}
 # SUBSET DATA AND REMOVE NON-VARIABLE ROWS
@@ -464,7 +464,7 @@ tss.ref <- tss.sc %>%
   select(-c(MLocID:COMID)) #subset reference only dataset
 ```
 
-# **3 - BUILD MODELS**
+# **4 - BUILD MODELS**
 
 ## RANDOM FORESTS
 

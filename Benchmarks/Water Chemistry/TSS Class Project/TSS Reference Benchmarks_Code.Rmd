@@ -14,6 +14,10 @@ library(tidyverse)
 library(readxl)
 library(writexl)
 library(randomForest)
+library(vip)
+library(caret)
+library(rpart)
+library(rpart.plot)
 ```
 
 # **2 - IMPORT DATA**
@@ -22,10 +26,6 @@ library(randomForest)
 
 ```{r}
 tss <- read_excel("tss_2025-11-05.xlsx") #output file from ref benchmarks script
-tss <- tss %>% 
-  select(c(MLocID, StationDes, Lat_DD, Long_DD, Result_Numeric_mod, L3Eco, EcoRegion3, EcoRegion4, HUC8, ReferenceSite, COMID)) %>% 
-  mutate(TSS = Result_Numeric_mod) %>% 
-  select(-Result_Numeric_mod)
 
 comids <- tss %>% select(COMID) #get just the COMIDs for next step
 ```
@@ -229,7 +229,7 @@ matrix <- spear.rows %>%
 rm(list=c('ag', 'clim', 'dams', 'flow','iwi', 'cover', 'litho', 'mintox', 'roads', 'urb', 'fire', 'other', 'spear', 'spear.rows'))
 ```
 
-## EXPLORE CO-VARIED PARAMETERS AND SELECT WHICH WE WANT TO RETAIN FOR MODELLING PURPOSES - SB, SH, AT did this together in Excel.  See https://stateoforegon.sharepoint.com/:x:/r/sites/BiomonitoringisFun/Shared%20Documents/General/Env%27t%20Stats%20Class%20Project%202025/StreamCat/Spearmans2.xlsx?d=wc5d82026542a417589be75842d6fafe3&csf=1&web=1&e=dhYR5Q for decisions, and https://stateoforegon.sharepoint.com/:x:/r/sites/BiomonitoringisFun/Shared%20Documents/General/Env%27t%20Stats%20Class%20Project%202025/StreamCat/Spearmans2.xlsx?d=wc5d82026542a417589be75842d6fafe3&csf=1&web=1&e=dhYR5Q for full list of metric names.
+#### EXPLORE CO-VARIED PARAMETERS AND SELECT WHICH WE WANT TO RETAIN FOR MODELLING PURPOSES - SB, SH, AT did this together in Excel. See <https://stateoforegon.sharepoint.com/:x:/r/sites/BiomonitoringisFun/Shared%20Documents/General/Env%27t%20Stats%20Class%20Project%202025/StreamCat/Spearmans2.xlsx?d=wc5d82026542a417589be75842d6fafe3&csf=1&web=1&e=dhYR5Q> for decisions, and <https://stateoforegon.sharepoint.com/:x:/r/sites/BiomonitoringisFun/Shared%20Documents/General/Env%27t%20Stats%20Class%20Project%202025/StreamCat/Spearmans2.xlsx?d=wc5d82026542a417589be75842d6fafe3&csf=1&web=1&e=dhYR5Q> for full list of metric names.
 
 ## PULL STREAMCAT AGAIN, BUT ONLY FOR PARAMETERS OF INTEREST
 
@@ -327,7 +327,7 @@ if(type == "Wildfire2"){
                                                                            showAreaSqKm = FALSE,
                                                                            aoi='watershed'))
   }
-
+# Removed iwi from Others 2 to remove IWI metrics from data pull.
 if(type == "Others2"){
 
   streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
@@ -360,7 +360,7 @@ fire2 <- get_streamcat(comids = comids, type = "Wildfire2")
 other2 <- get_streamcat(comids = comids, type = "Others2")
 
 # MERGE INTO ONE TABLE
-meow2 <- list(ag2, clim2, dams2, flow2, cover2, litho2, mintox2, roads2, urb2, fire2, other2) # Removed other2 to remove IWI metrics.  11/5/25.
+meow2 <- list(ag2, clim2, dams2, flow2, cover2, litho2, mintox2, roads2, urb2, fire2, other2) # Removed iwi2 to remove IWI metrics.  11/5/25.
 meow2 <- meow2 %>% reduce(full_join, by='COMID')
 
 # FINAL CHECK FOR CORRELATED VARIABLES
@@ -377,30 +377,34 @@ scmets <- subset(meow2, meow2$COMID != '23774647' & meow2$COMID != '23877125' & 
 
 # CLEAN UP ENVIRONMENT
 rm(list=c('ag2','clim2','cover2','dams2','fire2','flow2','iwi2','litho2','mintox2','other2','roads2','urb2','meow2', 'spear.rows2', 'spear2'))
+```
 
-# GROUP PREDICTORS BY HUMAN VS NATURAL
+## GROUP PREDICTORS BY HUMAN VS NATURAL
+
+```{r}
 human.mets <- kitty %>% 
   filter(Category == "Anthropogenic" & kitty$`Use?` == 'y') %>% 
-  select(Metric_Query)
+  select(Metric_Query) %>% 
+  add_row(Metric_Query = "COMID") # want to include COMID as a column so adding it as a row.
 
-human.mets <- toupper(human.mets$Metric_Query)
+human.mets <- toupper(human.mets$Metric_Query) # All uppercase
 
 natural.mets <- kitty %>% 
   filter(Category == "Natural" & kitty$`Use?` == 'y') %>% 
-  select(Metric_Query)
+  select(Metric_Query) %>% 
+  add_row(Metric_Query = "COMID")
 
 natural.mets <- toupper(natural.mets$Metric_Query)
 
 # Select out scmets by human and natural.
 # Ending in WS only
 scmetsws <- scmets %>% 
-    select(ends_with("ws")) 
-# Remove 'WS' suffix so can match to metric names in 'kitty' table
-colnames(scmetsws) <- substr(colnames(scmetsws), 1, nchar(colnames(scmetsws))-2)
+    select(COMID | ends_with("ws")) %>%  # Keep COMID
+    rename_with(~str_remove(., paste0("WS", "$")), ends_with("WS")) # Remove 'WS' suffix so can match to metric names in 'kitty' table
 
 # Subset only column names that are in human or natural mets
-scmetws_human <- scmetsws[ , names(scmetsws) %in% human.mets] # 29 variables
-scmetws_natural <- scmetsws[ , names(scmetsws) %in% natural.mets] # 47 variables
+scmetws_human <- scmetsws[ , names(scmetsws) %in% human.mets] # 27 variables
+scmetws_natural <- scmetsws[ , names(scmetsws) %in% natural.mets] # 48 variables
 
 # Add 'WS' suffix back in
 colnames(scmetws_human) <- paste0(colnames(scmetws_human), "WS")
@@ -411,15 +415,224 @@ scmetsnows <- scmets %>%
     select(!ends_with("ws"))
 
 scmet_human <- scmetsnows[ , names(scmetsnows) %in% human.mets] # 1 variable
-scmet_natural <- scmetsnows[ , names(scmetsnows) %in% natural.mets] # 2 variables
+scmet_natural <- scmetsnows[ , names(scmetsnows) %in% natural.mets] # 3 variables
 
-sc_human <- cbind(scmetws_human, scmet_human) # 30 variables
+sc_human <- cbind(scmetws_human, scmet_human) # 30 variables  #Why is there a column at the end called scmet_human?  SYB figure this out later.
 sc_natural <- cbind(scmetws_natural, scmet_natural) # 49 variables (Total of 79, matches scmets)
-
-# SYB figure out how to keep COMID as a column.
 ```
 
-## KERNEL DENSITY PLOTS - decide if helpful
+# **3 - BUILD MODEL**
+
+## ASSESS NAs AND SUBSET DATA
+
+```{r}
+sapply(scmets, function(x) sum(is.na(x))) #find out which columns have NAs
+
+scmets$BANKFULLWIDTH <- na.roughfix(scmets$BANKFULLWIDTH) #perform na.roughfix on all metrics with at least 1 NA; create extra code rows as needed
+scmets$SW_FLUXWS <- na.roughfix(scmets$SW_FLUXWS)
+
+tss.sc <- inner_join(tss, scmets, by = "COMID") #merge TSS AWQMS data pull with desired StreamCat metrics
+
+# SUBSET DATA AND REMOVE NON-VARIABLE ROWS
+tss.cal <- tss.sc %>% 
+  filter(cal_val == 'CAL') %>%  
+  select(-c(MLocID:COMID))  #subset calibration dataset
+
+tss.val <- tss.sc %>% 
+  filter(cal_val == 'VAL') %>%  
+  select(-c(MLocID:COMID))  #subset calibration dataset
+
+tss.ref <- tss.sc %>% 
+  filter(ReferenceSite == 'REFERENCE') %>%  
+  select(-c(MLocID:COMID)) #subset reference only dataset
+```
+
+## RANDOM FORESTS
+
+#### FULL MODEL
+
+```{r}
+# FULL MODEL
+set.seed(42)
+
+rf.full <- randomForest(TSS ~ ., tss.cal, importance = TRUE,  keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
+print(rf.full)
+
+varImpPlot(rf.full, type = 1, n.var = 20) #variable importance plot
+vip(rf.full, aesthetics = list(color = "blue", fill = "blue")) #another plot
+
+importance(rf.full)
+
+# PARTIAL DEPENDENCE PLOTS - SINGLE ONLY, NEED TO INCORPORATE FOR LOOP FOR ALL VBLS
+rf.full <- randomForest(TSS ~ ., data = tss.cal)
+partialPlot(rf.full, as.data.frame(tss.cal), ELEVWS, ylab = "Predicted TSS")
+
+# MODEL'S PREDICTION ERROR
+pred.rf <- predict(rf.full, newdata = tss.cal)
+plot(pred.rf ~ tss.cal$TSS, xlab="Observed TSS", ylab="Predicted TSS")
+abline(a=0,b=1)
+(rmse<-sqrt(sum((pred.rf - tss.cal$TSS)^2)/length(tss.cal$TSS)))#prediction error
+```
+
+#### REDUCED MODEL
+
+```{r}
+# REDUCED MODEL
+set.seed(42)
+
+rf.red <- randomForest(TSS ~ POPDEN2010WS + PCTAGSLPMID2001WS + WDRW_LDWS + PESTIC1997WS + ELEVWS + SWS + 
+          PCTCONIF2001WS + ROCKNWS + RDCRSWS + SANDWS + CLAYWS, data = tss.cal, importance = TRUE,  keep.forest = TRUE, ntree = 500) 
+print(rf.red)
+
+varImpPlot(rf.red, type = 1) #variable importance plot
+importance(rf.red)
+
+# MODEL'S PREDICTION ERROR
+pred.rf.red <- predict(rf.red, newdata = tss.cal)
+plot(pred.rf.red ~ tss.cal$TSS, xlab="Observed TSS", ylab="Predicted TSS")
+abline(a=0,b=1)
+(rmse<-sqrt(sum((pred.rf.red - tss.cal$TSS)^2)/length(tss.cal$TSS)))#prediction error
+```
+
+#### TEST FULL MODEL WITH VAL DATA
+
+```{r}
+# CONFUSION MATRIX
+tss.val$RFtss <- predict(rf.full, tss.val) #model prediction on 'VAL' dataset
+RFtss <- tss.val %>% select(RFtss, COMID)
+RFval <- tss.val %>% select(TSS, COMID)
+
+cm <- inner_join(RFtss, RFval, by = "COMID")
+confusionMatrix(data = as.factor(cm$RFtss), reference = as.factor(cm$TSS)) #NOT WORKING YET
+
+plot(cm$RFtss, cm$TSS)
+```
+
+#### REFERENCE ONLY MODEL
+
+```{r}
+# REFERENCE ONLY
+rf.ref <- randomForest(TSS ~ ., data = tss.ref, importance = TRUE,  keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
+print(rf.ref)
+
+varImpPlot(rf.ref, type = 1)
+importance(rf.ref)
+```
+
+#### REGRESSION TREES
+
+```{r}
+# REGRESSION TREES EXPERIMENTATION
+# FULL MODEL
+rt <- rpart(TSS ~ ., data = tss.cal)
+plot(rt)
+text(rt, use.n = TRUE)
+
+names(rt)
+print(rt)
+summary(rt)
+
+prp(rt, #plot the tree model
+    faclen=0,#use full names for factor labels
+    extra=1)#display number of obs. for each terminal node
+```
+
+#---------------------------------------------------------------------------
+
+THE ADAM L. THOMPSON MEMORIAL CODE BONEYARD
+
+#---------------------------------------------------------------------------
+
+```{r}
+#tss.r <- tss.sc %>% select(Result_Numeric_mod)
+#tss.r <- tss.sc %>% select(Result_Numeric_mod, COMID, cal_val)
+r <- randomForest(Result_Numeric_mod ~ CLAYWS + BFIWS + ELEVWS + KFFACTWS + IWI + RDDENSWS, data = tss.sc, na.action = na.exclude)
+print(r)
+
+t <- tss.sc[!is.na(tss.sc$BANKFULLWIDTH),]
+
+new_df <- df[!is.na(df)]
+  
+tss.sc$BANKFULLWIDTH <- na.roughfix(tss.sc$BANKFULLWIDTH) 
+
+missing <- rownames(scmets)[rowSums(is.na(scmets))]
+missing <- sum(is.na(scmets))
+
+
+
+tss.sc <- left_join(tss, scmets, by = "COMID")
+#tss.r <- tss.sc %>% select(Result_Numeric_mod)
+r <- randomForest(Result_Numeric_mod ~ CLAYWS + BFIWS + ELEVWS + KFFACTWS + IWI + RDDENSWS, data = tss.sc, na.action = na.exclude)
+print(r)
+```
+
+#### MULTIPLE LINEAR REGRESSION
+
+```{r}
+# LINEAR REGRESSION MODEL FIT
+lr.f <- lm(Result_Numeric_mod ~ ., data = tss.cal.test)
+#lr.r <- lm(Result_Numeric_mod ~ PCTAGSLPMID2001WS+PCTAGSLPMID2001WS+WETINDEXWS+PRECIP9120WS+CHEMWS+PCTBL2001WS+PCTICE2001WS+
+           PCTURBMD2001WS+HYDRLCONDWS+SANDWS+MINEDENSWS+SUPERFUNDDENSWS+RDCRSSLPWTDWS+RDCRSWS+WWTPALLDENSWS, data = tss.cal.test) #subset significant predictors
+lr.r2 <- lm(Result_Numeric_mod ~ CONNWS+HYDWS+IWI+PCTSHRB2001WS+PESTIC1997WS+PCTURBMD2001WS+PCTAGSLPMID2001WS+PCTGRS2001WS+PRECIP9120WS+PCTCONIF2001WS, data = tss.cal.test) #subset significant predictors
+
+
+summary(lr.f)
+summary(lr.r)
+summary(lr.r2)
+
+par(mfrow=c(2,2))
+plot(lr.f)
+
+
+
+
+t <- tss.cal.test %>% select(Result_Numeric_mod,PCTAGSLPMID2001WS,PCTAGSLPMID2001WS,WETINDEXWS,PRECIP9120WS,CHEMWS,PCTBL2001WS,PCTICE2001WS,
+           PCTURBMD2001WS,HYDRLCONDWS,SANDWS,MINEDENSWS,SUPERFUNDDENSWS,RDCRSSLPWTDWS,RDCRSWS,WWTPALLDENSWS) #subset significant predictors
+#sapply(t, function(x) sum(is.na(x))) #find out which columns have NAs
+#source("D:/ESM 566/3_Worksheets/cor.matrix.r")
+#cor.matrix(t)
+```
+
+```{r}
+# EXPLORE IF REMOVED COMIDS WERE OUTLIERS 
+removed <- subset(meow2, meow2$COMID == '23774647' | meow2$COMID == '23877125' | meow2$COMID == '23810652')
+
+# MESSING AROUND WITH KERNEL DENSITY PLOTS TO SUMMARIZE METRICS
+colnames(scmets)
+attach(scmets)
+
+hist(ELEVWS, breaks=100)
+hist(BFIWS, breaks=100)
+hist(CANALDENSWS, breaks=100)
+hist(CLAYWS, breaks=100)
+hist(KFFACTWS, breaks=100)
+
+density(CLAYWS)
+#-----------
+library(KernSmooth)
+
+bkde(CLAYWS)
+summary(CLAYWS)
+
+clay.ws<-CLAYWS[!is.na(CLAYWS)]
+summary(clay.ws)
+
+plot(bkde(clay.ws))
+
+plot(density(clay.ws))
+rug(jitter(clay.ws))
+#-----------
+kern <- scmets %>%
+  select(CLAYWS, BFIWS, ELEVWS, KFFACTWS, IWI, RDDENSWS)
+
+kern %>%
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_density() +
+  geom_rug() 
+```
 
 ```{r}
 # RANDOM FORESTS
@@ -464,207 +677,7 @@ varImpPlot(rf.ref, type = 1)
 
 ```
 
-
-
 ```{r}
-# EXPLORE IF REMOVED COMIDS WERE OUTLIERS 
-removed <- subset(meow2, meow2$COMID == '23774647' | meow2$COMID == '23877125' | meow2$COMID == '23810652')
-
-# MESSING AROUND WITH KERNEL DENSITY PLOTS TO SUMMARIZE METRICS
-colnames(scmets)
-attach(scmets)
-
-hist(ELEVWS, breaks=100)
-hist(BFIWS, breaks=100)
-hist(CANALDENSWS, breaks=100)
-hist(CLAYWS, breaks=100)
-hist(KFFACTWS, breaks=100)
-
-density(CLAYWS)
-#-----------
-library(KernSmooth)
-
-bkde(CLAYWS)
-summary(CLAYWS)
-
-clay.ws<-CLAYWS[!is.na(CLAYWS)]
-summary(clay.ws)
-
-plot(bkde(clay.ws))
-
-plot(density(clay.ws))
-rug(jitter(clay.ws))
-#-----------
-kern <- scmets %>%
-  select(CLAYWS, BFIWS, ELEVWS, KFFACTWS, IWI, RDDENSWS)
-
-kern %>%
-  keep(is.numeric) %>% 
-  gather() %>% 
-  ggplot(aes(value)) +
-  facet_wrap(~ key, scales = "free") +
-  geom_density() +
-  geom_rug() 
-```
-
-
-# **3 - BUILD MODEL**
-## ASSESS NAs AND SUBSET DATA
-
-```{r}
-sapply(scmets, function(x) sum(is.na(x))) #find out which columns have NAs
-
-scmets$BANKFULLWIDTH <- na.roughfix(scmets$BANKFULLWIDTH) #perform na.roughfix on all metrics with at least 1 NA; create extra code rows as needed
-scmets$SW_FLUXWS <- na.roughfix(scmets$SW_FLUXWS)
-
-tss.sc <- inner_join(tss, scmets, by = "COMID") #merge TSS AWQMS data pull with desired StreamCat metrics
-
-# SUBSET DATA
-tss.cal <- subset(tss.sc, tss.sc$cal_val == "CAL") #subset calibration dataset
-tss.val <- subset(tss.sc, tss.sc$cal_val == "VAL") #subset validation dataset
-tss.ref <- subset(tss.sc, tss.sc$ReferenceSite == "REFERENCE") #subset reference only dataset
-```
-
-## RANDOM FORESTS
-
-#### FULL MODEL
-
-```{r}
-# FULL MODEL
-set.seed(42)
-
-rf.full <- randomForest(y = tss.cal$Result_Numeric_mod, x = tss.cal[52:130], importance = TRUE,  keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
-print(rf.full)
-
-varImpPlot(rf.full, type = 1, n.var = 20) #variable importance plot
-library(vip)
-vip(rf.full, aesthetics = list(color = "blue", fill = "blue")) #another plot
-
-importance(rf.full)
-
-# PARTIAL DEPENDENCE PLOTS - SINGLE ONLY, NEED TO INCORPORATE FOR LOOP FOR ALL VBLS
-rf.full <- randomForest(Result_Numeric_mod ~ ., data = tss.cal.test)
-partialPlot(rf.full, as.data.frame(tss.cal.test), ELEVWS, ylab = "Predicted TSS")
-
-
-# MODEL'S PREDICTION ERROR
-pred.rf <- predict(rf.full, newdata = tss.val.test)
-plot(pred.rf ~ tss.val.test$Result_Numeric_mod, xlab="Observed TSS", ylab="Predicted TSS")
-abline(a=0,b=1)
-(rmse<-sqrt(sum((pred.rf - tss.val.test$Result_Numeric_mod)^2)/length(tss.val.test$Result_Numeric_mod)))#prediction error
-```
-
-#### REDUCED MODEL
-
-```{r}
-# REDUCED MODEL
-set.seed(42)
-
-rf.red <- randomForest(Result_Numeric_mod ~ CHEMWS+HYDWS+RDCRSWS+PESTIC1997WS+CONNWS+PCTCROP2001WS+WETINDEXWS+PCTSHRB2001WS+ELEVWS+WDRW_LDWS+IWI, data = tss.cal, importance = TRUE,  keep.forest = TRUE, ntree = 500) #only w/ predictors >4% MSE
-print(rf.red)
-
-varImpPlot(rf.red, type = 1) #variable importance plot
-importance(rf.red)
-```
-
-
-#### TEST FULL MODEL WITH VAL DATA
-```{r}
-# REMAKE CAL RF WITHOUT EXTRA AWQMS COLUMNS 
-rf.test <- randomForest(Result_Numeric_mod ~., data = tss.cal.test)
-
-
-# CONFUSION MATRIX
-library(caret)
-tss.val$RFtss <- predict(rf.test, tss.val.test) #model prediction on 'VAL' dataset
-RFtss <- tss.val %>% select(RFtss, COMID)
-RFval <- tss.val %>% select(Result_Numeric_mod, COMID)
-
-cm <- inner_join(RFtss, RFval, by = "COMID")
-confusionMatrix(data = as.factor(cm$RFtss), reference = as.factor(cm$Result_Numeric_mod)) #NOT WORKING YET
-
-plot(cm$RFtss, cm$Result_Numeric_mod)
-```
-
-
-
-
-
-
-
-
-
-
-
-#### REFERENCE ONLY MODEL
-
-```{r}
-# REFERENCE ONLY
-rf.ref <- randomForest(y = tss.ref$Result_Numeric_mod, x = tss.ref[52:130], importance = TRUE,  keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
-print(rf.ref)
-
-varImpPlot(rf.ref, type = 1)
-importance(rf.ref)
-```
-
-
-
-#### MULTIPLE LINEAR REGRESSION 
-
-```{r}
-# LINEAR REGRESSION MODEL FIT
-lr.f <- lm(Result_Numeric_mod ~ ., data = tss.cal.test)
-#lr.r <- lm(Result_Numeric_mod ~ PCTAGSLPMID2001WS+PCTAGSLPMID2001WS+WETINDEXWS+PRECIP9120WS+CHEMWS+PCTBL2001WS+PCTICE2001WS+
-           PCTURBMD2001WS+HYDRLCONDWS+SANDWS+MINEDENSWS+SUPERFUNDDENSWS+RDCRSSLPWTDWS+RDCRSWS+WWTPALLDENSWS, data = tss.cal.test) #subset significant predictors
-lr.r2 <- lm(Result_Numeric_mod ~ CONNWS+HYDWS+IWI+PCTSHRB2001WS+PESTIC1997WS+PCTURBMD2001WS+PCTAGSLPMID2001WS+PCTGRS2001WS+PRECIP9120WS+PCTCONIF2001WS, data = tss.cal.test) #subset significant predictors
-
-
-summary(lr.f)
-summary(lr.r)
-summary(lr.r2)
-
-par(mfrow=c(2,2))
-plot(lr.f)
-
-
-
-
-t <- tss.cal.test %>% select(Result_Numeric_mod,PCTAGSLPMID2001WS,PCTAGSLPMID2001WS,WETINDEXWS,PRECIP9120WS,CHEMWS,PCTBL2001WS,PCTICE2001WS,
-           PCTURBMD2001WS,HYDRLCONDWS,SANDWS,MINEDENSWS,SUPERFUNDDENSWS,RDCRSSLPWTDWS,RDCRSWS,WWTPALLDENSWS) #subset significant predictors
-#sapply(t, function(x) sum(is.na(x))) #find out which columns have NAs
-#source("D:/ESM 566/3_Worksheets/cor.matrix.r")
-#cor.matrix(t)
-```
-
-
-#### REGRESSION TREES
-
-```{r}
-# REGRESSION TREES EXPERIMENTATION
-tss.r <- tss.sc %>% select(Result_Numeric_mod, COMID, cal_val)
-tss.test <- inner_join(tss.r, scmets, by = "COMID") 
-
-tss.cal.test <- subset(tss.test, tss.test$cal_val == "CAL")
-tss.cal.test <- tss.cal.test[,-c(2:3)]
-
-tss.val.test <- subset(tss.test, tss.test$cal_val == "VAL")
-tss.val.test <- tss.val.test[,-c(2:3)]
-
-library(rpart)
-library(rpart.plot)
-
-# FULL MODEL
-rt <- rpart(Result_Numeric_mod ~ ., data = tss.cal.test)
-plot(rt)
-text(rt, use.n = TRUE)
-
-names(rt)
-print(rt)
-summary(rt)
-
-prp(rt, #plot the tree model
-    faclen=0,#use full names for factor labels
-    extra=1)#display number of obs. for each terminal node
 #-----------------------------------------------------------------------------------------------
 library(vip)# for variable importance plots. you may need to install it first
 vip(rt, aesthetics = list(color = "blue", fill = "blue")) #variable importance plot
@@ -699,41 +712,3 @@ sqrt(sum((p-tss.val$Result_Numeric_mod)^2)/length(tss.val$Result_Numeric_mod)) #
 # Test if the final reduced model is statistically different from the full model
 anova(rt, rt.r) #error  - no applicable method for "rpart"
 ```
-
-
-
-
-
-
-
-
-=======
-```
-
-
->>>>>>> aee75da575663b3534d8fae084b04755d64cda5f
-# TO DELETE
-
-```{r}
-#tss.r <- tss.sc %>% select(Result_Numeric_mod)
-#tss.r <- tss.sc %>% select(Result_Numeric_mod, COMID, cal_val)
-r <- randomForest(Result_Numeric_mod ~ CLAYWS + BFIWS + ELEVWS + KFFACTWS + IWI + RDDENSWS, data = tss.sc, na.action = na.exclude)
-print(r)
-
-t <- tss.sc[!is.na(tss.sc$BANKFULLWIDTH),]
-
-new_df <- df[!is.na(df)]
-  
-tss.sc$BANKFULLWIDTH <- na.roughfix(tss.sc$BANKFULLWIDTH) 
-
-missing <- rownames(scmets)[rowSums(is.na(scmets))]
-missing <- sum(is.na(scmets))
-
-
-
-tss.sc <- left_join(tss, scmets, by = "COMID")
-#tss.r <- tss.sc %>% select(Result_Numeric_mod)
-r <- randomForest(Result_Numeric_mod ~ CLAYWS + BFIWS + ELEVWS + KFFACTWS + IWI + RDDENSWS, data = tss.sc, na.action = na.exclude)
-print(r)
-```
-

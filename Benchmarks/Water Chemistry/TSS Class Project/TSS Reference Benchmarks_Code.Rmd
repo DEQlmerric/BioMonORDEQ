@@ -402,10 +402,10 @@ scmets$SW_FLUXWS <- na.roughfix(scmets$SW_FLUXWS) #surface water flux (n = 2 NAs
 tss.sc <- inner_join(tss, scmets, by = "COMID")
 
 # CLEAN UP ENVIRONMENT
-rm(list=c('ag2','clim2','cover2','dams2','fire2','flow2','iwi2','litho2','mintox2','other2','roads2','urb2','meow2', 'spear.rows2', 'spear2'))
+rm(list=c('ag2','clim2','cover2','dams2','fire2','flow2','litho2','mintox2','other2','roads2','urb2','meow2', 'spear.rows2', 'spear2', 'matrix2'))
 ```
 
-## GROUP PREDICTORS BY HUMAN VS NATURAL DISTURBANCES
+## GROUP PREDICTORS BY HUMAN VS NATURAL DISTURBANCES - WORK IN PROGRESS (SABINE)
 
 ```{r}
 human.mets <- kitty %>% 
@@ -464,7 +464,43 @@ tss.ref <- tss.sc %>%
   select(-c(MLocID:COMID)) #subset reference only dataset
 ```
 
-# **4 - BUILD MODELS**
+# **4 - EXPLORE DATA**
+
+## RESPONSE VARIABLE
+
+```{r}
+# HISTOGRAM
+hist(tss$TSS, main = "", xlab = "TSS")
+
+# DENSITY PLOT
+hist(tss$TSS, main="", prob=T, xlab="TSS")
+d <- density(tss$TSS) #Estimate probability density and save it into **d**
+lines(d, col='red',lwd=2) #Superimpose the probability density as a curve on the previous probability density histogram
+
+# BOX PLOT & STRIP CHART
+boxplot(tss$TSS, ylab = "TSS")
+stripchart(tss$TSS, vertical = T, pch=1, col='red', add = T)
+
+# NORMALITY ASSUMPTION - GRAPHICALLY 
+qqnorm(tss$TSS) #Q-Q plot
+qqline(tss$TSS) #not normal
+
+# NORMALITY ASSUMPTION - STATISTICALLY 
+shapiro.test(tss$TSS) #Shapiro-Wilk's test - not normal
+```
+
+## PREDICTOR VARIABLES
+
+```{r}
+# HISTOGRAMS
+hist(scmets$WDRW_LDWS, main = "", xlab = "Water Withdrawal")
+hist(scmets$ELEVWS, main = "", xlab = "Elevation")
+hist(scmets$POPDEN2010WS, main = "", xlab = "Population Density, 2010")
+hist(scmets$PCTAGSLPMID2001WS, main = "", xlab = "% Ag 20% slopes (???), 2001")
+```
+
+
+# **5 - BUILD MODELS**
 
 ## RANDOM FORESTS
 
@@ -483,11 +519,20 @@ vip(rf.full, aesthetics = list(color = "blue", fill = "blue")) #another plot
 importance(rf.full)
 
 # PARTIAL DEPENDENCE PLOTS - SINGLE ONLY, NEED TO INCORPORATE FOR LOOP FOR ALL VBLS
-rf.full <- randomForest(TSS ~ ., data = tss.cal)
 partialPlot(rf.full, as.data.frame(tss.cal), ELEVWS, ylab = "Predicted TSS")
 
+# PARTIAL DEPENDENCE PLOTS - VARIABLES IN ORDER OF DECREASING IMPORTANCE
+# AVOIDS MARGINS TOO SMALL ERROR
+graphics.off()
+par("mar")
+par(mar=c(1,1,1,1))
 
-
+im <- rf.full$importance #importance values for each predictor
+imvar <- rownames(im)[order(im[, 1], decreasing = TRUE)] #predictor's importance values in a decreasing order 
+par(mfrow=c(4,4)) #make 16 plots per page
+for (i in seq_along(imvar)) {
+  partialPlot(rf.full, as.data.frame(tss.cal), imvar[i], xlab = imvar[i], main = "")
+}
 
 # MODEL'S PREDICTION ERROR
 pred.rf <- predict(rf.full, newdata = tss.cal)
@@ -554,6 +599,7 @@ names(rt)
 print(rt)
 summary(rt)
 
+# NICER LOOKING TREE
 prp(rt, #plot the tree model
     faclen=0,#use full names for factor labels
     extra=1)#display number of obs. for each terminal node

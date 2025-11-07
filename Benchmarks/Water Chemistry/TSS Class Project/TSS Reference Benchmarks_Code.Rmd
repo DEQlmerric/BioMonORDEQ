@@ -20,7 +20,7 @@ library(caret)
 library(rpart)
 library(rpart.plot)
 library(ORDEQBioassessment)
-library(reprtree)
+library(reprtree) #gives me an error even after installing it
 ```
 
 # **2 - IMPORT DATA**
@@ -194,35 +194,23 @@ other <- get_streamcat(comids = comids, type = "Others")
 
 # MERGE INTO ONE TABLE
 meow <- list(ag, clim, dams, flow, iwi, cover, litho, mintox, roads, urb, fire, other)
-meow <- meow %>% reduce(full_join, by='COMID')
+meow <- meow %>% reduce(full_join, by = 'COMID')
 
 rm(list=c('ag', 'clim', 'dams', 'flow','iwi', 'cover', 'litho', 'mintox', 'roads', 'urb', 'fire', 'other'))
-
-# IDENTIFY WHICH COMID(S) DIDN'T YIELD STREAMCAT RESULTS AND INVESTIGATE (FIX IN STATIONS DB BEFORE PROCEEDING)
-# kcomids <- meow %>% select(COMID)
-# nomatch <- comids[!comids$COMID %in% kcomids$COMID, ] #make data frame showing which COMIDs aren't pulling StreamCat data
-# #nomatch.c <- subset(tss, tss$COMID == "23764745" | tss$COMID == "24516234" | tss$COMID == "23815386") #change COMIDs as needed
-# rm(list = c('nomatch', 'nomatch.c', 'kcomids')) #clean up environment
-
-# EXPLORE VARIANCE FOR EACH METRIC TO GUIDE WHICH TO KEEP
-# meow.sca <- as.data.frame(scale(meow[,-10])) #not used
-# 
-# var <- meow %>%
-#   select(where(is.numeric)) %>%
-#   pivot_longer(cols = everything()) %>%
-#   group_by(name) %>%
-#   summarise(var_value = var(value))
 ```
 
-#### Add additional variables not from SC (Erodible vs. resistant, slope, stream power)
+#### Add predictor variables not in StreamCat (erodible vs. resistant geology, slope, stream power)
 
 ```{r}
+# ERODIBLE VS RESISTENT GEOLOGY (KEPT ERODIBLE, SINCE RESISTENT IS INVERSE OF ERODIBLE)
 erod_resist_strmpow <- meow %>%
-  mutate(PCT_EROD = PCTALLUVCOASTWS+PCTCARBRESIDWS+PCTCOASTCRSWS+PCTCOLLUVSEDWS+PCTEOLCRSWS+PCTEOLFINEWS+PCTGLACLAKECRSWS+PCTGLACLAKEFINEWS+PCTGLACTILCLAYWS+PCTGLACTILCRSWS+PCTGLACTILLOAMWS+PCTNONCARBRESIDWS+PCTSALLAKEWS) %>%
-  mutate(PCT_RESIST = PCTALKINTRUVOLWS+PCTEXTRUVOLWS+PCTHYDRICWS+PCTSILICICWS) 
+  mutate(PCT_EROD = PCTALLUVCOASTWS+PCTCARBRESIDWS+PCTCOASTCRSWS+PCTCOLLUVSEDWS+PCTEOLCRSWS+PCTEOLFINEWS+PCTGLACLAKECRSWS+PCTGLACLAKEFINEWS+PCTGLACTILCLAYWS+PCTGLACTILCRSWS+PCTGLACTILLOAMWS+PCTSALLAKEWS)  %>% # AT removed PCTNONCARBRESIDWS 11/7
+  mutate(PCT_RESIST = PCTALKINTRUVOLWS+PCTEXTRUVOLWS+PCTHYDRICWS) #AT removed PCTSILICICWS 11/7
 
-erod_resist_strmpow <- ORDEQBioassessment::get_NHD_info(erod_resist_strmpow)
+# SLOPE FROM NHD (TAKES 1-2 MIN)
+erod_resist_strmpow <- ORDEQBioassessment::get_NHD_info(erod_resist_strmpow) 
 
+# WATERSHED AREA AND STREAM POWER
 erod_resist_strmpow <- erod_resist_strmpow %>% 
   mutate(STRMPOW_CAT = totdasqkm + PRECIP9120WS * slope) %>%  # WSAREASQKM from SC, instead pulling totdasqkm from get_NHD (they are the same)
   select(COMID, PCT_EROD, PCT_RESIST, STRMPOW_CAT, NHD_pSLOPE, SITE_TYPE)
@@ -363,7 +351,7 @@ return(streamcat)
 # FUNCTION - END  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ```
 
-#### Pull and merge StreamCat data for parameters of interest
+#### Pull StreamCat data for parameters of interest
 
 ```{r}
 # PULL DATA BY SUBCATEGORY/TYPE
@@ -384,14 +372,18 @@ other2 <- get_streamcat(comids = comids, type = "Others2")
 meow2 <- list(ag2, clim2, dams2, flow2, cover2, litho2, mintox2, roads2, urb2, fire2, other2) # Removed iwi2 to remove IWI metrics.  11/5/25.
 meow2 <- meow2 %>% reduce(full_join, by='COMID')
 
-# JOIN WITH OTHER PARAMETERS NOT FROM SC (Erodible vs. resistant, slope, stream power)
+# CLEAN UP ENVIRONMENT
+rm(list=c('ag2','clim2','cover2','dams2','fire2','flow2','litho2','mintox2','other2','roads2','urb2'))
+```
+
+#### Merge desired StreamCat metrics with additional predictors
+
+```{r}
+# JOIN WITH OTHER PARAMETERS NOT FROM SC (erodible vs. resistant, slope, stream power)
 scmets <- inner_join(meow2, erod_resist_strmpow, by='COMID')
 
 # REMOVE METRICS FOR UNWANTED REPRESENTATIVE COMIDS FOR SITES ON HIGH RES NHD LAYER
 scmets <- subset(scmets, meow2$COMID != '23774647' & meow2$COMID != '23877125' & meow2$COMID != '23810652')
-
-# CLEAN UP ENVIRONMENT
-rm(list=c('ag2','clim2','cover2','dams2','fire2','flow2','litho2','mintox2','other2','roads2','urb2'))
 ```
 
 #### Pefrorm final correlation check
@@ -407,26 +399,12 @@ matrix2 <- spear.rows2 %>%
   gather(-rowname, key = "colname", value = "cor") %>% 
   filter(abs(cor) > 0.8)
 
-# CONTINUE ONCE NO CORRELATED VARIABLES REMAIN
+# ***CONTINUE ONCE NO CORRELATED VARIABLES REMAIN***
 
-# adding in new (non-SC) vars
-tss.sc.cor <- tss.sc %>% 
-  select(-c(MLocID:COMID,L2Eco, L3Eco, Lat_DD, Long_DD, SITE_TYPE, PCT_RESIST))
 
-spear2 <- cor(tss.sc.cor, method = "spearman", use = "pairwise.complete.obs")
-spear2 <- as.data.frame(spear2)
-spear.rows2 <- tibble::rownames_to_column(spear2)
-
-# CONDENSED CORRELATION MATRIX (>0.8 ONLY)
-matrix2 <- spear.rows2 %>%  
-  gather(-rowname, key = "colname", value = "cor") %>% 
-  filter(abs(cor) > 0.8)
-
-# Will remove PCT_SILICICWS and PCT_NONCARBRESIDWS since the are correlated with PCT_EROD >0.8
-
-# CLEAN UP ENVIRONMENT
-rm(list=c('spear.rows2', 'spear2', 'matrix2'))
+# Will remove PCT_SILICICWS and PCT_NONCARBRESIDWS since the are correlated with PCT_EROD >0.8 -- AT: I DID THIS ABOVE SO EROD_RES CODE WOULD RUN
 ```
+
 
 # **3 - PREPARE DATA FOR MODELS**
 
@@ -442,6 +420,23 @@ scmets$SW_FLUXWS <- na.roughfix(scmets$SW_FLUXWS) #surface water flux (n = 2 NAs
 
 # MERGE THE DESIRED STREAMCAT METRIC DATA WITH THE TSS AWQMS DATA PULL
 tss.sc <- inner_join(tss, scmets, by = "COMID")
+
+# ADD AWQMS COLUMNS (NON-STREAMCAT)
+tss.sc.cor <- tss.sc %>% 
+  select(-c(MLocID:COMID, L2Eco, L3Eco, Lat_DD, Long_DD, SITE_TYPE, PCT_RESIST))
+
+###*** AT: WONDERING ABOUT A WAY TO AVOID RUNNING COR TABLES A THIRD TIME? I MOVED THE TSS.SC.COR CODE IN THIS SECTION, AFTER TSS.SC WAS MADE
+spear2 <- cor(tss.sc.cor, method = "spearman", use = "pairwise.complete.obs")
+spear2 <- as.data.frame(spear2)
+spear.rows2 <- tibble::rownames_to_column(spear2)
+
+# CONDENSED CORRELATION MATRIX (>0.8 ONLY)
+matrix2 <- spear.rows2 %>%  
+  gather(-rowname, key = "colname", value = "cor") %>% 
+  filter(abs(cor) > 0.8)
+
+# CLEAN UP ENVIRONMENT
+rm(list=c('spear.rows2', 'spear2', 'matrix2'))
 ```
 
 ## SUBSET DATA - CALIBRATION, VALIDATION, AND REFERENCE ONLY Subset data
@@ -461,22 +456,24 @@ tss.ref <- tss.sc %>%
   select(-c(MLocID, StationDes, EcoRegion4:COMID))  #subset reference only dataset
 ```
 
+
 # **4 - EXPLORE DATA**
 
 ## RESPONSE VARIABLE
 
 ```{r}
 # HISTOGRAM
-hist(log(tss$TSS), main = "", xlab = "TSS")
+hist(tss$TSS, main = "", xlab = "TSS") #raw data
+hist(log(tss$TSS), main = "", xlab = "log TSS") #log-transformed
 
 # DENSITY PLOT
-hist(tss$TSS, main="", prob=T, xlab="TSS")
+hist(tss$TSS, main="", prob=T, xlab = "TSS")
 d <- density(tss$TSS) #Estimate probability density and save it into **d**
 lines(d, col='red',lwd=2) #Superimpose the probability density as a curve on the previous probability density histogram
 
 # BOX PLOT & STRIP CHART
 boxplot(tss$TSS, ylab = "TSS")
-stripchart(tss$TSS, vertical = T, pch=1, col='red', add = T)
+#stripchart(tss$TSS, vertical = T, pch=1, col='red', add = T)
 
 # NORMALITY ASSUMPTION - GRAPHICALLY 
 qqnorm(tss$TSS) #Q-Q plot
@@ -494,38 +491,55 @@ hist(scmets$WDRW_LDWS, main = "", xlab = "Water Withdrawal")
 hist(scmets$ELEVWS, main = "", xlab = "Elevation")
 hist(scmets$POPDEN2010WS, main = "", xlab = "Population Density, 2010")
 hist(scmets$PCTAGSLPMID2001WS, main = "", xlab = "% Ag 20% slopes (???), 2001")
+
+# KERNEL DENSITY PLOTS
+kern <- scmets %>%
+  select(CLAYWS, BFIWS, ELEVWS, KFFACTWS, RDDENSWS, STRMPOW_CAT)
+
+kern %>%
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_density() +
+  geom_rug() 
 ```
 
 
-# **5 - BUILD MODELS**
+# **5 - RANDOM FOREST MODELS**
 
-## RANDOM FORESTS
+## FULL MODEL - ALL PREDICTORS INCLUDED (N = X)
 
-#### Full model - all predictors included (n = 83)
+#### Build full model
 
 ```{r}
-# FULL MODEL
 set.seed(123)
-rf.full <- randomForest(log(TSS) ~ ., tss.cal, importance = TRUE,  keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
+
+rf.full <- randomForest(TSS ~ ., tss.cal, importance = TRUE,  keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
 print(rf.full)
 
-varImpPlot(rf.full, type=1, n.var = 20) #variable importance plot
+varImpPlot(rf.full, type = 1, n.var = 20) #variable importance plot
 vip(rf.full, aesthetics = list(color = "blue", fill = "blue")) #another plot
 
 # reprtree:::plot.reprtree(ReprTree(rf.full, tss.cal, metric='d2'),depth=6)
 # reprtree:::plot.getTree(rf.full, k=1)
+```
 
-# # PARTIAL DEPENDENCE PLOTS - SINGLE ONLY, NEED TO INCORPORATE FOR LOOP FOR ALL VBLS
-# partialPlot(rf.full, as.data.frame(tss.cal), POPDEN2010WS, ylab = "Predicted TSS")
-# partialPlot(rf.full, as.data.frame(tss.cal), PCTAGSLPMID2001WS, ylab = "Predicted TSS")
-# partialPlot(rf.full, as.data.frame(tss.cal), WDRW_LDWS, ylab = "Predicted TSS")
-# partialPlot(rf.full, as.data.frame(tss.cal), PESTIC1997WS, ylab = "Predicted TSS")
-# partialPlot(rf.full, as.data.frame(tss.cal), ELEVWS, ylab = "Predicted TSS")
-# partialPlot(rf.full, as.data.frame(tss.cal), SWS, ylab = "Predicted TSS")
-# partialPlot(rf.full, as.data.frame(tss.cal), PCTCONIF2001WS, ylab = "Predicted TSS")
-# partialPlot(rf.full, as.data.frame(tss.cal), ROCKNWS, ylab = "Predicted TSS")
-# partialPlot(rf.full, as.data.frame(tss.cal), RDCRSWS, ylab = "Predicted TSS")
-# partialPlot(rf.full, as.data.frame(tss.cal), SANDWS, ylab = "Predicted TSS")
+#### Partial dependence plots - full model
+
+```{r}
+# PARTIAL DEPENDENCE PLOTS - SINGLE ONLY, NEED TO INCORPORATE FOR LOOP FOR ALL VBLS
+partialPlot(rf.full, as.data.frame(tss.cal), STRMPOW_CAT, ylab = "Predicted TSS")
+partialPlot(rf.full, as.data.frame(tss.cal), POPDEN2010WS, ylab = "Predicted TSS")
+partialPlot(rf.full, as.data.frame(tss.cal), PCTAGSLPMID2001WS, ylab = "Predicted TSS")
+partialPlot(rf.full, as.data.frame(tss.cal), WDRW_LDWS, ylab = "Predicted TSS")
+partialPlot(rf.full, as.data.frame(tss.cal), PESTIC1997WS, ylab = "Predicted TSS")
+partialPlot(rf.full, as.data.frame(tss.cal), ELEVWS, ylab = "Predicted TSS")
+partialPlot(rf.full, as.data.frame(tss.cal), SWS, ylab = "Predicted TSS")
+partialPlot(rf.full, as.data.frame(tss.cal), PCTCONIF2001WS, ylab = "Predicted TSS")
+partialPlot(rf.full, as.data.frame(tss.cal), ROCKNWS, ylab = "Predicted TSS")
+partialPlot(rf.full, as.data.frame(tss.cal), RDCRSWS, ylab = "Predicted TSS")
+partialPlot(rf.full, as.data.frame(tss.cal), SANDWS, ylab = "Predicted TSS")
 # 
 # # PARTIAL DEPENDENCE PLOTS - VARIABLES IN ORDER OF DECREASING IMPORTANCE
 # # maybe helps with margins too large error
@@ -539,38 +553,98 @@ vip(rf.full, aesthetics = list(color = "blue", fill = "blue")) #another plot
 # #for (i in seq_along(imvar)) {
 # #  partialPlot(rf.full, as.data.frame(tss.cal), imvar[i], xlab = imvar[i], main = "")
 # #}
-
-# MODEL'S PREDICTION ERROR
-pred.rf <- predict(rf.full, newdata = tss.cal)
-plot(pred.rf ~ log(tss.cal$TSS), xlab="Observed TSS", ylab="Predicted TSS")
-abline(a=0,b=1)
-(rmse<-sqrt(sum((pred.rf - tss.cal$TSS)^2)/length(tss.cal$TSS)))#prediction error
 ```
 
-#### Reduced model - only important predictors included (n = 12)
+#### Model prediction errors - full model
 
 ```{r}
-# REDUCED MODEL
+# RAW TSS
+pred.rf <- predict(rf.full, newdata = tss.cal)
+plot(pred.rf ~ tss.cal$TSS, xlab = "Observed TSS", ylab = "Predicted TSS")
+abline(a=0,b=1)
+(rmse<-sqrt(sum((pred.rf - tss.cal$TSS)^2)/length(tss.cal$TSS)))#prediction error
+
+# LOG-TRANSFORMED TSS **** AT: NOT SURE IF ACCURATE - NEED TO RESEARCH SUITABILITY OF LOG-TRANSFORMING THE RESPONSE IN RF MODELS
+pred.rf <- predict(rf.full, newdata = tss.cal)
+plot(log(pred.rf) ~ log(tss.cal$TSS), xlab = "log Observed TSS", ylab = "log Predicted TSS")
+abline(a=0,b=1)
+(rmse<-sqrt(sum((log(pred.rf) - log(tss.cal$TSS))^2)/length(tss.cal$TSS)))#prediction error
+```
+
+
+## REDUCED MODEL - IMPORTANT PREDICTORS ONLY (N = X)
+
+#### Build reduced model
+
+```{r}
 set.seed(32)
 
-rf.red <- randomForest(TSS ~ POPDEN2010WS + PCTAGSLPMID2001WS + WDRW_LDWS + PESTIC1997WS + ELEVWS + SWS + 
-          PCTCONIF2001WS + ROCKNWS + RDCRSWS + SANDWS + CLAYWS, data = tss.cal, importance = FALSE,  keep.forest = FALSE, ntree = 500) 
+rf.red <- randomForest(TSS ~ STRMPOW_CAT+ELEVWS+PESTIC1997WS+WDRW_LDWS+POPDEN2010WS+PCTCROP2001WS+SWS, data = tss.cal, importance = TRUE,  keep.forest = TRUE, ntree = 500) 
 print(rf.red)
 
 varImpPlot(rf.red, type = 1) #variable importance plot
 importance(rf.red)
+```
 
-# MODEL'S PREDICTION ERROR
+#### Partial dependence plots - reduced model
+
+```{r}
+#placeholder
+```
+
+#### Model prediction errors - reduced model
+
+```{r}
 pred.rf.red <- predict(rf.red, newdata = tss.cal)
 plot(pred.rf.red ~ tss.cal$TSS, xlab="Observed TSS", ylab="Predicted TSS", log = "xy")
 abline(a=0,b=1)
 (rmse<-sqrt(sum((pred.rf.red - tss.cal$TSS)^2)/length(tss.cal$TSS)))#prediction error
 ```
 
-#### Run full model with validation data
+
+## SCALE HUMAN-INFLUENCED PREDICTORS TO REFERENCE LEVELS
+
+#### Explore distribution of predictors at reference sites
 
 ```{r}
+#list of human variables
+human <- subset(kitty, kitty$Category == "Anthropogenic")
+human <- human %>% select(Metric_Query)
 
+#dataframe for top predictors
+top <- tss.sc %>% select(c(POPDEN2010WS,PESTIC1997WS))
+
+#distributions at ref sites
+hist(tss.sc$POPDEN2010WS)
+hist(tss.ref$POPDEN2010WS)
+quantile(tss.ref$POPDEN2010WS, probs = seq(.1, .9, by = .1)) #90th = 4.3163521
+
+#decide on levels to cut each human vbl
+5
+
+#scale back to ref levels
+top$POPDEN2010WS <- ifelse(top$POPDEN2010WS >= 4.3163521, 4.31635215, top$POPDEN2010WS)
+
+```
+
+#### 
+
+```{r}
+#Make new predictor dataset for top vbls 
+vbl <- 
+
+#do scaling
+dta$popden > #, make it #
+```
+
+
+
+
+
+
+## Run full model with validation data (????????)
+
+```{r}
 tss.val$RFtss <- predict(rf.full, tss.val) #model prediction on 'VAL' dataset
 RFtss <- tss.val %>% select(RFtss, COMID)
 RFval <- tss.val %>% select(TSS, COMID)
@@ -582,7 +656,15 @@ confusionMatrix(data = as.factor(cm$RFtss), reference = as.factor(cm$TSS)) #NOT 
 plot(cm$RFtss, cm$TSS)
 ```
 
+
+
+
+
+
+
 ## REFERENCE ONLY MODEL
+
+#### Build reference only model
 
 ```{r}
 set.seed(24)
@@ -595,14 +677,22 @@ varImpPlot(rf.ref, type = 1)
 importance(rf.ref)
 ```
 
-#### Run Ref Only model with test data
+#### Run reference only model with test data
 
 ```{r}
 # TBD
 ```
 
 
-## REGRESSION TREES
+
+
+
+
+
+
+
+
+## REGRESSION TREES - INFORMATIONAL ONLY AT THIS STAGE
 
 ```{r}
 # REGRESSION TREES EXPERIMENTATION
@@ -628,6 +718,23 @@ prp(rt, #plot the tree model
 THE ADAM L. THOMPSON MEMORIAL CODE BONEYARD
 
 #---------------------------------------------------------------------------
+
+```{r}
+# IDENTIFY WHICH COMID(S) DIDN'T YIELD STREAMCAT RESULTS AND INVESTIGATE (FIX IN STATIONS DB BEFORE PROCEEDING)
+# kcomids <- meow %>% select(COMID)
+# nomatch <- comids[!comids$COMID %in% kcomids$COMID, ] #make data frame showing which COMIDs aren't pulling StreamCat data
+# #nomatch.c <- subset(tss, tss$COMID == "23764745" | tss$COMID == "24516234" | tss$COMID == "23815386") #change COMIDs as needed
+# rm(list = c('nomatch', 'nomatch.c', 'kcomids')) #clean up environment
+
+# EXPLORE VARIANCE FOR EACH METRIC TO GUIDE WHICH TO KEEP
+# meow.sca <- as.data.frame(scale(meow[,-10])) #not used
+# 
+# var <- meow %>%
+#   select(where(is.numeric)) %>%
+#   pivot_longer(cols = everything()) %>%
+#   group_by(name) %>%
+#   summarise(var_value = var(value))
+```
 
 ```{r}
 #tss.r <- tss.sc %>% select(Result_Numeric_mod)

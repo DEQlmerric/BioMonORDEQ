@@ -308,11 +308,11 @@ if(type == "Land Cover2"){
                                                                            showAreaSqKm = FALSE,
                                                                            aoi='watershed'))
   }
-
+# Removed pctsilicic and pctnoncarbresid since they are correlated with erodibility.
 if(type == "Lithology2"){
 
   streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'compstrgth,fe2o3,hydrlcond,na2o,pctalkintruvol,pctalluvcoast,pctcarbresid,pctcoastcrs,pctcolluvsed,pcteolcrs,pcteolfine,pctextruvol,pctglaclakecrs,pctglaclakefine,pctglactilclay,pctglactilcrs,pctglactilloam,pcthydric,pctnoncarbresid,pctsallake,pctsilicic,pctwater,rockn,s,clay,kffact,om,Rckdep,rckdep,sand,wtdep,n',
+                                                                           metric = 'compstrgth,fe2o3,hydrlcond,na2o,pctalkintruvol,pctalluvcoast,pctcarbresid,pctcoastcrs,pctcolluvsed,pcteolcrs,pcteolfine,pctextruvol,pctglaclakecrs,pctglaclakefine,pctglactilclay,pctglactilcrs,pctglactilloam,pcthydric,pctsallake,pctwater,rockn,s,clay,kffact,om,Rckdep,rckdep,sand,wtdep,n',
                                                                            showAreaSqKm = FALSE,
                                                                            aoi='watershed'))
   }
@@ -388,7 +388,7 @@ meow2 <- meow2 %>% reduce(full_join, by='COMID')
 scmets <- inner_join(meow2, erod_resist_strmpow, by='COMID')
 
 # REMOVE METRICS FOR UNWANTED REPRESENTATIVE COMIDS FOR SITES ON HIGH RES NHD LAYER
-scmets <- subset(meow2, meow2$COMID != '23774647' & meow2$COMID != '23877125' & meow2$COMID != '23810652')
+scmets <- subset(scmets, meow2$COMID != '23774647' & meow2$COMID != '23877125' & meow2$COMID != '23810652')
 
 # CLEAN UP ENVIRONMENT
 rm(list=c('ag2','clim2','cover2','dams2','fire2','flow2','litho2','mintox2','other2','roads2','urb2'))
@@ -409,10 +409,24 @@ matrix2 <- spear.rows2 %>%
 
 # CONTINUE ONCE NO CORRELATED VARIABLES REMAIN
 
+# adding in new (non-SC) vars
+tss.sc.cor <- tss.sc %>% 
+  select(-c(MLocID:COMID,L2Eco, L3Eco, Lat_DD, Long_DD, SITE_TYPE, PCT_RESIST))
+
+spear2 <- cor(tss.sc.cor, method = "spearman", use = "pairwise.complete.obs")
+spear2 <- as.data.frame(spear2)
+spear.rows2 <- tibble::rownames_to_column(spear2)
+
+# CONDENSED CORRELATION MATRIX (>0.8 ONLY)
+matrix2 <- spear.rows2 %>%  
+  gather(-rowname, key = "colname", value = "cor") %>% 
+  filter(abs(cor) > 0.8)
+
+# Will remove PCT_SILICICWS and PCT_NONCARBRESIDWS since the are correlated with PCT_EROD >0.8
+
 # CLEAN UP ENVIRONMENT
 rm(list=c('spear.rows2', 'spear2', 'matrix2'))
 ```
-
 
 # **3 - PREPARE DATA FOR MODELS**
 
@@ -430,64 +444,21 @@ scmets$SW_FLUXWS <- na.roughfix(scmets$SW_FLUXWS) #surface water flux (n = 2 NAs
 tss.sc <- inner_join(tss, scmets, by = "COMID")
 ```
 
-## GROUP PREDICTORS BY HUMAN VS NATURAL DISTURBANCES
-
-```{r}
-human.mets <- kitty %>% 
-  filter(Category == "Anthropogenic" & kitty$`Use?` == 'y') %>% 
-  select(Metric_Query) %>% 
-  add_row(Metric_Query = "COMID") # want to include COMID as a column so adding it as a row.
-
-human.mets <- toupper(human.mets$Metric_Query) # All uppercase
-
-# Select out scmets by human only.
-  # Ending in WS only
-scmetsws <- scmets %>% 
-    select(COMID | ends_with("ws")) %>%  # Keep COMID
-    rename_with(~str_remove(., paste0("WS", "$")), ends_with("WS")) # Remove 'WS' suffix so can match to metric names in 'kitty' table
-
-  # Subset only column names that are in human or natural mets
-scmetws_human <- scmetsws[ , names(scmetsws) %in% human.mets] # 27 variables (including COMID)
-
-  # Add 'WS' suffix back in
-colnames(scmetws_human) <- paste0(colnames(scmetws_human), "WS") 
-scmetws_human <- scmetws_human %>%  rename(COMID = COMIDWS) # except for COMID
-  
-  # Do the same thing for metrics not ending in 'WS'
-scmetsnows <- scmets %>% 
-    select(!ends_with("ws")) %>% 
-    select(-c("PCT_EROD", "PCT_RESIST", "STRMPOW_CAT", "NHD_pSLOPE", "SITE_TYPE")) # Ignore the metrics that didn't come from StreamCat.
-
-scmet_human <- scmetsnows[ , names(scmetsnows) %in% human.mets] # 1 variable = COMID. (No other human variables in this group.)
-
-sc_human <- scmetws_human # 28 columns.
-
-# Join with table to get ref status.
-sc_human_ref <- sc_human %>% 
-  inner_join(tss.sc, sc_human, by='COMID') %>% 
-  select(c(COMID:PCTNONAGINTRODMANAGVEGWS.x, ReferenceSite)) %>% 
-  filter(ReferenceSite=='REFERENCE') %>% 
-  select(-c(COMID, ReferenceSite))
-
-# Tidy up.
-rm(list=c('human.mets', 'scmetsws', 'scmetws_human', 'scmetsnows', 'scmet_human', 'sc.human'))
-```
-
 ## SUBSET DATA - CALIBRATION, VALIDATION, AND REFERENCE ONLY Subset data
 
 ```{r}
 # SUBSET DATA AND REMOVE NON-VARIABLE ROWS
 tss.cal <- tss.sc %>% 
   filter(cal_val == 'CAL') %>%  
-  select(-c(MLocID, StationDes, EcoRegion4:COMID, PCT_RESIST))  #subset calibration dataset
+  select(-c(MLocID, StationDes, EcoRegion4:COMID))  #subset calibration dataset
 
 tss.val <- tss.sc %>% 
   filter(cal_val == 'VAL') %>%  
-  select(-c(MLocID, StationDes, EcoRegion4:COMID))  #subset validation dataset
+  select(-c(MLocID, StationDes, EcoRegion4:COMID))   #subset validation dataset
 
 tss.ref <- tss.sc %>% 
   filter(ReferenceSite == 'REFERENCE') %>%  
-  select(-c(MLocID, StationDes, EcoRegion4:COMID)) #subset reference only dataset
+  select(-c(MLocID, StationDes, EcoRegion4:COMID))  #subset reference only dataset
 ```
 
 # **4 - EXPLORE DATA**
@@ -496,7 +467,7 @@ tss.ref <- tss.sc %>%
 
 ```{r}
 # HISTOGRAM
-hist(tss$TSS, main = "", xlab = "TSS")
+hist(log(tss$TSS), main = "", xlab = "TSS")
 
 # DENSITY PLOT
 hist(tss$TSS, main="", prob=T, xlab="TSS")
@@ -530,20 +501,19 @@ hist(scmets$PCTAGSLPMID2001WS, main = "", xlab = "% Ag 20% slopes (???), 2001")
 
 ## RANDOM FORESTS
 
-#### Full model - all predictors included (n = 85)
+#### Full model - all predictors included (n = 83)
 
 ```{r}
 # FULL MODEL
-rf.full <- randomForest(TSS ~ ., tss.cal, importance = TRUE,  keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
+set.seed(123)
+rf.full <- randomForest(log(TSS) ~ ., tss.cal, importance = TRUE,  keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
 print(rf.full)
 
 varImpPlot(rf.full, type=1, n.var = 20) #variable importance plot
 vip(rf.full, aesthetics = list(color = "blue", fill = "blue")) #another plot
 
-importance(rf.full)
-rf.full$importance
-
-reprtree::plot.getTree(rf.full, k = 2,depth = 4)
+# reprtree:::plot.reprtree(ReprTree(rf.full, tss.cal, metric='d2'),depth=6)
+# reprtree:::plot.getTree(rf.full, k=1)
 
 # # PARTIAL DEPENDENCE PLOTS - SINGLE ONLY, NEED TO INCORPORATE FOR LOOP FOR ALL VBLS
 # partialPlot(rf.full, as.data.frame(tss.cal), POPDEN2010WS, ylab = "Predicted TSS")
@@ -572,7 +542,7 @@ reprtree::plot.getTree(rf.full, k = 2,depth = 4)
 
 # MODEL'S PREDICTION ERROR
 pred.rf <- predict(rf.full, newdata = tss.cal)
-plot(pred.rf ~ tss.cal$TSS, xlab="Observed TSS", ylab="Predicted TSS")
+plot(pred.rf ~ log(tss.cal$TSS), xlab="Observed TSS", ylab="Predicted TSS")
 abline(a=0,b=1)
 (rmse<-sqrt(sum((pred.rf - tss.cal$TSS)^2)/length(tss.cal$TSS)))#prediction error
 ```
@@ -581,6 +551,8 @@ abline(a=0,b=1)
 
 ```{r}
 # REDUCED MODEL
+set.seed(32)
+
 rf.red <- randomForest(TSS ~ POPDEN2010WS + PCTAGSLPMID2001WS + WDRW_LDWS + PESTIC1997WS + ELEVWS + SWS + 
           PCTCONIF2001WS + ROCKNWS + RDCRSWS + SANDWS + CLAYWS, data = tss.cal, importance = FALSE,  keep.forest = FALSE, ntree = 500) 
 print(rf.red)
@@ -595,14 +567,15 @@ abline(a=0,b=1)
 (rmse<-sqrt(sum((pred.rf.red - tss.cal$TSS)^2)/length(tss.cal$TSS)))#prediction error
 ```
 
-#### Test full model with validation data
+#### Run full model with validation data
 
 ```{r}
-# CONFUSION MATRIX
+
 tss.val$RFtss <- predict(rf.full, tss.val) #model prediction on 'VAL' dataset
 RFtss <- tss.val %>% select(RFtss, COMID)
 RFval <- tss.val %>% select(TSS, COMID)
 
+# CONFUSION MATRIX
 cm <- inner_join(RFtss, RFval, by = "COMID")
 confusionMatrix(data = as.factor(cm$RFtss), reference = as.factor(cm$TSS)) #NOT WORKING YET
 
@@ -612,6 +585,8 @@ plot(cm$RFtss, cm$TSS)
 ## REFERENCE ONLY MODEL
 
 ```{r}
+set.seed(24)
+
 # REFERENCE ONLY
 rf.ref <- randomForest(TSS ~ ., data = tss.ref, importance = FALSE,  keep.forest = FALSE, ntree = 500) #run random forest model on all predictors
 print(rf.ref)
@@ -619,6 +594,13 @@ print(rf.ref)
 varImpPlot(rf.ref, type = 1)
 importance(rf.ref)
 ```
+
+#### Run Ref Only model with test data
+
+```{r}
+# TBD
+```
+
 
 ## REGRESSION TREES
 
@@ -857,4 +839,48 @@ scmet_natural <- scmetsnows[ , names(scmetsnows) %in% natural.mets] # 3 variable
 
 sc_human <- cbind(scmetws_human, scmet_human) # 30 variables  #Why is there a column at the end called scmet_human?  SYB figure this out later.
 sc_natural <- cbind(scmetws_natural, scmet_natural) # 49 variables (Total of 79, matches scmets)
+```
+
+
+## GROUP PREDICTORS BY HUMAN VS NATURAL DISTURBANCES
+
+```{r}
+human.mets <- kitty %>% 
+  filter(Category == "Anthropogenic" & kitty$`Use?` == 'y') %>% 
+  select(Metric_Query) %>% 
+  add_row(Metric_Query = "COMID") # want to include COMID as a column so adding it as a row.
+
+human.mets <- toupper(human.mets$Metric_Query) # All uppercase
+
+# Select out scmets by human only.
+  # Ending in WS only
+scmetsws <- scmets %>% 
+    select(COMID | ends_with("ws")) %>%  # Keep COMID
+    rename_with(~str_remove(., paste0("WS", "$")), ends_with("WS")) # Remove 'WS' suffix so can match to metric names in 'kitty' table
+
+  # Subset only column names that are in human or natural mets
+scmetws_human <- scmetsws[ , names(scmetsws) %in% human.mets] # 27 variables (including COMID)
+
+  # Add 'WS' suffix back in
+colnames(scmetws_human) <- paste0(colnames(scmetws_human), "WS") 
+scmetws_human <- scmetws_human %>%  rename(COMID = COMIDWS) # except for COMID
+  
+  # Do the same thing for metrics not ending in 'WS'
+scmetsnows <- scmets %>% 
+    select(!ends_with("ws")) %>% 
+    select(-c("PCT_EROD", "PCT_RESIST", "STRMPOW_CAT", "NHD_pSLOPE", "SITE_TYPE")) # Ignore the metrics that didn't come from StreamCat.
+
+scmet_human <- scmetsnows[ , names(scmetsnows) %in% human.mets] # 1 variable = COMID. (No other human variables in this group.)
+
+sc_human <- scmetws_human # 28 columns.
+
+# Join with table to get ref status.
+sc_human_ref <- sc_human %>% 
+  inner_join(tss.sc, sc_human, by='COMID') %>% 
+  select(c(COMID:PCTNONAGINTRODMANAGVEGWS.x, ReferenceSite)) %>% 
+  filter(ReferenceSite=='REFERENCE') %>% 
+  select(-c(COMID, ReferenceSite))
+
+# Tidy up.
+rm(list=c('human.mets', 'scmetsws', 'scmetws_human', 'scmetsnows', 'scmet_human', 'sc.human'))
 ```

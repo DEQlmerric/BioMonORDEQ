@@ -620,22 +620,13 @@ hist(tss.ref$POPDEN2010WS)
 quantile(tss.ref$POPDEN2010WS, probs = seq(.1, .9, by = .1)) #90th = 4.3163521
 
 #decide on levels to cut each human vbl
-5
+
 
 #scale back to ref levels
 top$POPDEN2010WS <- ifelse(top$POPDEN2010WS >= 4.3163521, 4.31635215, top$POPDEN2010WS)
 
 ```
 
-#### 
-
-```{r}
-#Make new predictor dataset for top vbls 
-vbl <- 
-
-#do scaling
-dta$popden > #, make it #
-```
 
 
 

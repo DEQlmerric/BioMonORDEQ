@@ -11,7 +11,7 @@ output: html_document
 
 ```{r warning=FALSE}
 library(tidyverse)
-library(StreamCatTools) #why was this removed? Is it needed for pulls?
+library(StreamCatTools) 
 library(readxl)
 library(writexl)
 library(randomForest)
@@ -20,7 +20,7 @@ library(caret)
 library(rpart)
 library(rpart.plot)
 library(ORDEQBioassessment)
-library(reprtree) #gives me an error even after installing it
+library(reprtree)  # Try devtools::install_github('araastat/reprtree')
 ```
 
 # **2 - IMPORT DATA**
@@ -442,7 +442,7 @@ rm(list=c('spear.rows2', 'spear2', 'matrix2'))
 ## SUBSET DATA - CALIBRATION, VALIDATION, AND REFERENCE ONLY Subset data
 
 ```{r}
-# SUBSET DATA AND REMOVE NON-VARIABLE ROWS
+# SUBSET DATA AND REMOVE NON-VARIABLE COLUMNS
 tss.cal <- tss.sc %>% 
   filter(cal_val == 'CAL') %>%  
   select(-c(MLocID, StationDes, EcoRegion4:COMID))  #subset calibration dataset
@@ -508,22 +508,71 @@ kern %>%
 
 # **5 - RANDOM FOREST MODELS**
 
-## FULL MODEL - ALL PREDICTORS INCLUDED (N = X)
+## FULL MODEL - ALL PREDICTORS INCLUDED (N = 83)
 
 #### Build full model
 
 ```{r}
 set.seed(123)
 
-rf.full <- randomForest(TSS ~ ., tss.cal, importance = TRUE,  keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
+rf.full <- randomForest(TSS ~ ., tss.cal, importance = TRUE,  mtry = 8, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
 print(rf.full)
 
 varImpPlot(rf.full, type = 1, n.var = 20) #variable importance plot
 vip(rf.full, aesthetics = list(color = "blue", fill = "blue")) #another plot
 
-# reprtree:::plot.reprtree(ReprTree(rf.full, tss.cal, metric='d2'),depth=6)
-# reprtree:::plot.getTree(rf.full, k=1)
+imp <- importance(rf.full)
+
+#not working yet
+#reprtree:::plot.reprtree(ReprTree(rf.full, tss.cal, metric='d2'), all = T, depth = 0)
+
+reprtree:::plot.getTree(rf.full, k=1, depth =4)
+
+# How many trees is appropriate?
+plot(rf.full, log="x")  # 500 seems to work fine.
 ```
+```{r}
+# #std RF
+# rf1 = randomForest(TSS ~ ., tss.cal, ntree=500) 
+# print(rf1)
+# plot(rf1,log="x",main="node depth")
+
+# #limiting tree depth
+# for (i in seq(1, 25, 1)) {
+# rf2 = randomForest(TSS ~ ., tss.cal, maxnodes=i, ntree=500)
+# print(rf2)
+# points(rf2$mse,col="darkgreen",type="l")
+# print(rf2$mse)
+# }
+
+# One way to find best mtry based on tuneRF.
+# rf2 <- randomForest(TSS ~ ., tss.cal, ntree=500, importance = TRUE)
+#     # Tune mtry based on OOB error
+# best_mtry <- tuneRF(tss.cal[, -which(names(tss.cal) == "TSS")], # Predictors
+#                         tss.cal$TSS, # Response
+#                         ntreeTry = 500, # Number of trees to try for each mtry
+#                         stepFactor = 1.5, # Factor to multiply/divide mtry by
+#                         improve = 0.01, # Minimum improvement to continue search
+#                         trace = TRUE, # Print progress
+#                         plot = TRUE) # Plot OOB error vs. mtry
+# print(best_mtry)
+
+# Another way to find best mtry based on Caret
+# control <- trainControl(method="cv", number=10,returnResamp="all")
+# tunegrid <- expand.grid(.mtry=c(3:35))
+# caret_res <- train(TSS~., data=tss.cal, method="rf", metric="RMSE", 
+#                 tuneGrid=tunegrid, ntree = 500, trControl=control)
+# 
+# library(ggplot2)
+# df =  data.frame(caret_res$resample[,c("mtry","RMSE")],test="caret")
+# 
+# df = df[df$mtry!=1,]
+# 
+# ggplot(df,aes(x=mtry,y=RMSE))+
+# stat_summary(fun.data=mean_se,geom="errorbar",width=0.2) +
+# stat_summary(fun=mean,geom="line")
+```
+
 
 #### Partial dependence plots - full model
 
@@ -672,6 +721,13 @@ importance(rf.ref)
 
 ```{r}
 # TBD
+
+# sample code for creating test data Using caret package
+# set.seed(123)  # for reproducibility
+# index_2 <- createDataPartition(ames$Sale_Price, p = 0.7, 
+#                                list = FALSE)
+# train_2 <- ames[index_2, ]
+# test_2  <- ames[-index_2, ]
 ```
 
 

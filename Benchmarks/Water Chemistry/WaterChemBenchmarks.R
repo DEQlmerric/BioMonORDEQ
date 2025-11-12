@@ -31,7 +31,7 @@ stations <- query_stations()
 ref_stations <- stations %>% 
   filter(ReferenceSite %in% c("REFERENCE" , "MODERATELY DISTURBED", "MOST DISTURBED")) %>% 
   filter(Wade_Boat == "wadeable") %>%
-  select(MLocID, COMID, ReferenceSite, QC_Comm, OrgID)
+  select(MLocID, COMID, ReferenceSite, QC_Comm, OrgID, Wade_Boat)
 rm(stations)
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -65,15 +65,15 @@ chem.ref <- chem.all_ref %>%
 # LEGACY AMBIENT STATIONS
   #1: SUBSET AMBIENT PROJECT DATA
 # amb <- subset(chem.ref, chem.ref$Project1 == "Surface Water Ambient Monitoring")
-# 
-#   #2: MAKE LIST OF AMBIENT STATIONS
-# amb.stations <- amb %>% 
-#   distinct(MLocID, .keep_all=TRUE) %>% 
-#   select(MLocID)
+# #
+# #   #2: MAKE LIST OF AMBIENT STATIONS
+#  amb.stations <- amb %>%
+#    distinct(MLocID, .keep_all=TRUE) %>%
+#    select(MLocID)
 
   #3: REMOVE AMBIENT STATIONS  # For TSS, brings back in 3 sites.
 # chem.ref <- anti_join(chem.ref, amb.stations, by = "MLocID")
-# 
+#data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAkCAYAAAD7PHgWAAABBklEQVR4Xu2XMQrCQBBFBQvR6wgJHsEDpHVjBDvvoBhbI3bWCkZbFUyhFrYiEat0WgmC6AVkdQqbIVmWZAOi82C64b+/bDWZDEEQP4phTLMaa9d003bTGMgu1psF7JVGNzuWPdzs18GDz443rgrIcndXbvW8g1axGfZKo7P2eBXc+WB74a3FGXtiA1kwzfnpqTF7hL3SwDfAaz+BqvjkwYADe6WhglQwJlQwKVQwKakVTGOoYNL5z4JxwBlUMEwqAu9SwTCpCLxLBcOkIvCusoKT9/WFQ6OkIvCukoJwt5rO0sehUVIReBem6ng+OLBXmnKjn4PbGM5PeKnqgXIlo5vHXoL4Nl4ZYqbbEGA7+wAAAABJRU5ErkJggg==
 # rm(amb)
 # rm(amb.stations)
 
@@ -331,7 +331,7 @@ cal.val_chem.ref.wq <- rbind(cal_chem.ref.wq, val_chem.ref.wq)
 
 tss <- cal.val_chem.ref.wq %>%
   filter(Char_Name == 'Total suspended solids') %>% 
-  select(c(MLocID, StationDes, Lat_DD, Long_DD, Result_Numeric_mod, L2Eco, L3Eco, EcoRegion4, HUC8, ReferenceSite, cal_val, COMID)) %>%
+  select(c(MLocID, Project1, StationDes, Lat_DD, Long_DD, Result_Numeric_mod, L2Eco, L3Eco, EcoRegion4, HUC8, ReferenceSite, cal_val, COMID)) %>%
   mutate(TSS = Result_Numeric_mod) %>% 
   select(-Result_Numeric_mod)
 

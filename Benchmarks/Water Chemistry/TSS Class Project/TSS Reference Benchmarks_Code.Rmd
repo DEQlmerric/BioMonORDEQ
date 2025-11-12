@@ -28,7 +28,10 @@ library(reprtree)  # Try devtools::install_github('araastat/reprtree')
 ## STATIONS/TSS - *FROM WATER CHEMISTRY BENCHMARKS SCRIPT*
 
 ```{r}
-tss <- read_excel("TSS_2025-11-06.xlsx") #output file from ref benchmarks script
+#tss <- read_excel("TSS_2025-11-06.xlsx") #output file from ref benchmarks script - no Ambient sites
+tss <- read_excel("TSS_2025-11-12.xlsx") #output file from ref benchmarks script - Ambient sites included
+
+#tss <- tss %>% filter(TSS < 20) #testing model output by excluding values >20 mg/L
 
 comids <- tss %>% select(COMID) #get just the COMIDs for next step
 ```
@@ -410,7 +413,7 @@ matrix2 <- spear.rows2 %>%
 
 ## HANDLE NA VALUES AND MERGE PREDICTORS WITH TSS DATA 
 
-```{r}
+```{r, warning=FALSE}
 # FIND OUT WHICH COLUMNS HAVE NAs (AND WRITE CODE FOR THEM BELOW)
 sapply(scmets, function(x) sum(is.na(x)))
 
@@ -515,7 +518,7 @@ kern %>%
 ```{r}
 set.seed(123)
 
-rf.full <- randomForest(TSS ~ ., tss.cal, importance = TRUE,  mtry = 8, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
+rf.full <- randomForest(log(TSS+1) ~ ., tss.cal, importance = TRUE,  mtry = 8, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
 print(rf.full)
 
 varImpPlot(rf.full, type = 1, n.var = 20) #variable importance plot
@@ -613,11 +616,11 @@ plot(pred.rf ~ tss.cal$TSS, xlab = "Observed TSS", ylab = "Predicted TSS")
 abline(a=0,b=1)
 (rmse<-sqrt(sum((pred.rf - tss.cal$TSS)^2)/length(tss.cal$TSS)))#prediction error
 
-# LOG-TRANSFORMED TSS **** AT: NOT SURE IF ACCURATE - NEED TO RESEARCH SUITABILITY OF LOG-TRANSFORMING THE RESPONSE IN RF MODELS
+# LOG +1-TRANSFORMED TSS
 pred.rf <- predict(rf.full, newdata = tss.cal)
-plot(log(pred.rf) ~ log(tss.cal$TSS), xlab = "log Observed TSS", ylab = "log Predicted TSS")
+plot(log(pred.rf+1) ~ log(tss.cal$TSS+1), xlab = "log Observed TSS", ylab = "log Predicted TSS")
 abline(a=0,b=1)
-(rmse<-sqrt(sum((log(pred.rf) - log(tss.cal$TSS))^2)/length(tss.cal$TSS)))#prediction error
+(rmse<-sqrt(sum((log(pred.rf+1) - log(tss.cal$TSS+1))^2)/length(tss.cal$TSS)))#prediction error
 ```
 
 

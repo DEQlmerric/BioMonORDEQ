@@ -335,7 +335,7 @@ tss <- cal.val_chem.ref.wq %>%
   select(-Result_Numeric_mod)
 
 write_xlsx(tss, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//TSS_", Sys.Date(), ".xlsx"))
-write_xlsx(tss, path = paste0("C://Users//athomps//OneDrive - Oregon//Desktop//TSS_", Sys.Date(), ".xlsx")) #temporary path so can include Ambient sites
+#write_xlsx(tss, path = paste0("C://Users//athomps//OneDrive - Oregon//Desktop//TSS_", Sys.Date(), ".xlsx")) #temporary path so can include Ambient sites
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # SUMMARY TABLES, FIGURES
 #-----------------------------------------------------------------------------------------------------------------------------------------------------

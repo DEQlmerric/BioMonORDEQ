@@ -29,7 +29,7 @@ library(reprtree)  # Try devtools::install_github('araastat/reprtree')
 
 ```{r}
 #tss <- read_excel("TSS_2025-11-06.xlsx") #output file from ref benchmarks script - no Ambient sites
-tss <- read_excel("TSS_2025-11-12.xlsx") #output file from ref benchmarks script - Ambient sites included
+tss <- read_excel("TSS_2025-11-12amb.xlsx") #output file from ref benchmarks script - Ambient sites included
 
 #tss <- tss %>% filter(TSS < 20) #testing model output by excluding values >20 mg/L
 
@@ -467,11 +467,11 @@ tss.ref <- tss.sc %>%
 ```{r}
 # HISTOGRAM
 hist(tss$TSS, main = "", xlab = "TSS") #raw data
-hist(log(tss$TSS), main = "", xlab = "log TSS") #log-transformed
+hist(log(tss$TSS+1), main = "", xlab = "log TSS") #log-transformed
 
 # DENSITY PLOT
 hist(tss$TSS, main="", prob=T, xlab = "TSS")
-d <- density(tss$TSS) #Estimate probability density and save it into **d**
+d <- density(tss$TSS+1) #Estimate probability density and save it into **d**
 lines(d, col='red',lwd=2) #Superimpose the probability density as a curve on the previous probability density histogram
 
 # BOX PLOT & STRIP CHART
@@ -611,16 +611,17 @@ partialPlot(rf.full, as.data.frame(tss.cal), SANDWS, ylab = "Predicted TSS")
 
 ```{r}
 # RAW TSS
-pred.rf <- predict(rf.full, newdata = tss.cal)
-plot(pred.rf ~ tss.cal$TSS, xlab = "Observed TSS", ylab = "Predicted TSS")
-abline(a=0,b=1)
-(rmse<-sqrt(sum((pred.rf - tss.cal$TSS)^2)/length(tss.cal$TSS)))#prediction error
+#pred.rf <- predict(rf.full, newdata = tss.cal)
+#plot(pred.rf ~ tss.cal$TSS, xlab = "Observed TSS", ylab = "Predicted TSS")
+#abline(a=0,b=1)
+#(rmse<-sqrt(sum((pred.rf - tss.cal$TSS)^2)/length(tss.cal$TSS)))#prediction error
 
 # LOG +1-TRANSFORMED TSS
 pred.rf <- predict(rf.full, newdata = tss.cal)
-plot(log(pred.rf+1) ~ log(tss.cal$TSS+1), xlab = "log Observed TSS", ylab = "log Predicted TSS")
+plot(log(pred.rf+1) ~ log(tss.cal$TSS+1), xlab = "log Observed TSS", ylab = "log Predicted TSS", ylim = c(0,6))
 abline(a=0,b=1)
-(rmse<-sqrt(sum((log(pred.rf+1) - log(tss.cal$TSS+1))^2)/length(tss.cal$TSS)))#prediction error
+print(paste("natural log RMSE =", sqrt(sum((log(pred.rf+1) - log(tss.cal$TSS+1))^2)/length(tss.cal$TSS)))) #prediction error
+print(paste("inverse natural log RMSE =", exp(rmse)-1))
 ```
 
 

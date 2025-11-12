@@ -64,18 +64,18 @@ chem.ref <- chem.all_ref %>%
   
 # LEGACY AMBIENT STATIONS
   #1: SUBSET AMBIENT PROJECT DATA
-amb <- subset(chem.ref, chem.ref$Project1 == "Surface Water Ambient Monitoring")
+# amb <- subset(chem.ref, chem.ref$Project1 == "Surface Water Ambient Monitoring")
+# 
+#   #2: MAKE LIST OF AMBIENT STATIONS
+# amb.stations <- amb %>% 
+#   distinct(MLocID, .keep_all=TRUE) %>% 
+#   select(MLocID)
 
-  #2: MAKE LIST OF AMBIENT STATIONS
-amb.stations <- amb %>% 
-  distinct(MLocID, .keep_all=TRUE) %>% 
-  select(MLocID)
-
-  #3: REMOVE AMBIENT STATIONS
-chem.ref <- anti_join(chem.ref, amb.stations, by = "MLocID")
-
-rm(amb)
-rm(amb.stations)
+  #3: REMOVE AMBIENT STATIONS  # For TSS, brings back in 3 sites.
+# chem.ref <- anti_join(chem.ref, amb.stations, by = "MLocID")
+# 
+# rm(amb)
+# rm(amb.stations)
 
 # TRIM DATA TO LOW FLOW INDEX PERIOD (JUNE 1-OCTOBER 15) and >=1997 ONLY
 #1: DATE TO DATE FORMAT
@@ -335,7 +335,7 @@ tss <- cal.val_chem.ref.wq %>%
   mutate(TSS = Result_Numeric_mod) %>% 
   select(-Result_Numeric_mod)
 
-write_xlsx(tss, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//TSS_", Sys.Date(), ".xlsx"))
+write_xlsx(tss, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//TSS_amb_", Sys.Date(), ".xlsx"))
 #write_xlsx(tss, path = paste0("C://Users//athomps//OneDrive - Oregon//Desktop//TSS_", Sys.Date(), ".xlsx")) #temporary path so can include Ambient sites
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # SUMMARY TABLES, FIGURES

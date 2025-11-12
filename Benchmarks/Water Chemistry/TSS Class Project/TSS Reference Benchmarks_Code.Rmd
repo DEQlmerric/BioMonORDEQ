@@ -620,7 +620,7 @@ partialPlot(rf.full, as.data.frame(tss.cal), SANDWS, ylab = "Predicted TSS")
 pred.rf <- predict(rf.full, newdata = tss.cal)
 plot(log(pred.rf+1) ~ log(tss.cal$TSS+1), xlab = "log Observed TSS", ylab = "log Predicted TSS", ylim = c(0,6))
 abline(a=0,b=1)
-print(paste("natural log RMSE =", sqrt(sum((log(pred.rf+1) - log(tss.cal$TSS+1))^2)/length(tss.cal$TSS)))) #prediction error
+(rmse<-sqrt(sum((log(pred.rf+1) - log(tss.cal$TSS+1))^2)/length(tss.cal$TSS))) #prediction error
 print(paste("inverse natural log RMSE =", exp(rmse)-1))
 ```
 
@@ -673,10 +673,12 @@ hist(tss.ref$POPDEN2010WS)
 quantile(tss.ref$POPDEN2010WS, probs = seq(.1, .9, by = .1)) #90th = 4.3163521
 
 #decide on levels to cut each human vbl
-
+#make partial dep plots for each of the scaled human predictors to show where to draw the line
 
 #scale back to ref levels
 top$POPDEN2010WS <- ifelse(top$POPDEN2010WS >= 4.3163521, 4.31635215, top$POPDEN2010WS)
+
+
 
 ```
 

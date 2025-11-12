@@ -26,10 +26,11 @@ library(leaflet.providers)
 library(RColorBrewer)
 library(lubridate)
 
-# IMPORT STATIONS WITH A REFERENCE DESIGNATION FROM STATIONS DB (N = 2522 as of 8/8/25, 2520 10/1/25)
+# IMPORT WADEABLE STATIONS WITH A REFERENCE DESIGNATION FROM STATIONS DB (N = 2522 as of 8/8/25, 2520 10/1/25 - wadeable only n=1851)
 stations <- query_stations()
 ref_stations <- stations %>% 
   filter(ReferenceSite %in% c("REFERENCE" , "MODERATELY DISTURBED", "MOST DISTURBED")) %>% 
+  filter(Wade_Boat == "wadeable") %>%
   select(MLocID, COMID, ReferenceSite, QC_Comm, OrgID)
 rm(stations)
 

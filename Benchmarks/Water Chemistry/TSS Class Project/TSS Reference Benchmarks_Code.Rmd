@@ -44,19 +44,13 @@ comids <- tss %>% select(COMID) #get just the COMIDs for next step
 #### Make table of StreamCat metadata and clean up in Excel
 
 ```{r}
-#supposedly best source for query-able metric names
+# METHOD 1: FIND QUERY-ABLE METRIC NAMES
 #partable <- StreamCatTools::sc_get_metric_names()
 
-#name mismatch error message suggests consulting this list
+# METHOD 2: FIND QUERY-ABLE METRIC NAMES (slightly different than above)
 #scpar <- StreamCatTools::sc_get_params(param = 'metric_names') 
 
-#save intermediate file initially; switch to Teams to clean up, then no need to run these first steps
-#write_xlsx(partable, path = "C:/Users/athomps/OneDrive - Oregon/Desktop/partable.xlsx") 
-
-kitty <- read_excel("~/BioMonORDEQ/Benchmarks/Water Chemistry/TSS Class Project/StreamCatMetrics_new.xlsx") #final metrics table
-
-#keepers <- subset(kitty, kitty$`Use?`=='y') #keep only parameters of interest
-#mets <- keepers[,5] #make data frame of keeper metric names capable of querying data
+kitty <- read_excel("~/BioMonORDEQ/Benchmarks/Water Chemistry/TSS Class Project/StreamCatMetrics_new.xlsx") #final cleaned-up metrics table
 
 # FOR TESTING INDIVIDUAL METRICS/COMIDS (e.g., to ensure names match)
 #test <- StreamCatTools::sc_get_data(comid = '23910659', metric = 'precipminusevt', showAreaSqKm = FALSE, aoi='watershed')
@@ -65,9 +59,9 @@ kitty <- read_excel("~/BioMonORDEQ/Benchmarks/Water Chemistry/TSS Class Project/
 #### Run function to query ALL StreamCat data for selected COMIDs by subcategory
 
 ```{r}
-# full data pulls use aoi='catchment,watershed,other')) 
-# generating Spearman ranks use aoi='watershed')). Run separate line for aoi='other' since they don't pull unless on their own
-
+# NOTE: StreamCat doesn't pull data for 'other' areas of interest when aoi='watershed, catchment, other'. 
+# Instead, use aoi='watershed' and run separate line for aoi='other' since they don't pull unless on their own.
+# ALSO: Do not separate metric lists onto a new line by hitting the enter button, as any metric after the break will be excluded from the pull.
 
 # FUNCTION - START +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 get_streamcat <- function(comids, type = c("Agriculture","Climate","Dams","Flow","IWI","Land Cover","Lithology","Mining_Toxics","Roads",
@@ -216,6 +210,8 @@ erod_resist_strmpow <- ORDEQBioassessment::get_NHD_info(erod_resist_strmpow)
 erod_resist_strmpow <- erod_resist_strmpow %>% 
   mutate(STRMPOW_CAT = totdasqkm + PRECIP9120WS * slope) %>%  # WSAREASQKM from SC, instead pulling totdasqkm from get_NHD (they are the same)
   select(COMID, PCT_EROD, PCT_RESIST, STRMPOW_CAT, NHD_pSLOPE, SITE_TYPE)
+
+rm(meow)
 ```
 
 #### Make Spearman correlation matrix to identify co-varied parameters
@@ -240,7 +236,9 @@ matrix <- spear.rows %>%
 rm(list=c('spear', 'spear.rows'))
 ```
 
-#### Explore co-varied metrics and select which we want to retain for modeling purposes (SB, SH, AT did together in Excel). See <https://stateoforegon.sharepoint.com/:x:/r/sites/BiomonitoringisFun/Shared%20Documents/General/Env%27t%20Stats%20Class%20Project%202025/StreamCat/Spearmans2.xlsx?d=wc5d82026542a417589be75842d6fafe3&csf=1&web=1&e=dhYR5Q> for decisions, and <https://stateoforegon.sharepoint.com/:x:/r/sites/BiomonitoringisFun/Shared%20Documents/General/Env%27t%20Stats%20Class%20Project%202025/StreamCat/Spearmans2.xlsx?d=wc5d82026542a417589be75842d6fafe3&csf=1&web=1&e=dhYR5Q> for full list of metric names.
+#### Explore co-varied metrics and select which we want to retain for modeling purposes
+
+##### NOTE: SB, SH, AT did this together in Excel. See "Spearman2 - predictor decisions" on Teams for list of discarded/retained metrics.
 
 #### Run StreamCat function again, but only for parameters of interest
 
@@ -403,8 +401,7 @@ matrix2 <- spear.rows2 %>%
 
 # ***CONTINUE ONCE NO CORRELATED VARIABLES REMAIN***
 
-
-# Will remove PCT_SILICICWS and PCT_NONCARBRESIDWS since the are correlated with PCT_EROD >0.8 -- AT: I DID THIS ABOVE SO EROD_RES CODE WOULD RUN
+rm(list=c('spear', 'spear.rows', 'meow2'))
 ```
 
 
@@ -417,7 +414,7 @@ matrix2 <- spear.rows2 %>%
 sapply(scmets, function(x) sum(is.na(x)))
 
 # PERFORM NA ROUGHFIX FUNCTION ON ALL METRICS WITH AT LEAST 1 NA VALUE (ADD CODE AS NEEDED)
-scmets$BANKFULLWIDTH <- na.roughfix(scmets$BANKFULLWIDTH) #bankfull width (n = 71 NAs)
+scmets$BANKFULLWIDTH <- na.roughfix(scmets$BANKFULLWIDTH) #bankfull width (n = 66 NAs)
 scmets$SW_FLUXWS <- na.roughfix(scmets$SW_FLUXWS) #surface water flux (n = 2 NAs)
 
 # MERGE THE DESIRED STREAMCAT METRIC DATA WITH THE TSS AWQMS DATA PULL
@@ -428,31 +425,31 @@ tss.sc <- tss.sc %>% relocate(TSS, .before = Lat_DD)
 tss.sc.cor <- tss.sc %>% 
   select(-c(MLocID:COMID, L2Eco, L3Eco, Lat_DD, Long_DD, SITE_TYPE, PCT_RESIST)) 
 
-###*** AT: WONDERING ABOUT A WAY TO AVOID RUNNING COR TABLES A THIRD TIME? I MOVED THE TSS.SC.COR CODE IN THIS SECTION, AFTER TSS.SC WAS MADE
-spear2 <- cor(tss.sc.cor, method = "spearman", use = "pairwise.complete.obs")
-spear2 <- as.data.frame(spear2)
-spear.rows2 <- tibble::rownames_to_column(spear2)
+# ANOTHER CORRELATION CHECK FOR GOOD MEASURE
+spear3 <- cor(tss.sc.cor, method = "spearman", use = "pairwise.complete.obs")
+spear3 <- as.data.frame(spear3)
+spear.rows3 <- tibble::rownames_to_column(spear3)
 
 # CONDENSED CORRELATION MATRIX (>0.8 ONLY)
-matrix2 <- spear.rows2 %>%  
+matrix3 <- spear.rows3 %>%  
   gather(-rowname, key = "colname", value = "cor") %>% 
   filter(abs(cor) > 0.8)
 
 # CLEAN UP ENVIRONMENT
-rm(list=c('spear.rows2', 'spear2', 'matrix2'))
+rm(list=c('spear.rows3', 'spear3', 'matrix3'))
 ```
 
-## SUBSET DATA - CALIBRATION, VALIDATION, AND REFERENCE ONLY Subset data
+## SUBSET DATA - CALIBRATION, VALIDATION, AND REFERENCE ONLY
 
 ```{r}
 # SUBSET DATA AND REMOVE NON-VARIABLE COLUMNS
 tss.cal <- tss.sc %>% 
   filter(cal_val == 'CAL') %>%  
-  select(-c(MLocID, StationDes, EcoRegion4:COMID))  #subset calibration dataset
+  select(-c(MLocID, StationDes, EcoRegion4:COMID))  #subset CALibration dataset
 
 tss.val <- tss.sc %>% 
   filter(cal_val == 'VAL') %>%  
-  select(-c(MLocID, StationDes, EcoRegion4:COMID)) #subset validation dataset
+  select(-c(MLocID, StationDes, EcoRegion4:COMID)) #subset VALidation dataset
 
 tss.ref <- tss.sc %>% 
   filter(ReferenceSite == 'REFERENCE') %>%  

@@ -30,8 +30,6 @@ library(reprtree)  # Try devtools::install_github('araastat/reprtree')
 ```{r}
 tss <- read_excel("TSS_amb_2025-11-12.xlsx") #output file from ref benchmarks script - Ambient sites included
 
-#tss <- tss %>% filter(TSS < 20) #testing model output by excluding values >20 mg/L
-
 comids <- tss %>% select(COMID) #get just the COMIDs for next step
 ```
 
@@ -210,8 +208,6 @@ erod_resist_strmpow <- ORDEQBioassessment::get_NHD_info(erod_resist_strmpow)
 erod_resist_strmpow <- erod_resist_strmpow %>% 
   mutate(STRMPOW_CAT = totdasqkm + PRECIP9120WS * slope) %>%  # WSAREASQKM from SC, instead pulling totdasqkm from get_NHD (they are the same)
   select(COMID, PCT_EROD, PCT_RESIST, STRMPOW_CAT, NHD_pSLOPE, SITE_TYPE)
-
-rm(meow)
 ```
 
 #### Make Spearman correlation matrix to identify co-varied parameters
@@ -419,11 +415,13 @@ scmets$SW_FLUXWS <- na.roughfix(scmets$SW_FLUXWS) #surface water flux (n = 2 NAs
 
 # MERGE THE DESIRED STREAMCAT METRIC DATA WITH THE TSS AWQMS DATA PULL
 tss.sc <- inner_join(tss, scmets, by = "COMID")
-tss.sc <- tss.sc %>% relocate(TSS, .before = Lat_DD)
+tss.sc <- tss.sc %>% 
+  select(-c(Lat_DD, Long_DD,PCT_RESIST)) %>% 
+  relocate(TSS, .before = L2Eco)
 
 # ADD AWQMS COLUMNS (NON-STREAMCAT)
 tss.sc.cor <- tss.sc %>% 
-  select(-c(MLocID:COMID, L2Eco, L3Eco, Lat_DD, Long_DD, SITE_TYPE, PCT_RESIST)) 
+  select(-c(MLocID:COMID, L2Eco, L3Eco, SITE_TYPE)) 
 
 # ANOTHER CORRELATION CHECK FOR GOOD MEASURE
 spear3 <- cor(tss.sc.cor, method = "spearman", use = "pairwise.complete.obs")
@@ -510,101 +508,46 @@ kern %>%
 
 ## FULL MODEL - ALL PREDICTORS INCLUDED (N = 83)
 
+#### Tuning the model (finding best)
+```{r}
+# One way to find best mtry based on tuneRF.
+    # Tune mtry based on OOB error
+best_mtry <- tuneRF(tss.cal[, -which(names(tss.cal) == "TSS")], # Predictors
+                        tss.cal$TSS, # Response
+                        ntreeTry = 500, # Number of trees to try for each mtry
+                        stepFactor = 1.5, # Factor to multiply/divide mtry by
+                        improve = 0.01, # Minimum improvement to continue search
+                        trace = TRUE, # Print progress
+                        plot = TRUE) # Plot OOB error vs. mtry
+print(best_mtry)
+
+# Another approach using Caret.  Takes >50 minutes to run, not that different from mtry approach above.
+# control <- trainControl(method="repeatedcv", number=10,repeats = 3, search="random")
+# set.seed(1)
+# mtry <- sqrt(ncol(tss.cal[ , 2:83]
+# ))
+# rf_random <- train(log(TSS + 1)~., data = tss.cal, method = "rf", metric = "RMSE", tuneLength = 15, trControl=control)
+# print(rf_random)
+# plot(rf_random)
+
+```
 #### Build full model
 
 ```{r}
-set.seed(123)
+set.seed(39)
 
 rf.full <- randomForest(log(TSS+1) ~ ., tss.cal, importance = TRUE, mtry=7, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
 print(rf.full)
 
-varImpPlot(rf.full, type = 1, n.var = 20) #variable importance plot
-vip(rf.full, aesthetics = list(color = "blue", fill = "blue")) #another plot
+varImpPlot(rf.full, type = 1, n.var = 20, main = "Full Model") #variable importance plot
+varImpPlot(rf.full, type = 2, n.var = 20, main = "Full Model") #variable importance plot
 
-imp <- importance(rf.full)
+```
 
-#not working yet
-#reprtree:::plot.reprtree(ReprTree(rf.full, tss.cal, metric='d2'), all = T, depth = 0)
-
-#reprtree:::plot.getTree(rf.full, k=1, depth =4)
-
+#### Tuning the model (how many trees) 
+```{r}
 # How many trees is appropriate?
 plot(rf.full, log="x")  # 500 seems to work fine.
-```
-```{r}
-# #std RF
-# rf1 = randomForest(TSS ~ ., tss.cal, ntree=500) 
-# print(rf1)
-# plot(rf1,log="x",main="node depth")
-
-
-# One way to find best mtry based on tuneRF.
-# rf2 <- randomForest(TSS ~ ., tss.cal, ntree=500, importance = TRUE)
-#     # Tune mtry based on OOB error
-# best_mtry <- tuneRF(tss.cal[, -which(names(tss.cal) == "TSS")], # Predictors
-#                         tss.cal$TSS, # Response
-#                         ntreeTry = 500, # Number of trees to try for each mtry
-#                         stepFactor = 1.5, # Factor to multiply/divide mtry by
-#                         improve = 0.01, # Minimum improvement to continue search
-#                         trace = TRUE, # Print progress
-#                         plot = TRUE) # Plot OOB error vs. mtry
-# print(best_mtry)
-
-# Another way to find best mtry based on Caret
-# control <- trainControl(method="cv", number=10,returnResamp="all")
-# tunegrid <- expand.grid(.mtry=c(3:35))
-# caret_res <- train(TSS~., data=tss.cal, method="rf", metric="RMSE", 
-#                 tuneGrid=tunegrid, ntree = 500, trControl=control)
-# 
-# library(ggplot2)
-# df =  data.frame(caret_res$resample[,c("mtry","RMSE")],test="caret")
-# 
-# df = df[df$mtry!=1,]
-# 
-# ggplot(df,aes(x=mtry,y=RMSE))+
-# stat_summary(fun.data=mean_se,geom="errorbar",width=0.2) +
-# stat_summary(fun=mean,geom="line")
-x <- tss.cal[ , 2:83]
-
-# another try in class
-control <- trainControl(method="repeatedcv", number=10,repeats = 3, search="random")
-set.seed(1)
-mtry <- sqrt(ncol(x))
-rf_random <- train(log(TSS + 1)~., data = tss.cal, method = "rf", metric = "RMSE", tuneLength = 15, trControl=control)
-print(rf_random)
-plot(rf_random)
-
-```
-
-
-#### Partial dependence plots - full model
-
-```{r}
-# PARTIAL DEPENDENCE PLOTS - SINGLE ONLY, NEED TO INCORPORATE FOR LOOP FOR ALL VBLS
-partialPlot(rf.full, as.data.frame(tss.cal), STRMPOW_CAT, ylab = "Predicted TSS")
-partialPlot(rf.full, as.data.frame(tss.cal), POPDEN2010WS, ylab = "Predicted TSS")
-partialPlot(rf.full, as.data.frame(tss.cal), PCTAGSLPMID2001WS, ylab = "Predicted TSS")
-partialPlot(rf.full, as.data.frame(tss.cal), WDRW_LDWS, ylab = "Predicted TSS")
-partialPlot(rf.full, as.data.frame(tss.cal), PESTIC1997WS, ylab = "Predicted TSS")
-partialPlot(rf.full, as.data.frame(tss.cal), ELEVWS, ylab = "Predicted TSS")
-partialPlot(rf.full, as.data.frame(tss.cal), SWS, ylab = "Predicted TSS")
-partialPlot(rf.full, as.data.frame(tss.cal), PCTCONIF2001WS, ylab = "Predicted TSS")
-partialPlot(rf.full, as.data.frame(tss.cal), ROCKNWS, ylab = "Predicted TSS")
-partialPlot(rf.full, as.data.frame(tss.cal), RDCRSWS, ylab = "Predicted TSS")
-partialPlot(rf.full, as.data.frame(tss.cal), SANDWS, ylab = "Predicted TSS")
-# 
-# # PARTIAL DEPENDENCE PLOTS - VARIABLES IN ORDER OF DECREASING IMPORTANCE
-# # maybe helps with margins too large error
-# graphics.off()
-# par("mar")
-# par(mar=c(1,1,1,1))
-# 
-# im <- rf.full$importance #importance values for each predictor
-# imvar <- rownames(im)[order(im[, 1], decreasing = FALSE)] #predictor's importance values in a decreasing order 
-# #par(mfrow=c(4,4)) #make 16 plots per page
-# #for (i in seq_along(imvar)) {
-# #  partialPlot(rf.full, as.data.frame(tss.cal), imvar[i], xlab = imvar[i], main = "")
-# #}
 ```
 
 #### Model prediction errors - full model
@@ -625,87 +568,190 @@ print(paste("inverse natural log RMSE =", exp(rmse)-1))
 ```
 
 
-## REDUCED MODEL - IMPORTANT PREDICTORS ONLY (N = X)
+## REDUCED MODEL - IMPORTANT PREDICTORS ONLY 
 
-#### Build reduced model
+#### Build reduced model with 20 predictors
 
 ```{r}
 set.seed(32)
 
-rf.red <- randomForest(TSS ~ STRMPOW_CAT+ELEVWS+PESTIC1997WS+WDRW_LDWS+POPDEN2010WS+PCTCROP2001WS+SWS, data = tss.cal, importance = TRUE,  keep.forest = TRUE, ntree = 500) 
-print(rf.red)
+rf.red20 <- randomForest(TSS ~ WDRW_LDWS + PCTCONIF2001WS + CLAYWS + PESTIC1997WS + SANDWS + PCTCROP2001WS + POPDEN2010WS + PRECIP9120WS + PCTAGSLPMID2001WS + PCT_EROD + SW_FLUXWS + PCTIMP2001WS + RDCRSWS + WTDEPWS + ELEVWS + WETINDEXWS + PCTSHRB2001WS + KFFACTWS + PCTICE2001WS + RCKDEPWS, data = tss.cal, importance = TRUE,  keep.forest = TRUE, ntree = 500) 
 
-varImpPlot(rf.red, type = 1) #variable importance plot
-importance(rf.red)
-```
+print(rf.red20)
 
-#### Partial dependence plots - reduced model
+varImpPlot(rf.red20, type = 1, n.var = 20, main = "Reduced Model top 20") #variable importance plot
+varImpPlot(rf.red20, type = 2, n.var = 20, main = "Reduced Model top 20") #variable importance plot
 
-```{r}
-#placeholder
-```
-
-#### Model prediction errors - reduced model
-
-```{r}
-pred.rf.red <- predict(rf.red, newdata = tss.cal)
-plot(pred.rf.red ~ tss.cal$TSS, xlab="Observed TSS", ylab="Predicted TSS", log = "xy")
+# LOG +1-TRANSFORMED TSS
+pred.rf.red20 <- predict(rf.red20, newdata = tss.cal)
+plot(log(pred.rf.red20+1) ~ log(tss.cal$TSS+1), xlab = "log Observed TSS", ylab = "log Predicted TSS", xlim = c(0,5), ylim = c(0,5))
 abline(a=0,b=1)
-(rmse<-sqrt(sum((pred.rf.red - tss.cal$TSS)^2)/length(tss.cal$TSS)))#prediction error
+(rmse<-sqrt(sum((log(pred.rf.red20+1) - log(tss.cal$TSS+1))^2)/length(tss.cal$TSS))) #prediction error
+print(paste("inverse natural log RMSE =", exp(rmse)-1))
+```
+#### * Final reduced model N = 15
+```{r}
+set.seed(32)
+
+rf.red15 <- randomForest(TSS ~ WDRW_LDWS + PCTCONIF2001WS + CLAYWS + PESTIC1997WS + SANDWS + PCTCROP2001WS + POPDEN2010WS + PRECIP9120WS + PCTAGSLPMID2001WS + PCT_EROD + SW_FLUXWS + PCTIMP2001WS + RDCRSWS + WTDEPWS + ELEVWS, data = tss.cal, importance = TRUE,  keep.forest = TRUE, ntree = 500) 
+
+print(rf.red15)
+
+varImpPlot(rf.red15, type = 1, main = "Reduced Model top 15") #variable importance plot
+varImpPlot(rf.red15, type = 2, main = "Reduced Model top 15") #variable importance plot
+
+# LOG +1-TRANSFORMED TSS
+pred.rf.red15 <- predict(rf.red15, newdata = tss.cal)
+plot(log(pred.rf.red15+1) ~ log(tss.cal$TSS+1), xlab = "log Observed TSS", ylab = "log Predicted TSS", xlim = c(0,5), ylim = c(0,5))
+abline(a=0,b=1)
+(rmse<-sqrt(sum((log(pred.rf.red15+1) - log(tss.cal$TSS+1))^2)/length(tss.cal$TSS))) #prediction error
+print(paste("inverse natural log RMSE =", exp(rmse)-1))
 ```
 
+#### 4 predictors (not using this one)
+```{r}
+set.seed(32)
+
+rf.red4 <- randomForest(TSS ~ WDRW_LDWS + PCTCONIF2001WS + CLAYWS + PESTIC1997WS, data = tss.cal, importance = TRUE,  keep.forest = TRUE, ntree = 500) 
+
+print(rf.red4)
+
+varImpPlot(rf.red4, type = 1, main = "Reduced Model top 4") #variable importance plot
+varImpPlot(rf.red4, type = 2, main = "Reduced Model top 4") #variable importance plot
+
+# LOG +1-TRANSFORMED TSS
+pred.rf.red4 <- predict(rf.red4, newdata = tss.cal)
+plot(log(pred.rf.red4+1) ~ log(tss.cal$TSS+1), xlab = "log Observed TSS", ylab = "log Predicted TSS", xlim = c(0,5), ylim = c(0,5))
+abline(a=0,b=1)
+(rmse<-sqrt(sum((log(pred.rf.red4+1) - log(tss.cal$TSS+1))^2)/length(tss.cal$TSS))) #prediction error
+print(paste("inverse natural log RMSE =", exp(rmse)-1))
+```
 
 ## SCALE HUMAN-INFLUENCED PREDICTORS TO REFERENCE LEVELS
-
-#### Explore distribution of predictors at reference sites
+#### Examine reference distributions - Histograms and partial dependence plots
 
 ```{r}
-#list of human variables
-human <- subset(kitty, kitty$Category == "Anthropogenic")
-human <- human %>% select(Metric_Query)
+# HUMAN INFLUENCED VARS --looking at all reference sites.
 
-#dataframe for top predictors
-top <- tss.sc %>% select(c(POPDEN2010WS,PESTIC1997WS))
+# Select only the 8 human influenced predictors from the reduced model.
+tss.ref.hi <- tss.sc %>% 
+  filter(ReferenceSite == 'REFERENCE') %>% 
+  #filter(cal_val == 'CAL') %>% 
+  select(c(WDRW_LDWS,PESTIC1997WS,PCTCROP2001WS,POPDEN2010WS,PCTAGSLPMID2001WS,SW_FLUXWS,PCTIMP2001WS,RDCRSWS))
 
-#distributions at ref sites
-hist(tss.sc$POPDEN2010WS)
-hist(tss.ref$POPDEN2010WS)
-quantile(tss.ref$POPDEN2010WS, probs = seq(.1, .9, by = .1)) #90th = 4.3163521
+tss.cal_val <- rbind(tss.cal, tss.val)
 
-#decide on levels to cut each human vbl
-#make partial dep plots for each of the scaled human predictors to show where to draw the line
+# Agricultural fresh surface water withdrawl kg/sq km  
+# Want to scale back to 0.
+par(mfrow=c(1,2))
+partialPlot(rf.full, as.data.frame(tss.cal_val), WDRW_LDWS, main = '', ylab = "Predicted TSS")
+abline(v=quantile(tss.ref.hi$WDRW_LDWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
+hist(tss.ref.hi$WDRW_LDWS, main = '')
+quantile(tss.ref.hi$WDRW_LDWS, probs = seq(.1, .9, by = .1)) 
 
-#scale back to ref levels
+# Mean pesticide use kg/sq km
+# Want to scale back to 0.
+par(mfrow=c(1,2))
+partialPlot(rf.full, as.data.frame(tss.cal_val), PESTIC1997WS, main = '', ylab = "Predicted TSS")
+abline(v=quantile(tss.ref.hi$PESTIC1997WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
+hist(tss.ref.hi$PESTIC1997WS, main = '')
+quantile(tss.ref.hi$PESTIC1997WS, probs = seq(.1, .9, by = .1))
+
+# Percent of WS classified as row crops.
+# Want to scale back to 0.
+par(mfrow=c(1,2))
+partialPlot(rf.full, as.data.frame(tss.cal_val), PCTCROP2001WS, main = '', ylab = "Predicted TSS")
+abline(v=quantile(tss.ref.hi$PCTCROP2001WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
+hist(tss.ref.hi$PCTCROP2001WS, main = '')
+quantile(tss.ref.hi$PCTCROP2001WS, probs = seq(.1, .9, by = .1))
+
+# Mean population density people / sq km
+# Want to scale back to ~4.
+par(mfrow=c(1,2))
+partialPlot(rf.full, as.data.frame(tss.cal_val), POPDEN2010WS, main = '', ylab = "Predicted TSS")
+abline(v=quantile(tss.ref.hi$POPDEN2010WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
+hist(tss.ref.hi$POPDEN2010WS, main = '')
+quantile(tss.ref.hi$POPDEN2010WS, probs = seq(.1, .9, by = .1))
+
+# Percent landcover ag dominated on >10% slope
+# Want to scale back to zero.
+par(mfrow=c(1,2))
+partialPlot(rf.full, as.data.frame(tss.cal_val), PCTAGSLPMID2001WS, main = '', ylab = "Predicted TSS")
+abline(v=quantile(tss.ref.hi$PCTAGSLPMID2001WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
+hist(tss.ref.hi$PCTAGSLPMID2001WS, main = '')
+quantile(tss.ref.hi$PCTAGSLPMID2001WS, probs = seq(.1, .9, by = .1))
+
+# Surface Water Nitrogen Flux
+# Want to keep left 3 bars of histogram.
+par(mfrow=c(1,2))
+partialPlot(rf.full, as.data.frame(tss.cal_val), SW_FLUXWS, main = '', ylab = "Predicted TSS")
+abline(v=quantile(tss.ref.hi$SW_FLUXWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
+hist(tss.ref.hi$SW_FLUXWS, main = '')
+quantile(tss.ref.hi$SW_FLUXWS, probs = seq(.1, .9, by = .1))
+
+# Mean imperviousness 
+# 90th percentile?
+par(mfrow=c(1,2))
+partialPlot(rf.full, as.data.frame(tss.cal_val), PCTIMP2001WS, main = '', ylab = "Predicted TSS")
+abline(v=quantile(tss.ref.hi$PCTIMP2001WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
+hist(tss.ref.hi$PCTIMP2001WS, main = '')
+quantile(tss.ref.hi$PCTIMP2001WS, probs = seq(.1, .9, by = .1))
+
+# Road and stream intersection density per sq km
+# Want to scale back to 0.
+par(mfrow=c(1,2))
+partialPlot(rf.full, as.data.frame(tss.cal_val), RDCRSWS, main = '', ylab = "Predicted TSS")
+abline(v=quantile(tss.ref.hi$RDCRSWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
+hist(tss.ref.hi$RDCRSWS, main = '')
+quantile(tss.ref.hi$RDCRSWS, probs = seq(.1, .9, by = .1))
+
+```
+
+#### Reference expectations for environmental variables
+
+```{r}
+# Scale back human influenced variables to ref levels
 top$POPDEN2010WS <- ifelse(top$POPDEN2010WS >= 4.3163521, 4.31635215, top$POPDEN2010WS)
 
 
-
+tss.cal.ref <- tss.cal %>% 
+  mutate(WDRW_LDWS = case_when(
+    WDRW_LDWS > 0 ~ 0,
+    TRUE ~ WDRW_LDWS)) %>% 
+  
+  mutate(PESTIC1997WS = case_when(
+    PESTIC1997WS > 0 ~ 0,
+    TRUE ~ PESTIC1997WS)) %>% 
+  
+  mutate(PCTCROP2001WS = case_when(
+    PCTCROP2001WS > 0 ~ 0,
+    TRUE ~ PCTCROP2001WS)) %>% 
+  
+    mutate(POPDEN2010WS = case_when(
+    POPDEN2010WS > 0 ~ 0,
+    TRUE ~ POPDEN2010WS)) %>% 
+  
+    mutate(SW_FLUXWS = case_when(
+    SW_FLUXWS > 0 ~ 0,
+    TRUE ~ SW_FLUXWS)) %>% 
+  
+    mutate(PCTIMP2001WS = case_when(
+    PCTIMP2001WS > 0 ~ 0,
+    TRUE ~ PCTIMP2001WS)) %>% 
+  
+    mutate(PESTIC1997WS = case_when(
+    PESTIC1997WS > 0 ~ 0,
+    TRUE ~ PESTIC1997WS)) %>% 
+  
+    mutate(RDCRSWS = case_when(
+    RDCRSWS > 0 ~ 0,
+    TRUE ~ RDCRSWS)) 
 ```
 
-
-
-
-
-
-
-## Run full model with validation data (????????)
-
+## Run reduced model with validation data
 ```{r}
 tss.val$RFtss <- predict(rf.full, tss.val) #model prediction on 'VAL' dataset
-RFtss <- tss.val %>% select(RFtss, COMID)
-RFval <- tss.val %>% select(TSS, COMID)
-
-# CONFUSION MATRIX
-cm <- inner_join(RFtss, RFval, by = "COMID")
-confusionMatrix(data = as.factor(cm$RFtss), reference = as.factor(cm$TSS)) #NOT WORKING YET
-
-plot(cm$RFtss, cm$TSS)
 ```
-
-
-
-
-
 
 
 ## REFERENCE ONLY MODEL
@@ -723,47 +769,16 @@ varImpPlot(rf.ref, type = 1)
 importance(rf.ref)
 ```
 
-#### Run reference only model with test data
 
+#### Reduce the reference only model
 ```{r}
-# TBD
 
-# sample code for creating test data Using caret package
-# set.seed(123)  # for reproducibility
-# index_2 <- createDataPartition(ames$Sale_Price, p = 0.7, 
-#                                list = FALSE)
-# train_2 <- ames[index_2, ]
-# test_2  <- ames[-index_2, ]
 ```
 
-
-
-
-
-
-
-
-
-
-## REGRESSION TREES - INFORMATIONAL ONLY AT THIS STAGE
-
+#### Run reduced reference only model with test data
 ```{r}
-# REGRESSION TREES EXPERIMENTATION
-# FULL MODEL
-rt <- rpart(TSS ~ ., data = tss.cal)
-plot(rt)
-text(rt, use.n = FALSE)
 
-names(rt)
-print(rt)
-summary(rt)
-
-# NICER LOOKING TREE
-prp(rt, #plot the tree model
-    faclen=0,#use full names for factor labels
-    extra=1)#display number of obs. for each terminal node
 ```
-
 
 
 #---------------------------------------------------------------------------
@@ -1044,3 +1059,35 @@ sc_human_ref <- sc_human %>%
 # Tidy up.
 rm(list=c('human.mets', 'scmetsws', 'scmetws_human', 'scmetsnows', 'scmet_human', 'sc.human'))
 ```
+
+```{r}
+# TBD
+
+# sample code for creating test data Using caret package
+# set.seed(123)  # for reproducibility
+# index_2 <- createDataPartition(ames$Sale_Price, p = 0.7, 
+#                                list = FALSE)
+# train_2 <- ames[index_2, ]
+# test_2  <- ames[-index_2, ]
+```
+
+
+## REGRESSION TREES - INFORMATIONAL ONLY AT THIS STAGE
+
+```{r}
+# REGRESSION TREES EXPERIMENTATION
+# FULL MODEL
+rt <- rpart(TSS ~ ., data = tss.cal)
+plot(rt)
+text(rt, use.n = FALSE)
+
+names(rt)
+print(rt)
+summary(rt)
+
+# NICER LOOKING TREE
+prp(rt, #plot the tree model
+    faclen=0,#use full names for factor labels
+    extra=1)#display number of obs. for each terminal node
+```
+

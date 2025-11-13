@@ -31,7 +31,7 @@ stations <- query_stations()
 ref_stations <- stations %>% 
   filter(ReferenceSite %in% c("REFERENCE" , "MODERATELY DISTURBED", "MOST DISTURBED")) %>% 
   filter(Wade_Boat == "wadeable") %>%
-  select(MLocID, COMID, ReferenceSite, QC_Comm, OrgID, Wade_Boat)
+  select(MLocID, COMID, ReferenceSite, QC_Comm, OrgID)
 rm(stations)
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -62,18 +62,17 @@ chem.ref <- chem.all_ref %>%
   
 # Note: There are two stations with no COMID (21844-ORDEQ, 34849-ORDEQ) as of 10/2025.
   
-# LEGACY AMBIENT STATIONS
+# LEGACY AMBIENT STATIONS  # Decision to leave this in 11/12/25 to try bring in some sites on the higher TSS range.
   #1: SUBSET AMBIENT PROJECT DATA
 # amb <- subset(chem.ref, chem.ref$Project1 == "Surface Water Ambient Monitoring")
 # #
 # #   #2: MAKE LIST OF AMBIENT STATIONS
 #  amb.stations <- amb %>%
-#    distinct(MLocID, .keep_all=TRUE) %>%
+#    distinct(MLocID, .keep_all = TRUE) %>%
 #    select(MLocID)
 
   #3: REMOVE AMBIENT STATIONS  # For TSS, brings back in 3 sites.
 # chem.ref <- anti_join(chem.ref, amb.stations, by = "MLocID")
-#data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAkCAYAAAD7PHgWAAABBklEQVR4Xu2XMQrCQBBFBQvR6wgJHsEDpHVjBDvvoBhbI3bWCkZbFUyhFrYiEat0WgmC6AVkdQqbIVmWZAOi82C64b+/bDWZDEEQP4phTLMaa9d003bTGMgu1psF7JVGNzuWPdzs18GDz443rgrIcndXbvW8g1axGfZKo7P2eBXc+WB74a3FGXtiA1kwzfnpqTF7hL3SwDfAaz+BqvjkwYADe6WhglQwJlQwKVQwKakVTGOoYNL5z4JxwBlUMEwqAu9SwTCpCLxLBcOkIvCusoKT9/WFQ6OkIvCukoJwt5rO0sehUVIReBem6ng+OLBXmnKjn4PbGM5PeKnqgXIlo5vHXoL4Nl4ZYqbbEGA7+wAAAABJRU5ErkJggg==
 # rm(amb)
 # rm(amb.stations)
 
@@ -221,8 +220,6 @@ chem.ref.wq <- rbind(TN, chem.ref.wq) %>%
 
 # Clear out intermediaries
 rm(list = c('TN', 'tn.nits', 'tn.nits.tkn', 'tn.tkn', 'tn1', 'tn2'))
-
-#write_xlsx(chem.ref.wq, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//chem_ref_wq_", Sys.Date(), ".xlsx"))
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # RANDOMLY SELECT ONE SITE FROM SITES THAT WERE SAMPLED MORE THAN ONCE, &

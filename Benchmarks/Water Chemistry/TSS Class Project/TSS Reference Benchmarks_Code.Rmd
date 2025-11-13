@@ -422,10 +422,11 @@ scmets$SW_FLUXWS <- na.roughfix(scmets$SW_FLUXWS) #surface water flux (n = 2 NAs
 
 # MERGE THE DESIRED STREAMCAT METRIC DATA WITH THE TSS AWQMS DATA PULL
 tss.sc <- inner_join(tss, scmets, by = "COMID")
+tss.sc <- tss.sc %>% relocate(TSS, .before = Lat_DD)
 
 # ADD AWQMS COLUMNS (NON-STREAMCAT)
 tss.sc.cor <- tss.sc %>% 
-  select(-c(MLocID:COMID, L2Eco, L3Eco, Lat_DD, Long_DD, SITE_TYPE, PCT_RESIST))
+  select(-c(MLocID:COMID, L2Eco, L3Eco, Lat_DD, Long_DD, SITE_TYPE, PCT_RESIST)) 
 
 ###*** AT: WONDERING ABOUT A WAY TO AVOID RUNNING COR TABLES A THIRD TIME? I MOVED THE TSS.SC.COR CODE IN THIS SECTION, AFTER TSS.SC WAS MADE
 spear2 <- cor(tss.sc.cor, method = "spearman", use = "pairwise.complete.obs")
@@ -451,11 +452,11 @@ tss.cal <- tss.sc %>%
 
 tss.val <- tss.sc %>% 
   filter(cal_val == 'VAL') %>%  
-  select(-c(MLocID, StationDes, EcoRegion4:COMID))   #subset validation dataset
+  select(-c(MLocID, StationDes, EcoRegion4:COMID)) #subset validation dataset
 
 tss.ref <- tss.sc %>% 
   filter(ReferenceSite == 'REFERENCE') %>%  
-  select(-c(MLocID, StationDes, EcoRegion4:COMID))  #subset reference only dataset
+  select(-c(MLocID, StationDes, EcoRegion4:COMID)) #subset reference only dataset
 ```
 
 
@@ -517,7 +518,7 @@ kern %>%
 ```{r}
 set.seed(123)
 
-rf.full <- randomForest(log(TSS+1) ~ ., tss.cal, importance = TRUE,  mtry = 8, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
+rf.full <- randomForest(log(TSS+1) ~ ., tss.cal, importance = TRUE, mtry=7, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
 print(rf.full)
 
 varImpPlot(rf.full, type = 1, n.var = 20) #variable importance plot
@@ -528,7 +529,7 @@ imp <- importance(rf.full)
 #not working yet
 #reprtree:::plot.reprtree(ReprTree(rf.full, tss.cal, metric='d2'), all = T, depth = 0)
 
-reprtree:::plot.getTree(rf.full, k=1, depth =4)
+#reprtree:::plot.getTree(rf.full, k=1, depth =4)
 
 # How many trees is appropriate?
 plot(rf.full, log="x")  # 500 seems to work fine.
@@ -566,7 +567,7 @@ plot(rf.full, log="x")  # 500 seems to work fine.
 # ggplot(df,aes(x=mtry,y=RMSE))+
 # stat_summary(fun.data=mean_se,geom="errorbar",width=0.2) +
 # stat_summary(fun=mean,geom="line")
-x <- tss.cal[ , c(1:4, 6:83)]
+x <- tss.cal[ , 2:83]
 
 # another try in class
 control <- trainControl(method="repeatedcv", number=10,repeats = 3, search="random")

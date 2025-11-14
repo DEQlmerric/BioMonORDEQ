@@ -508,7 +508,7 @@ kern %>%
 
 ## FULL MODEL - ALL PREDICTORS INCLUDED (N = 83)
 
-#### Tuning the model (finding best)
+#### Tuning the model (finding best mtry)
 ```{r}
 # One way to find best mtry based on tuneRF.
     # Tune mtry based on OOB error
@@ -531,8 +531,8 @@ print(best_mtry)
 # plot(rf_random)
 
 ```
-#### Build full model
 
+#### Build full model
 ```{r}
 set.seed(39)
 
@@ -551,7 +551,6 @@ plot(rf.full, log="x")  # 500 seems to work fine.
 ```
 
 #### Model prediction errors - full model
-
 ```{r}
 # RAW TSS
 #pred.rf <- predict(rf.full, newdata = tss.cal)
@@ -567,50 +566,50 @@ abline(a=0,b=1)
 print(paste("inverse natural log RMSE =", exp(rmse)-1))
 ```
 
-
 ## REDUCED MODEL - IMPORTANT PREDICTORS ONLY 
 
 #### Build reduced model with 20 predictors
-
 ```{r}
 set.seed(32)
 
-rf.red20 <- randomForest(TSS ~ WDRW_LDWS + PCTCONIF2001WS + CLAYWS + PESTIC1997WS + SANDWS + PCTCROP2001WS + POPDEN2010WS + PRECIP9120WS + PCTAGSLPMID2001WS + PCT_EROD + SW_FLUXWS + PCTIMP2001WS + RDCRSWS + WTDEPWS + ELEVWS + WETINDEXWS + PCTSHRB2001WS + KFFACTWS + PCTICE2001WS + RCKDEPWS, data = tss.cal, importance = TRUE,  keep.forest = TRUE, ntree = 500) 
+rf.red_20 <- randomForest(TSS ~ WDRW_LDWS + PCTCONIF2001WS + CLAYWS + PESTIC1997WS + SANDWS + PCTCROP2001WS + POPDEN2010WS + PRECIP9120WS + PCTAGSLPMID2001WS + PCT_EROD + SW_FLUXWS + PCTIMP2001WS + RDCRSWS + WTDEPWS + ELEVWS + WETINDEXWS + PCTSHRB2001WS + KFFACTWS + PCTICE2001WS + RCKDEPWS, data = tss.cal, importance = TRUE,  keep.forest = TRUE, ntree = 500) 
 
-print(rf.red20)
+print(rf.red_20)
 
-varImpPlot(rf.red20, type = 1, n.var = 20, main = "Reduced Model top 20") #variable importance plot
-varImpPlot(rf.red20, type = 2, n.var = 20, main = "Reduced Model top 20") #variable importance plot
+varImpPlot(rf.red_20, type = 1, n.var = 20, main = "Reduced Model top 20") #variable importance plot
+#varImpPlot(rf.red_20, type = 2, n.var = 20, main = "Reduced Model top 20") #variable importance plot
 
 # LOG +1-TRANSFORMED TSS
-pred.rf.red20 <- predict(rf.red20, newdata = tss.cal)
-plot(log(pred.rf.red20+1) ~ log(tss.cal$TSS+1), xlab = "log Observed TSS", ylab = "log Predicted TSS", xlim = c(0,5), ylim = c(0,5))
+pred.rf.red_20 <- predict(rf.red_20, newdata = tss.cal)
+plot(log(pred.rf.red_20+1) ~ log(tss.cal$TSS+1), xlab = "log Observed TSS", ylab = "log Predicted TSS", xlim = c(0,5), ylim = c(0,5))
 abline(a=0,b=1)
-(rmse<-sqrt(sum((log(pred.rf.red20+1) - log(tss.cal$TSS+1))^2)/length(tss.cal$TSS))) #prediction error
+(rmse<-sqrt(sum((log(pred.rf.red_20+1) - log(tss.cal$TSS+1))^2)/length(tss.cal$TSS))) #prediction error
 print(paste("inverse natural log RMSE =", exp(rmse)-1))
 ```
 #### * Final reduced model N = 15
 ```{r}
 set.seed(32)
 
-rf.red15 <- randomForest(TSS ~ WDRW_LDWS + PCTCONIF2001WS + CLAYWS + PESTIC1997WS + SANDWS + PCTCROP2001WS + POPDEN2010WS + PRECIP9120WS + PCTAGSLPMID2001WS + PCT_EROD + SW_FLUXWS + PCTIMP2001WS + RDCRSWS + WTDEPWS + ELEVWS, data = tss.cal, importance = TRUE,  keep.forest = TRUE, ntree = 500) 
+rf.red_15 <- randomForest(TSS ~ WDRW_LDWS + PCTCONIF2001WS + CLAYWS + PESTIC1997WS + SANDWS + PCTCROP2001WS + POPDEN2010WS + PRECIP9120WS + PCTAGSLPMID2001WS + PCT_EROD + SW_FLUXWS + PCTIMP2001WS + RDCRSWS + WTDEPWS + ELEVWS, data = tss.cal, importance = TRUE,  keep.forest = TRUE, ntree = 500) 
 
-print(rf.red15)
+print(rf.red_15)
 
-varImpPlot(rf.red15, type = 1, main = "Reduced Model top 15") #variable importance plot
-varImpPlot(rf.red15, type = 2, main = "Reduced Model top 15") #variable importance plot
+varImpPlot(rf.red_15, type = 1, main = "Reduced Model top 15") #variable importance plot
+#varImpPlot(rf.red_15, type = 2, main = "Reduced Model top 15") #variable importance plot
 
 # LOG +1-TRANSFORMED TSS
-pred.rf.red15 <- predict(rf.red15, newdata = tss.cal)
-plot(log(pred.rf.red15+1) ~ log(tss.cal$TSS+1), xlab = "log Observed TSS", ylab = "log Predicted TSS", xlim = c(0,5), ylim = c(0,5))
+pred.rf.red_15 <- predict(rf.red_15, newdata = tss.cal)
+plot(log(pred.rf.red_15+1) ~ log(tss.cal$TSS+1), xlab = "log Observed TSS", ylab = "log Predicted TSS", xlim = c(0,5), ylim = c(0,5))
 abline(a=0,b=1)
-(rmse<-sqrt(sum((log(pred.rf.red15+1) - log(tss.cal$TSS+1))^2)/length(tss.cal$TSS))) #prediction error
+(rmse<-sqrt(sum((log(pred.rf.red_15+1) - log(tss.cal$TSS+1))^2)/length(tss.cal$TSS))) #prediction error
 print(paste("inverse natural log RMSE =", exp(rmse)-1))
-
-pred.rf.red15_val <- predict(rf.red15, newdata = tss.val)
-plot(log(pred.rf.red15_val+1) ~ log(tss.val$TSS+1), xlab = "log Observed TSS", ylab = "log Predicted TSS", xlim = c(0,5), ylim = c(0,5))
+```
+#### Test reduced model with VAL data
+```{r}
+pred.rf.red_15_val <- predict(rf.red_15, newdata = tss.val)
+plot(log(pred.rf.red_15_val+1) ~ log(tss.val$TSS+1), xlab = "log Observed TSS", ylab = "log Predicted TSS", xlim = c(0,5), ylim = c(0,5))
 abline(a=0,b=1)
-(rmse<-sqrt(sum((log(pred.rf.red15_val+1) - log(tss.val$TSS+1))^2)/length(tss.val$TSS))) #prediction error
+(rmse<-sqrt(sum((log(pred.rf.red_15_val+1) - log(tss.val$TSS+1))^2)/length(tss.val$TSS))) #prediction error
 print(paste("inverse natural log RMSE =", exp(rmse)-1))
 ```
 
@@ -618,18 +617,18 @@ print(paste("inverse natural log RMSE =", exp(rmse)-1))
 ```{r}
 set.seed(32)
 
-rf.red4 <- randomForest(TSS ~ WDRW_LDWS + PCTCONIF2001WS + CLAYWS + PESTIC1997WS, data = tss.cal, importance = TRUE,  keep.forest = TRUE, ntree = 500) 
+rf.red_4 <- randomForest(TSS ~ WDRW_LDWS + PCTCONIF2001WS + CLAYWS + PESTIC1997WS, data = tss.cal, importance = TRUE,  keep.forest = TRUE, ntree = 500) 
 
-print(rf.red4)
+print(rf.red_4)
 
-varImpPlot(rf.red4, type = 1, main = "Reduced Model top 4") #variable importance plot
-varImpPlot(rf.red4, type = 2, main = "Reduced Model top 4") #variable importance plot
+varImpPlot(rf.red_4, type = 1, main = "Reduced Model top 4") #variable importance plot
+varImpPlot(rf.red_4, type = 2, main = "Reduced Model top 4") #variable importance plot
 
 # LOG +1-TRANSFORMED TSS
-pred.rf.red4 <- predict(rf.red4, newdata = tss.cal)
-plot(log(pred.rf.red4+1) ~ log(tss.cal$TSS+1), xlab = "log Observed TSS", ylab = "log Predicted TSS", xlim = c(0,5), ylim = c(0,5))
+pred.rf.red_4 <- predict(rf.red_4, newdata = tss.cal)
+plot(log(pred.rf.red_4+1) ~ log(tss.cal$TSS+1), xlab = "log Observed TSS", ylab = "log Predicted TSS", xlim = c(0,5), ylim = c(0,5))
 abline(a=0,b=1)
-(rmse<-sqrt(sum((log(pred.rf.red4+1) - log(tss.cal$TSS+1))^2)/length(tss.cal$TSS))) #prediction error
+(rmse<-sqrt(sum((log(pred.rf.red_4+1) - log(tss.cal$TSS+1))^2)/length(tss.cal$TSS))) #prediction error
 print(paste("inverse natural log RMSE =", exp(rmse)-1))
 ```
 
@@ -650,7 +649,7 @@ tss.cal_val <- rbind(tss.cal, tss.val)
 # Agricultural fresh surface water withdrawl kg/sq km  
 # Want to scale back to 0.
 par(mfrow=c(1,2))
-partialPlot(rf.red15, as.data.frame(tss.cal_val), WDRW_LDWS, main = '', ylab = "Predicted TSS")
+partialPlot(rf.red_15, as.data.frame(tss.cal_val), WDRW_LDWS, main = '', ylab = "Predicted TSS")
 abline(v=quantile(tss.ref.hi$WDRW_LDWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
 hist(tss.ref.hi$WDRW_LDWS, main = '')
 quantile(tss.ref.hi$WDRW_LDWS, probs = seq(.1, .9, by = .1)) 
@@ -658,7 +657,7 @@ quantile(tss.ref.hi$WDRW_LDWS, probs = seq(.1, .9, by = .1))
 # Mean pesticide use kg/sq km
 # Want to scale back to 0.
 par(mfrow=c(1,2))
-partialPlot(rf.red15, as.data.frame(tss.cal_val), PESTIC1997WS, main = '', ylab = "Predicted TSS")
+partialPlot(rf.red_15, as.data.frame(tss.cal_val), PESTIC1997WS, main = '', ylab = "Predicted TSS")
 abline(v=quantile(tss.ref.hi$PESTIC1997WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
 hist(tss.ref.hi$PESTIC1997WS, main = '')
 quantile(tss.ref.hi$PESTIC1997WS, probs = seq(.1, .9, by = .1))
@@ -666,7 +665,7 @@ quantile(tss.ref.hi$PESTIC1997WS, probs = seq(.1, .9, by = .1))
 # Percent of WS classified as row crops.
 # Want to scale back to 0.
 par(mfrow=c(1,2))
-partialPlot(rf.red15, as.data.frame(tss.cal_val), PCTCROP2001WS, main = '', ylab = "Predicted TSS")
+partialPlot(rf.red_15, as.data.frame(tss.cal_val), PCTCROP2001WS, main = '', ylab = "Predicted TSS")
 abline(v=quantile(tss.ref.hi$PCTCROP2001WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
 hist(tss.ref.hi$PCTCROP2001WS, main = '')
 quantile(tss.ref.hi$PCTCROP2001WS, probs = seq(.1, .9, by = .1))
@@ -674,7 +673,7 @@ quantile(tss.ref.hi$PCTCROP2001WS, probs = seq(.1, .9, by = .1))
 # Mean population density people / sq km
 # Want to scale back to 50th percentile.
 par(mfrow=c(1,2))
-partialPlot(rf.red15, as.data.frame(tss.cal_val), POPDEN2010WS, main = '', ylab = "Predicted TSS", scale_x_log10())
+partialPlot(rf.red_15, as.data.frame(tss.cal_val), POPDEN2010WS, main = '', ylab = "Predicted TSS", scale_x_log10())
 abline(v=quantile(tss.ref.hi$POPDEN2010WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
 hist(tss.ref.hi$POPDEN2010WS, main = '')
 quantile(tss.ref.hi$POPDEN2010WS, probs = seq(.1, .9, by = .1))
@@ -682,15 +681,15 @@ quantile(tss.ref.hi$POPDEN2010WS, probs = seq(.1, .9, by = .1))
 # Percent landcover ag dominated on >10% slope
 # Want to scale back to 0.
 par(mfrow=c(1,2))
-partialPlot(rf.red15, as.data.frame(tss.cal_val), PCTAGSLPMID2001WS, main = '', ylab = "Predicted TSS")
+partialPlot(rf.red_15, as.data.frame(tss.cal_val), PCTAGSLPMID2001WS, main = '', ylab = "Predicted TSS")
 abline(v=quantile(tss.ref.hi$PCTAGSLPMID2001WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
 hist(tss.ref.hi$PCTAGSLPMID2001WS, main = '')
 quantile(tss.ref.hi$PCTAGSLPMID2001WS, probs = seq(.1, .9, by = .1))
 
 # Surface Water Nitrogen Flux
-# Scale back to 50th percent.  Partial dependence plot looks strange and is hard to explain- might drop from model.
+# Scale back to 50th percent.  Partial dependence plot looks strange and is hard to explain- might consider dropping from model.
 par(mfrow=c(1,2))
-partialPlot(rf.red15, as.data.frame(tss.cal_val), SW_FLUXWS, main = '', ylab = "Predicted TSS")
+partialPlot(rf.red_15, as.data.frame(tss.cal_val), SW_FLUXWS, main = '', ylab = "Predicted TSS")
 abline(v=quantile(tss.ref.hi$SW_FLUXWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
 hist(tss.ref.hi$SW_FLUXWS, main = '')
 quantile(tss.ref.hi$SW_FLUXWS, probs = seq(.1, .9, by = .1))
@@ -698,7 +697,7 @@ quantile(tss.ref.hi$SW_FLUXWS, probs = seq(.1, .9, by = .1))
 # Mean imperviousness 
 # Scale back to 50th percentile.
 par(mfrow=c(1,2))
-partialPlot(rf.red15, as.data.frame(tss.cal_val), PCTIMP2001WS, main = '', ylab = "Predicted TSS")
+partialPlot(rf.red_15, as.data.frame(tss.cal_val), PCTIMP2001WS, main = '', ylab = "Predicted TSS")
 abline(v=quantile(tss.ref.hi$PCTIMP2001WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
 hist(tss.ref.hi$PCTIMP2001WS, main = '')
 quantile(tss.ref.hi$PCTIMP2001WS, probs = seq(.1, .9, by = .1))
@@ -706,7 +705,7 @@ quantile(tss.ref.hi$PCTIMP2001WS, probs = seq(.1, .9, by = .1))
 # Road and stream intersection density per sq km
 # Want to scale back to 0.
 par(mfrow=c(1,2))
-partialPlot(rf.red15, as.data.frame(tss.cal_val), RDCRSWS, main = '', ylab = "Predicted TSS")
+partialPlot(rf.red_15, as.data.frame(tss.cal_val), RDCRSWS, main = '', ylab = "Predicted TSS")
 abline(v=quantile(tss.ref.hi$RDCRSWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
 hist(tss.ref.hi$RDCRSWS, main = '')
 quantile(tss.ref.hi$RDCRSWS, probs = seq(.1, .9, by = .1))
@@ -716,25 +715,29 @@ quantile(tss.ref.hi$RDCRSWS, probs = seq(.1, .9, by = .1))
 #### Reference expectations for environmental variables
 
 ```{r}
-# Scale back human influenced variables to ref levels
+# Adjust human influenced variables to ref levels
 
-tss.val.ref <- tss.val %>% 
+tss.val.refadj <- tss.val %>% 
   select(c('TSS','WDRW_LDWS','PCTCONIF2001WS','CLAYWS','PESTIC1997WS', 'SANDWS','PCTCROP2001WS','POPDEN2010WS','PRECIP9120WS', 'PCTAGSLPMID2001WS','PCT_EROD','SW_FLUXWS','PCTIMP2001WS','RDCRSWS', 'WTDEPWS','ELEVWS')) %>% 
-  mutate(WDRW_LDWS = case_when(
-    WDRW_LDWS > 0 ~ 0,
+    mutate(WDRW_LDWS = case_when(
+    WDRW_LDWS > 0 ~ 0, # 50th percentile is 0
     TRUE ~ WDRW_LDWS)) %>% 
   
-  mutate(PESTIC1997WS = case_when(
-    PESTIC1997WS > 0 ~ 0,
+    mutate(PESTIC1997WS = case_when(
+    PESTIC1997WS > 0 ~ 0, # 50th percentile is 0
     TRUE ~ PESTIC1997WS)) %>% 
   
-  mutate(PCTCROP2001WS = case_when(
-    PCTCROP2001WS > 0 ~ 0,
+    mutate(PCTCROP2001WS = case_when(
+    PCTCROP2001WS > 0 ~ 0, # 50th percentile is 0
     TRUE ~ PCTCROP2001WS)) %>% 
   
     mutate(POPDEN2010WS = case_when(
     POPDEN2010WS > quantile(tss.ref.hi$POPDEN2010WS, probs = 0.5) ~ 0,
     TRUE ~ POPDEN2010WS)) %>% 
+    
+    mutate(PCTAGSLPMID2001WS = case_when(
+    PCTAGSLPMID2001WS > 0 ~ 0, # 50th percentile is 0
+    TRUE ~ PCTAGSLPMID2001WS)) %>% 
   
     mutate(SW_FLUXWS = case_when(
     SW_FLUXWS > quantile(tss.ref.hi$SW_FLUXWS, probs = 0.5) ~ 0,
@@ -743,35 +746,29 @@ tss.val.ref <- tss.val %>%
     mutate(PCTIMP2001WS = case_when(
     PCTIMP2001WS > quantile(tss.ref.hi$PCTIMP2001WS, probs = 0.5) ~ 0,
     TRUE ~ PCTIMP2001WS)) %>% 
-  
-    mutate(PESTIC1997WS = case_when(
-    PESTIC1997WS > 0 ~ 0,
-    TRUE ~ PESTIC1997WS)) %>% 
-  
+
     mutate(RDCRSWS = case_when(
-    RDCRSWS > 0 ~ 0,
-    TRUE ~ RDCRSWS)) 
+    RDCRSWS > 0 ~ 0, # 50th percentile is zero
+    TRUE ~ RDCRSWS))
 ```
 
 ## Run reduced model with validation data
 ```{r}
-pred.rf.red15.val <- predict(rf.red15, tss.val) #model prediction on 'VAL' dataset
-plot(tss.val$TSS ~ pred.rf.red15.val, xlab = "Observed TSS", ylab = "Predicted TSS", log = "xy")
+pred.rf.red_15.val <- predict(rf.red_15, tss.val) #model prediction on 'VAL' dataset
+plot(tss.val$TSS ~ pred.rf.red_15.val, xlab = "Observed TSS", ylab = "Predicted TSS", log = "xy")
 abline(a=0,b=1)
-(rmse<-sqrt(sum((log(pred.rf.red15.val+1) - log(tss.cal$TSS+1))^2)/length(tss.cal$TSS))) #prediction error
+(rmse<-sqrt(sum((log(pred.rf.red_15.val+1) - log(tss.cal$TSS+1))^2)/length(tss.cal$TSS))) #prediction error
 print(paste("inverse natural log RMSE =", exp(rmse)-1))
 ```
 
 
 ```{r}
-pred.rf.red15.val <- predict(rf.red15, tss.val.ref) #model prediction on 'VAL' dataset
-plot(tss.val$TSS ~ pred.rf.red15.val, xlab = "Observed TSS", ylab = "Predicted TSS", log = "xy")
+pred.rf.red_15.val <- predict(rf.red_15, tss.val.refadj) #model prediction on 'VAL' dataset bringing human-influenced vars to reference levels
+plot(tss.val$TSS ~ pred.rf.red_15.val, xlab = "Observed TSS", ylab = "Predicted TSS", log = "xy")
 abline(a=0,b=1)
-(rmse<-sqrt(sum((log(pred.rf.red15.val+1) - log(tss.cal$TSS+1))^2)/length(tss.cal$TSS))) #prediction error
+(rmse<-sqrt(sum((log(pred.rf.red_15.val+1) - log(tss.cal$TSS+1))^2)/length(tss.cal$TSS))) #prediction error
 print(paste("inverse natural log RMSE =", exp(rmse)-1))
 ```
-
-
 ## REFERENCE ONLY MODEL
 
 #### Build reference only model
@@ -853,313 +850,313 @@ THE ADAM L. THOMPSON MEMORIAL CODE BONEYARD
 
 #---------------------------------------------------------------------------
 
-```{r}
-# IDENTIFY WHICH COMID(S) DIDN'T YIELD STREAMCAT RESULTS AND INVESTIGATE (FIX IN STATIONS DB BEFORE PROCEEDING)
-# kcomids <- meow %>% select(COMID)
-# nomatch <- comids[!comids$COMID %in% kcomids$COMID, ] #make data frame showing which COMIDs aren't pulling StreamCat data
-# #nomatch.c <- subset(tss, tss$COMID == "23764745" | tss$COMID == "24516234" | tss$COMID == "23815386") #change COMIDs as needed
-# rm(list = c('nomatch', 'nomatch.c', 'kcomids')) #clean up environment
-
-# EXPLORE VARIANCE FOR EACH METRIC TO GUIDE WHICH TO KEEP
-# meow.sca <- as.data.frame(scale(meow[,-10])) #not used
-# 
-# var <- meow %>%
-#   select(where(is.numeric)) %>%
-#   pivot_longer(cols = everything()) %>%
-#   group_by(name) %>%
-#   summarise(var_value = var(value))
-```
+<!-- ```{r} -->
+<!-- # IDENTIFY WHICH COMID(S) DIDN'T YIELD STREAMCAT RESULTS AND INVESTIGATE (FIX IN STATIONS DB BEFORE PROCEEDING) -->
+<!-- # kcomids <- meow %>% select(COMID) -->
+<!-- # nomatch <- comids[!comids$COMID %in% kcomids$COMID, ] #make data frame showing which COMIDs aren't pulling StreamCat data -->
+<!-- # #nomatch.c <- subset(tss, tss$COMID == "23764745" | tss$COMID == "24516234" | tss$COMID == "23815386") #change COMIDs as needed -->
+<!-- # rm(list = c('nomatch', 'nomatch.c', 'kcomids')) #clean up environment -->
 
-```{r}
-#tss.r <- tss.sc %>% select(Result_Numeric_mod)
-#tss.r <- tss.sc %>% select(Result_Numeric_mod, COMID, cal_val)
-r <- randomForest(Result_Numeric_mod ~ CLAYWS + BFIWS + ELEVWS + KFFACTWS + IWI + RDDENSWS, data = tss.sc, na.action = na.exclude)
-print(r)
+<!-- # EXPLORE VARIANCE FOR EACH METRIC TO GUIDE WHICH TO KEEP -->
+<!-- # meow.sca <- as.data.frame(scale(meow[,-10])) #not used -->
+<!-- #  -->
+<!-- # var <- meow %>% -->
+<!-- #   select(where(is.numeric)) %>% -->
+<!-- #   pivot_longer(cols = everything()) %>% -->
+<!-- #   group_by(name) %>% -->
+<!-- #   summarise(var_value = var(value)) -->
+<!-- ``` -->
 
-t <- tss.sc[!is.na(tss.sc$BANKFULLWIDTH),]
+<!-- ```{r} -->
+<!-- #tss.r <- tss.sc %>% select(Result_Numeric_mod) -->
+<!-- #tss.r <- tss.sc %>% select(Result_Numeric_mod, COMID, cal_val) -->
+<!-- r <- randomForest(Result_Numeric_mod ~ CLAYWS + BFIWS + ELEVWS + KFFACTWS + IWI + RDDENSWS, data = tss.sc, na.action = na.exclude) -->
+<!-- print(r) -->
 
-new_df <- df[!is.na(df)]
-  
-tss.sc$BANKFULLWIDTH <- na.roughfix(tss.sc$BANKFULLWIDTH) 
+<!-- t <- tss.sc[!is.na(tss.sc$BANKFULLWIDTH),] -->
 
-missing <- rownames(scmets)[rowSums(is.na(scmets))]
-missing <- sum(is.na(scmets))
+<!-- new_df <- df[!is.na(df)] -->
 
+<!-- tss.sc$BANKFULLWIDTH <- na.roughfix(tss.sc$BANKFULLWIDTH)  -->
 
+<!-- missing <- rownames(scmets)[rowSums(is.na(scmets))] -->
+<!-- missing <- sum(is.na(scmets)) -->
 
-tss.sc <- left_join(tss, scmets, by = "COMID")
-#tss.r <- tss.sc %>% select(Result_Numeric_mod)
-r <- randomForest(Result_Numeric_mod ~ CLAYWS + BFIWS + ELEVWS + KFFACTWS + IWI + RDDENSWS, data = tss.sc, na.action = na.exclude)
-print(r)
-```
 
-#### MULTIPLE LINEAR REGRESSION
 
-```{r}
-# LINEAR REGRESSION MODEL FIT
-lr.f <- lm(Result_Numeric_mod ~ ., data = tss.cal.test)
-#lr.r <- lm(Result_Numeric_mod ~ PCTAGSLPMID2001WS+PCTAGSLPMID2001WS+WETINDEXWS+PRECIP9120WS+CHEMWS+PCTBL2001WS+PCTICE2001WS+
-           PCTURBMD2001WS+HYDRLCONDWS+SANDWS+MINEDENSWS+SUPERFUNDDENSWS+RDCRSSLPWTDWS+RDCRSWS+WWTPALLDENSWS, data = tss.cal.test) #subset significant predictors
-lr.r2 <- lm(Result_Numeric_mod ~ CONNWS+HYDWS+IWI+PCTSHRB2001WS+PESTIC1997WS+PCTURBMD2001WS+PCTAGSLPMID2001WS+PCTGRS2001WS+PRECIP9120WS+PCTCONIF2001WS, data = tss.cal.test) #subset significant predictors
+<!-- tss.sc <- left_join(tss, scmets, by = "COMID") -->
+<!-- #tss.r <- tss.sc %>% select(Result_Numeric_mod) -->
+<!-- r <- randomForest(Result_Numeric_mod ~ CLAYWS + BFIWS + ELEVWS + KFFACTWS + IWI + RDDENSWS, data = tss.sc, na.action = na.exclude) -->
+<!-- print(r) -->
+<!-- ``` -->
 
+<!-- #### MULTIPLE LINEAR REGRESSION -->
 
-summary(lr.f)
-summary(lr.r)
-summary(lr.r2)
+<!-- ```{r} -->
+<!-- # LINEAR REGRESSION MODEL FIT -->
+<!-- lr.f <- lm(Result_Numeric_mod ~ ., data = tss.cal.test) -->
+<!-- #lr.r <- lm(Result_Numeric_mod ~ PCTAGSLPMID2001WS+PCTAGSLPMID2001WS+WETINDEXWS+PRECIP9120WS+CHEMWS+PCTBL2001WS+PCTICE2001WS+ -->
+<!--            PCTURBMD2001WS+HYDRLCONDWS+SANDWS+MINEDENSWS+SUPERFUNDDENSWS+RDCRSSLPWTDWS+RDCRSWS+WWTPALLDENSWS, data = tss.cal.test) #subset significant predictors -->
+<!-- lr.r2 <- lm(Result_Numeric_mod ~ CONNWS+HYDWS+IWI+PCTSHRB2001WS+PESTIC1997WS+PCTURBMD2001WS+PCTAGSLPMID2001WS+PCTGRS2001WS+PRECIP9120WS+PCTCONIF2001WS, data = tss.cal.test) #subset significant predictors -->
 
-par(mfrow=c(2,2))
-plot(lr.f)
 
+<!-- summary(lr.f) -->
+<!-- summary(lr.r) -->
+<!-- summary(lr.r2) -->
 
+<!-- par(mfrow=c(2,2)) -->
+<!-- plot(lr.f) -->
 
 
-t <- tss.cal.test %>% select(Result_Numeric_mod,PCTAGSLPMID2001WS,PCTAGSLPMID2001WS,WETINDEXWS,PRECIP9120WS,CHEMWS,PCTBL2001WS,PCTICE2001WS,
-           PCTURBMD2001WS,HYDRLCONDWS,SANDWS,MINEDENSWS,SUPERFUNDDENSWS,RDCRSSLPWTDWS,RDCRSWS,WWTPALLDENSWS) #subset significant predictors
-#sapply(t, function(x) sum(is.na(x))) #find out which columns have NAs
-#source("D:/ESM 566/3_Worksheets/cor.matrix.r")
-#cor.matrix(t)
-```
 
-```{r}
-# EXPLORE IF REMOVED COMIDS WERE OUTLIERS 
-removed <- subset(meow2, meow2$COMID == '23774647' | meow2$COMID == '23877125' | meow2$COMID == '23810652')
 
-# MESSING AROUND WITH KERNEL DENSITY PLOTS TO SUMMARIZE METRICS
-colnames(scmets)
-attach(scmets)
+<!-- t <- tss.cal.test %>% select(Result_Numeric_mod,PCTAGSLPMID2001WS,PCTAGSLPMID2001WS,WETINDEXWS,PRECIP9120WS,CHEMWS,PCTBL2001WS,PCTICE2001WS, -->
+<!--            PCTURBMD2001WS,HYDRLCONDWS,SANDWS,MINEDENSWS,SUPERFUNDDENSWS,RDCRSSLPWTDWS,RDCRSWS,WWTPALLDENSWS) #subset significant predictors -->
+<!-- #sapply(t, function(x) sum(is.na(x))) #find out which columns have NAs -->
+<!-- #source("D:/ESM 566/3_Worksheets/cor.matrix.r") -->
+<!-- #cor.matrix(t) -->
+<!-- ``` -->
 
-hist(ELEVWS, breaks=100)
-hist(BFIWS, breaks=100)
-hist(CANALDENSWS, breaks=100)
-hist(CLAYWS, breaks=100)
-hist(KFFACTWS, breaks=100)
+<!-- ```{r} -->
+<!-- # EXPLORE IF REMOVED COMIDS WERE OUTLIERS  -->
+<!-- removed <- subset(meow2, meow2$COMID == '23774647' | meow2$COMID == '23877125' | meow2$COMID == '23810652') -->
 
-density(CLAYWS)
-#-----------
-library(KernSmooth)
+<!-- # MESSING AROUND WITH KERNEL DENSITY PLOTS TO SUMMARIZE METRICS -->
+<!-- colnames(scmets) -->
+<!-- attach(scmets) -->
 
-bkde(CLAYWS)
-summary(CLAYWS)
+<!-- hist(ELEVWS, breaks=100) -->
+<!-- hist(BFIWS, breaks=100) -->
+<!-- hist(CANALDENSWS, breaks=100) -->
+<!-- hist(CLAYWS, breaks=100) -->
+<!-- hist(KFFACTWS, breaks=100) -->
 
-clay.ws<-CLAYWS[!is.na(CLAYWS)]
-summary(clay.ws)
+<!-- density(CLAYWS) -->
+<!-- #----------- -->
+<!-- library(KernSmooth) -->
 
-plot(bkde(clay.ws))
+<!-- bkde(CLAYWS) -->
+<!-- summary(CLAYWS) -->
 
-plot(density(clay.ws))
-rug(jitter(clay.ws))
-#-----------
-kern <- scmets %>%
-  select(CLAYWS, BFIWS, ELEVWS, KFFACTWS, IWI, RDDENSWS)
+<!-- clay.ws<-CLAYWS[!is.na(CLAYWS)] -->
+<!-- summary(clay.ws) -->
 
-kern %>%
-  keep(is.numeric) %>% 
-  gather() %>% 
-  ggplot(aes(value)) +
-  facet_wrap(~ key, scales = "free") +
-  geom_density() +
-  geom_rug() 
-```
+<!-- plot(bkde(clay.ws)) -->
 
-```{r}
-# RANDOM FORESTS
-sapply(scmets, function(x) sum(is.na(x))) #find out which columns have NAs
+<!-- plot(density(clay.ws)) -->
+<!-- rug(jitter(clay.ws)) -->
+<!-- #----------- -->
+<!-- kern <- scmets %>% -->
+<!--   select(CLAYWS, BFIWS, ELEVWS, KFFACTWS, IWI, RDDENSWS) -->
 
-scmets$BANKFULLWIDTH <- na.roughfix(scmets$BANKFULLWIDTH) #perform na.roughfix on all metrics with at least 1 NA; create extra code rows as needed
-scmets$SW_FLUXWS <- na.roughfix(scmets$SW_FLUXWS)
+<!-- kern %>% -->
+<!--   keep(is.numeric) %>%  -->
+<!--   gather() %>%  -->
+<!--   ggplot(aes(value)) + -->
+<!--   facet_wrap(~ key, scales = "free") + -->
+<!--   geom_density() + -->
+<!--   geom_rug()  -->
+<!-- ``` -->
 
-tss.sc <- inner_join(tss, scmets, by = "COMID") #merge TSS AWQMS data pull with desired StreamCat metrics
+<!-- ```{r} -->
+<!-- # RANDOM FORESTS -->
+<!-- sapply(scmets, function(x) sum(is.na(x))) #find out which columns have NAs -->
 
-# SUBSET DATA
-tss.cal <- subset(tss.sc, tss.sc$cal_val == "CAL") #subset calibration dataset
-tss.val <- subset(tss.sc, tss.sc$cal_val == "VAL") #subset validation dataset
-tss.ref <- subset(tss.sc, tss.sc$ReferenceSite == "REFERENCE") #subset reference only dataset
+<!-- scmets$BANKFULLWIDTH <- na.roughfix(scmets$BANKFULLWIDTH) #perform na.roughfix on all metrics with at least 1 NA; create extra code rows as needed -->
+<!-- scmets$SW_FLUXWS <- na.roughfix(scmets$SW_FLUXWS) -->
 
-# FULL MODEL
-set.seed(42)
+<!-- tss.sc <- inner_join(tss, scmets, by = "COMID") #merge TSS AWQMS data pull with desired StreamCat metrics -->
 
-rf.full <- randomForest(y = tss.cal$Result_Numeric_mod, x = tss.cal[52:130], importance = FALSE,  keep.forest = FALSE, ntree = 500) #run random forest model on all predictors for 500 trees, calibration dataset
-print(rf.full)
+<!-- # SUBSET DATA -->
+<!-- tss.cal <- subset(tss.sc, tss.sc$cal_val == "CAL") #subset calibration dataset -->
+<!-- tss.val <- subset(tss.sc, tss.sc$cal_val == "VAL") #subset validation dataset -->
+<!-- tss.ref <- subset(tss.sc, tss.sc$ReferenceSite == "REFERENCE") #subset reference only dataset -->
 
-varImpPlot(rf.full, type = 1, n.var = 20) #variable importance plot
+<!-- # FULL MODEL -->
+<!-- set.seed(42) -->
 
-# REDUCED MODEL
-rf.red <- randomForest(Result_Numeric_mod ~ CHEMWS+HYDWS+RDCRSWS+PESTIC1997WS+CONNWS+PCTCROP2001WS+WETINDEXWS+PCTSHRB2001WS+ELEVWS+WDRW_LDWS+IWI, data = tss.cal, importance = FALSE,  keep.forest = FALSE, ntree = 500) #only w/ predictors >4% MSE
-print(rf.red)
+<!-- rf.full <- randomForest(y = tss.cal$Result_Numeric_mod, x = tss.cal[52:130], importance = FALSE,  keep.forest = FALSE, ntree = 500) #run random forest model on all predictors for 500 trees, calibration dataset -->
+<!-- print(rf.full) -->
 
-varImpPlot(rf.red, type = 1) #variable importance plot
+<!-- varImpPlot(rf.full, type = 1, n.var = 20) #variable importance plot -->
 
-importance(rf.red)
+<!-- # REDUCED MODEL -->
+<!-- rf.red <- randomForest(Result_Numeric_mod ~ CHEMWS+HYDWS+RDCRSWS+PESTIC1997WS+CONNWS+PCTCROP2001WS+WETINDEXWS+PCTSHRB2001WS+ELEVWS+WDRW_LDWS+IWI, data = tss.cal, importance = FALSE,  keep.forest = FALSE, ntree = 500) #only w/ predictors >4% MSE -->
+<!-- print(rf.red) -->
 
+<!-- varImpPlot(rf.red, type = 1) #variable importance plot -->
 
-# RUN REDUCED MODEL ON VALIDATION DATASET
+<!-- importance(rf.red) -->
 
 
-# REFERENCE ONLY
-rf.ref <- randomForest(y = tss.ref$Result_Numeric_mod, x = tss.ref[52:130], importance = FALSE,  keep.forest = FALSE, ntree = 500) #run random forest model on all predictors for 500 trees, calibration dataset
-print(rf.ref)
+<!-- # RUN REDUCED MODEL ON VALIDATION DATASET -->
 
-varImpPlot(rf.ref, type = 1)
 
+<!-- # REFERENCE ONLY -->
+<!-- rf.ref <- randomForest(y = tss.ref$Result_Numeric_mod, x = tss.ref[52:130], importance = FALSE,  keep.forest = FALSE, ntree = 500) #run random forest model on all predictors for 500 trees, calibration dataset -->
+<!-- print(rf.ref) -->
 
-```
+<!-- varImpPlot(rf.ref, type = 1) -->
 
-```{r}
-#-----------------------------------------------------------------------------------------------
-library(vip)# for variable importance plots. you may need to install it first
-vip(rt, aesthetics = list(color = "blue", fill = "blue")) #variable importance plot
-plotcp(rt) #model cross-validation
 
+<!-- ``` -->
 
+<!-- ```{r} -->
+<!-- #----------------------------------------------------------------------------------------------- -->
+<!-- library(vip)# for variable importance plots. you may need to install it first -->
+<!-- vip(rt, aesthetics = list(color = "blue", fill = "blue")) #variable importance plot -->
+<!-- plotcp(rt) #model cross-validation -->
 
 
-# REDUCED MODEL
-rt.r <- rpart(Result_Numeric_mod ~ CONNWS+HYDWS+IWI+PCTSHRB2001WS+PESTIC1997WS+PCTURBMD2001WS+PCTAGSLPMID2001WS+PCTGRS2001WS+PRECIP9120WS+PCTCONIF2001WS, data = tss.cal.test)
-plot(rt.r)
-text(rt.r, use.n = FALSE)
 
-summary(rt.r)
 
-prp(rt.r, #plot the tree model
-    faclen=0,#use full names for factor labels
-    extra=1)#display number of obs. for each terminal node
-#-----------------------------------------------------------------------------------------------
-vip(rt.r, aesthetics = list(color = "blue", fill = "blue")) #variable importance plot
-plotcp(rt.r) #model cross-validation
+<!-- # REDUCED MODEL -->
+<!-- rt.r <- rpart(Result_Numeric_mod ~ CONNWS+HYDWS+IWI+PCTSHRB2001WS+PESTIC1997WS+PCTURBMD2001WS+PCTAGSLPMID2001WS+PCTGRS2001WS+PRECIP9120WS+PCTCONIF2001WS, data = tss.cal.test) -->
+<!-- plot(rt.r) -->
+<!-- text(rt.r, use.n = FALSE) -->
 
+<!-- summary(rt.r) -->
 
+<!-- prp(rt.r, #plot the tree model -->
+<!--     faclen=0,#use full names for factor labels -->
+<!--     extra=1)#display number of obs. for each terminal node -->
+<!-- #----------------------------------------------------------------------------------------------- -->
+<!-- vip(rt.r, aesthetics = list(color = "blue", fill = "blue")) #variable importance plot -->
+<!-- plotcp(rt.r) #model cross-validation -->
 
 
-# TEST REDUCED MODEL ON VAL DATASET
-p <- predict(rt.r, newdata = tss.val) #OLS model prediction
-plot(p ~ tss.val$Result_Numeric_mod, ylab = "Predicted TSS", xlab = "Observed TSS", ylim=c(0,30))
-abline(a = 0, b = 1) #1:1 line
-sqrt(sum((p-tss.val$Result_Numeric_mod)^2)/length(tss.val$Result_Numeric_mod)) #predictive error
 
-# Test if the final reduced model is statistically different from the full model
-anova(rt, rt.r) #error  - no applicable method for "rpart"
-```
 
-## GROUP PREDICTORS BY HUMAN VS NATURAL DISTURBANCES - WORK IN PROGRESS (SABINE)
+<!-- # TEST REDUCED MODEL ON VAL DATASET -->
+<!-- p <- predict(rt.r, newdata = tss.val) #OLS model prediction -->
+<!-- plot(p ~ tss.val$Result_Numeric_mod, ylab = "Predicted TSS", xlab = "Observed TSS", ylim=c(0,30)) -->
+<!-- abline(a = 0, b = 1) #1:1 line -->
+<!-- sqrt(sum((p-tss.val$Result_Numeric_mod)^2)/length(tss.val$Result_Numeric_mod)) #predictive error -->
 
-```{r}
-human.mets <- kitty %>% 
-  filter(Category == "Anthropogenic" & kitty$`Use?` == 'y') %>% 
-  select(Metric_Query) %>% 
-  add_row(Metric_Query = "COMID") # want to include COMID as a column so adding it as a row.
+<!-- # Test if the final reduced model is statistically different from the full model -->
+<!-- anova(rt, rt.r) #error  - no applicable method for "rpart" -->
+<!-- ``` -->
 
-human.mets <- toupper(human.mets$Metric_Query) # All uppercase
+<!-- ## GROUP PREDICTORS BY HUMAN VS NATURAL DISTURBANCES - WORK IN PROGRESS (SABINE) -->
 
-natural.mets <- kitty %>% 
-  filter(Category == "Natural" & kitty$`Use?` == 'y') %>% 
-  select(Metric_Query) %>% 
-  add_row(Metric_Query = "COMID")
+<!-- ```{r} -->
+<!-- human.mets <- kitty %>%  -->
+<!--   filter(Category == "Anthropogenic" & kitty$`Use?` == 'y') %>%  -->
+<!--   select(Metric_Query) %>%  -->
+<!--   add_row(Metric_Query = "COMID") # want to include COMID as a column so adding it as a row. -->
 
-natural.mets <- toupper(natural.mets$Metric_Query)
+<!-- human.mets <- toupper(human.mets$Metric_Query) # All uppercase -->
 
-# Select out scmets by human and natural.
-# Ending in WS only
-scmetsws <- scmets %>% 
-    select(COMID | ends_with("ws")) %>%  # Keep COMID
-    rename_with(~str_remove(., paste0("WS", "$")), ends_with("WS")) # Remove 'WS' suffix so can match to metric names in 'kitty' table
+<!-- natural.mets <- kitty %>%  -->
+<!--   filter(Category == "Natural" & kitty$`Use?` == 'y') %>%  -->
+<!--   select(Metric_Query) %>%  -->
+<!--   add_row(Metric_Query = "COMID") -->
 
-# Subset only column names that are in human or natural mets
-scmetws_human <- scmetsws[ , names(scmetsws) %in% human.mets] # 27 variables
-scmetws_natural <- scmetsws[ , names(scmetsws) %in% natural.mets] # 48 variables
+<!-- natural.mets <- toupper(natural.mets$Metric_Query) -->
 
-# Add 'WS' suffix back in
-colnames(scmetws_human) <- paste0(colnames(scmetws_human), "WS")
-colnames(scmetws_natural) <- paste0(colnames(scmetws_natural), "WS")
-  
-# Do the same thing for metrics not ending in 'WS'
-scmetsnows <- scmets %>% 
-    select(!ends_with("ws"))
+<!-- # Select out scmets by human and natural. -->
+<!-- # Ending in WS only -->
+<!-- scmetsws <- scmets %>%  -->
+<!--     select(COMID | ends_with("ws")) %>%  # Keep COMID -->
+<!--     rename_with(~str_remove(., paste0("WS", "$")), ends_with("WS")) # Remove 'WS' suffix so can match to metric names in 'kitty' table -->
 
-scmet_human <- scmetsnows[ , names(scmetsnows) %in% human.mets] # 1 variable
-scmet_natural <- scmetsnows[ , names(scmetsnows) %in% natural.mets] # 3 variables
+<!-- # Subset only column names that are in human or natural mets -->
+<!-- scmetws_human <- scmetsws[ , names(scmetsws) %in% human.mets] # 27 variables -->
+<!-- scmetws_natural <- scmetsws[ , names(scmetsws) %in% natural.mets] # 48 variables -->
 
-sc_human <- cbind(scmetws_human, scmet_human) # 30 variables  #Why is there a column at the end called scmet_human?  SYB figure this out later.
-sc_natural <- cbind(scmetws_natural, scmet_natural) # 49 variables (Total of 79, matches scmets)
-```
+<!-- # Add 'WS' suffix back in -->
+<!-- colnames(scmetws_human) <- paste0(colnames(scmetws_human), "WS") -->
+<!-- colnames(scmetws_natural) <- paste0(colnames(scmetws_natural), "WS") -->
 
+<!-- # Do the same thing for metrics not ending in 'WS' -->
+<!-- scmetsnows <- scmets %>%  -->
+<!--     select(!ends_with("ws")) -->
 
-## GROUP PREDICTORS BY HUMAN VS NATURAL DISTURBANCES
+<!-- scmet_human <- scmetsnows[ , names(scmetsnows) %in% human.mets] # 1 variable -->
+<!-- scmet_natural <- scmetsnows[ , names(scmetsnows) %in% natural.mets] # 3 variables -->
 
-```{r}
-human.mets <- kitty %>% 
-  filter(Category == "Anthropogenic" & kitty$`Use?` == 'y') %>% 
-  select(Metric_Query) %>% 
-  add_row(Metric_Query = "COMID") # want to include COMID as a column so adding it as a row.
+<!-- sc_human <- cbind(scmetws_human, scmet_human) # 30 variables  #Why is there a column at the end called scmet_human?  SYB figure this out later. -->
+<!-- sc_natural <- cbind(scmetws_natural, scmet_natural) # 49 variables (Total of 79, matches scmets) -->
+<!-- ``` -->
 
-human.mets <- kitty %>% 
-  filter(Category == "Natural" & kitty$`Use?` == 'y') %>% 
-  select(Metric_Query) %>% 
-  add_row(Metric_Query = "COMID")
 
+<!-- ## GROUP PREDICTORS BY HUMAN VS NATURAL DISTURBANCES -->
 
-human.mets <- toupper(human.mets$Metric_Query) # All uppercase
+<!-- ```{r} -->
+<!-- human.mets <- kitty %>%  -->
+<!--   filter(Category == "Anthropogenic" & kitty$`Use?` == 'y') %>%  -->
+<!--   select(Metric_Query) %>%  -->
+<!--   add_row(Metric_Query = "COMID") # want to include COMID as a column so adding it as a row. -->
 
-# Select out scmets by human only.
-  # Ending in WS only
-scmetsws <- scmets %>% 
-    select(COMID | ends_with("ws")) %>%  # Keep COMID
-    rename_with(~str_remove(., paste0("WS", "$")), ends_with("WS")) # Remove 'WS' suffix so can match to metric names in 'kitty' table
+<!-- human.mets <- kitty %>%  -->
+<!--   filter(Category == "Natural" & kitty$`Use?` == 'y') %>%  -->
+<!--   select(Metric_Query) %>%  -->
+<!--   add_row(Metric_Query = "COMID") -->
 
-  # Subset only column names that are in human or natural mets
-scmetws_human <- scmetsws[ , names(scmetsws) %in% human.mets] # 27 variables (including COMID)
 
-  # Add 'WS' suffix back in
-colnames(scmetws_human) <- paste0(colnames(scmetws_human), "WS") 
-scmetws_human <- scmetws_human %>%  rename(COMID = COMIDWS) # except for COMID
-  
-  # Do the same thing for metrics not ending in 'WS'
-scmetsnows <- scmets %>% 
-    select(!ends_with("ws")) %>% 
-    select(-c("PCT_EROD", "PCT_RESIST", "STRMPOW_CAT", "NHD_pSLOPE", "SITE_TYPE")) # Ignore the metrics that didn't come from StreamCat.
+<!-- human.mets <- toupper(human.mets$Metric_Query) # All uppercase -->
 
-scmet_human <- scmetsnows[ , names(scmetsnows) %in% human.mets] # 1 variable = COMID. (No other human variables in this group.)
+<!-- # Select out scmets by human only. -->
+<!--   # Ending in WS only -->
+<!-- scmetsws <- scmets %>%  -->
+<!--     select(COMID | ends_with("ws")) %>%  # Keep COMID -->
+<!--     rename_with(~str_remove(., paste0("WS", "$")), ends_with("WS")) # Remove 'WS' suffix so can match to metric names in 'kitty' table -->
 
-sc_human <- scmetws_human # 28 columns.
+<!--   # Subset only column names that are in human or natural mets -->
+<!-- scmetws_human <- scmetsws[ , names(scmetsws) %in% human.mets] # 27 variables (including COMID) -->
 
-# Join with table to get ref status.
-sc_human_ref <- sc_human %>% 
-  inner_join(tss.sc, sc_human, by='COMID') %>% 
-  select(c(COMID:PCTNONAGINTRODMANAGVEGWS.x, ReferenceSite)) %>% 
-  filter(ReferenceSite=='REFERENCE') %>% 
-  select(-c(COMID, ReferenceSite))
+<!--   # Add 'WS' suffix back in -->
+<!-- colnames(scmetws_human) <- paste0(colnames(scmetws_human), "WS")  -->
+<!-- scmetws_human <- scmetws_human %>%  rename(COMID = COMIDWS) # except for COMID -->
 
-# Tidy up.
-rm(list=c('human.mets', 'scmetsws', 'scmetws_human', 'scmetsnows', 'scmet_human', 'sc.human'))
-```
+<!--   # Do the same thing for metrics not ending in 'WS' -->
+<!-- scmetsnows <- scmets %>%  -->
+<!--     select(!ends_with("ws")) %>%  -->
+<!--     select(-c("PCT_EROD", "PCT_RESIST", "STRMPOW_CAT", "NHD_pSLOPE", "SITE_TYPE")) # Ignore the metrics that didn't come from StreamCat. -->
 
-```{r}
-# TBD
+<!-- scmet_human <- scmetsnows[ , names(scmetsnows) %in% human.mets] # 1 variable = COMID. (No other human variables in this group.) -->
 
-# sample code for creating test data Using caret package
-# set.seed(123)  # for reproducibility
-# index_2 <- createDataPartition(ames$Sale_Price, p = 0.7, 
-#                                list = FALSE)
-# train_2 <- ames[index_2, ]
-# test_2  <- ames[-index_2, ]
-```
+<!-- sc_human <- scmetws_human # 28 columns. -->
 
+<!-- # Join with table to get ref status. -->
+<!-- sc_human_ref <- sc_human %>%  -->
+<!--   inner_join(tss.sc, sc_human, by='COMID') %>%  -->
+<!--   select(c(COMID:PCTNONAGINTRODMANAGVEGWS.x, ReferenceSite)) %>%  -->
+<!--   filter(ReferenceSite=='REFERENCE') %>%  -->
+<!--   select(-c(COMID, ReferenceSite)) -->
 
-## REGRESSION TREES - INFORMATIONAL ONLY AT THIS STAGE
+<!-- # Tidy up. -->
+<!-- rm(list=c('human.mets', 'scmetsws', 'scmetws_human', 'scmetsnows', 'scmet_human', 'sc.human')) -->
+<!-- ``` -->
 
-```{r}
-# REGRESSION TREES EXPERIMENTATION
-# FULL MODEL
-rt <- rpart(TSS ~ ., data = tss.cal)
-plot(rt)
-text(rt, use.n = FALSE)
+<!-- ```{r} -->
+<!-- # TBD -->
 
-names(rt)
-print(rt)
-summary(rt)
+<!-- # sample code for creating test data Using caret package -->
+<!-- # set.seed(123)  # for reproducibility -->
+<!-- # index_2 <- createDataPartition(ames$Sale_Price, p = 0.7,  -->
+<!-- #                                list = FALSE) -->
+<!-- # train_2 <- ames[index_2, ] -->
+<!-- # test_2  <- ames[-index_2, ] -->
+<!-- ``` -->
 
-# NICER LOOKING TREE
-prp(rt, #plot the tree model
-    faclen=0,#use full names for factor labels
-    extra=1)#display number of obs. for each terminal node
-```
+
+<!-- ## REGRESSION TREES - INFORMATIONAL ONLY AT THIS STAGE -->
+
+<!-- ```{r} -->
+<!-- # REGRESSION TREES EXPERIMENTATION -->
+<!-- # FULL MODEL -->
+<!-- rt <- rpart(TSS ~ ., data = tss.cal) -->
+<!-- plot(rt) -->
+<!-- text(rt, use.n = FALSE) -->
+
+<!-- names(rt) -->
+<!-- print(rt) -->
+<!-- summary(rt) -->
+
+<!-- # NICER LOOKING TREE -->
+<!-- prp(rt, #plot the tree model -->
+<!--     faclen=0,#use full names for factor labels -->
+<!--     extra=1)#display number of obs. for each terminal node -->
+<!-- ``` -->
 

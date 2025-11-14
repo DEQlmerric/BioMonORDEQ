@@ -606,6 +606,12 @@ plot(log(pred.rf.red15+1) ~ log(tss.cal$TSS+1), xlab = "log Observed TSS", ylab 
 abline(a=0,b=1)
 (rmse<-sqrt(sum((log(pred.rf.red15+1) - log(tss.cal$TSS+1))^2)/length(tss.cal$TSS))) #prediction error
 print(paste("inverse natural log RMSE =", exp(rmse)-1))
+
+pred.rf.red15_val <- predict(rf.red15, newdata = tss.val)
+plot(log(pred.rf.red15_val+1) ~ log(tss.val$TSS+1), xlab = "log Observed TSS", ylab = "log Predicted TSS", xlim = c(0,5), ylim = c(0,5))
+abline(a=0,b=1)
+(rmse<-sqrt(sum((log(pred.rf.red15_val+1) - log(tss.val$TSS+1))^2)/length(tss.val$TSS))) #prediction error
+print(paste("inverse natural log RMSE =", exp(rmse)-1))
 ```
 
 #### 4 predictors (not using this one)
@@ -644,7 +650,7 @@ tss.cal_val <- rbind(tss.cal, tss.val)
 # Agricultural fresh surface water withdrawl kg/sq km  
 # Want to scale back to 0.
 par(mfrow=c(1,2))
-partialPlot(rf.full, as.data.frame(tss.cal_val), WDRW_LDWS, main = '', ylab = "Predicted TSS")
+partialPlot(rf.red15, as.data.frame(tss.cal_val), WDRW_LDWS, main = '', ylab = "Predicted TSS")
 abline(v=quantile(tss.ref.hi$WDRW_LDWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
 hist(tss.ref.hi$WDRW_LDWS, main = '')
 quantile(tss.ref.hi$WDRW_LDWS, probs = seq(.1, .9, by = .1)) 
@@ -652,7 +658,7 @@ quantile(tss.ref.hi$WDRW_LDWS, probs = seq(.1, .9, by = .1))
 # Mean pesticide use kg/sq km
 # Want to scale back to 0.
 par(mfrow=c(1,2))
-partialPlot(rf.full, as.data.frame(tss.cal_val), PESTIC1997WS, main = '', ylab = "Predicted TSS")
+partialPlot(rf.red15, as.data.frame(tss.cal_val), PESTIC1997WS, main = '', ylab = "Predicted TSS")
 abline(v=quantile(tss.ref.hi$PESTIC1997WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
 hist(tss.ref.hi$PESTIC1997WS, main = '')
 quantile(tss.ref.hi$PESTIC1997WS, probs = seq(.1, .9, by = .1))
@@ -660,39 +666,39 @@ quantile(tss.ref.hi$PESTIC1997WS, probs = seq(.1, .9, by = .1))
 # Percent of WS classified as row crops.
 # Want to scale back to 0.
 par(mfrow=c(1,2))
-partialPlot(rf.full, as.data.frame(tss.cal_val), PCTCROP2001WS, main = '', ylab = "Predicted TSS")
+partialPlot(rf.red15, as.data.frame(tss.cal_val), PCTCROP2001WS, main = '', ylab = "Predicted TSS")
 abline(v=quantile(tss.ref.hi$PCTCROP2001WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
 hist(tss.ref.hi$PCTCROP2001WS, main = '')
 quantile(tss.ref.hi$PCTCROP2001WS, probs = seq(.1, .9, by = .1))
 
 # Mean population density people / sq km
-# Want to scale back to ~4.
+# Want to scale back to 50th percentile.
 par(mfrow=c(1,2))
-partialPlot(rf.full, as.data.frame(tss.cal_val), POPDEN2010WS, main = '', ylab = "Predicted TSS")
+partialPlot(rf.red15, as.data.frame(tss.cal_val), POPDEN2010WS, main = '', ylab = "Predicted TSS", scale_x_log10())
 abline(v=quantile(tss.ref.hi$POPDEN2010WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
 hist(tss.ref.hi$POPDEN2010WS, main = '')
 quantile(tss.ref.hi$POPDEN2010WS, probs = seq(.1, .9, by = .1))
 
 # Percent landcover ag dominated on >10% slope
-# Want to scale back to zero.
+# Want to scale back to 0.
 par(mfrow=c(1,2))
-partialPlot(rf.full, as.data.frame(tss.cal_val), PCTAGSLPMID2001WS, main = '', ylab = "Predicted TSS")
+partialPlot(rf.red15, as.data.frame(tss.cal_val), PCTAGSLPMID2001WS, main = '', ylab = "Predicted TSS")
 abline(v=quantile(tss.ref.hi$PCTAGSLPMID2001WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
 hist(tss.ref.hi$PCTAGSLPMID2001WS, main = '')
 quantile(tss.ref.hi$PCTAGSLPMID2001WS, probs = seq(.1, .9, by = .1))
 
 # Surface Water Nitrogen Flux
-# Want to keep left 3 bars of histogram.
+# Scale back to 50th percent.  Partial dependence plot looks strange and is hard to explain- might drop from model.
 par(mfrow=c(1,2))
-partialPlot(rf.full, as.data.frame(tss.cal_val), SW_FLUXWS, main = '', ylab = "Predicted TSS")
+partialPlot(rf.red15, as.data.frame(tss.cal_val), SW_FLUXWS, main = '', ylab = "Predicted TSS")
 abline(v=quantile(tss.ref.hi$SW_FLUXWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
 hist(tss.ref.hi$SW_FLUXWS, main = '')
 quantile(tss.ref.hi$SW_FLUXWS, probs = seq(.1, .9, by = .1))
 
 # Mean imperviousness 
-# 90th percentile?
+# Scale back to 50th percentile.
 par(mfrow=c(1,2))
-partialPlot(rf.full, as.data.frame(tss.cal_val), PCTIMP2001WS, main = '', ylab = "Predicted TSS")
+partialPlot(rf.red15, as.data.frame(tss.cal_val), PCTIMP2001WS, main = '', ylab = "Predicted TSS")
 abline(v=quantile(tss.ref.hi$PCTIMP2001WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
 hist(tss.ref.hi$PCTIMP2001WS, main = '')
 quantile(tss.ref.hi$PCTIMP2001WS, probs = seq(.1, .9, by = .1))
@@ -700,7 +706,7 @@ quantile(tss.ref.hi$PCTIMP2001WS, probs = seq(.1, .9, by = .1))
 # Road and stream intersection density per sq km
 # Want to scale back to 0.
 par(mfrow=c(1,2))
-partialPlot(rf.full, as.data.frame(tss.cal_val), RDCRSWS, main = '', ylab = "Predicted TSS")
+partialPlot(rf.red15, as.data.frame(tss.cal_val), RDCRSWS, main = '', ylab = "Predicted TSS")
 abline(v=quantile(tss.ref.hi$RDCRSWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
 hist(tss.ref.hi$RDCRSWS, main = '')
 quantile(tss.ref.hi$RDCRSWS, probs = seq(.1, .9, by = .1))
@@ -711,10 +717,9 @@ quantile(tss.ref.hi$RDCRSWS, probs = seq(.1, .9, by = .1))
 
 ```{r}
 # Scale back human influenced variables to ref levels
-top$POPDEN2010WS <- ifelse(top$POPDEN2010WS >= 4.3163521, 4.31635215, top$POPDEN2010WS)
 
-
-tss.cal.ref <- tss.cal %>% 
+tss.val.ref <- tss.val %>% 
+  select(c('TSS','WDRW_LDWS','PCTCONIF2001WS','CLAYWS','PESTIC1997WS', 'SANDWS','PCTCROP2001WS','POPDEN2010WS','PRECIP9120WS', 'PCTAGSLPMID2001WS','PCT_EROD','SW_FLUXWS','PCTIMP2001WS','RDCRSWS', 'WTDEPWS','ELEVWS')) %>% 
   mutate(WDRW_LDWS = case_when(
     WDRW_LDWS > 0 ~ 0,
     TRUE ~ WDRW_LDWS)) %>% 
@@ -728,15 +733,15 @@ tss.cal.ref <- tss.cal %>%
     TRUE ~ PCTCROP2001WS)) %>% 
   
     mutate(POPDEN2010WS = case_when(
-    POPDEN2010WS > 0 ~ 0,
+    POPDEN2010WS > quantile(tss.ref.hi$POPDEN2010WS, probs = 0.5) ~ 0,
     TRUE ~ POPDEN2010WS)) %>% 
   
     mutate(SW_FLUXWS = case_when(
-    SW_FLUXWS > 0 ~ 0,
+    SW_FLUXWS > quantile(tss.ref.hi$SW_FLUXWS, probs = 0.5) ~ 0,
     TRUE ~ SW_FLUXWS)) %>% 
   
     mutate(PCTIMP2001WS = case_when(
-    PCTIMP2001WS > 0 ~ 0,
+    PCTIMP2001WS > quantile(tss.ref.hi$PCTIMP2001WS, probs = 0.5) ~ 0,
     TRUE ~ PCTIMP2001WS)) %>% 
   
     mutate(PESTIC1997WS = case_when(
@@ -750,7 +755,11 @@ tss.cal.ref <- tss.cal %>%
 
 ## Run reduced model with validation data
 ```{r}
-tss.val$RFtss <- predict(rf.full, tss.val) #model prediction on 'VAL' dataset
+pred.rf.red15.val <- predict(rf.red15, tss.val.ref) #model prediction on 'VAL' dataset
+plot(tss.val$TSS ~ pred.rf.red15.val, xlab = "Observed TSS", ylab = "Predicted TSS", log = "xy")
+abline(a=0,b=1)
+(rmse<-sqrt(sum((log(pred.rf.red15.val+1) - log(tss.cal$TSS+1))^2)/length(tss.cal$TSS))) #prediction error
+print(paste("inverse natural log RMSE =", exp(rmse)-1))
 ```
 
 
@@ -759,14 +768,15 @@ tss.val$RFtss <- predict(rf.full, tss.val) #model prediction on 'VAL' dataset
 #### Build reference only model
 
 ```{r}
-set.seed(24)
+set.seed(39)
 
-# REFERENCE ONLY
-rf.ref <- randomForest(TSS ~ ., data = tss.ref, importance = FALSE,  keep.forest = FALSE, ntree = 500) #run random forest model on all predictors
-print(rf.ref)
 
-varImpPlot(rf.ref, type = 1)
-importance(rf.ref)
+vars <- c("PRECIP9120WS", "WETINDEXWS", "BFIWS", "ELEVWS", "PCTBL2001WS", "PCTCONIF2001WS", "PCTGRS2001WS", "PCTHBWET2001WS", "PCTICE2001WS", "PCTMXFST2001WS", "PCTOW2001WS", "PCTSHRB2001WS", "PCTURBHI2001WS", "PCTURBMD2001WS", "PCTURBOP2001WS", "PCTWDWET2001WS", "PCTFRSTLOSS2002WS", "COMPSTRGTHWS", "FE2O3WS", "HYDRLCONDWS", "NA2OWS", "PCTALKINTRUVOLWS", "PCTALLUVCOASTWS", "PCTCARBRESIDWS", "PCTCOASTCRSWS", "PCTCOLLUVSEDWS", "PCTEOLCRSWS", "PCTEOLFINEWS", "PCTEXTRUVOLWS", "PCTGLACLAKECRSWS", "PCTGLACLAKEFINEWS", "PCTGLACTILCLAYWS", "PCTGLACTILCRSWS", "PCTGLACTILLOAMWS", "PCTHYDRICWS", "PCTSALLAKEWS", "PCTWATERWS", "ROCKNWS", "SWS", "CLAYWS", "KFFACTWS", "OMWS", "RCKDEPWS", "RCKDEPWS", "SANDWS", "WTDEPWS", "PCTFIRE2002WS", "PCTINCVEGRESP2002WS", "PCTNONPROCMASK2002WS")
+rf.full <- randomForest(log(TSS+1) ~ ., tss.ref, importance = TRUE, mtry=7, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
+print(rf.full)
+
+varImpPlot(rf.full, type = 1, n.var = 20, main = "Full Model") #variable importance plot
+varImpPlot(rf.full, type = 2, n.var = 20, main = "Full Model") #variable importance plot
 ```
 
 
@@ -1024,6 +1034,12 @@ human.mets <- kitty %>%
   filter(Category == "Anthropogenic" & kitty$`Use?` == 'y') %>% 
   select(Metric_Query) %>% 
   add_row(Metric_Query = "COMID") # want to include COMID as a column so adding it as a row.
+
+human.mets <- kitty %>% 
+  filter(Category == "Natural" & kitty$`Use?` == 'y') %>% 
+  select(Metric_Query) %>% 
+  add_row(Metric_Query = "COMID")
+
 
 human.mets <- toupper(human.mets$Metric_Query) # All uppercase
 

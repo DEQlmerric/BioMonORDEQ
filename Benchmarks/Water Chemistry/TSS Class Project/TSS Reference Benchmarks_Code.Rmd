@@ -414,10 +414,13 @@ scmets$BANKFULLWIDTH <- na.roughfix(scmets$BANKFULLWIDTH) #bankfull width (n = 6
 scmets$SW_FLUXWS <- na.roughfix(scmets$SW_FLUXWS) #surface water flux (n = 2 NAs)
 
 # MERGE THE DESIRED STREAMCAT METRIC DATA WITH THE TSS AWQMS DATA PULL
+# Log transform TSS column
 tss.sc <- inner_join(tss, scmets, by = "COMID")
 tss.sc <- tss.sc %>% 
   select(-c(Lat_DD, Long_DD,PCT_RESIST)) %>% 
-  relocate(TSS, .before = L2Eco)
+  mutate(logTSS = log(TSS+1)) %>% 
+  relocate(logTSS, .before = L2Eco) %>% 
+  relocate(TSS, .before = logTSS)
 
 # ADD AWQMS COLUMNS (NON-STREAMCAT)
 tss.sc.cor <- tss.sc %>% 
@@ -434,24 +437,27 @@ matrix3 <- spear.rows3 %>%
   filter(abs(cor) > 0.8)
 
 # CLEAN UP ENVIRONMENT
-rm(list=c('spear.rows3', 'spear3', 'matrix3'))
+rm(list=c('spear.rows3', 'spear3', 'matrix3', 'tss.sc.cor'))
 ```
 
 ## SUBSET DATA - CALIBRATION, VALIDATION, AND REFERENCE ONLY
 
 ```{r}
 # SUBSET DATA AND REMOVE NON-VARIABLE COLUMNS
-tss.cal <- tss.sc %>% 
+tss.cal <- tss.sc %>%  #subset CALibration dataset
   filter(cal_val == 'CAL') %>%  
-  select(-c(MLocID, StationDes, EcoRegion4:COMID))  #subset CALibration dataset
+  select(-c(MLocID, StationDes, EcoRegion4:COMID))%>% 
+  select(-TSS)
 
-tss.val <- tss.sc %>% 
+tss.val <- tss.sc %>%  #subset VALidation dataset
   filter(cal_val == 'VAL') %>%  
-  select(-c(MLocID, StationDes, EcoRegion4:COMID)) #subset VALidation dataset
+  select(-c(MLocID, StationDes, EcoRegion4:COMID)) %>% 
+  select(-TSS)
 
-tss.ref <- tss.sc %>% 
+tss.ref <- tss.sc %>% #subset reference only dataset
   filter(ReferenceSite == 'REFERENCE') %>%  
-  select(-c(MLocID, StationDes, EcoRegion4:COMID)) #subset reference only dataset
+  select(-c(MLocID, StationDes, EcoRegion4:COMID)) %>% 
+  select(-TSS)
 ```
 
 
@@ -461,24 +467,21 @@ tss.ref <- tss.sc %>%
 
 ```{r}
 # HISTOGRAM
-hist(tss$TSS, main = "", xlab = "TSS") #raw data
-hist(log(tss$TSS+1), main = "", xlab = "log TSS") #log-transformed
+hist(tss.sc$TSS, main = "", xlab = "TSS") #raw data
+hist(tss.sc$logTSS, main = "", xlab = "log TSS") #log-transformed
 
 # DENSITY PLOT
-hist(tss$TSS, main="", prob=T, xlab = "TSS")
-d <- density(tss$TSS+1) #Estimate probability density and save it into **d**
+hist(tss.sc$logTSS, main="", prob=T, xlab = "TSS")
+d <- density(tss.sc$logTSS) #Estimate probability density and save it into **d**
 lines(d, col='red',lwd=2) #Superimpose the probability density as a curve on the previous probability density histogram
 
 # BOX PLOT & STRIP CHART
-boxplot(tss$TSS, ylab = "TSS")
+boxplot(tss.sc$logTSS, ylab = "TSS")
 #stripchart(tss$TSS, vertical = T, pch=1, col='red', add = T)
 
 # NORMALITY ASSUMPTION - GRAPHICALLY 
-qqnorm(tss$TSS) #Q-Q plot
-qqline(tss$TSS) #not normal
-
-# NORMALITY ASSUMPTION - STATISTICALLY 
-shapiro.test(tss$TSS) #Shapiro-Wilk's test - not normal
+qqnorm(tss.sc$TSS) #Q-Q plot
+qqline(tss.sc$TSS) #not normal
 ```
 
 ## PREDICTOR VARIABLES
@@ -486,13 +489,16 @@ shapiro.test(tss$TSS) #Shapiro-Wilk's test - not normal
 ```{r}
 # HISTOGRAMS
 hist(scmets$WDRW_LDWS, main = "", xlab = "Water Withdrawal")
-hist(scmets$ELEVWS, main = "", xlab = "Elevation")
-hist(scmets$POPDEN2010WS, main = "", xlab = "Population Density, 2010")
-hist(scmets$PCTAGSLPMID2001WS, main = "", xlab = "% Ag 20% slopes (???), 2001")
+hist(scmets$PCTCONIF2001WS, main = "", xlab = "Pct Conif")
+hist(scmets$CLAYWS, main = "", xlab = "Mean Clay")
+hist(scmets$PESTIC1997WS, main = "", xlab = "Pesticides")
+hist(scmets$SANDWS, main = "", xlab = "Mean Sand")
+hist(scmets$PCTCROP2001WS, main = "", xlab = "Pct Crop")
+
 
 # KERNEL DENSITY PLOTS
 kern <- scmets %>%
-  select(CLAYWS, BFIWS, ELEVWS, KFFACTWS, RDDENSWS, STRMPOW_CAT)
+  select(WDRW_LDWS , PCTCONIF2001WS , CLAYWS , PESTIC1997WS , SANDWS , PCTCROP2001WS , POPDEN2010WS)
 
 kern %>%
   keep(is.numeric) %>% 
@@ -512,10 +518,10 @@ kern %>%
 ```{r}
 # One way to find best mtry based on tuneRF.
     # Tune mtry based on OOB error
-best_mtry <- tuneRF(tss.cal[, -which(names(tss.cal) == "TSS")], # Predictors
-                        tss.cal$TSS, # Response
+best_mtry <- tuneRF(tss.cal[, -which(names(tss.cal) == "logTSS")], # Predictors
+                        tss.cal$logTSS, # Response
                         ntreeTry = 500, # Number of trees to try for each mtry
-                        stepFactor = 1.5, # Factor to multiply/divide mtry by
+                        stepFactor = 2, # Factor to multiply/divide mtry by
                         improve = 0.01, # Minimum improvement to continue search
                         trace = TRUE, # Print progress
                         plot = TRUE) # Plot OOB error vs. mtry
@@ -524,9 +530,9 @@ print(best_mtry)
 # Another approach using Caret.  Takes >50 minutes to run, not that different from mtry approach above.
 # control <- trainControl(method="repeatedcv", number=10,repeats = 3, search="random")
 # set.seed(1)
-# mtry <- sqrt(ncol(tss.cal[ , 2:83]
+# mtry <- sqrt(ncol(tss.cal[ , 2:80]
 # ))
-# rf_random <- train(log(TSS + 1)~., data = tss.cal, method = "rf", metric = "RMSE", tuneLength = 15, trControl=control)
+# rf_random <- train(logTSS ~., data = tss.cal, method = "rf", metric = "RMSE", tuneLength = 15, trControl=control)
 # print(rf_random)
 # plot(rf_random)
 
@@ -536,12 +542,11 @@ print(best_mtry)
 ```{r}
 set.seed(39)
 
-rf.full <- randomForest(log(TSS+1) ~ ., tss.cal, importance = TRUE, mtry=7, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
+rf.full <- randomForest(logTSS ~ ., tss.cal, importance = TRUE, mtry=7, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
 print(rf.full)
 
 varImpPlot(rf.full, type = 1, n.var = 20, main = "Full Model") #variable importance plot
-varImpPlot(rf.full, type = 2, n.var = 20, main = "Full Model") #variable importance plot
-
+#varImpPlot(rf.full, type = 2, n.var = 20, main = "Full Model") #variable importance plot
 ```
 
 #### Tuning the model (how many trees) 
@@ -552,17 +557,11 @@ plot(rf.full, log="x")  # 500 seems to work fine.
 
 #### Model prediction errors - full model
 ```{r}
-# RAW TSS
-#pred.rf <- predict(rf.full, newdata = tss.cal)
-#plot(pred.rf ~ tss.cal$TSS, xlab = "Observed TSS", ylab = "Predicted TSS")
-#abline(a=0,b=1)
-#(rmse<-sqrt(sum((pred.rf - tss.cal$TSS)^2)/length(tss.cal$TSS)))#prediction error
-
-# LOG +1-TRANSFORMED TSS
+# Predictions & model error
 pred.rf <- predict(rf.full, newdata = tss.cal)
-plot(log(pred.rf+1) ~ log(tss.cal$TSS+1), xlab = "log Observed TSS", ylab = "log Predicted TSS", ylim = c(0,6))
+plot(tss.cal$logTSS ~ pred.rf, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,4.5),ylim = c(0,4.5), main = 'rf.full')
 abline(a=0,b=1)
-(rmse<-sqrt(sum((log(pred.rf+1) - log(tss.cal$TSS+1))^2)/length(tss.cal$TSS))) #prediction error
+(rmse<-sqrt(sum((pred.rf - tss.cal$logTSS)^2)/length(tss.cal$logTSS))) #prediction error
 print(paste("inverse natural log RMSE =", exp(rmse)-1))
 ```
 
@@ -572,52 +571,59 @@ print(paste("inverse natural log RMSE =", exp(rmse)-1))
 ```{r}
 set.seed(32)
 
-rf.red_20 <- randomForest(TSS ~ WDRW_LDWS + PCTCONIF2001WS + CLAYWS + PESTIC1997WS + SANDWS + PCTCROP2001WS + POPDEN2010WS + PRECIP9120WS + PCTAGSLPMID2001WS + PCT_EROD + SW_FLUXWS + PCTIMP2001WS + RDCRSWS + WTDEPWS + ELEVWS + WETINDEXWS + PCTSHRB2001WS + KFFACTWS + PCTICE2001WS + RCKDEPWS, data = tss.cal, importance = TRUE,  keep.forest = TRUE, ntree = 500) 
+rf.red_20 <- randomForest(logTSS ~ WDRW_LDWS + PCTCONIF2001WS + CLAYWS + PESTIC1997WS + SANDWS + PCTCROP2001WS + POPDEN2010WS + PRECIP9120WS + PCTAGSLPMID2001WS + PCT_EROD + SW_FLUXWS + PCTIMP2001WS + RDCRSWS + WTDEPWS + ELEVWS + WETINDEXWS + PCTSHRB2001WS + KFFACTWS + PCTICE2001WS + RCKDEPWS, data = tss.cal, importance = TRUE,  keep.forest = TRUE, mtry=7, ntree = 500) 
 
 print(rf.red_20)
 
 varImpPlot(rf.red_20, type = 1, n.var = 20, main = "Reduced Model top 20") #variable importance plot
 #varImpPlot(rf.red_20, type = 2, n.var = 20, main = "Reduced Model top 20") #variable importance plot
 
-# LOG +1-TRANSFORMED TSS
+# Predictions & model error
 pred.rf.red_20 <- predict(rf.red_20, newdata = tss.cal)
-plot(log(pred.rf.red_20+1) ~ log(tss.cal$TSS+1), xlab = "log Observed TSS", ylab = "log Predicted TSS", xlim = c(0,5), ylim = c(0,5))
+plot(tss.cal$logTSS ~ pred.rf.red_20, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,4.5), ylim = c(0,4.5), main = 'red_20')
 abline(a=0,b=1)
-(rmse<-sqrt(sum((log(pred.rf.red_20+1) - log(tss.cal$TSS+1))^2)/length(tss.cal$TSS))) #prediction error
+(rmse<-sqrt(sum((pred.rf.red_20 - tss.cal$logTSS)^2)/length(tss.cal$logTSS))) #prediction error
 print(paste("inverse natural log RMSE =", exp(rmse)-1))
 ```
 #### * Final reduced model N = 15
 ```{r}
 set.seed(32)
 
-rf.red_15 <- randomForest(TSS ~ WDRW_LDWS + PCTCONIF2001WS + CLAYWS + PESTIC1997WS + SANDWS + PCTCROP2001WS + POPDEN2010WS + PRECIP9120WS + PCTAGSLPMID2001WS + PCT_EROD + SW_FLUXWS + PCTIMP2001WS + RDCRSWS + WTDEPWS + ELEVWS, data = tss.cal, importance = TRUE,  keep.forest = TRUE, ntree = 500) 
+rf.red_15 <- randomForest(logTSS ~ WDRW_LDWS + PCTCONIF2001WS + CLAYWS + PESTIC1997WS + SANDWS + PCTCROP2001WS + POPDEN2010WS + PRECIP9120WS + PCTAGSLPMID2001WS + PCT_EROD + SW_FLUXWS + PCTIMP2001WS + RDCRSWS + WTDEPWS + ELEVWS, data = tss.cal, importance = TRUE,  keep.forest = TRUE, mtry=7, ntree = 500) 
 
 print(rf.red_15)
 
 varImpPlot(rf.red_15, type = 1, main = "Reduced Model top 15") #variable importance plot
 #varImpPlot(rf.red_15, type = 2, main = "Reduced Model top 15") #variable importance plot
 
-# LOG +1-TRANSFORMED TSS
+# Predictions & model error
 pred.rf.red_15 <- predict(rf.red_15, newdata = tss.cal)
-plot(log(pred.rf.red_15+1) ~ log(tss.cal$TSS+1), xlab = "log Observed TSS", ylab = "log Predicted TSS", xlim = c(0,5), ylim = c(0,5))
+plot(tss.cal$logTSS ~ pred.rf.red_15, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,4.5), ylim = c(0,4.5), main = 'red_15')
 abline(a=0,b=1)
-(rmse<-sqrt(sum((log(pred.rf.red_15+1) - log(tss.cal$TSS+1))^2)/length(tss.cal$TSS))) #prediction error
+(rmse<-sqrt(sum((pred.rf.red_15 - tss.cal$logTSS)^2)/length(tss.cal$logTSS))) #prediction error
 print(paste("inverse natural log RMSE =", exp(rmse)-1))
+
+#Untransformed plot log scale axes
+plot((exp(tss.cal$logTSS)-1) ~ (exp(pred.rf.red_15)-1),  log = "xy", xlab = 'predicted TSS (mg/L)', ylab = 'observed TSS (mg/L)', main = 'red_15')
+abline(a=0,b=1)
 ```
 #### Test reduced model with VAL data
 ```{r}
+# Predictions & model error
 pred.rf.red_15_val <- predict(rf.red_15, newdata = tss.val)
-plot(log(pred.rf.red_15_val+1) ~ log(tss.val$TSS+1), xlab = "log Observed TSS", ylab = "log Predicted TSS", xlim = c(0,5), ylim = c(0,5))
+plot(tss.val$logTSS ~ pred.rf.red_15_val, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,4.5), ylim = c(0,4.5), main = 'red_15_VAL')
 abline(a=0,b=1)
-(rmse<-sqrt(sum((log(pred.rf.red_15_val+1) - log(tss.val$TSS+1))^2)/length(tss.val$TSS))) #prediction error
+(rmse<-sqrt(sum((pred.rf.red_15_val - tss.cal$logTSS)^2)/length(tss.val$logTSS))) #prediction error
 print(paste("inverse natural log RMSE =", exp(rmse)-1))
 ```
-#### Run all sites (CAL AND VAL) through final reduced model to get ref expectations. (Needs work!)
+#### Run all sites (CAL AND VAL) through final reduced model.
 ```{r}
+tss.cal_val <- rbind(tss.cal, tss.val)
+
 pred.rf.red_15_all <- predict(rf.red_15, newdata = tss.cal_val)
-plot(log(pred.rf.red_15_all+1) ~ log(tss.cal_val$TSS+1), xlab = "log Observed TSS", ylab = "log Predicted TSS", xlim = c(0,5), ylim = c(0,5))
+plot(tss.cal_val$logTSS ~ pred.rf.red_15_all, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,5), ylim = c(0,5), main = 'red_15_ALL')
 abline(a=0,b=1)
-(rmse<-sqrt(sum((log(pred.rf.red_15_all+1) - log(tss.cal_val$TSS+1))^2)/length(tss.cal_val$TSS))) #prediction error
+(rmse<-sqrt(sum((pred.rf.red_15_all - tss.cal_val$logTSS)^2)/length(tss.cal_val$logTSS))) #prediction error
 print(paste("inverse natural log RMSE =", exp(rmse)-1))
 ```
 
@@ -625,18 +631,18 @@ print(paste("inverse natural log RMSE =", exp(rmse)-1))
 ```{r}
 set.seed(32)
 
-rf.red_4 <- randomForest(TSS ~ WDRW_LDWS + PCTCONIF2001WS + CLAYWS + PESTIC1997WS, data = tss.cal, importance = TRUE,  keep.forest = TRUE, ntree = 500) 
+rf.red_4 <- randomForest(logTSS ~ WDRW_LDWS + PCTCONIF2001WS + CLAYWS + PESTIC1997WS, data = tss.cal, importance = TRUE,  keep.forest = TRUE, ntree = 500) 
 
 print(rf.red_4)
 
 varImpPlot(rf.red_4, type = 1, main = "Reduced Model top 4") #variable importance plot
-varImpPlot(rf.red_4, type = 2, main = "Reduced Model top 4") #variable importance plot
+#varImpPlot(rf.red_4, type = 2, main = "Reduced Model top 4") #variable importance plot
 
-# LOG +1-TRANSFORMED TSS
+# Predictions & model error
 pred.rf.red_4 <- predict(rf.red_4, newdata = tss.cal)
-plot(log(pred.rf.red_4+1) ~ log(tss.cal$TSS+1), xlab = "log Observed TSS", ylab = "log Predicted TSS", xlim = c(0,5), ylim = c(0,5))
+plot(tss.cal$logTSS ~ pred.rf.red_4, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,5), ylim = c(0,5), main = 'red_4')
 abline(a=0,b=1)
-(rmse<-sqrt(sum((log(pred.rf.red_4+1) - log(tss.cal$TSS+1))^2)/length(tss.cal$TSS))) #prediction error
+(rmse<-sqrt(sum((pred.rf.red_4 - tss.cal$logTSS)^2)/length(tss.cal$logTSS))) #prediction error
 print(paste("inverse natural log RMSE =", exp(rmse)-1))
 ```
 
@@ -651,8 +657,6 @@ tss.ref.hi <- tss.sc %>%
   filter(ReferenceSite == 'REFERENCE') %>% 
   #filter(cal_val == 'CAL') %>% 
   select(c(WDRW_LDWS,PESTIC1997WS,PCTCROP2001WS,POPDEN2010WS,PCTAGSLPMID2001WS,SW_FLUXWS,PCTIMP2001WS,RDCRSWS))
-
-tss.cal_val <- rbind(tss.cal, tss.val)
 
 # Agricultural fresh surface water withdrawl kg/sq km  
 # Want to scale back to 0.
@@ -726,7 +730,7 @@ quantile(tss.ref.hi$RDCRSWS, probs = seq(.1, .9, by = .1))
 # Adjust human influenced variables to ref levels
 
 tss.cal_val.refadj <- tss.cal_val %>% 
-  select(c('TSS','WDRW_LDWS','PCTCONIF2001WS','CLAYWS','PESTIC1997WS', 'SANDWS','PCTCROP2001WS','POPDEN2010WS','PRECIP9120WS', 'PCTAGSLPMID2001WS','PCT_EROD','SW_FLUXWS','PCTIMP2001WS','RDCRSWS', 'WTDEPWS','ELEVWS')) %>% 
+  select(c('logTSS','WDRW_LDWS','PCTCONIF2001WS','CLAYWS','PESTIC1997WS', 'SANDWS','PCTCROP2001WS','POPDEN2010WS','PRECIP9120WS', 'PCTAGSLPMID2001WS','PCT_EROD','SW_FLUXWS','PCTIMP2001WS','RDCRSWS', 'WTDEPWS','ELEVWS')) %>% 
     mutate(WDRW_LDWS = case_when(
     WDRW_LDWS > 0 ~ 0, # 50th percentile is 0
     TRUE ~ WDRW_LDWS)) %>% 
@@ -762,10 +766,17 @@ tss.cal_val.refadj <- tss.cal_val %>%
 
 #### Run reduced model with adjusted human-influenced predictors to get All Sites Ref Expectations (needs work!)
 ```{r}
-pred.rf.red_15.all<- predict(rf.red_15, tss.cal_val.refadj) #model prediction on 'VAL' dataset
-plot(tss.cal_val.refadj$TSS ~ pred.rf.red_15.all, xlab = "Observed TSS", ylab = "Predicted TSS", log = "xy")
-abline(a=0,b=1)
-(rmse<-sqrt(sum((log(pred.rf.red_15.all+1) - log(tss.cal_val.refadj$TSS+1))^2)/length(tss.cal_val.refadj$TSS))) #prediction error
+pred.rf.red_15.all<- predict(rf.red_15, tss.cal_val.refadj) #model prediction on cal+val dataset
+plot(tss.cal_val.refadj$logTSS ~ pred.rf.red_15.all, xlab = 'predicted logTSS', ylab = 'observed logTSS', ylim = c(0,6), main = 'red_15 CAL and VAL ref adjusted')
+
+reg <- lm(tss.cal_val.refadj$logTSS ~ pred.rf.red_15.all)
+abline(reg, col = "red", lwd = 2)
+
+par(mfrow=c(2,2))
+plot(reg)
+summary(reg)
+
+(rmse<-sqrt(sum((pred.rf.red_15.all - tss.cal_val.refadj$logTSS)^2)/length(tss.cal_val.refadj$logTSS))) #prediction error
 print(paste("inverse natural log RMSE =", exp(rmse)-1))
 ```
 
@@ -775,8 +786,8 @@ print(paste("inverse natural log RMSE =", exp(rmse)-1))
 ```{r}
 # One way to find best mtry based on tuneRF.
     # Tune mtry based on OOB error
-best_mtry <- tuneRF(tss.ref[, -which(names(tss.ref) == "TSS")], # Predictors
-                        tss.ref$TSS, # Response
+best_mtry <- tuneRF(tss.ref[, -which(names(tss.ref) == "logTSS")], # Predictors
+                        tss.ref$logTSS, # Response
                         ntreeTry = 500, # Number of trees to try for each mtry
                         stepFactor = 1.5, # Factor to multiply/divide mtry by
                         improve = 0.01, # Minimum improvement to continue search
@@ -798,10 +809,10 @@ print(best_mtry)
 #### Build reference only model
 ```{r}
 tss.ref <- tss.ref %>% 
-  select(c("TSS", "PRECIP9120WS", "WETINDEXWS", "BFIWS", "ELEVWS", "PCTBL2001WS", "PCTCONIF2001WS", "PCTGRS2001WS", "PCTHBWET2001WS", "PCTICE2001WS", "PCTMXFST2001WS", "PCTOW2001WS", "PCTSHRB2001WS", "PCTURBHI2001WS", "PCTURBMD2001WS", "PCTURBOP2001WS", "PCTWDWET2001WS", "PCTFRSTLOSS2002WS", "COMPSTRGTHWS", "FE2O3WS", "HYDRLCONDWS", "NA2OWS", "PCTALKINTRUVOLWS", "PCTALLUVCOASTWS", "PCTCARBRESIDWS", "PCTCOASTCRSWS", "PCTCOLLUVSEDWS", "PCTEOLCRSWS", "PCTEOLFINEWS", "PCTEXTRUVOLWS", "PCTGLACLAKECRSWS", "PCTGLACLAKEFINEWS", "PCTGLACTILCLAYWS", "PCTGLACTILCRSWS", "PCTGLACTILLOAMWS", "PCTHYDRICWS", "PCTSALLAKEWS", "PCTWATERWS", "ROCKNWS", "SWS", "CLAYWS", "KFFACTWS", "OMWS", "RCKDEPWS", "RCKDEPWS", "SANDWS", "WTDEPWS", "PCTFIRE2002WS", "PCTINCVEGRESP2002WS", "PCTNONPROCMASK2002WS", "MSST2008", "BANKFULLWIDTH", "PCT_EROD", "STRMPOW_CAT", "NHD_pSLOPE", "SITE_TYPE", "L2Eco", "L3Eco"))
+  select(c("logTSS", "PRECIP9120WS", "WETINDEXWS", "BFIWS", "ELEVWS", "PCTBL2001WS", "PCTCONIF2001WS", "PCTGRS2001WS", "PCTHBWET2001WS", "PCTICE2001WS", "PCTMXFST2001WS", "PCTOW2001WS", "PCTSHRB2001WS", "PCTURBHI2001WS", "PCTURBMD2001WS", "PCTURBOP2001WS", "PCTWDWET2001WS", "PCTFRSTLOSS2002WS", "COMPSTRGTHWS", "FE2O3WS", "HYDRLCONDWS", "NA2OWS", "PCTALKINTRUVOLWS", "PCTALLUVCOASTWS", "PCTCARBRESIDWS", "PCTCOASTCRSWS", "PCTCOLLUVSEDWS", "PCTEOLCRSWS", "PCTEOLFINEWS", "PCTEXTRUVOLWS", "PCTGLACLAKECRSWS", "PCTGLACLAKEFINEWS", "PCTGLACTILCLAYWS", "PCTGLACTILCRSWS", "PCTGLACTILLOAMWS", "PCTHYDRICWS", "PCTSALLAKEWS", "PCTWATERWS", "ROCKNWS", "SWS", "CLAYWS", "KFFACTWS", "OMWS", "RCKDEPWS", "RCKDEPWS", "SANDWS", "WTDEPWS", "PCTFIRE2002WS", "PCTINCVEGRESP2002WS", "PCTNONPROCMASK2002WS", "MSST2008", "BANKFULLWIDTH", "PCT_EROD", "STRMPOW_CAT", "NHD_pSLOPE", "SITE_TYPE", "L2Eco", "L3Eco"))
 
 set.seed(39)
-rf.full.ref <- randomForest(log(TSS+1) ~ ., tss.ref, importance = TRUE, mtry=7, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
+rf.full.ref <- randomForest(logTSS ~ ., tss.ref, importance = TRUE, mtry=7, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
 print(rf.full.ref)
 
 varImpPlot(rf.full.ref, type = 1, n.var = 20, main = "Full Model Ref only") #variable importance plot
@@ -809,9 +820,9 @@ varImpPlot(rf.full.ref, type = 1, n.var = 20, main = "Full Model Ref only") #var
 
 # LOG +1-TRANSFORMED TSS
 pred.rf.full.ref <- predict(rf.full.ref, newdata = tss.ref)
-plot(log(pred.rf.full.ref+1) ~ log(tss.ref$TSS+1), xlab = "log Observed TSS", ylab = "log Predicted TSS", xlim=c(0,5), ylim = c(0,5))
+plot(tss.ref$logTSS ~ pred.rf.full.ref, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,4.5), ylim = c(0,4.5), main = 'rf.full.ref')
 abline(a=0,b=1)
-(rmse<-sqrt(sum((log(pred.rf.full.ref+1) - log(tss.ref$TSS+1))^2)/length(tss.ref$TSS))) #prediction error
+(rmse<-sqrt(sum((pred.rf.full.ref - tss.ref$logTSS)^2)/length(tss.ref$logTSS))) #prediction error
 print(paste("inverse natural log RMSE =", exp(rmse)-1))
 ```
 
@@ -824,7 +835,7 @@ plot(rf.full.ref, log="x")  # 500 seems to work fine.
 #### Reduce the reference only model
 ```{r}
 set.seed(39)
-rf.ref.red_20 <- randomForest(log(TSS+1) ~ ROCKNWS + PCT_EROD + PCTBL2001WS + SWS + ELEVWS + NA2OWS + PCTICE2001WS + PRECIP9120WS + FE2O3WS + PCTCONIF2001WS + OMWS + BFIWS + L3Eco + KFFACTWS + SANDWS + CLAYWS + L2Eco + STRMPOW_CAT + MSST2008 + PCTFRSTLOSS2002WS, tss.ref, importance = TRUE, mtry=7, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
+rf.ref.red_20 <- randomForest(logTSS ~ ROCKNWS + PCT_EROD + PCTBL2001WS + SWS + ELEVWS + NA2OWS + PCTICE2001WS + PRECIP9120WS + FE2O3WS + PCTCONIF2001WS + OMWS + BFIWS + L3Eco + KFFACTWS + SANDWS + CLAYWS + L2Eco + STRMPOW_CAT + MSST2008 + PCTFRSTLOSS2002WS, tss.ref, importance = TRUE, mtry=7, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
 print(rf.ref.red_20)
 
 varImpPlot(rf.ref.red_20, type = 1, n.var = 20, main = "Full Model Ref only") #variable importance plot
@@ -832,16 +843,16 @@ varImpPlot(rf.ref.red_20, type = 1, n.var = 20, main = "Full Model Ref only") #v
 
 # LOG +1-TRANSFORMED TSS
 pred.rf.ref.red_20 <- predict(rf.ref.red_20, newdata = tss.ref)
-plot(log(pred.rf.ref.red_20+1) ~ log(tss.ref$TSS+1), xlab = "log Observed TSS", ylab = "log Predicted TSS", xlim=c(0,5), ylim = c(0,5))
+plot(tss.ref$logTSS ~ pred.rf.ref.red_20, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,4.5), ylim = c(0,4.5), main = 'rf.ref.red_20')
 abline(a=0,b=1)
-(rmse<-sqrt(sum((log(pred.rf.ref.red_20+1) - log(tss.ref$TSS+1))^2)/length(tss.ref$TSS))) #prediction error
+(rmse<-sqrt(sum((pred.rf.ref.red_20 - tss.ref$logTSS)^2)/length(tss.ref$logTSS))) #prediction error
 print(paste("inverse natural log RMSE =", exp(rmse)-1))
-
 ```
+
 #### * Final reduced ref only model
 ```{r}
 set.seed(39)
-rf.ref.red_11 <- randomForest(log(TSS+1) ~ ROCKNWS + PCT_EROD + PCTBL2001WS + SWS + ELEVWS + NA2OWS + PCTICE2001WS + PRECIP9120WS + FE2O3WS + PCTCONIF2001WS + OMWS, tss.ref, importance = TRUE, mtry=7, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
+rf.ref.red_11 <- randomForest(logTSS ~ ROCKNWS + PCT_EROD + PCTBL2001WS + SWS + ELEVWS + NA2OWS + PCTICE2001WS + PRECIP9120WS + FE2O3WS + PCTCONIF2001WS + OMWS, tss.ref, importance = TRUE, mtry=7, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
 print(rf.ref.red_11)
 
 varImpPlot(rf.ref.red_11, type = 1, main = "Reduced11 Model Ref only") #variable importance plot
@@ -849,40 +860,46 @@ varImpPlot(rf.ref.red_11, type = 1, main = "Reduced11 Model Ref only") #variable
 
 # LOG +1-TRANSFORMED TSS
 pred.rf.ref.red_11 <- predict(rf.ref.red_11, newdata = tss.ref)
-plot(log(pred.rf.ref.red_11+1) ~ log(tss.ref$TSS+1), xlab = "log Observed TSS", ylab = "log Predicted TSS", xlim=c(0,5), ylim = c(0,5))
+plot(tss.ref$logTSS ~ pred.rf.ref.red_11, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,4.5), ylim = c(0,4.5), main = 'rf.ref.red_11')
 abline(a=0,b=1)
-(rmse<-sqrt(sum((log(pred.rf.ref.red_11+1) - log(tss.ref$TSS+1))^2)/length(tss.ref$TSS))) #prediction error
+(rmse<-sqrt(sum((pred.rf.ref.red_11 - tss.ref$logTSS)^2)/length(tss.ref$logTSS))) #prediction error
 print(paste("inverse natural log RMSE =", exp(rmse)-1))
-
 ```
+
 #### 5 predictors (not using this one)
 ```{r}
 set.seed(39)
-rf.ref.red_5 <- randomForest(log(TSS+1) ~ ROCKNWS + PCT_EROD + PCTBL2001WS + SWS + ELEVWS, tss.ref, importance = TRUE, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
+rf.ref.red_5 <- randomForest(logTSS ~ ROCKNWS + PCT_EROD + PCTBL2001WS + SWS + ELEVWS, tss.ref, importance = TRUE, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
 print(rf.ref.red_5)
 
 varImpPlot(rf.ref.red_5, type = 1, main = "Reduced5 Model Ref only") #variable importance plot
-varImpPlot(rf.ref.red_5, type = 2, main = "Reduced5 Model Ref only") #variable importance plot
+#varImpPlot(rf.ref.red_5, type = 2, main = "Reduced5 Model Ref only") #variable importance plot
 
 # LOG +1-TRANSFORMED TSS
 pred.rf.ref.red_5 <- predict(rf.ref.red_5, newdata = tss.ref)
-plot(log(pred.rf.ref.red_5+1) ~ log(tss.ref$TSS+1), xlab = "log Observed TSS", ylab = "log Predicted TSS", xlim=c(0,5), ylim = c(0,5))
+plot(tss.ref$logTSS ~ pred.rf.ref.red_5, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,4.5), ylim = c(0,4.5), main = 'rf.ref.red_5')
 abline(a=0,b=1)
-(rmse<-sqrt(sum((log(pred.rf.ref.red_5+1) - log(tss.ref$TSS+1))^2)/length(tss.ref$TSS))) #prediction error
+(rmse<-sqrt(sum((pred.rf.ref.red_5 - tss.ref$logTSS)^2)/length(tss.ref$logTSS))) #prediction error
 print(paste("inverse natural log RMSE =", exp(rmse)-1))
 
 ```
 
-
-#### Run all sites through to get ref expectations (needs work!)
+#### Run all sites through to get ref expectations
 ```{r}
 tss.cal_val.immutable <- tss.cal_val %>% 
-  select(c("TSS", "PRECIP9120WS", "WETINDEXWS", "BFIWS", "ELEVWS", "PCTBL2001WS", "PCTCONIF2001WS", "PCTGRS2001WS", "PCTHBWET2001WS", "PCTICE2001WS", "PCTMXFST2001WS", "PCTOW2001WS", "PCTSHRB2001WS", "PCTURBHI2001WS", "PCTURBMD2001WS", "PCTURBOP2001WS", "PCTWDWET2001WS", "PCTFRSTLOSS2002WS", "COMPSTRGTHWS", "FE2O3WS", "HYDRLCONDWS", "NA2OWS", "PCTALKINTRUVOLWS", "PCTALLUVCOASTWS", "PCTCARBRESIDWS", "PCTCOASTCRSWS", "PCTCOLLUVSEDWS", "PCTEOLCRSWS", "PCTEOLFINEWS", "PCTEXTRUVOLWS", "PCTGLACLAKECRSWS", "PCTGLACLAKEFINEWS", "PCTGLACTILCLAYWS", "PCTGLACTILCRSWS", "PCTGLACTILLOAMWS", "PCTHYDRICWS", "PCTSALLAKEWS", "PCTWATERWS", "ROCKNWS", "SWS", "CLAYWS", "KFFACTWS", "OMWS", "RCKDEPWS", "RCKDEPWS", "SANDWS", "WTDEPWS", "PCTFIRE2002WS", "PCTINCVEGRESP2002WS", "PCTNONPROCMASK2002WS", "MSST2008", "BANKFULLWIDTH", "PCT_EROD", "STRMPOW_CAT", "NHD_pSLOPE", "SITE_TYPE", "L2Eco", "L3Eco"))
+  select(c("logTSS", "PRECIP9120WS", "WETINDEXWS", "BFIWS", "ELEVWS", "PCTBL2001WS", "PCTCONIF2001WS", "PCTGRS2001WS", "PCTHBWET2001WS", "PCTICE2001WS", "PCTMXFST2001WS", "PCTOW2001WS", "PCTSHRB2001WS", "PCTURBHI2001WS", "PCTURBMD2001WS", "PCTURBOP2001WS", "PCTWDWET2001WS", "PCTFRSTLOSS2002WS", "COMPSTRGTHWS", "FE2O3WS", "HYDRLCONDWS", "NA2OWS", "PCTALKINTRUVOLWS", "PCTALLUVCOASTWS", "PCTCARBRESIDWS", "PCTCOASTCRSWS", "PCTCOLLUVSEDWS", "PCTEOLCRSWS", "PCTEOLFINEWS", "PCTEXTRUVOLWS", "PCTGLACLAKECRSWS", "PCTGLACLAKEFINEWS", "PCTGLACTILCLAYWS", "PCTGLACTILCRSWS", "PCTGLACTILLOAMWS", "PCTHYDRICWS", "PCTSALLAKEWS", "PCTWATERWS", "ROCKNWS", "SWS", "CLAYWS", "KFFACTWS", "OMWS", "RCKDEPWS", "RCKDEPWS", "SANDWS", "WTDEPWS", "PCTFIRE2002WS", "PCTINCVEGRESP2002WS", "PCTNONPROCMASK2002WS", "MSST2008", "BANKFULLWIDTH", "PCT_EROD", "STRMPOW_CAT", "NHD_pSLOPE", "SITE_TYPE", "L2Eco", "L3Eco"))
 
-pred.rf.ref.red_11<- predict(rf.ref.red_11, newdata = tss.cal_val.immutable) #model prediction on full dataset, immutable predictors only
-plot(tss.cal_val.immutable$TSS ~ pred.rf.ref.red_11, xlab = "Observed TSS", ylab = "Predicted TSS", log = "xy")
-abline(a=0,b=1)
-(rmse<-sqrt(sum((log(pred.rf.ref.red_11+1) - log(tss.cal_val.immutable$TSS+1))^2)/length(tss.cal_val.immutable$TSS))) #prediction error
+pred.rf.ref.red_11<- predict(rf.ref.red_11, tss.cal_val.immutable) #model prediction on cal+val dataset
+plot(tss.cal_val.immutable$logTSS ~ pred.rf.ref.red_11, xlab = 'predicted logTSS', ylab = 'observed logTSS', ylim = c(0,6), main = 'ref.red_11 CAL and VAL')
+
+reg <- lm(tss.cal_val.immutable$logTSS ~ pred.rf.ref.red_11)
+abline(reg, col = "red", lwd = 2)
+
+par(mfrow=c(2,2))
+plot(reg)
+summary(reg)
+
+(rmse<-sqrt(sum((pred.rf.ref.red_11 - tss.cal_val.refadj$logTSS)^2)/length(tss.cal_val.refadj$logTSS))) #prediction error
 print(paste("inverse natural log RMSE =", exp(rmse)-1))
 ```
 

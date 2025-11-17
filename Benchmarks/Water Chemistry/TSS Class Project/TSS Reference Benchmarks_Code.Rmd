@@ -469,9 +469,14 @@ tss.ref <- tss.sc %>% #subset reference only dataset
 ## RESPONSE VARIABLE
 
 ```{r}
-# HISTOGRAM
+# HISTOGRAMS
 hist(tss.sc$TSS, main = "", xlab = "TSS") #raw data
 hist(tss.sc$logTSS, main = "", xlab = "log TSS") #log-transformed
+
+hist(tss.cal$logTSS, main = "", xlab = "log TSS", col = "lightblue", ylim = c(0,300)) #log-transformed
+hist(tss.val$logTSS, main = "", xlab = "log TSS", col = "lightgreen", add = TRUE)
+     legend("topright", legend = c("CAL", "VAL"), fill = c("lightblue", "lightgreen")) #log-transformed
+
 
 # DENSITY PLOT
 hist(tss.sc$logTSS, main="", prob=T, xlab = "TSS")
@@ -497,16 +502,21 @@ hist(scmets$CLAYWS, main = "", xlab = "Mean Clay")
 hist(scmets$PESTIC1997WS, main = "", xlab = "Pesticides")
 hist(scmets$SANDWS, main = "", xlab = "Mean Sand")
 hist(scmets$PCTCROP2001WS, main = "", xlab = "Pct Crop")
+hist(scmets$POPDEN2010WS, main = "", xlab = "Population Density")
+hist(scmets$PRECIP9120WS, main = "", xlab = "Precip, 1991-2020")
+hist(scmets$PCTAGSLPMID2001WS, main = "", xlab = "Pct Ag Slopes >10%")
 
 
 # KERNEL DENSITY PLOTS
 kern <- scmets %>%
-  select(WDRW_LDWS , PCTCONIF2001WS , CLAYWS , PESTIC1997WS , SANDWS , PCTCROP2001WS , POPDEN2010WS)
+  select(WDRW_LDWS, PCTCONIF2001WS, CLAYWS, PESTIC1997WS, SANDWS, PCTCROP2001WS, POPDEN2010WS, PRECIP9120WS, PCTAGSLPMID2001WS)
 
 kern %>%
   keep(is.numeric) %>% 
   gather() %>% 
   ggplot(aes(value)) +
+  ylab("Density") +
+  xlab("Value") +
   facet_wrap(~ key, scales = "free") +
   geom_density() +
   geom_rug() 

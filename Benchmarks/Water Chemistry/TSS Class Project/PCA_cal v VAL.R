@@ -199,7 +199,7 @@ p3 <- fviz_pca_biplot(pca.allsites, axes=c(3,4),
 
 p1 + p2
 
-
+  
   
   
   

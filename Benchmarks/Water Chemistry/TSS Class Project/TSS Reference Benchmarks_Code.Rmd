@@ -17,10 +17,13 @@ library(writexl)
 library(randomForest)
 library(vip)
 library(caret)
-library(rpart)
-library(rpart.plot)
-library(ORDEQBioassessment)
-library(reprtree)  # Try devtools::install_github('araastat/reprtree')
+#library(rpart)
+#library(rpart.plot)
+library(ORDEQBioassessment) 
+# devtools::install_github("TravisPritchardODEQ/ORDEQBioassessment", 
+#                         host = "https://api.github.com", 
+#                        dependencies = TRUE, force = TRUE, upgrade = "never")
+#library(reprtree)  # Try devtools::install_github('araastat/reprtree')
 ```
 
 # **2 - IMPORT DATA**
@@ -604,18 +607,43 @@ abline(a=0,b=1)
 print(paste("inverse natural log RMSE =", exp(rmse)-1))
 
 #Untransformed plot log scale axes
-plot((exp(tss.cal$logTSS)-1) ~ (exp(pred.rf.red_15)-1),  log = "xy", xlab = 'predicted TSS (mg/L)', ylab = 'observed TSS (mg/L)', main = 'red_15')
+plot((exp(tss.cal$logTSS)-1) ~ (exp(pred.rf.red_15)-1), log = "xy",  xlab = 'predicted TSS (mg/L)', ylab = 'observed TSS (mg/L)', main = 'red_15')
+abline(a=0,b=1)
+
+#Untransformed plot no log scale axes
+plot((exp(tss.cal$logTSS)-1) ~ (exp(pred.rf.red_15)-1),  xlab = 'predicted TSS (mg/L)', ylab = 'observed TSS (mg/L)', main = 'red_15')
 abline(a=0,b=1)
 ```
+
+#### Residual plot for red_15 model
+```{r}
+residuals.red_15 <- (exp(tss.cal$logTSS)-1) - (exp(pred.rf.red_15)-1) # Observed minus predicted 
+plot(residuals.red_15 ~ (exp(pred.rf.red_15)-1), xlab = "Predicted TSS (mg/L)", ylab = "Residuals", main="rf.red_15 residuals")
+abline(h=0, col = "red", lty = 2)
+```
+
 #### Test reduced model with VAL data
 ```{r}
 # Predictions & model error
 pred.rf.red_15_val <- predict(rf.red_15, newdata = tss.val)
+
+# Log plot
 plot(tss.val$logTSS ~ pred.rf.red_15_val, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,4.5), ylim = c(0,4.5), main = 'red_15_VAL')
 abline(a=0,b=1)
 (rmse<-sqrt(sum((pred.rf.red_15_val - tss.cal$logTSS)^2)/length(tss.val$logTSS))) #prediction error
 print(paste("inverse natural log RMSE =", exp(rmse)-1))
+
+#Untransformed plot log scale axes
+plot((exp(tss.val$logTSS)-1) ~ (exp(pred.rf.red_15_val)-1), log = "xy",  xlab = 'predicted TSS (mg/L)', ylab = 'observed TSS (mg/L)', main = 'red_15 VAL')
+abline(a=0,b=1)
+
+#Untransformed plot no log scale axes
+plot((exp(tss.val$logTSS)-1) ~ (exp(pred.rf.red_15_val)-1),  xlab = 'predicted TSS (mg/L)', ylab = 'observed TSS (mg/L)', main = 'red_15 VAL')
+abline(a=0,b=1)
+
+residuals.red_15_val <- (exp(tss.val$logTSS)-1) - (exp(pred.rf.red_15_val)-1) # Observed minus predicted 
 ```
+
 #### Run all sites (CAL AND VAL) through final reduced model.
 ```{r}
 tss.cal_val <- rbind(tss.cal, tss.val)
@@ -769,13 +797,6 @@ tss.cal_val.refadj <- tss.cal_val %>%
 pred.rf.red_15.all<- predict(rf.red_15, tss.cal_val.refadj) #model prediction on cal+val dataset
 plot(tss.cal_val.refadj$logTSS ~ pred.rf.red_15.all, xlab = 'predicted logTSS', ylab = 'observed logTSS', ylim = c(0,6), main = 'red_15 CAL and VAL ref adjusted')
 
-reg <- lm(tss.cal_val.refadj$logTSS ~ pred.rf.red_15.all)
-abline(reg, col = "red", lwd = 2)
-
-par(mfrow=c(2,2))
-plot(reg)
-summary(reg)
-
 (rmse<-sqrt(sum((pred.rf.red_15.all - tss.cal_val.refadj$logTSS)^2)/length(tss.cal_val.refadj$logTSS))) #prediction error
 print(paste("inverse natural log RMSE =", exp(rmse)-1))
 ```
@@ -866,6 +887,13 @@ abline(a=0,b=1)
 print(paste("inverse natural log RMSE =", exp(rmse)-1))
 ```
 
+#### Residual plot for ref.red_11 model
+```{r}
+residuals.ref.red_11 <- (exp(tss.ref$logTSS)-1) - (exp(pred.rf.ref.red_11)-1) # Observed minus predicted 
+plot(residuals.ref.red_11 ~ (exp(pred.rf.ref.red_11)-1) , xlab = "Predicted TSS (mg/L)", ylab = "Residuals", main="rf.ref.red_11 residuals")
+abline(h=0, col = "red", lty = 2)
+```
+
 #### 5 predictors (not using this one)
 ```{r}
 set.seed(39)
@@ -892,17 +920,43 @@ tss.cal_val.immutable <- tss.cal_val %>%
 pred.rf.ref.red_11<- predict(rf.ref.red_11, tss.cal_val.immutable) #model prediction on cal+val dataset
 plot(tss.cal_val.immutable$logTSS ~ pred.rf.ref.red_11, xlab = 'predicted logTSS', ylab = 'observed logTSS', ylim = c(0,6), main = 'ref.red_11 CAL and VAL')
 
-reg <- lm(tss.cal_val.immutable$logTSS ~ pred.rf.ref.red_11)
-abline(reg, col = "red", lwd = 2)
-
-par(mfrow=c(2,2))
-plot(reg)
-summary(reg)
-
 (rmse<-sqrt(sum((pred.rf.ref.red_11 - tss.cal_val.refadj$logTSS)^2)/length(tss.cal_val.refadj$logTSS))) #prediction error
 print(paste("inverse natural log RMSE =", exp(rmse)-1))
 ```
 
+
+#### Shannon plot CAL and VAL all sites
+```{r}
+# plot obs vs. predicted CAL 
+par(mfrow=c(1,2))
+par(mar=c(4.3,5,1,1))
+plot(x = (exp(pred.rf.red_15)-1), y = exp(tss.cal$logTSS)-1,
+	  xlab='Predicted TSS (mg/L)', ylab='Observed TSS (mg/L)', main='red_15', lwd=1.5, 
+	  cex.lab=1.5, las = 1, font = 2)#
+#abline(a=0, b=1, col='blue', lwd=4)  ---> lm line plots exactly over a 1:1 line
+#abline(lm_cal, lwd=4, lty=2)
+ 
+# plot obs vs. predicted VAL
+par(new=TRUE)
+plot(x = pred.rf.red_15_val, y = exp(tss.val$logTSS)-1,
+	  xlab='', ylab='', main='', pch=2, col='red', cex=1.3, lwd=1.5,axes=FALSE) 
+#abline(lm_val, col='red', lwd=1.8)
+ 
+# plot residuals CAL
+par(mar=c(4.3,4.3,1,1))
+plot(x = (exp(pred.rf.red_15)-1), y = residuals.red_15,
+	  xlab='Predicted TSS (mg/L)', ylab='Residuals (obs-pred)', main='', 
+	  lwd=1.5,cex.lab=1.5, las = 1, font = 2)
+abline(h=1, col="blue", lty = 2)
+ 
+# plot residuals VAL
+par(new=TRUE)	
+plot(x = (exp(pred.rf.red_15_val)-1), y = residuals.red_15_val,
+	  xlab='', ylab="", main="", 
+	  pch=2, col='red', 
+	  lwd=1.5,cex.lab=1.5, las = 1, font = 2, cex=1.3,
+	  axes=FALSE)
+```
 #---------------------------------------------------------------------------
 
 THE ADAM L. THOMPSON MEMORIAL CODE BONEYARD

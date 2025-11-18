@@ -461,6 +461,8 @@ tss.ref <- tss.sc %>% #subset reference only dataset
   filter(ReferenceSite == 'REFERENCE') %>%  
   select(-c(MLocID, StationDes, EcoRegion4:COMID)) %>% 
   select(-TSS)
+
+tss.cal_val <- rbind(tss.cal, tss.val)
 ```
 
 
@@ -469,14 +471,9 @@ tss.ref <- tss.sc %>% #subset reference only dataset
 ## RESPONSE VARIABLE
 
 ```{r}
-# HISTOGRAMS
+# HISTOGRAM
 hist(tss.sc$TSS, main = "", xlab = "TSS") #raw data
 hist(tss.sc$logTSS, main = "", xlab = "log TSS") #log-transformed
-
-hist(tss.cal$logTSS, main = "", xlab = "log TSS", col = "lightblue", ylim = c(0,300)) #log-transformed
-hist(tss.val$logTSS, main = "", xlab = "log TSS", col = "lightgreen", add = TRUE)
-     legend("topright", legend = c("CAL", "VAL"), fill = c("lightblue", "lightgreen")) #log-transformed
-
 
 # DENSITY PLOT
 hist(tss.sc$logTSS, main="", prob=T, xlab = "TSS")
@@ -502,21 +499,16 @@ hist(scmets$CLAYWS, main = "", xlab = "Mean Clay")
 hist(scmets$PESTIC1997WS, main = "", xlab = "Pesticides")
 hist(scmets$SANDWS, main = "", xlab = "Mean Sand")
 hist(scmets$PCTCROP2001WS, main = "", xlab = "Pct Crop")
-hist(scmets$POPDEN2010WS, main = "", xlab = "Population Density")
-hist(scmets$PRECIP9120WS, main = "", xlab = "Precip, 1991-2020")
-hist(scmets$PCTAGSLPMID2001WS, main = "", xlab = "Pct Ag Slopes >10%")
 
 
 # KERNEL DENSITY PLOTS
 kern <- scmets %>%
-  select(WDRW_LDWS, PCTCONIF2001WS, CLAYWS, PESTIC1997WS, SANDWS, PCTCROP2001WS, POPDEN2010WS, PRECIP9120WS, PCTAGSLPMID2001WS)
+  select(WDRW_LDWS , PCTCONIF2001WS , CLAYWS , PESTIC1997WS , SANDWS , PCTCROP2001WS , POPDEN2010WS)
 
 kern %>%
   keep(is.numeric) %>% 
   gather() %>% 
   ggplot(aes(value)) +
-  ylab("Density") +
-  xlab("Value") +
   facet_wrap(~ key, scales = "free") +
   geom_density() +
   geom_rug() 
@@ -570,12 +562,21 @@ plot(rf.full, log="x")  # 500 seems to work fine.
 
 #### Model prediction errors - full model
 ```{r}
-# Predictions & model error
+# Predictions
 pred.rf <- predict(rf.full, newdata = tss.cal)
 plot(tss.cal$logTSS ~ pred.rf, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,4.5),ylim = c(0,4.5), main = 'rf.full')
 abline(a=0,b=1)
-(rmse<-sqrt(sum((pred.rf - tss.cal$logTSS)^2)/length(tss.cal$logTSS))) #prediction error
-print(paste("inverse natural log RMSE =", exp(rmse)-1))
+
+# Model error
+#(rmse<-sqrt(sum((pred.rf - tss.cal$logTSS)^2)/length(tss.cal$logTSS))) #untransformed prediction error
+ut_pred.rf <- exp(pred.rf)-1
+ut_tss.cal <- exp(tss.cal$logTSS)-1
+RMSE.ut.rf.full <- sqrt(sum((ut_pred.rf - ut_tss.cal)^2)/length(tss.cal$logTSS))
+print(paste("inverse natural log RMSE =", RMSE.ut.rf.full ))
+
+range_tss <- max(exp(tss.cal_val$logTSS)-1) - min(exp(tss.cal_val$logTSS)-1)
+RMSE.ut.rf.full_scaled <- RMSE.ut.rf.full/range_tss
+print(paste("scaled untransformed RMSE", RMSE.ut.rf.full_scaled*100, '%'))
 ```
 
 ## REDUCED MODEL - IMPORTANT PREDICTORS ONLY 
@@ -595,8 +596,16 @@ varImpPlot(rf.red_20, type = 1, n.var = 20, main = "Reduced Model top 20") #vari
 pred.rf.red_20 <- predict(rf.red_20, newdata = tss.cal)
 plot(tss.cal$logTSS ~ pred.rf.red_20, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,4.5), ylim = c(0,4.5), main = 'red_20')
 abline(a=0,b=1)
-(rmse<-sqrt(sum((pred.rf.red_20 - tss.cal$logTSS)^2)/length(tss.cal$logTSS))) #prediction error
-print(paste("inverse natural log RMSE =", exp(rmse)-1))
+
+# Model error
+#(rmse<-sqrt(sum((pred.rf.red_20 - tss.cal$logTSS)^2)/length(tss.cal$logTSS))) #untransformed prediction error
+ut_pred.rf.red_20 <- exp(pred.rf.red_20)-1
+ut_tss.cal <- exp(tss.cal$logTSS)-1
+RMSE.ut.rf.red_20 <- sqrt(sum((ut_pred.rf.red_20 - ut_tss.cal)^2)/length(tss.cal$logTSS))
+print(paste("inverse natural log RMSE =", RMSE.ut.rf.red_20))
+
+RMSE.ut.rf.red_20_scaled <- RMSE.ut.rf.red_20/range_tss
+print(paste("scaled untransformed RMSE", RMSE.ut.rf.red_20_scaled*100, '%'))
 ```
 #### * Final reduced model N = 15
 ```{r}
@@ -609,12 +618,20 @@ print(rf.red_15)
 varImpPlot(rf.red_15, type = 1, main = "Reduced Model top 15") #variable importance plot
 #varImpPlot(rf.red_15, type = 2, main = "Reduced Model top 15") #variable importance plot
 
-# Predictions & model error
+# Predictions
 pred.rf.red_15 <- predict(rf.red_15, newdata = tss.cal)
 plot(tss.cal$logTSS ~ pred.rf.red_15, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,4.5), ylim = c(0,4.5), main = 'red_15')
 abline(a=0,b=1)
-(rmse<-sqrt(sum((pred.rf.red_15 - tss.cal$logTSS)^2)/length(tss.cal$logTSS))) #prediction error
-print(paste("inverse natural log RMSE =", exp(rmse)-1))
+
+# Model error
+#(rmse<-sqrt(sum((pred.rf.red_15 - tss.cal$logTSS)^2)/length(tss.cal$logTSS))) #untransformed prediction error
+ut_pred.rf.red_15 <- exp(pred.rf.red_15)-1
+ut_tss.cal <- exp(tss.cal$logTSS)-1
+RMSE.ut.rf.red_15 <- sqrt(sum((ut_pred.rf.red_15 - ut_tss.cal)^2)/length(tss.cal$logTSS))
+print(paste("inverse natural log RMSE =", RMSE.ut.rf.red_15))
+
+RMSE.ut.rf.red_15_scaled <- RMSE.ut.rf.red_15/range_tss
+print(paste("scaled untransformed RMSE", RMSE.ut.rf.red_15_scaled*100, '%'))
 
 #Untransformed plot log scale axes
 plot((exp(tss.cal$logTSS)-1) ~ (exp(pred.rf.red_15)-1), log = "xy",  xlab = 'predicted TSS (mg/L)', ylab = 'observed TSS (mg/L)', main = 'red_15')
@@ -637,11 +654,18 @@ abline(h=0, col = "red", lty = 2)
 # Predictions & model error
 pred.rf.red_15_val <- predict(rf.red_15, newdata = tss.val)
 
+# Model error
+ut_pred.rf.red_15_val <- exp(pred.rf.red_15_val)-1
+ut_tss.val <- exp(tss.val$logTSS)-1
+RMSE.ut.rf.red_15_val <- sqrt(sum((ut_pred.rf.red_15_val - ut_tss.val)^2)/length(tss.val$logTSS))
+print(paste("inverse natural log RMSE =", RMSE.ut.rf.red_15_val))
+
+RMSE.ut.rf.red_15_val_scaled <- RMSE.ut.rf.red_15_val/range_tss
+print(paste("scaled untransformed RMSE", RMSE.ut.rf.red_15_val_scaled*100, '%'))
+
 # Log plot
 plot(tss.val$logTSS ~ pred.rf.red_15_val, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,4.5), ylim = c(0,4.5), main = 'red_15_VAL')
 abline(a=0,b=1)
-(rmse<-sqrt(sum((pred.rf.red_15_val - tss.cal$logTSS)^2)/length(tss.val$logTSS))) #prediction error
-print(paste("inverse natural log RMSE =", exp(rmse)-1))
 
 #Untransformed plot log scale axes
 plot((exp(tss.val$logTSS)-1) ~ (exp(pred.rf.red_15_val)-1), log = "xy",  xlab = 'predicted TSS (mg/L)', ylab = 'observed TSS (mg/L)', main = 'red_15 VAL')
@@ -656,13 +680,19 @@ residuals.red_15_val <- (exp(tss.val$logTSS)-1) - (exp(pred.rf.red_15_val)-1) # 
 
 #### Run all sites (CAL AND VAL) through final reduced model.
 ```{r}
-tss.cal_val <- rbind(tss.cal, tss.val)
-
 pred.rf.red_15_all <- predict(rf.red_15, newdata = tss.cal_val)
 plot(tss.cal_val$logTSS ~ pred.rf.red_15_all, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,5), ylim = c(0,5), main = 'red_15_ALL')
 abline(a=0,b=1)
-(rmse<-sqrt(sum((pred.rf.red_15_all - tss.cal_val$logTSS)^2)/length(tss.cal_val$logTSS))) #prediction error
-print(paste("inverse natural log RMSE =", exp(rmse)-1))
+
+# Model error
+# (rmse<-sqrt(sum((pred.rf.red_15_all - tss.cal_val$logTSS)^2)/length(tss.cal_val$logTSS))) #untransformed RMSE
+ut_pred.rf.red_15_all <- exp(pred.rf.red_15_all)-1
+ut_tss.all <- exp(tss.cal_val$logTSS)-1
+RMSE.ut.rf.red_15_all <- sqrt(sum((ut_pred.rf.red_15_all - ut_tss.all)^2)/length(tss.cal_val$logTSS))
+print(paste("inverse natural log RMSE =", RMSE.ut.rf.red_15_all))
+
+RMSE.ut.rf.red_15_all_scaled <- RMSE.ut.rf.red_15_all/range_tss
+print(paste("scaled untransformed RMSE", RMSE.ut.rf.red_15_all_scaled*100, '%'))
 ```
 
 #### 4 predictors (not using this one)
@@ -680,8 +710,16 @@ varImpPlot(rf.red_4, type = 1, main = "Reduced Model top 4") #variable importanc
 pred.rf.red_4 <- predict(rf.red_4, newdata = tss.cal)
 plot(tss.cal$logTSS ~ pred.rf.red_4, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,5), ylim = c(0,5), main = 'red_4')
 abline(a=0,b=1)
-(rmse<-sqrt(sum((pred.rf.red_4 - tss.cal$logTSS)^2)/length(tss.cal$logTSS))) #prediction error
-print(paste("inverse natural log RMSE =", exp(rmse)-1))
+
+# Model error
+#(rmse<-sqrt(sum((pred.rf.red_4 - tss.cal$logTSS)^2)/length(tss.cal$logTSS))) #untransformed prediction error
+ut_pred.rf.red_4 <- exp(pred.rf.red_4)-1
+ut_tss.cal <- exp(tss.cal$logTSS)-1
+RMSE.ut.rf.red_4 <- sqrt(sum((ut_pred.rf.red_4 - ut_tss.cal)^2)/length(tss.cal$logTSS))
+print(paste("inverse natural log RMSE =", RMSE.ut.rf.red_4))
+
+RMSE.ut.rf.red_4_scaled <- RMSE.ut.rf.red_4/range_tss
+print(paste("scaled untransformed RMSE", RMSE.ut.rf.red_4_scaled*100, '%'))
 ```
 
 ## ADJUST HUMAN-INFLUENCED PREDICTORS TO REFERENCE LEVELS
@@ -802,13 +840,20 @@ tss.cal_val.refadj <- tss.cal_val %>%
     TRUE ~ RDCRSWS))
 ```
 
-#### Run reduced model with adjusted human-influenced predictors to get All Sites Ref Expectations (needs work!)
+#### Run reduced model with adjusted human-influenced predictors to get All Sites Ref Expectations 
 ```{r}
 pred.rf.red_15.all<- predict(rf.red_15, tss.cal_val.refadj) #model prediction on cal+val dataset
 plot(tss.cal_val.refadj$logTSS ~ pred.rf.red_15.all, xlab = 'predicted logTSS', ylab = 'observed logTSS', ylim = c(0,6), main = 'red_15 CAL and VAL ref adjusted')
 
-(rmse<-sqrt(sum((pred.rf.red_15.all - tss.cal_val.refadj$logTSS)^2)/length(tss.cal_val.refadj$logTSS))) #prediction error
-print(paste("inverse natural log RMSE =", exp(rmse)-1))
+# Model error
+#(rmse<-sqrt(sum((pred.rf.red_15.all - tss.cal_val.refadj$logTSS)^2)/length(tss.cal_val.refadj$logTSS)))
+ut_pred.rf.red_15.all <- exp(pred.rf.red_15.all)-1
+ut_tss.all <- exp(tss.cal_val.refadj$logTSS)-1
+RMSE.ut.rf.red_15.all <- sqrt(sum((ut_pred.rf.red_15.all - ut_tss.all)^2)/length(tss.cal_val.refadj$logTSS))
+print(paste("inverse natural log RMSE =", RMSE.ut.rf.red_15.all))
+
+RMSE.ut.rf.red_15.all_scaled <- RMSE.ut.rf.red_15.all/range_tss
+print(paste("scaled untransformed RMSE", RMSE.ut.rf.red_15.all_scaled*100, '%'))
 ```
 
 ## REFERENCE ONLY MODEL
@@ -853,8 +898,17 @@ varImpPlot(rf.full.ref, type = 1, n.var = 20, main = "Full Model Ref only") #var
 pred.rf.full.ref <- predict(rf.full.ref, newdata = tss.ref)
 plot(tss.ref$logTSS ~ pred.rf.full.ref, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,4.5), ylim = c(0,4.5), main = 'rf.full.ref')
 abline(a=0,b=1)
-(rmse<-sqrt(sum((pred.rf.full.ref - tss.ref$logTSS)^2)/length(tss.ref$logTSS))) #prediction error
-print(paste("inverse natural log RMSE =", exp(rmse)-1))
+
+# Model error
+#(rmse<-sqrt(sum((pred.rf.full.ref - tss.ref$logTSS)^2)/length(tss.ref$logTSS)))#untransformed prediction error
+ut_pred.rf.full.ref <- exp(pred.rf.full.ref)-1
+ut_tss.ref <- exp(tss.ref$logTSS)-1
+
+RMSE.ut.rf.full.ref <- sqrt(sum((ut_pred.rf.full.ref - ut_tss.ref)^2)/length(tss.ref$logTSS))
+print(paste("inverse natural log RMSE =", RMSE.ut.rf.full.ref))
+
+RMSE.ut.rf.full.ref_scaled <- RMSE.ut.rf.full.ref/range_tss
+print(paste("scaled untransformed RMSE", RMSE.ut.rf.full.ref_scaled*100, '%'))
 ```
 
 #### Tuning the model (how many trees) 
@@ -876,11 +930,20 @@ varImpPlot(rf.ref.red_20, type = 1, n.var = 20, main = "Full Model Ref only") #v
 pred.rf.ref.red_20 <- predict(rf.ref.red_20, newdata = tss.ref)
 plot(tss.ref$logTSS ~ pred.rf.ref.red_20, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,4.5), ylim = c(0,4.5), main = 'rf.ref.red_20')
 abline(a=0,b=1)
-(rmse<-sqrt(sum((pred.rf.ref.red_20 - tss.ref$logTSS)^2)/length(tss.ref$logTSS))) #prediction error
-print(paste("inverse natural log RMSE =", exp(rmse)-1))
+
+# Model error
+#(rmse<-sqrt(sum((pred.rf.ref.red_20 - tss.ref$logTSS)^2)/length(tss.ref$logTSS))) #untransformed prediction error
+ut_pred.rf.ref.red_20 <- exp(pred.rf.ref.red_20)-1
+ut_tss.ref <- exp(tss.ref$logTSS)-1
+
+RMSE.ut.rf.ref.red_20 <- sqrt(sum((ut_pred.rf.ref.red_20 - ut_tss.ref)^2)/length(tss.ref$logTSS))
+print(paste("inverse natural log RMSE =", RMSE.ut.rf.ref.red_20))
+
+RMSE.ut.rf.ref.red_20_scaled <- RMSE.ut.rf.ref.red_20/range_tss
+print(paste("scaled untransformed RMSE", RMSE.ut.rf.ref.red_20_scaled*100, '%'))
 ```
 
-#### * Final reduced ref only model
+#### * Final reduced ref only model - red_11
 ```{r}
 set.seed(39)
 rf.ref.red_11 <- randomForest(logTSS ~ ROCKNWS + PCT_EROD + PCTBL2001WS + SWS + ELEVWS + NA2OWS + PCTICE2001WS + PRECIP9120WS + FE2O3WS + PCTCONIF2001WS + OMWS, tss.ref, importance = TRUE, mtry=7, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
@@ -893,8 +956,16 @@ varImpPlot(rf.ref.red_11, type = 1, main = "Reduced11 Model Ref only") #variable
 pred.rf.ref.red_11 <- predict(rf.ref.red_11, newdata = tss.ref)
 plot(tss.ref$logTSS ~ pred.rf.ref.red_11, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,4.5), ylim = c(0,4.5), main = 'rf.ref.red_11')
 abline(a=0,b=1)
-(rmse<-sqrt(sum((pred.rf.ref.red_11 - tss.ref$logTSS)^2)/length(tss.ref$logTSS))) #prediction error
-print(paste("inverse natural log RMSE =", exp(rmse)-1))
+
+# Model error
+# (rmse<-sqrt(sum((pred.rf.ref.red_11 - tss.ref$logTSS)^2)/length(tss.ref$logTSS))) #untransformed prediction error
+ut_pred.rf.ref.red_11 <- exp(pred.rf.ref.red_11)-1
+ut_tss.ref <- exp(tss.ref$logTSS)-1
+RMSE.ut.rf.ref.red_11 <- sqrt(sum((ut_pred.rf.ref.red_11 - ut_tss.ref)^2)/length(tss.ref$logTSS))
+print(paste("inverse natural log RMSE =", RMSE.ut.rf.ref.red_11))
+
+RMSE.ut.rf.ref.red_11_scaled <- RMSE.ut.rf.ref.red_11/range_tss
+print(paste("scaled untransformed RMSE", RMSE.ut.rf.ref.red_11_scaled*100, '%'))
 ```
 
 #### Residual plot for ref.red_11 model
@@ -917,9 +988,17 @@ varImpPlot(rf.ref.red_5, type = 1, main = "Reduced5 Model Ref only") #variable i
 pred.rf.ref.red_5 <- predict(rf.ref.red_5, newdata = tss.ref)
 plot(tss.ref$logTSS ~ pred.rf.ref.red_5, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,4.5), ylim = c(0,4.5), main = 'rf.ref.red_5')
 abline(a=0,b=1)
-(rmse<-sqrt(sum((pred.rf.ref.red_5 - tss.ref$logTSS)^2)/length(tss.ref$logTSS))) #prediction error
-print(paste("inverse natural log RMSE =", exp(rmse)-1))
 
+# Model error
+#(rmse<-sqrt(sum((pred.rf.ref.red_5 - tss.ref$logTSS)^2)/length(tss.ref$logTSS))) #untransformed prediction error
+ut_pred.rf.ref.red_5 <- exp(pred.rf.ref.red_5)-1
+ut_tss.ref <- exp(tss.ref$logTSS)-1
+
+RMSE.ut.rf.ref.red_5 <- sqrt(sum((ut_pred.rf.ref.red_5 - ut_tss.ref)^2)/length(tss.ref$logTSS))
+print(paste("inverse natural log RMSE =", RMSE.ut.rf.ref.red_5))
+
+RMSE.ut.rf.ref.red_5_scaled <- RMSE.ut.rf.ref.red_5/range_tss
+print(paste("scaled untransformed RMSE", RMSE.ut.rf.ref.red_5_scaled*100, '%'))
 ```
 
 #### Run all sites through to get ref expectations
@@ -927,11 +1006,19 @@ print(paste("inverse natural log RMSE =", exp(rmse)-1))
 tss.cal_val.immutable <- tss.cal_val %>% 
   select(c("logTSS", "PRECIP9120WS", "WETINDEXWS", "BFIWS", "ELEVWS", "PCTBL2001WS", "PCTCONIF2001WS", "PCTGRS2001WS", "PCTHBWET2001WS", "PCTICE2001WS", "PCTMXFST2001WS", "PCTOW2001WS", "PCTSHRB2001WS", "PCTURBHI2001WS", "PCTURBMD2001WS", "PCTURBOP2001WS", "PCTWDWET2001WS", "PCTFRSTLOSS2002WS", "COMPSTRGTHWS", "FE2O3WS", "HYDRLCONDWS", "NA2OWS", "PCTALKINTRUVOLWS", "PCTALLUVCOASTWS", "PCTCARBRESIDWS", "PCTCOASTCRSWS", "PCTCOLLUVSEDWS", "PCTEOLCRSWS", "PCTEOLFINEWS", "PCTEXTRUVOLWS", "PCTGLACLAKECRSWS", "PCTGLACLAKEFINEWS", "PCTGLACTILCLAYWS", "PCTGLACTILCRSWS", "PCTGLACTILLOAMWS", "PCTHYDRICWS", "PCTSALLAKEWS", "PCTWATERWS", "ROCKNWS", "SWS", "CLAYWS", "KFFACTWS", "OMWS", "RCKDEPWS", "RCKDEPWS", "SANDWS", "WTDEPWS", "PCTFIRE2002WS", "PCTINCVEGRESP2002WS", "PCTNONPROCMASK2002WS", "MSST2008", "BANKFULLWIDTH", "PCT_EROD", "STRMPOW_CAT", "NHD_pSLOPE", "SITE_TYPE", "L2Eco", "L3Eco"))
 
-pred.rf.ref.red_11<- predict(rf.ref.red_11, tss.cal_val.immutable) #model prediction on cal+val dataset
-plot(tss.cal_val.immutable$logTSS ~ pred.rf.ref.red_11, xlab = 'predicted logTSS', ylab = 'observed logTSS', ylim = c(0,6), main = 'ref.red_11 CAL and VAL')
+pred.rf.ref.red_11.all<- predict(rf.ref.red_11, tss.cal_val.immutable) #model prediction on cal+val dataset
+plot(tss.cal_val.immutable$logTSS ~ pred.rf.ref.red_11.all, xlab = 'predicted logTSS', ylab = 'observed logTSS', ylim = c(0,6), main = 'ref.red_11 CAL and VAL')
 
-(rmse<-sqrt(sum((pred.rf.ref.red_11 - tss.cal_val.refadj$logTSS)^2)/length(tss.cal_val.refadj$logTSS))) #prediction error
-print(paste("inverse natural log RMSE =", exp(rmse)-1))
+# Model error
+#(rmse<-sqrt(sum((pred.rf.ref.red_11 - tss.cal_val.refadj$logTSS)^2)/length(tss.cal_val.refadj$logTSS)))#untransformed prediction error
+ut_pred.rf.ref.red_11.all <- exp(pred.rf.ref.red_11.all)-1
+ut_tss.cal_val.immutable<- exp(tss.cal_val.immutable$logTSS)-1
+
+RMSE.ut_pred.rf.ref.red_11.all <- sqrt(sum((ut_pred.rf.ref.red_11.all - ut_tss.cal_val.immutable)^2)/length(tss.cal_val.immutable$logTSS))
+print(paste("inverse natural log RMSE =", RMSE.ut_pred.rf.ref.red_11.all))
+
+RMSE.ut_pred.rf.ref.red_11.all_scaled <- RMSE.ut_pred.rf.ref.red_11.all/range_tss
+print(paste("scaled untransformed RMSE", RMSE.ut_pred.rf.ref.red_11.all_scaled*100, '%'))
 ```
 
 

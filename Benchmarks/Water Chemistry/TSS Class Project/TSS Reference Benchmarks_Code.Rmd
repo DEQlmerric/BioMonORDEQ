@@ -550,7 +550,7 @@ set.seed(39)
 rf.full <- randomForest(logTSS ~ ., tss.cal, importance = TRUE, mtry=7, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
 print(rf.full)
 
-varImpPlot(rf.full, type = 1, n.var = 20, main = "Full Model") #variable importance plot
+varImpPlot(rf.full, type = 1, n.var = 20, main = "All-Sites Model") #variable importance plot
 #varImpPlot(rf.full, type = 2, n.var = 20, main = "Full Model") #variable importance plot
 ```
 
@@ -688,24 +688,42 @@ abline(a=0,b=1)
 residuals.red_15_val <- (exp(tss.val$logTSS)-1) - (exp(pred.rf.red_15_val)-1) # Observed minus predicted 
 ```
 
-#### Side-by-side plots for report
+#### Section just for making report plots
 
 ```{r}
+# ALL-SITES PREDICTION PLOTS -----------------------------------------------------------------------------------------------------------------------
 par(mfrow = c(1,2))
 
 #Untransformed plot log scale axes *** FOR REPORT --- CAL dataset 
 plot((exp(tss.cal$logTSS)-1) ~ (exp(pred.rf.red_15)-1), log = "xy",  xlab = 'predicted TSS (mg/L)', ylab = 'observed TSS (mg/L)', main = 'CAL', 
      xlim = (c(0.2,100)), ylim = c(0.2,100))
 abline(a=0,b=1)
-text(50, 0.5, "RMSE = 6.35 
-%Var = 26.58")
+#text(50, 0.5, "RMSE = 6.35 
+#%Var = 26.58")
 
 #Untransformed plot log scale axes *** FOR REPORT --- apply CAL model to VAL dataset 
 plot((exp(tss.val$logTSS)-1) ~ (exp(pred.rf.red_15_val)-1), log = "xy",  xlab = 'predicted TSS (mg/L)', ylab = '', main = 'VAL',
   xlim = (c(0.2,100)), ylim = c(0.2,100))
 abline(a=0,b=1)
-text(50, 0.5, "RMSE = 13.68 
-%Var = #")
+#text(50, 0.5, "RMSE = 13.68 
+#%Var = #")
+
+# REF-ONLY PREDICTION PLOT ---------------------------------------------------------------------------------------------------------------------------
+# must run bottom section of code before this
+pred.rf.ref.red_11 <- predict(rf.ref.red_11, newdata = tss.ref)
+plot((exp(tss.ref$logTSS) -1) ~ (exp(pred.rf.ref.red_11)-1), log = "xy",
+     xlab = 'predicted TSS (mg/L)', ylab = 'observed TSS (mg/L)', xlim = c(0.2,100), ylim = c(0.2,100), main = '')
+abline(a=0,b=1)
+
+# ALL-SITES REF EXPECTATIONS ---------------------------------------------------------------------------------------------------------------------------------------
+# must run bottom section of code before this
+pred.rf.red_15.all<- predict(rf.red_15, tss.cal_val.refadj) #model prediction on cal+val dataset
+plot(tss.cal_val.refadj$logTSS ~ pred.rf.red_15.all, xlab = 'predicted logTSS', ylab = 'observed logTSS', ylim = c(0,6), main = 'red_15 CAL and VAL ref adjusted')
+#fix scales and logs
+
+
+# REF-ONLY REF EXPECTATIONS ---------------------------------------------------------------------------------------------------------------------------------------
+# must run bottom section of code before this
 ```
 
 
@@ -767,16 +785,18 @@ tss.ref.hi <- tss.sc %>%
 
 # Agricultural fresh surface water withdrawl kg/sq km  
 # Want to scale back to 0.
+# Experimenting with plotting only the 50th percentile vertical reference line
+quantile(tss.ref.hi$WDRW_LDWS, probs = seq(.1, .9, by = .1))
+
 par(mfrow=c(1,2))
-partialPlot(rf.red_15, as.data.frame(tss.cal_val), WDRW_LDWS, main = '', ylab = "Predicted TSS")
-abline(v=quantile(tss.ref.hi$WDRW_LDWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
+partialPlot(rf.red_15, as.data.frame(tss.cal_val), WDRW_LDWS, main = '', ylab = "log Predicted TSS")
+abline(v= 0 , col = 'black', lty = 'dashed')
 hist(tss.ref.hi$WDRW_LDWS, main = '')
-quantile(tss.ref.hi$WDRW_LDWS, probs = seq(.1, .9, by = .1)) 
 
 # Mean pesticide use kg/sq km
 # Want to scale back to 0.
 par(mfrow=c(1,2))
-partialPlot(rf.red_15, as.data.frame(tss.cal_val), PESTIC1997WS, main = '', ylab = "Predicted TSS")
+partialPlot(rf.red_15, as.data.frame(tss.cal_val), PESTIC1997WS, main = '', ylab = "log Predicted TSS")
 abline(v=quantile(tss.ref.hi$PESTIC1997WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
 hist(tss.ref.hi$PESTIC1997WS, main = '')
 quantile(tss.ref.hi$PESTIC1997WS, probs = seq(.1, .9, by = .1))
@@ -792,7 +812,7 @@ quantile(tss.ref.hi$PCTCROP2001WS, probs = seq(.1, .9, by = .1))
 # Mean population density people / sq km
 # Want to scale back to 50th percentile.
 par(mfrow=c(1,2))
-partialPlot(rf.red_15, as.data.frame(tss.cal_val), POPDEN2010WS, main = '', ylab = "Predicted TSS", scale_x_log10())
+partialPlot(rf.red_15, as.data.frame(tss.cal_val), POPDEN2010WS, main = '', ylab = "log Predicted TSS", scale_x_log10())
 abline(v=quantile(tss.ref.hi$POPDEN2010WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
 hist(tss.ref.hi$POPDEN2010WS, main = '')
 quantile(tss.ref.hi$POPDEN2010WS, probs = seq(.1, .9, by = .1))
@@ -800,7 +820,7 @@ quantile(tss.ref.hi$POPDEN2010WS, probs = seq(.1, .9, by = .1))
 # Percent landcover ag dominated on >10% slope
 # Want to scale back to 0.
 par(mfrow=c(1,2))
-partialPlot(rf.red_15, as.data.frame(tss.cal_val), PCTAGSLPMID2001WS, main = '', ylab = "Predicted TSS")
+partialPlot(rf.red_15, as.data.frame(tss.cal_val), PCTAGSLPMID2001WS, main = '', ylab = "log Predicted TSS")
 abline(v=quantile(tss.ref.hi$PCTAGSLPMID2001WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
 hist(tss.ref.hi$PCTAGSLPMID2001WS, main = '')
 quantile(tss.ref.hi$PCTAGSLPMID2001WS, probs = seq(.1, .9, by = .1))
@@ -808,7 +828,7 @@ quantile(tss.ref.hi$PCTAGSLPMID2001WS, probs = seq(.1, .9, by = .1))
 # Surface Water Nitrogen Flux
 # Scale back to 50th percent.  Partial dependence plot looks strange and is hard to explain- might consider dropping from model.
 par(mfrow=c(1,2))
-partialPlot(rf.red_15, as.data.frame(tss.cal_val), SW_FLUXWS, main = '', ylab = "Predicted TSS")
+partialPlot(rf.red_15, as.data.frame(tss.cal_val), SW_FLUXWS, main = '', ylab = "log Predicted TSS")
 abline(v=quantile(tss.ref.hi$SW_FLUXWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
 hist(tss.ref.hi$SW_FLUXWS, main = '')
 quantile(tss.ref.hi$SW_FLUXWS, probs = seq(.1, .9, by = .1))
@@ -816,19 +836,21 @@ quantile(tss.ref.hi$SW_FLUXWS, probs = seq(.1, .9, by = .1))
 # Mean imperviousness 
 # Scale back to 50th percentile.
 par(mfrow=c(1,2))
-partialPlot(rf.red_15, as.data.frame(tss.cal_val), PCTIMP2001WS, main = '', ylab = "Predicted TSS")
+partialPlot(rf.red_15, as.data.frame(tss.cal_val), PCTIMP2001WS, main = '', ylab = "log Predicted TSS")
 abline(v=quantile(tss.ref.hi$PCTIMP2001WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
 hist(tss.ref.hi$PCTIMP2001WS, main = '')
 quantile(tss.ref.hi$PCTIMP2001WS, probs = seq(.1, .9, by = .1))
 
 # Road and stream intersection density per sq km
 # Want to scale back to 0.
-par(mfrow=c(1,2))
-partialPlot(rf.red_15, as.data.frame(tss.cal_val), RDCRSWS, main = '', ylab = "Predicted TSS")
-abline(v=quantile(tss.ref.hi$RDCRSWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
-hist(tss.ref.hi$RDCRSWS, main = '')
+# Experimenting with plotting only the 50th percentile vertical reference line
 quantile(tss.ref.hi$RDCRSWS, probs = seq(.1, .9, by = .1))
 
+par(mfrow=c(1,2))
+partialPlot(rf.red_15, as.data.frame(tss.cal_val), RDCRSWS, main = '', ylab = "log Predicted TSS", xlab = "Road Stream Crossings (#/sq km)")
+abline(v = 0, col = 'black',lty = 'dashed')
+hist(tss.ref.hi$RDCRSWS, main = '', xlab = "Road Stream Crossings (#/sq km)", ylim = c(0,100))
+abline(v = 0.005, col = 'black',lty = 'dashed')
 ```
 
 #### Reference expectations for environmental variables
@@ -872,10 +894,15 @@ tss.cal_val.refadj <- tss.cal_val %>%
 
 #### Run reduced model with adjusted human-influenced predictors to get All Sites Ref Expectations 
 ```{r}
+# REFERENCE EXPECTATIONS FOR ALL-SITES REDUCED
 pred.rf.red_15.all<- predict(rf.red_15, tss.cal_val.refadj) #model prediction on cal+val dataset
 plot(tss.cal_val.refadj$logTSS ~ pred.rf.red_15.all, xlab = 'predicted logTSS', ylab = 'observed logTSS', ylim = c(0,6), main = 'red_15 CAL and VAL ref adjusted')
 
-# Model error
+
+# see what same scale as others looks like
+
+
+# Model error - NOT REALLY RELEVANT HERE SO OMIT IN PLOTS
 #(rmse<-sqrt(sum((pred.rf.red_15.all - tss.cal_val.refadj$logTSS)^2)/length(tss.cal_val.refadj$logTSS)))
 ut_pred.rf.red_15.all <- exp(pred.rf.red_15.all)-1
 ut_tss.all <- exp(tss.cal_val.refadj$logTSS)-1
@@ -921,7 +948,7 @@ set.seed(39)
 rf.full.ref <- randomForest(logTSS ~ ., tss.ref, importance = TRUE, mtry=7, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
 print(rf.full.ref)
 
-varImpPlot(rf.full.ref, type = 1, n.var = 20, main = "Full Model Ref only") #variable importance plot
+varImpPlot(rf.full.ref, type = 1, n.var = 20, main = "Reference-Only Model") #variable importance plot
 #varImpPlot(rf.full.ref, type = 2, n.var = 20, main = "Full Model Ref only") #variable importance plot
 
 # LOG +1-TRANSFORMED TSS

@@ -708,21 +708,18 @@ abline(a=0,b=1)
 #text(50, 0.5, "RMSE = 13.68 
 #%Var = #")
 
-# REF-ONLY PREDICTION PLOT ---------------------------------------------------------------------------------------------------------------------------
+# REF-ONLY PREDICTION PLOT/EXPECTATIONS ---------------------------------------------------------------------------------------------------------------------------
 # must run bottom section of code before this
 pred.rf.ref.red_11 <- predict(rf.ref.red_11, newdata = tss.ref)
 plot((exp(tss.ref$logTSS) -1) ~ (exp(pred.rf.ref.red_11)-1), log = "xy",
      xlab = 'predicted TSS (mg/L)', ylab = 'observed TSS (mg/L)', xlim = c(0.2,100), ylim = c(0.2,100), main = '')
-abline(a=0,b=1)
+
 
 # ALL-SITES REF EXPECTATIONS ---------------------------------------------------------------------------------------------------------------------------------------
 # must run bottom section of code before this
 pred.rf.red_15.all<- predict(rf.red_15, tss.cal_val.refadj) #model prediction on cal+val dataset
-plot(tss.cal_val.refadj$logTSS ~ pred.rf.red_15.all, xlab = 'predicted logTSS', ylab = 'observed logTSS', ylim = c(0,6), main = 'red_15 CAL and VAL ref adjusted')
+plot((exp(tss.cal_val.refadj$logTSS)-1) ~ (exp(pred.rf.red_15.all)-1), log = "xy", xlab = 'predicted TSS (mg/L)', ylab = 'observed TSS (mg/L)', ylim = c(0.2,100), xlim = c(0.2,100), main = '')
 #fix scales and logs
-
-
-# REF-ONLY REF EXPECTATIONS ---------------------------------------------------------------------------------------------------------------------------------------
 # must run bottom section of code before this
 ```
 

@@ -36,6 +36,32 @@ tss <- read_excel("TSS_amb_2025-11-12.xlsx") #output file from ref benchmarks sc
 comids <- tss %>% select(COMID) #get just the COMIDs for next step
 ```
 
+### PLOTS for final paper
+```{r}
+tss.plots <- tss %>%   # These get removed in the code later, but I'm taking them out here to take advantage of all the columns that came from AWQMs before they get removed.
+  filter(MLocID != '23856-ORDEQ') %>% 
+  filter(MLocID != '30625-ORDEQ') %>% 
+  filter(MLocID != '30727-ORDEQ') %>% 
+  filter(MLocID != '12266-ORDEQ')
+
+tss.plots$ReferenceSite <- factor(tss.plots$ReferenceSite, levels = c("REFERENCE", "MODERATELY DISTURBED", "MOST DISTURBED"))
+
+tss.plots.sum <- tss.plots %>% 
+  group_by(ReferenceSite) %>% 
+  summarize(n.Samples = n(),
+            mean = mean(TSS),
+            median = median(TSS),
+            min = min(TSS),
+            max = max(TSS), 
+            sd = sd(TSS))
+
+ggplot(tss.plots, aes(x = ReferenceSite,y = TSS)) +
+    geom_boxplot(outlier.size = 0.9) +
+    labs(x = "Reference Status", y = "TSS (mg/L)")  +
+    theme(axis.text.x = element_text( vjust = 0.5))
+```
+
+
 ## WATERSHED PREDICTOR VARIABLES - *FROM EPA STREAMCAT*
 
 #### Learn about StreamCat predictors: <https://www.epa.gov/national-aquatic-resource-surveys/streamcat-metrics-and-definitions>
@@ -557,7 +583,7 @@ varImpPlot(rf.full, type = 1, n.var = 20, main = "Full Model") #variable importa
 #### Tuning the model (how many trees) 
 ```{r}
 # How many trees is appropriate?
-plot(rf.full, log="x")  # 500 seems to work fine.
+plot(rf.full, log="x", main = '')  # 500 seems to work fine.
 ```
 
 #### Model prediction errors - full model

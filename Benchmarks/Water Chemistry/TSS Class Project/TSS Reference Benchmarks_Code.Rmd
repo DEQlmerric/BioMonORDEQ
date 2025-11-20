@@ -701,26 +701,41 @@ abline(a=0,b=1)
 #text(50, 0.5, "RMSE = 6.35 
 #%Var = 26.58")
 
+par(mfrow = c(1,2))
+
 #Untransformed plot log scale axes *** FOR REPORT --- apply CAL model to VAL dataset 
-plot((exp(tss.val$logTSS)-1) ~ (exp(pred.rf.red_15_val)-1), log = "xy",  xlab = 'predicted TSS (mg/L)', ylab = '', main = 'VAL',
+plot((exp(tss.val$logTSS)-1) ~ (exp(pred.rf.red_15_val)-1), log = "xy",  xlab = 'predicted TSS (mg/L)', ylab = 'observed TSS (mg/L)', main = '',
   xlim = (c(0.2,100)), ylim = c(0.2,100))
 abline(a=0,b=1)
 #text(50, 0.5, "RMSE = 13.68 
 #%Var = #")
 
-# REF-ONLY PREDICTION PLOT/EXPECTATIONS ---------------------------------------------------------------------------------------------------------------------------
+# REF-ONLY PREDICTION PLOT ---------------------------------------------------------------------------------------------------------------------------
 # must run bottom section of code before this
 pred.rf.ref.red_11 <- predict(rf.ref.red_11, newdata = tss.ref)
 plot((exp(tss.ref$logTSS) -1) ~ (exp(pred.rf.ref.red_11)-1), log = "xy",
      xlab = 'predicted TSS (mg/L)', ylab = 'observed TSS (mg/L)', xlim = c(0.2,100), ylim = c(0.2,100), main = '')
+abline(a=0,b=1)
 
 
-# ALL-SITES REF EXPECTATIONS ---------------------------------------------------------------------------------------------------------------------------------------
+par(mfrow = c(1,2))
+# ALL-SITESREF EXPECTATIONS ---------------------------------------------------------------------------------------------------------------------------------------
 # must run bottom section of code before this
 pred.rf.red_15.all<- predict(rf.red_15, tss.cal_val.refadj) #model prediction on cal+val dataset
-plot((exp(tss.cal_val.refadj$logTSS)-1) ~ (exp(pred.rf.red_15.all)-1), log = "xy", xlab = 'predicted TSS (mg/L)', ylab = 'observed TSS (mg/L)', ylim = c(0.2,100), xlim = c(0.2,100), main = '')
+plot((exp(tss.cal_val.refadj$logTSS)-1) ~ (exp(pred.rf.red_15.all)-1), log = "xy", xlab = 'TSS reference expectations (mg/L)', ylab = 'observed TSS (mg/L)', ylim = c(0.2,100), xlim = c(0.2,100), main = 'All-Sites')
+abline(a=0,b=1, untf = TRUE)
+#abline(a=0.6931472,b=1, col = 'red')
+abline(a=0,b=2, col = 'red', lty = 'dashed', untf = TRUE)
 #fix scales and logs
 # must run bottom section of code before this
+
+# REF-ONLY REF EXPECTATIONS ---------------------------------------------------------------------------------------------------------------------------
+# must run bottom section of code before this
+pred.rf.ref.red_11 <- predict(rf.ref.red_11, newdata = tss.cal_val)
+plot((exp(tss.cal_val$logTSS) -1) ~ (exp(pred.rf.ref.red_11)-1), log = "xy",
+     xlab = 'TSS reference expectations (mg/L)', ylab = 'observed TSS (mg/L)', xlim = c(0.2,100), ylim = c(0.2,100), main = 'Reference-Only')
+abline(a=0,b=1, untf = TRUE)
+abline(a=0,b=2, col = 'red', lty = 'dashed', untf = TRUE)
 ```
 
 

@@ -762,6 +762,16 @@ plot((exp(tss.cal_val$logTSS) -1) ~ (exp(pred.rf.ref.red_11)-1), log = "xy",
      xlab = 'TSS reference expectations (mg/L)', ylab = 'observed TSS (mg/L)', xlim = c(0.2,100), ylim = c(0.2,100), main = 'Reference-Only')
 abline(a=0,b=1, untf = TRUE)
 abline(a=0,b=2, col = 'red', lty = 'dashed', untf = TRUE)
+
+oe.ref <- cbind(pred.rf.ref.red_11, tss.cal_val$logTSS)
+oe.ref <- as.data.frame(oe.ref) %>% 
+  rename(pred_logTSS = V2) %>% 
+  mutate(obs_TSS = exp(tss.cal_val$logTSS) -1) %>% 
+  mutate(pred_TSS = exp(pred.rf.ref.red_11)-1) %>% 
+  mutate('O/E' = obs_TSS/pred_TSS)
+
+print(sum(oe.ref$`O/E`>1)/741) # prop above 1:1 line
+print(sum(oe.ref$`O/E`>2)/741) # prop above 2:1 line
 ```
 
 
@@ -780,6 +790,16 @@ print(paste("inverse natural log RMSE =", RMSE.ut.rf.red_15_all))
 
 RMSE.ut.rf.red_15_all_scaled <- RMSE.ut.rf.red_15_all/range_tss
 print(paste("scaled untransformed RMSE", RMSE.ut.rf.red_15_all_scaled*100, '%'))
+
+oe.allsites <- cbind(pred.rf.red_15_all, tss.cal_val$logTSS)
+oe.allsites <- as.data.frame(oe.allsites) %>% 
+  rename(pred_logTSS = V2) %>% 
+  mutate(obs_TSS = exp(tss.cal_val$logTSS) -1) %>% 
+  mutate(pred_TSS = exp(pred.rf.red_15_all)-1) %>% 
+  mutate('O/E' = obs_TSS/pred_TSS)
+
+print(sum(oe.allsites$`O/E`>1)/741) # prop above 1:1 line
+print(sum(oe.allsites$`O/E`>2)/741) # prop above 2:1 line
 ```
 
 #### 4 predictors (not using this one)

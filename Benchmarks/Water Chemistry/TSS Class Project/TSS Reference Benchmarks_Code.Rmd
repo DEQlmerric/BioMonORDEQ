@@ -743,16 +743,23 @@ abline(h=0, col = "red", pch = 2, lty = 2)
 
 
 
-# REF-ONLY PREDICTION PLOT ---------------------------------------------------------------------------------------------------------------------------
+# REF-ONLY PREDICTION PLOT -------------------------------------------------------------------------------------------------------------------------
 # must run bottom section of code before this
+par(mfrow = c(1,2))
+
 pred.rf.ref.red_11 <- predict(rf.ref.red_11, newdata = tss.ref)
 plot((exp(tss.ref$logTSS) -1) ~ (exp(pred.rf.ref.red_11)-1), log = "xy",
      xlab = 'predicted TSS (mg/L)', ylab = 'observed TSS (mg/L)', xlim = c(0.2,100), ylim = c(0.2,100), main = '')
 abline(a=0,b=1)
 
+# REF RESIDUALS
+residuals.ref_11 <- (exp(tss.ref$logTSS)-1) - (exp(pred.rf.ref.red_11)-1) # Observed minus predicted 
+plot(residuals.ref_11 ~ (exp(pred.rf.ref.red_11)-1), xlab = "predicted TSS (mg/L)", ylab = "residuals (obs-pred)", main="")
+abline(h=0, col = "red", pch = 2, lty = 2)
+
 
 par(mfrow = c(1,2))
-# ALL-SITESREF EXPECTATIONS ---------------------------------------------------------------------------------------------------------------------------------------
+# ALL-SITESREF EXPECTATIONS ------------------------------------------------------------------------------------------------------------------------
 # must run bottom section of code before this
 pred.rf.red_15.all<- predict(rf.red_15, tss.cal_val.refadj) #model prediction on cal+val dataset
 plot((exp(tss.cal_val.refadj$logTSS)-1) ~ (exp(pred.rf.red_15.all)-1), log = "xy", xlab = 'TSS reference expectations (mg/L)', ylab = 'observed TSS (mg/L)', ylim = c(0.2,100), xlim = c(0.2,100), main = 'All-Sites')
@@ -762,7 +769,9 @@ abline(a=0,b=2, col = 'red', lty = 'dashed', untf = TRUE)
 #fix scales and logs
 # must run bottom section of code before this
 
-# REF-ONLY REF EXPECTATIONS ---------------------------------------------------------------------------------------------------------------------------
+
+
+# REF-ONLY REF EXPECTATIONS ------------------------------------------------------------------------------------------------------------------------
 # must run bottom section of code before this
 pred.rf.ref.red_11 <- predict(rf.ref.red_11, newdata = tss.cal_val)
 plot((exp(tss.cal_val$logTSS) -1) ~ (exp(pred.rf.ref.red_11)-1), log = "xy",
@@ -770,23 +779,12 @@ plot((exp(tss.cal_val$logTSS) -1) ~ (exp(pred.rf.ref.red_11)-1), log = "xy",
 abline(a=0,b=1, untf = TRUE)
 abline(a=0,b=2, col = 'red', lty = 'dashed', untf = TRUE)
 
-<<<<<<< HEAD
 
-# plot residuals CAL
-par(mar=c(4.3,4.3,1,1))
-plot(x = (exp(pred.rf.red_15)-1), y = residuals.red_15,
-	  xlab='Predicted TSS (mg/L)', ylab='Residuals (obs-pred)', main='', 
-	  lwd=1.5,cex.lab=1.5, las = 1, font = 2)
-abline(h=1, col="blue", lty = 2)
- 
-# plot residuals VAL
-par(new=TRUE)	
-plot(x = (exp(pred.rf.red_15_val)-1), y = residuals.red_15_val,
-	  xlab='', ylab="", main="", 
-	  pch=2, col='red', 
-	  lwd=1.5,cex.lab=1.5, las = 1, font = 2, cex=1.3,
-	  axes=FALSE)
 
+
+
+
+# CALCULATE PROPORTIONS ABOVE 1:1 AND 2:1 LINES
 =======
 oe.ref <- cbind(pred.rf.ref.red_11, tss.cal_val$logTSS)
 oe.ref <- as.data.frame(oe.ref) %>% 
@@ -798,6 +796,7 @@ oe.ref <- as.data.frame(oe.ref) %>%
 print(sum(oe.ref$`O/E`>1)/741) # prop above 1:1 line
 print(sum(oe.ref$`O/E`>2)/741) # prop above 2:1 line
 >>>>>>> 1bd776d8071e6d6c90f374a5c93ad3b03022bae9
+
 ```
 
 

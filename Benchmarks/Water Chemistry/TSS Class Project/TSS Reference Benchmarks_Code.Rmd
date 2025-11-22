@@ -736,6 +736,13 @@ abline(a=0,b=1)
 #text(50, 0.5, "RMSE = 13.68 
 #%Var = #")
 
+# VAL residuals
+#residuals.red_15 <- (exp(tss.cal$logTSS)-1) - (exp(pred.rf.red_15)-1) # Observed minus predicted 
+plot(residuals.red_15_val ~ (exp(pred.rf.red_15_val)-1), xlab = "predicted TSS (mg/L)", ylab = "residuals (obs-pred)", main="")
+abline(h=0, col = "red", pch = 2, lty = 2)
+
+
+
 # REF-ONLY PREDICTION PLOT ---------------------------------------------------------------------------------------------------------------------------
 # must run bottom section of code before this
 pred.rf.ref.red_11 <- predict(rf.ref.red_11, newdata = tss.ref)
@@ -762,6 +769,23 @@ plot((exp(tss.cal_val$logTSS) -1) ~ (exp(pred.rf.ref.red_11)-1), log = "xy",
      xlab = 'TSS reference expectations (mg/L)', ylab = 'observed TSS (mg/L)', xlim = c(0.2,100), ylim = c(0.2,100), main = 'Reference-Only')
 abline(a=0,b=1, untf = TRUE)
 abline(a=0,b=2, col = 'red', lty = 'dashed', untf = TRUE)
+
+
+# plot residuals CAL
+par(mar=c(4.3,4.3,1,1))
+plot(x = (exp(pred.rf.red_15)-1), y = residuals.red_15,
+	  xlab='Predicted TSS (mg/L)', ylab='Residuals (obs-pred)', main='', 
+	  lwd=1.5,cex.lab=1.5, las = 1, font = 2)
+abline(h=1, col="blue", lty = 2)
+ 
+# plot residuals VAL
+par(new=TRUE)	
+plot(x = (exp(pred.rf.red_15_val)-1), y = residuals.red_15_val,
+	  xlab='', ylab="", main="", 
+	  pch=2, col='red', 
+	  lwd=1.5,cex.lab=1.5, las = 1, font = 2, cex=1.3,
+	  axes=FALSE)
+
 ```
 
 

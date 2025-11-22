@@ -738,7 +738,7 @@ abline(a=0,b=1)
 
 # VAL residuals
 #residuals.red_15 <- (exp(tss.cal$logTSS)-1) - (exp(pred.rf.red_15)-1) # Observed minus predicted 
-plot(residuals.red_15_val ~ (exp(pred.rf.red_15_val)-1), xlab = "predicted TSS (mg/L)", ylab = "residuals (obs-pred)", main="")
+plot(residuals.red_15_val ~ (exp(pred.rf.red_15_val)-1), xlab = "predicted TSS (mg/L)", ylab = "residuals (obs-pred)", main="", log = "x")
 abline(h=0, col = "red", pch = 2, lty = 2)
 
 
@@ -754,7 +754,7 @@ abline(a=0,b=1)
 
 # REF RESIDUALS
 residuals.ref_11 <- (exp(tss.ref$logTSS)-1) - (exp(pred.rf.ref.red_11)-1) # Observed minus predicted 
-plot(residuals.ref_11 ~ (exp(pred.rf.ref.red_11)-1), xlab = "predicted TSS (mg/L)", ylab = "residuals (obs-pred)", main="")
+plot(residuals.ref_11 ~ (exp(pred.rf.ref.red_11)-1), xlab = "predicted TSS (mg/L)", ylab = "residuals (obs-pred)", main="", log = "x")
 abline(h=0, col = "red", pch = 2, lty = 2)
 
 

@@ -514,6 +514,98 @@ boxplot(tss.sc$logTSS, ylab = "TSS")
 qqnorm(tss.sc$TSS) #Q-Q plot
 qqline(tss.sc$TSS) #not normal
 ```
+```{r}
+join <- inner_join(scmets, tss, by='COMID')
+
+join_ref_plot <- join %>% 
+  filter(ReferenceSite == 'REFERENCE') %>% 
+  select(SW_FLUXWS:NHD_pSLOPE) 
+
+join_mod_plot <- join %>% 
+  filter(ReferenceSite == 'MODERATELY DISTURBED') %>% 
+  select(SW_FLUXWS:NHD_pSLOPE) 
+
+join_most_plot <- join %>% 
+  filter(ReferenceSite == 'MOST DISTURBED') %>% 
+  select(SW_FLUXWS:NHD_pSLOPE) 
+
+join_ref_plot %>%
+  select('WDRW_LDWS', 'PCTCONIF2001WS' , 'CLAYWS' , 'PESTIC1997WS' , 'SANDWS' , 'PCTCROP2001WS' , 'POPDEN2010WS' , 'PRECIP9120WS' , 'PCTAGSLPMID2001WS' , 'PCT_EROD' , 'SW_FLUXWS' , 'PCTIMP2001WS' , 'RDCRSWS' , 'WTDEPWS' , 'ELEVWS' , 'WETINDEXWS' , 'PCTSHRB2001WS' , 'KFFACTWS' , 'PCTICE2001WS' , 'RCKDEPWS') %>% 
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_density() +
+  geom_rug() + ggtitle("Reference")
+
+join_mod_plot %>%
+  select('WDRW_LDWS', 'PCTCONIF2001WS' , 'CLAYWS' , 'PESTIC1997WS' , 'SANDWS' , 'PCTCROP2001WS' , 'POPDEN2010WS' , 'PRECIP9120WS' , 'PCTAGSLPMID2001WS' , 'PCT_EROD' , 'SW_FLUXWS' , 'PCTIMP2001WS' , 'RDCRSWS' , 'WTDEPWS' , 'ELEVWS' , 'WETINDEXWS' , 'PCTSHRB2001WS' , 'KFFACTWS' , 'PCTICE2001WS' , 'RCKDEPWS') %>% 
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_density() +
+  geom_rug() + ggtitle("Moderately Disturbed")
+
+join_most_plot %>%
+  select('WDRW_LDWS', 'PCTCONIF2001WS' , 'CLAYWS' , 'PESTIC1997WS' , 'SANDWS' , 'PCTCROP2001WS' , 'POPDEN2010WS' , 'PRECIP9120WS' , 'PCTAGSLPMID2001WS' , 'PCT_EROD' , 'SW_FLUXWS' , 'PCTIMP2001WS' , 'RDCRSWS' , 'WTDEPWS' , 'ELEVWS' , 'WETINDEXWS' , 'PCTSHRB2001WS' , 'KFFACTWS' , 'PCTICE2001WS' , 'RCKDEPWS') %>% 
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_density() +
+  geom_rug() + ggtitle("Most Disturbed")
+
+join_ND_plot <- join %>% 
+  filter(TSS<=0.25 | TSS<=0.5) # N = 356
+
+join_ND_plot %>%
+  select('WDRW_LDWS', 'PCTCONIF2001WS' , 'CLAYWS' , 'PESTIC1997WS' , 'SANDWS' , 'PCTCROP2001WS' , 'POPDEN2010WS' , 'PRECIP9120WS' , 'PCTAGSLPMID2001WS' , 'PCT_EROD' , 'SW_FLUXWS' , 'PCTIMP2001WS' , 'RDCRSWS' , 'WTDEPWS' , 'ELEVWS' , 'WETINDEXWS' , 'PCTSHRB2001WS' , 'KFFACTWS' , 'PCTICE2001WS' , 'RCKDEPWS') %>% 
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_density() +
+  geom_rug() + ggtitle("Non-detects")
+
+join_midTSS_plot <- join %>% 
+  filter(TSS > 0.5 | TSS <= 20) # N = 717
+
+join_midTSS_plot %>%
+  select('WDRW_LDWS', 'PCTCONIF2001WS' , 'CLAYWS' , 'PESTIC1997WS' , 'SANDWS' , 'PCTCROP2001WS' , 'POPDEN2010WS' , 'PRECIP9120WS' , 'PCTAGSLPMID2001WS' , 'PCT_EROD' , 'SW_FLUXWS' , 'PCTIMP2001WS' , 'RDCRSWS' , 'WTDEPWS' , 'ELEVWS' , 'WETINDEXWS' , 'PCTSHRB2001WS' , 'KFFACTWS' , 'PCTICE2001WS' , 'RCKDEPWS') %>% 
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_density() +
+  geom_rug() + ggtitle("TSS 1-20 mg/L")
+
+join_highTSS_plot <- join %>% 
+  filter(TSS > 20) # N = 35
+
+join_highTSS_plot %>%
+  select('WDRW_LDWS', 'PCTCONIF2001WS' , 'CLAYWS' , 'PESTIC1997WS' , 'SANDWS' , 'PCTCROP2001WS' , 'POPDEN2010WS' , 'PRECIP9120WS' , 'PCTAGSLPMID2001WS' , 'PCT_EROD' , 'SW_FLUXWS' , 'PCTIMP2001WS' , 'RDCRSWS' , 'WTDEPWS' , 'ELEVWS' , 'WETINDEXWS' , 'PCTSHRB2001WS' , 'KFFACTWS' , 'PCTICE2001WS' , 'RCKDEPWS') %>% 
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_density() +
+  geom_rug() + ggtitle("TSS >20 mg/L")
+
+join_all_plot <- join %>% 
+  select(SW_FLUXWS:NHD_pSLOPE) 
+
+
+join_all_plot %>%
+  select('WDRW_LDWS', 'PCTCONIF2001WS' , 'CLAYWS' , 'PESTIC1997WS' , 'SANDWS' , 'PCTCROP2001WS' , 'POPDEN2010WS' , 'PRECIP9120WS' , 'PCTAGSLPMID2001WS' , 'PCT_EROD' , 'SW_FLUXWS' , 'PCTIMP2001WS' , 'RDCRSWS' , 'WTDEPWS' , 'ELEVWS' , 'WETINDEXWS' , 'PCTSHRB2001WS' , 'KFFACTWS' , 'PCTICE2001WS' , 'RCKDEPWS') %>% 
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_density() +
+  geom_rug() + ggtitle("all sites")
+```
+
 
 ## PREDICTOR VARIABLES
 
@@ -1267,7 +1359,34 @@ abline(v = 0, col = 'black',lty = 'dashed')
 hist(tss.ref.hi$RDCRSWS, main = '', xlab = 'RDCRSWS', ylim = c(0,100))
 abline(v = 0.005, col = 'black',lty = 'dashed')
 ```
+
+#### Coefficient of Variation for env predictors
+```{r}
+top20 <- scmets %>% 
+select('WDRW_LDWS', 'PCTCONIF2001WS' , 'CLAYWS' , 'PESTIC1997WS' , 'SANDWS' , 'PCTCROP2001WS' , 'POPDEN2010WS' , 'PRECIP9120WS' , 'PCTAGSLPMID2001WS' , 'PCT_EROD' , 'SW_FLUXWS' , 'PCTIMP2001WS' , 'RDCRSWS' , 'WTDEPWS' , 'ELEVWS' , 'WETINDEXWS' , 'PCTSHRB2001WS' , 'KFFACTWS' , 'PCTICE2001WS' , 'RCKDEPWS')
+
+cv1 <- sd(top20$PCTICE2001WS)/mean(top20$PCTICE2001WS)
+
+library(EnvStats)
+
+cv_top20 <- top20 %>% 
+  summarise(across(everything(), ~ cv(.x)))
+
+cv_top20<-pivot_longer(cv_top20, 1:20, names_to="Var", values_to="CV")
+
+write_xlsx(cv_top20, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//CofV", Sys.Date(), ".xlsx"))
+
+cv_all <- scmets %>% 
+  select(-COMID) %>% 
+  select(-SITE_TYPE) %>% 
+  summarise(across(everything(), ~ cv(.x)))
+
+cv_all<-pivot_longer(cv_all, 1:77, names_to="Var", values_to="CV")
+
+write_xlsx(cv_all, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//CofV_all", Sys.Date(), ".xlsx"))
+
 ```
+
 
 #---------------------------------------------------------------------------
 

@@ -262,12 +262,12 @@ cal.val_chem.ref.wq <- rbind(reach_mult, reach_single)
 # HOWEVER there are some misidentified COMIDs in the dataset, so these will need to be screened for each parameter. 
 
 # Below are some manual edits, vetted FOR TSS ONLY.  Lackeys will need to revisit this for other parameters.
-# Delete this once Dan updates Stations.
-cal.val_chem.ref.wq <- cal.val_chem.ref.wq %>% 
-  mutate(COMID = ifelse(MLocID == '12868-ORDEQ', -99999, COMID)) %>% # A-3 Channel.  Still need to ask Dan to update. Changed from 23764745.
-  filter(COMID != '-99999') %>% # Drop this new one since we don't want -99999s.
-  mutate(COMID = ifelse(MLocID == '33518-ORDEQ', 23815014, COMID)) %>%  # Miller Creek.  Still need to ask Dan to update.  Changed from 23815386.
-  mutate(COMID = ifelse(MLocID== '16999-ORDEQ',24515990, COMID )) # Fox Creek at FSR.  Still need to ask Dan to update. Changed from 24516234.
+# # Delete this once Dan updates Stations.  UPDATE Dan updated these 12/9/25.  Confirm and delete this chunk.
+# cal.val_chem.ref.wq <- cal.val_chem.ref.wq %>% 
+#   mutate(COMID = ifelse(MLocID == '12868-ORDEQ', -99999, COMID)) %>% # A-3 Channel.  Still need to ask Dan to update. Changed from 23764745.
+#   filter(COMID != '-99999') %>% # Drop this new one since we don't want -99999s.
+#   mutate(COMID = ifelse(MLocID == '33518-ORDEQ', 23815014, COMID)) %>%  # Miller Creek.  Still need to ask Dan to update.  Changed from 23815386.
+#   mutate(COMID = ifelse(MLocID== '16999-ORDEQ',24515990, COMID )) # Fox Creek at FSR.  Still need to ask Dan to update. Changed from 24516234.
 
 # List sites that have more than one COMID.  Randomly sample 1 site to keep.
 mult.comids <- cal.val_chem.ref.wq %>% 

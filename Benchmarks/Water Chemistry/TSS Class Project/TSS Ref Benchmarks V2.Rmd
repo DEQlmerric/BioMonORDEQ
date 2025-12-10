@@ -5,7 +5,8 @@ date: "2025-10-21"
 output: html_document
 ---
 
-#### **PREFACE:** This script explores the creation of a site-specific reference benchmark for total suspended solids (TSS) for ESM 566 Fall Environmental Statistics final project. 
+#### **PREFACE:** This script explores the creation of a site-specific reference benchmark for total suspended solids (TSS) for ESM 566 Fall Environmental Statistics final project.
+
 V2 = cleaned up code from the class version.
 
 # **1 - LOAD PACKAGES**
@@ -227,6 +228,7 @@ tss_vars <- tss_vars %>%
   select(-c(HUC8, EcoRegion4)) %>% 
   relocate(Lat_DD:Long_DD, .after = NHD_pSLOPE)
 ```
+
 #### Make Spearman correlation matrix to identify co-varied parameters
 
 ```{r, warning=FALSE}
@@ -253,9 +255,9 @@ matrix <- spear.rows %>%
 rm(list=c('spear', 'spear.rows'))
 ```
 
-#### Explore co-varied metrics and select which we want to retain for modeling purposes. 
+#### Explore co-varied metrics and select which we want to retain for modeling purposes.
 
-##### NOTE: SB, SH, AT did this together in Excel. See "Spearman2 - predictor decisions" on Teams for list of discarded/retained metrics. 
+##### NOTE: SB, SH, AT did this together in Excel. See "Spearman2 - predictor decisions" on Teams for list of discarded/retained metrics.
 
 ```{r}
 # Look at Coefficient of Variance for predictors.
@@ -273,148 +275,28 @@ cv_pctzero <- tss_vars_num %>%
 rm(cv)
 ```
 
-#### Run StreamCat function again, but only for parameters of interest
-
+#### Drop variables that were not selected based on correlation analysis.
 ```{r}
-# FUNCTION - START +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-get_streamcat <- function(comids, type = c("Agriculture2","Climate2","Dams2","Flow2","IWI2","Land Cover2","Lithology2","Mining_Toxics2","Roads2",
-                                           "Urban2","Wildfire2","Others2")){
-type <- match.arg(type)
-#comids_split <- split(comids, ceiling(seq_along(comids)/750)) #removed b/c doesn't seem to be doing anything - wrong data class??
-
-if(type == "Agriculture2"){
-
-  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'canaldens,pctagdrainage,pctagslpmid2001,pestic1997,wdrw_LD,pctcrop2001,sw_flux',
-                                                                           showAreaSqKm = FALSE,
-                                                                           aoi='watershed')) 
-  }
-
-if(type == "Climate2"){
-
-  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'precip9120,wetindex', 
-                                                                           showAreaSqKm = FALSE,
-                                                                           aoi='watershed'))
-  }
-
-if(type == "Dams2"){
-
-  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'damdens', 
-                                                                           showAreaSqKm = FALSE,
-                                                                           aoi='watershed'))
-  }
-
-if(type == "Flow2"){
-
-  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'bfi,elev',
-                                                                           showAreaSqKm = FALSE,
-                                                                           aoi='watershed'))
-  }
-
-if(type == "IWI2"){
-
-  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'chem,conn,hyd',
-                                                                           showAreaSqKm = FALSE,
-                                                                           aoi='watershed'))
-  }
-
-if(type == "Land Cover2"){
-
-  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'pctbl2001,pctconif2001,pctgrs2001,pcthbwet2001,pctice2001,pctmxfst2001,pctow2001,pctshrb2001,pcturbhi2001,pcturbmd2001,pcturbop2001,pctwdwet2001,pctfrstloss2002', 
-                                                                           showAreaSqKm = FALSE,
-                                                                           aoi='watershed'))
-  }
-# Removed pctsilicic and pctnoncarbresid since they are correlated with erodibility.
-if(type == "Lithology2"){
-
-  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'compstrgth,fe2o3,hydrlcond,na2o,pctalkintruvol,pctalluvcoast,pctcarbresid,pctcoastcrs,pctcolluvsed,pcteolcrs,pcteolfine,pctextruvol,pctglaclakecrs,pctglaclakefine,pctglactilclay,pctglactilcrs,pctglactilloam,pcthydric,pctsallake,pctwater,rockn,s,clay,kffact,om,Rckdep,rckdep,sand,wtdep,n',
-                                                                           showAreaSqKm = FALSE,
-                                                                           aoi='watershed'))
-  }
-
-if(type == "Mining_Toxics2"){
-
-  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'coalminedens,minedens,superfunddens,tridens', 
-                                                                           showAreaSqKm = FALSE,
-                                                                           aoi='watershed'))
-  }
-
-if(type == "Roads2"){
-
-  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'rdcrs,rdcrsslpwtd,rddens', 
-                                                                           showAreaSqKm = FALSE,
-                                                                           aoi='watershed'))
-  }
-
-if(type == "Urban2"){
-
-  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'npdesdens,popden2010,septic,wwtpalldens,wwtpmajordens,pctimp2001,pctnonagintrodmanagveg', 
-                                                                           showAreaSqKm = FALSE,
-                                                                           aoi='watershed'))
-  }
-
-if(type == "Wildfire2"){
-
-  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'pctfire2002,pctincvegresp2002,pctnonprocmask2002', 
-                                                                           showAreaSqKm = FALSE,
-                                                                           aoi='watershed'))
-  }
-# Removed iwi from Others 2 to remove IWI metrics from data pull.
-if(type == "Others2"){
-
-  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'bankfullwidth,msst2008',
-                                                                           showAreaSqKm = FALSE,
-                                                                           aoi='other')) 
-  }
-
-names(streamcat) <- base::toupper(names(streamcat))
-return(streamcat)
-}
-# FUNCTION - END  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+tss_vars_selected <- tss_vars %>% 
+  select(!c(NSURPWS,NANIWS,PCTAGSLPHIGH2001WS,WATERINPUTWS,AGKFFACTWS,CBNFWS,MANUREWS,FERTWS,PCTHAY2001WS,
+            TMAX8110WS,PRECIP8110WS,NO32008WS,TMEAN8110WS,PRECIP2008WS,INORGNWETDEP2008WS,NH42008WS,TMIN8110WS,
+            TMEAN2008WS,SN2008WS,TMAX9120WS,TMEAN9120WS,TMIN9120WS,NABD_DENSWS,DAMNRMSTORWS,NABD_NRMSTORWS,
+            NABD_NIDSTORWS,DAMNIDSTORWS,RUNOFFWS,HABTWS,HYDWS,CONNWS,TEMPWS,CHEMWS,SEDWS,PCTURBLO2001WS,
+            PCTDECID2001WS,SIO2WS,K2OWS,P2O5WS,AL2O3WS,CAOWS,MGOWS,PERMWS,PCTSILICICWS,PCTNONCARBRESIDWS,
+            WWTPMINORDENSWS,PCTIMPSLPHIGH2001WS,PCTIMPSLPMID2001WS,HUDEN2010WS,PCTBURNAREA2002WS,
+            PCTUNDSEV2002WS,PCTLOWSEV2002WS,PCTMODSEV2002WS,PCTHIGHSEV2002WS,ICI,IWI,MAST2008,MWST2008,
+            WETTEDWIDTH,THALWAGDEPTH,BANKFULLDEPTH))
 ```
 
-#### Pull StreamCat data for parameters of interest
-
-```{r}
-# PULL DATA BY SUBCATEGORY/TYPE
-ag2 <- get_streamcat(comids = comids, type = "Agriculture2")
-clim2 <- get_streamcat(comids = comids, type = "Climate2")
-dams2 <- get_streamcat(comids = comids, type = "Dams2")
-flow2 <- get_streamcat(comids = comids, type = "Flow2")
-#iwi2 <- get_streamcat(comids = comids, type = "IWI2") #except prg_bmmi0809 b/c it crashes API
-cover2 <- get_streamcat(comids = comids, type = "Land Cover2")
-litho2 <- get_streamcat(comids = comids, type = "Lithology2") 
-mintox2 <- get_streamcat(comids = comids, type = "Mining_Toxics2")
-roads2 <- get_streamcat(comids = comids, type = "Roads2")
-urb2 <- get_streamcat(comids = comids, type = "Urban2")
-fire2 <- get_streamcat(comids = comids, type = "Wildfire2")
-other2 <- get_streamcat(comids = comids, type = "Others2")
-
-# MERGE STREAMCAT DATA PULL
-meow2 <- list(ag2, clim2, dams2, flow2, cover2, litho2, mintox2, roads2, urb2, fire2, other2) # Removed iwi2 to remove IWI metrics.  11/5/25.
-meow2 <- meow2 %>% reduce(full_join, by='COMID')
-
-# CLEAN UP ENVIRONMENT
-rm(list=c('ag2','clim2','cover2','dams2','fire2','flow2','litho2','mintox2','other2','roads2','urb2'))
-```
-
-
-#### Pefrorm final correlation check
+#### Perform final correlation check
 
 ```{r, warning=FALSE}
+# Subset numeric variables only
+tss_vars_num_selected <- tss_vars_selected %>% 
+  select(PCTAGDRAINAGEWS:Long_DD)
+
 # FULL CORRELATION MATRIX
-spear2 <- cor(meow2, method = "spearman", use = "pairwise.complete.obs")
+spear2 <- cor(tss_vars_num_selected, method = "spearman", use = "pairwise.complete.obs")
 spear2 <- as.data.frame(spear2)
 spear.rows2 <- tibble::rownames_to_column(spear2)
 
@@ -424,14 +306,11 @@ matrix2 <- spear.rows2 %>%
   filter(abs(cor) > 0.8)
 
 # ***CONTINUE ONCE NO CORRELATED VARIABLES REMAIN***
-
-rm(list=c('spear', 'spear.rows', 'meow2'))
 ```
-
 
 # **3 - PREPARE DATA FOR MODELS**
 
-## HANDLE NA VALUES AND MERGE PREDICTORS WITH TSS DATA 
+## HANDLE NA VALUES AND MERGE PREDICTORS WITH TSS DATA
 
 ```{r, warning=FALSE}
 # FIND OUT WHICH COLUMNS HAVE NAs (AND WRITE CODE FOR THEM BELOW)
@@ -441,31 +320,6 @@ sapply(scmets, function(x) sum(is.na(x)))
 scmets$BANKFULLWIDTH <- na.roughfix(scmets$BANKFULLWIDTH) #bankfull width (n = 66 NAs)
 scmets$SW_FLUXWS <- na.roughfix(scmets$SW_FLUXWS) #surface water flux (n = 2 NAs)
 
-# MERGE THE DESIRED STREAMCAT METRIC DATA WITH THE TSS AWQMS DATA PULL
-# Log transform TSS column
-tss.sc <- inner_join(tss, scmets, by = "COMID")
-tss.sc <- tss.sc %>% 
-  select(-c(Lat_DD, Long_DD,PCT_RESIST)) %>% 
-  mutate(logTSS = log(TSS+1)) %>% 
-  relocate(logTSS, .before = L2Eco) %>% 
-  relocate(TSS, .before = logTSS)
-
-# ADD AWQMS COLUMNS (NON-STREAMCAT)
-tss.sc.cor <- tss.sc %>% 
-  select(-c(MLocID:COMID, L2Eco, L3Eco, SITE_TYPE)) 
-
-# ANOTHER CORRELATION CHECK FOR GOOD MEASURE
-spear3 <- cor(tss.sc.cor, method = "spearman", use = "pairwise.complete.obs")
-spear3 <- as.data.frame(spear3)
-spear.rows3 <- tibble::rownames_to_column(spear3)
-
-# CONDENSED CORRELATION MATRIX (>0.8 ONLY)
-matrix3 <- spear.rows3 %>%  
-  gather(-rowname, key = "colname", value = "cor") %>% 
-  filter(abs(cor) > 0.8)
-
-# CLEAN UP ENVIRONMENT
-rm(list=c('spear.rows3', 'spear3', 'matrix3', 'tss.sc.cor'))
 ```
 
 ## SUBSET DATA - CALIBRATION, VALIDATION, AND REFERENCE ONLY
@@ -490,7 +344,6 @@ tss.ref <- tss.sc %>% #subset reference only dataset
 tss.cal_val <- rbind(tss.cal, tss.val)
 ```
 
-
 # **4 - EXPLORE DATA**
 
 ## RESPONSE VARIABLE
@@ -513,6 +366,7 @@ boxplot(tss.sc$logTSS, ylab = "TSS")
 qqnorm(tss.sc$TSS) #Q-Q plot
 qqline(tss.sc$TSS) #not normal
 ```
+
 ```{r}
 join <- inner_join(scmets, tss, by='COMID')
 
@@ -605,7 +459,6 @@ join_all_plot %>%
   geom_rug() + ggtitle("all sites")
 ```
 
-
 ## PREDICTOR VARIABLES
 
 ```{r}
@@ -630,12 +483,12 @@ kern %>%
   geom_rug() 
 ```
 
-
 # **5 - RANDOM FOREST MODELS**
 
 ## FULL MODEL - ALL PREDICTORS INCLUDED (N = 83)
 
 #### Tuning the model (finding best mtry)
+
 ```{r}
 # One way to find best mtry based on tuneRF.
     # Tune mtry based on OOB error
@@ -660,6 +513,7 @@ print(best_mtry)
 ```
 
 #### Build full model
+
 ```{r}
 set.seed(39)
 
@@ -670,13 +524,15 @@ varImpPlot(rf.full, type = 1, n.var = 20, main = "All-Sites Model") #variable im
 #varImpPlot(rf.full, type = 2, n.var = 20, main = "Full Model") #variable importance plot
 ```
 
-#### Tuning the model (how many trees) 
+#### Tuning the model (how many trees)
+
 ```{r}
 # How many trees is appropriate?
 plot(rf.full, log="x", main = '')  # 500 seems to work fine.
 ```
 
 #### Model prediction errors - full model
+
 ```{r}
 # Predictions
 pred.rf <- predict(rf.full, newdata = tss.cal)
@@ -697,9 +553,10 @@ RMSE.ut.rf.full_scaled <- RMSE.ut.rf.full/range_tss
 print(paste("scaled untransformed RMSE", RMSE.ut.rf.full_scaled*100, '%'))
 ```
 
-## REDUCED MODEL - IMPORTANT PREDICTORS ONLY 
+## REDUCED MODEL - IMPORTANT PREDICTORS ONLY
 
 #### Build reduced model with 20 predictors
+
 ```{r}
 set.seed(32)
 
@@ -726,7 +583,7 @@ RMSE.ut.rf.red_20_scaled <- RMSE.ut.rf.red_20/range_tss
 print(paste("scaled untransformed RMSE", RMSE.ut.rf.red_20_scaled*100, '%'))
 ```
 
-#### * Final reduced model N = 15
+#### \* Final reduced model N = 15
 
 ```{r}
 set.seed(32)
@@ -766,6 +623,7 @@ abline(a=0,b=1)
 ```
 
 #### Residual plot for red_15 model
+
 ```{r}
 residuals.red_15 <- (exp(tss.cal$logTSS)-1) - (exp(pred.rf.red_15)-1) # Observed minus predicted 
 plot(residuals.red_15 ~ (exp(pred.rf.red_15)-1), xlab = "Predicted TSS (mg/L)", ylab = "Residuals", main="rf.red_15 residuals")
@@ -773,6 +631,7 @@ abline(h=0, col = "red", lty = 2)
 ```
 
 #### Test reduced model with VAL data
+
 ```{r}
 # Predictions & model error
 pred.rf.red_15_val <- predict(rf.red_15, newdata = tss.val)
@@ -871,7 +730,7 @@ abline(a=0,b=2, col = 'red', lty = 'dashed', untf = TRUE)
 
 
 # CALCULATE PROPORTIONS ABOVE 1:1 AND 2:1 LINES
-=======
+
 oe.ref <- cbind(pred.rf.ref.red_11, tss.cal_val$logTSS)
 oe.ref <- as.data.frame(oe.ref) %>% 
   rename(pred_logTSS = V2) %>% 
@@ -881,12 +740,12 @@ oe.ref <- as.data.frame(oe.ref) %>%
 
 print(sum(oe.ref$`O/E`>1)/741) # prop above 1:1 line
 print(sum(oe.ref$`O/E`>2)/741) # prop above 2:1 line
->>>>>>> 1bd776d8071e6d6c90f374a5c93ad3b03022bae9
+
 
 ```
 
-
 #### Run all sites (CAL AND VAL) through final reduced model.
+
 ```{r}
 pred.rf.red_15_all <- predict(rf.red_15, newdata = tss.cal_val)
 plot(tss.cal_val$logTSS ~ pred.rf.red_15_all, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,5), ylim = c(0,5), main = 'red_15_ALL')
@@ -914,6 +773,7 @@ print(sum(oe.allsites$`O/E`>2)/741) # prop above 2:1 line
 ```
 
 #### 4 predictors (not using this one)
+
 ```{r}
 set.seed(32)
 
@@ -941,6 +801,7 @@ print(paste("scaled untransformed RMSE", RMSE.ut.rf.red_4_scaled*100, '%'))
 ```
 
 ## ADJUST HUMAN-INFLUENCED PREDICTORS TO REFERENCE LEVELS
+
 #### Examine reference distributions - Histograms and partial dependence plots
 
 ```{r}
@@ -1023,6 +884,7 @@ abline(v = 0.005, col = 'black',lty = 'dashed')
 ```
 
 #### Reference expectations for environmental variables
+
 ```{r}
 # Adjust human influenced variables to ref levels
 
@@ -1061,7 +923,8 @@ tss.cal_val.refadj <- tss.cal_val %>%
     TRUE ~ RDCRSWS))
 ```
 
-#### Run reduced model with adjusted human-influenced predictors to get All Sites Ref Expectations 
+#### Run reduced model with adjusted human-influenced predictors to get All Sites Ref Expectations
+
 ```{r}
 # REFERENCE EXPECTATIONS FOR ALL-SITES REDUCED
 pred.rf.red_15.all<- predict(rf.red_15, tss.cal_val.refadj) #model prediction on cal+val dataset
@@ -1084,7 +947,8 @@ print(paste("scaled untransformed RMSE", RMSE.ut.rf.red_15.all_scaled*100, '%'))
 
 ## REFERENCE ONLY MODEL
 
-#### Tuning the model (finding best mtry)  --sticking w/ mtry = 7.
+#### Tuning the model (finding best mtry) --sticking w/ mtry = 7.
+
 ```{r}
 # One way to find best mtry based on tuneRF.
     # Tune mtry based on OOB error
@@ -1109,6 +973,7 @@ print(best_mtry)
 ```
 
 #### Build reference only model
+
 ```{r}
 tss.ref <- tss.ref %>% 
   select(c("logTSS", "PRECIP9120WS", "WETINDEXWS", "BFIWS", "ELEVWS", "PCTBL2001WS", "PCTCONIF2001WS", "PCTGRS2001WS", "PCTHBWET2001WS", "PCTICE2001WS", "PCTMXFST2001WS", "PCTOW2001WS", "PCTSHRB2001WS", "PCTURBHI2001WS", "PCTURBMD2001WS", "PCTURBOP2001WS", "PCTWDWET2001WS", "PCTFRSTLOSS2002WS", "COMPSTRGTHWS", "FE2O3WS", "HYDRLCONDWS", "NA2OWS", "PCTALKINTRUVOLWS", "PCTALLUVCOASTWS", "PCTCARBRESIDWS", "PCTCOASTCRSWS", "PCTCOLLUVSEDWS", "PCTEOLCRSWS", "PCTEOLFINEWS", "PCTEXTRUVOLWS", "PCTGLACLAKECRSWS", "PCTGLACLAKEFINEWS", "PCTGLACTILCLAYWS", "PCTGLACTILCRSWS", "PCTGLACTILLOAMWS", "PCTHYDRICWS", "PCTSALLAKEWS", "PCTWATERWS", "ROCKNWS", "SWS", "CLAYWS", "KFFACTWS", "OMWS", "RCKDEPWS", "RCKDEPWS", "SANDWS", "WTDEPWS", "PCTFIRE2002WS", "PCTINCVEGRESP2002WS", "PCTNONPROCMASK2002WS", "MSST2008", "BANKFULLWIDTH", "PCT_EROD", "STRMPOW_CAT", "NHD_pSLOPE", "SITE_TYPE", "L2Eco", "L3Eco"))
@@ -1137,13 +1002,15 @@ RMSE.ut.rf.full.ref_scaled <- RMSE.ut.rf.full.ref/range_tss
 print(paste("scaled untransformed RMSE", RMSE.ut.rf.full.ref_scaled*100, '%'))
 ```
 
-#### Tuning the model (how many trees) 
+#### Tuning the model (how many trees)
+
 ```{r}
 # How many trees is appropriate?
 plot(rf.full.ref, log="x")  # 500 seems to work fine.
 ```
 
 #### Reduce the reference only model
+
 ```{r}
 set.seed(39)
 rf.ref.red_20 <- randomForest(logTSS ~ ROCKNWS + PCT_EROD + PCTBL2001WS + SWS + ELEVWS + NA2OWS + PCTICE2001WS + PRECIP9120WS + FE2O3WS + PCTCONIF2001WS + OMWS + BFIWS + L3Eco + KFFACTWS + SANDWS + CLAYWS + L2Eco + STRMPOW_CAT + MSST2008 + PCTFRSTLOSS2002WS, tss.ref, importance = TRUE, mtry=7, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
@@ -1169,7 +1036,8 @@ RMSE.ut.rf.ref.red_20_scaled <- RMSE.ut.rf.ref.red_20/range_tss
 print(paste("scaled untransformed RMSE", RMSE.ut.rf.ref.red_20_scaled*100, '%'))
 ```
 
-#### * Final reduced ref only model - red_11
+#### \* Final reduced ref only model - red_11
+
 ```{r}
 set.seed(39)
 rf.ref.red_11 <- randomForest(logTSS ~ ROCKNWS + PCT_EROD + PCTBL2001WS + SWS + ELEVWS + NA2OWS + PCTICE2001WS + PRECIP9120WS + FE2O3WS + PCTCONIF2001WS + OMWS, tss.ref, importance = TRUE, mtry=7, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
@@ -1195,6 +1063,7 @@ print(paste("scaled untransformed RMSE", RMSE.ut.rf.ref.red_11_scaled*100, '%'))
 ```
 
 #### Residual plot for ref.red_11 model
+
 ```{r}
 residuals.ref.red_11 <- (exp(tss.ref$logTSS)-1) - (exp(pred.rf.ref.red_11)-1) # Observed minus predicted 
 plot(residuals.ref.red_11 ~ (exp(pred.rf.ref.red_11)-1) , xlab = "Predicted TSS (mg/L)", ylab = "Residuals", main="rf.ref.red_11 residuals")
@@ -1202,6 +1071,7 @@ abline(h=0, col = "red", lty = 2)
 ```
 
 #### 5 predictors (not using this one)
+
 ```{r}
 set.seed(39)
 rf.ref.red_5 <- randomForest(logTSS ~ ROCKNWS + PCT_EROD + PCTBL2001WS + SWS + ELEVWS, tss.ref, importance = TRUE, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
@@ -1228,6 +1098,7 @@ print(paste("scaled untransformed RMSE", RMSE.ut.rf.ref.red_5_scaled*100, '%'))
 ```
 
 #### Run all sites through to get ref expectations
+
 ```{r}
 tss.cal_val.immutable <- tss.cal_val %>% 
   select(c("logTSS", "PRECIP9120WS", "WETINDEXWS", "BFIWS", "ELEVWS", "PCTBL2001WS", "PCTCONIF2001WS", "PCTGRS2001WS", "PCTHBWET2001WS", "PCTICE2001WS", "PCTMXFST2001WS", "PCTOW2001WS", "PCTSHRB2001WS", "PCTURBHI2001WS", "PCTURBMD2001WS", "PCTURBOP2001WS", "PCTWDWET2001WS", "PCTFRSTLOSS2002WS", "COMPSTRGTHWS", "FE2O3WS", "HYDRLCONDWS", "NA2OWS", "PCTALKINTRUVOLWS", "PCTALLUVCOASTWS", "PCTCARBRESIDWS", "PCTCOASTCRSWS", "PCTCOLLUVSEDWS", "PCTEOLCRSWS", "PCTEOLFINEWS", "PCTEXTRUVOLWS", "PCTGLACLAKECRSWS", "PCTGLACLAKEFINEWS", "PCTGLACTILCLAYWS", "PCTGLACTILCRSWS", "PCTGLACTILLOAMWS", "PCTHYDRICWS", "PCTSALLAKEWS", "PCTWATERWS", "ROCKNWS", "SWS", "CLAYWS", "KFFACTWS", "OMWS", "RCKDEPWS", "RCKDEPWS", "SANDWS", "WTDEPWS", "PCTFIRE2002WS", "PCTINCVEGRESP2002WS", "PCTNONPROCMASK2002WS", "MSST2008", "BANKFULLWIDTH", "PCT_EROD", "STRMPOW_CAT", "NHD_pSLOPE", "SITE_TYPE", "L2Eco", "L3Eco"))
@@ -1247,8 +1118,8 @@ RMSE.ut_pred.rf.ref.red_11.all_scaled <- RMSE.ut_pred.rf.ref.red_11.all/range_ts
 print(paste("scaled untransformed RMSE", RMSE.ut_pred.rf.ref.red_11.all_scaled*100, '%'))
 ```
 
-
 #### Shannon plot CAL and VAL all sites
+
 ```{r}
 # plot obs vs. predicted CAL 
 par(mfrow=c(1,2))
@@ -1359,6 +1230,7 @@ abline(v = 0.005, col = 'black',lty = 'dashed')
 ```
 
 #### Coefficient of Variation for env predictors
+
 ```{r}
 top20 <- scmets %>% 
 select('WDRW_LDWS', 'PCTCONIF2001WS' , 'CLAYWS' , 'PESTIC1997WS' , 'SANDWS' , 'PCTCROP2001WS' , 'POPDEN2010WS' , 'PRECIP9120WS' , 'PCTAGSLPMID2001WS' , 'PCT_EROD' , 'SW_FLUXWS' , 'PCTIMP2001WS' , 'RDCRSWS' , 'WTDEPWS' , 'ELEVWS' , 'WETINDEXWS' , 'PCTSHRB2001WS' , 'KFFACTWS' , 'PCTICE2001WS' , 'RCKDEPWS')
@@ -1385,325 +1257,14 @@ write_xlsx(cv_all, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop
 
 ```
 
-
 #---------------------------------------------------------------------------
 
 THE ADAM L. THOMPSON MEMORIAL CODE BONEYARD
 
 #---------------------------------------------------------------------------
 
-<!-- ```{r} -->
-<!-- # IDENTIFY WHICH COMID(S) DIDN'T YIELD STREAMCAT RESULTS AND INVESTIGATE (FIX IN STATIONS DB BEFORE PROCEEDING) -->
-<!-- # kcomids <- meow %>% select(COMID) -->
-<!-- # nomatch <- comids[!comids$COMID %in% kcomids$COMID, ] #make data frame showing which COMIDs aren't pulling StreamCat data -->
-<!-- # #nomatch.c <- subset(tss, tss$COMID == "23764745" | tss$COMID == "24516234" | tss$COMID == "23815386") #change COMIDs as needed -->
-<!-- # rm(list = c('nomatch', 'nomatch.c', 'kcomids')) #clean up environment -->
-
-<!-- # EXPLORE VARIANCE FOR EACH METRIC TO GUIDE WHICH TO KEEP -->
-<!-- # meow.sca <- as.data.frame(scale(meow[,-10])) #not used -->
-<!-- #  -->
-<!-- # var <- meow %>% -->
-<!-- #   select(where(is.numeric)) %>% -->
-<!-- #   pivot_longer(cols = everything()) %>% -->
-<!-- #   group_by(name) %>% -->
-<!-- #   summarise(var_value = var(value)) -->
-<!-- ``` -->
-
-<!-- ```{r} -->
-<!-- #tss.r <- tss.sc %>% select(Result_Numeric_mod) -->
-<!-- #tss.r <- tss.sc %>% select(Result_Numeric_mod, COMID, cal_val) -->
-<!-- r <- randomForest(Result_Numeric_mod ~ CLAYWS + BFIWS + ELEVWS + KFFACTWS + IWI + RDDENSWS, data = tss.sc, na.action = na.exclude) -->
-<!-- print(r) -->
-
-<!-- t <- tss.sc[!is.na(tss.sc$BANKFULLWIDTH),] -->
-
-<!-- new_df <- df[!is.na(df)] -->
-
-<!-- tss.sc$BANKFULLWIDTH <- na.roughfix(tss.sc$BANKFULLWIDTH)  -->
-
-<!-- missing <- rownames(scmets)[rowSums(is.na(scmets))] -->
-<!-- missing <- sum(is.na(scmets)) -->
-
-
-
-<!-- tss.sc <- left_join(tss, scmets, by = "COMID") -->
-<!-- #tss.r <- tss.sc %>% select(Result_Numeric_mod) -->
-<!-- r <- randomForest(Result_Numeric_mod ~ CLAYWS + BFIWS + ELEVWS + KFFACTWS + IWI + RDDENSWS, data = tss.sc, na.action = na.exclude) -->
-<!-- print(r) -->
-<!-- ``` -->
-
-<!-- #### MULTIPLE LINEAR REGRESSION -->
-
-<!-- ```{r} -->
-<!-- # LINEAR REGRESSION MODEL FIT -->
-<!-- lr.f <- lm(Result_Numeric_mod ~ ., data = tss.cal.test) -->
-<!-- #lr.r <- lm(Result_Numeric_mod ~ PCTAGSLPMID2001WS+PCTAGSLPMID2001WS+WETINDEXWS+PRECIP9120WS+CHEMWS+PCTBL2001WS+PCTICE2001WS+ -->
-<!--            PCTURBMD2001WS+HYDRLCONDWS+SANDWS+MINEDENSWS+SUPERFUNDDENSWS+RDCRSSLPWTDWS+RDCRSWS+WWTPALLDENSWS, data = tss.cal.test) #subset significant predictors -->
-<!-- lr.r2 <- lm(Result_Numeric_mod ~ CONNWS+HYDWS+IWI+PCTSHRB2001WS+PESTIC1997WS+PCTURBMD2001WS+PCTAGSLPMID2001WS+PCTGRS2001WS+PRECIP9120WS+PCTCONIF2001WS, data = tss.cal.test) #subset significant predictors -->
-
-
-<!-- summary(lr.f) -->
-<!-- summary(lr.r) -->
-<!-- summary(lr.r2) -->
-
-<!-- par(mfrow=c(2,2)) -->
-<!-- plot(lr.f) -->
-
-
-
-
-<!-- t <- tss.cal.test %>% select(Result_Numeric_mod,PCTAGSLPMID2001WS,PCTAGSLPMID2001WS,WETINDEXWS,PRECIP9120WS,CHEMWS,PCTBL2001WS,PCTICE2001WS, -->
-<!--            PCTURBMD2001WS,HYDRLCONDWS,SANDWS,MINEDENSWS,SUPERFUNDDENSWS,RDCRSSLPWTDWS,RDCRSWS,WWTPALLDENSWS) #subset significant predictors -->
-<!-- #sapply(t, function(x) sum(is.na(x))) #find out which columns have NAs -->
-<!-- #source("D:/ESM 566/3_Worksheets/cor.matrix.r") -->
-<!-- #cor.matrix(t) -->
-<!-- ``` -->
-
-<!-- ```{r} -->
-<!-- # EXPLORE IF REMOVED COMIDS WERE OUTLIERS  -->
-<!-- removed <- subset(meow2, meow2$COMID == '23774647' | meow2$COMID == '23877125' | meow2$COMID == '23810652') -->
-
-<!-- # MESSING AROUND WITH KERNEL DENSITY PLOTS TO SUMMARIZE METRICS -->
-<!-- colnames(scmets) -->
-<!-- attach(scmets) -->
-
-<!-- hist(ELEVWS, breaks=100) -->
-<!-- hist(BFIWS, breaks=100) -->
-<!-- hist(CANALDENSWS, breaks=100) -->
-<!-- hist(CLAYWS, breaks=100) -->
-<!-- hist(KFFACTWS, breaks=100) -->
-
-<!-- density(CLAYWS) -->
-<!-- #----------- -->
-<!-- library(KernSmooth) -->
-
-<!-- bkde(CLAYWS) -->
-<!-- summary(CLAYWS) -->
-
-<!-- clay.ws<-CLAYWS[!is.na(CLAYWS)] -->
-<!-- summary(clay.ws) -->
-
-<!-- plot(bkde(clay.ws)) -->
-
-<!-- plot(density(clay.ws)) -->
-<!-- rug(jitter(clay.ws)) -->
-<!-- #----------- -->
-<!-- kern <- scmets %>% -->
-<!--   select(CLAYWS, BFIWS, ELEVWS, KFFACTWS, IWI, RDDENSWS) -->
-
-<!-- kern %>% -->
-<!--   keep(is.numeric) %>%  -->
-<!--   gather() %>%  -->
-<!--   ggplot(aes(value)) + -->
-<!--   facet_wrap(~ key, scales = "free") + -->
-<!--   geom_density() + -->
-<!--   geom_rug()  -->
-<!-- ``` -->
-
-<!-- ```{r} -->
-<!-- # RANDOM FORESTS -->
-<!-- sapply(scmets, function(x) sum(is.na(x))) #find out which columns have NAs -->
-
-<!-- scmets$BANKFULLWIDTH <- na.roughfix(scmets$BANKFULLWIDTH) #perform na.roughfix on all metrics with at least 1 NA; create extra code rows as needed -->
-<!-- scmets$SW_FLUXWS <- na.roughfix(scmets$SW_FLUXWS) -->
-
-<!-- tss.sc <- inner_join(tss, scmets, by = "COMID") #merge TSS AWQMS data pull with desired StreamCat metrics -->
-
-<!-- # SUBSET DATA -->
-<!-- tss.cal <- subset(tss.sc, tss.sc$cal_val == "CAL") #subset calibration dataset -->
-<!-- tss.val <- subset(tss.sc, tss.sc$cal_val == "VAL") #subset validation dataset -->
-<!-- tss.ref <- subset(tss.sc, tss.sc$ReferenceSite == "REFERENCE") #subset reference only dataset -->
-
-<!-- # FULL MODEL -->
-<!-- set.seed(42) -->
-
-<!-- rf.full <- randomForest(y = tss.cal$Result_Numeric_mod, x = tss.cal[52:130], importance = FALSE,  keep.forest = FALSE, ntree = 500) #run random forest model on all predictors for 500 trees, calibration dataset -->
-<!-- print(rf.full) -->
-
-<!-- varImpPlot(rf.full, type = 1, n.var = 20) #variable importance plot -->
-
-<!-- # REDUCED MODEL -->
-<!-- rf.red <- randomForest(Result_Numeric_mod ~ CHEMWS+HYDWS+RDCRSWS+PESTIC1997WS+CONNWS+PCTCROP2001WS+WETINDEXWS+PCTSHRB2001WS+ELEVWS+WDRW_LDWS+IWI, data = tss.cal, importance = FALSE,  keep.forest = FALSE, ntree = 500) #only w/ predictors >4% MSE -->
-<!-- print(rf.red) -->
-
-<!-- varImpPlot(rf.red, type = 1) #variable importance plot -->
-
-<!-- importance(rf.red) -->
-
-
-<!-- # RUN REDUCED MODEL ON VALIDATION DATASET -->
-
-
-<!-- # REFERENCE ONLY -->
-<!-- rf.ref <- randomForest(y = tss.ref$Result_Numeric_mod, x = tss.ref[52:130], importance = FALSE,  keep.forest = FALSE, ntree = 500) #run random forest model on all predictors for 500 trees, calibration dataset -->
-<!-- print(rf.ref) -->
-
-<!-- varImpPlot(rf.ref, type = 1) -->
-
-
-<!-- ``` -->
-
-<!-- ```{r} -->
-<!-- #----------------------------------------------------------------------------------------------- -->
-<!-- library(vip)# for variable importance plots. you may need to install it first -->
-<!-- vip(rt, aesthetics = list(color = "blue", fill = "blue")) #variable importance plot -->
-<!-- plotcp(rt) #model cross-validation -->
-
-
-
-
-<!-- # REDUCED MODEL -->
-<!-- rt.r <- rpart(Result_Numeric_mod ~ CONNWS+HYDWS+IWI+PCTSHRB2001WS+PESTIC1997WS+PCTURBMD2001WS+PCTAGSLPMID2001WS+PCTGRS2001WS+PRECIP9120WS+PCTCONIF2001WS, data = tss.cal.test) -->
-<!-- plot(rt.r) -->
-<!-- text(rt.r, use.n = FALSE) -->
-
-<!-- summary(rt.r) -->
-
-<!-- prp(rt.r, #plot the tree model -->
-<!--     faclen=0,#use full names for factor labels -->
-<!--     extra=1)#display number of obs. for each terminal node -->
-<!-- #----------------------------------------------------------------------------------------------- -->
-<!-- vip(rt.r, aesthetics = list(color = "blue", fill = "blue")) #variable importance plot -->
-<!-- plotcp(rt.r) #model cross-validation -->
-
-
-
-
-<!-- # TEST REDUCED MODEL ON VAL DATASET -->
-<!-- p <- predict(rt.r, newdata = tss.val) #OLS model prediction -->
-<!-- plot(p ~ tss.val$Result_Numeric_mod, ylab = "Predicted TSS", xlab = "Observed TSS", ylim=c(0,30)) -->
-<!-- abline(a = 0, b = 1) #1:1 line -->
-<!-- sqrt(sum((p-tss.val$Result_Numeric_mod)^2)/length(tss.val$Result_Numeric_mod)) #predictive error -->
-
-<!-- # Test if the final reduced model is statistically different from the full model -->
-<!-- anova(rt, rt.r) #error  - no applicable method for "rpart" -->
-<!-- ``` -->
-
-<!-- ## GROUP PREDICTORS BY HUMAN VS NATURAL DISTURBANCES - WORK IN PROGRESS (SABINE) -->
-
-<!-- ```{r} -->
-<!-- human.mets <- kitty %>%  -->
-<!--   filter(Category == "Anthropogenic" & kitty$`Use?` == 'y') %>%  -->
-<!--   select(Metric_Query) %>%  -->
-<!--   add_row(Metric_Query = "COMID") # want to include COMID as a column so adding it as a row. -->
-
-<!-- human.mets <- toupper(human.mets$Metric_Query) # All uppercase -->
-
-<!-- natural.mets <- kitty %>%  -->
-<!--   filter(Category == "Natural" & kitty$`Use?` == 'y') %>%  -->
-<!--   select(Metric_Query) %>%  -->
-<!--   add_row(Metric_Query = "COMID") -->
-
-<!-- natural.mets <- toupper(natural.mets$Metric_Query) -->
-
-<!-- # Select out scmets by human and natural. -->
-<!-- # Ending in WS only -->
-<!-- scmetsws <- scmets %>%  -->
-<!--     select(COMID | ends_with("ws")) %>%  # Keep COMID -->
-<!--     rename_with(~str_remove(., paste0("WS", "$")), ends_with("WS")) # Remove 'WS' suffix so can match to metric names in 'kitty' table -->
-
-<!-- # Subset only column names that are in human or natural mets -->
-<!-- scmetws_human <- scmetsws[ , names(scmetsws) %in% human.mets] # 27 variables -->
-<!-- scmetws_natural <- scmetsws[ , names(scmetsws) %in% natural.mets] # 48 variables -->
-
-<!-- # Add 'WS' suffix back in -->
-<!-- colnames(scmetws_human) <- paste0(colnames(scmetws_human), "WS") -->
-<!-- colnames(scmetws_natural) <- paste0(colnames(scmetws_natural), "WS") -->
-
-<!-- # Do the same thing for metrics not ending in 'WS' -->
-<!-- scmetsnows <- scmets %>%  -->
-<!--     select(!ends_with("ws")) -->
-
-<!-- scmet_human <- scmetsnows[ , names(scmetsnows) %in% human.mets] # 1 variable -->
-<!-- scmet_natural <- scmetsnows[ , names(scmetsnows) %in% natural.mets] # 3 variables -->
-
-<!-- sc_human <- cbind(scmetws_human, scmet_human) # 30 variables  #Why is there a column at the end called scmet_human?  SYB figure this out later. -->
-<!-- sc_natural <- cbind(scmetws_natural, scmet_natural) # 49 variables (Total of 79, matches scmets) -->
-<!-- ``` -->
-
-
-<!-- ## GROUP PREDICTORS BY HUMAN VS NATURAL DISTURBANCES -->
-
-<!-- ```{r} -->
-<!-- human.mets <- kitty %>%  -->
-<!--   filter(Category == "Anthropogenic" & kitty$`Use?` == 'y') %>%  -->
-<!--   select(Metric_Query) %>%  -->
-<!--   add_row(Metric_Query = "COMID") # want to include COMID as a column so adding it as a row. -->
-
-<!-- human.mets <- kitty %>%  -->
-<!--   filter(Category == "Natural" & kitty$`Use?` == 'y') %>%  -->
-<!--   select(Metric_Query) %>%  -->
-<!--   add_row(Metric_Query = "COMID") -->
-
-
-<!-- human.mets <- toupper(human.mets$Metric_Query) # All uppercase -->
-
-<!-- # Select out scmets by human only. -->
-<!--   # Ending in WS only -->
-<!-- scmetsws <- scmets %>%  -->
-<!--     select(COMID | ends_with("ws")) %>%  # Keep COMID -->
-<!--     rename_with(~str_remove(., paste0("WS", "$")), ends_with("WS")) # Remove 'WS' suffix so can match to metric names in 'kitty' table -->
-
-<!--   # Subset only column names that are in human or natural mets -->
-<!-- scmetws_human <- scmetsws[ , names(scmetsws) %in% human.mets] # 27 variables (including COMID) -->
-
-<!--   # Add 'WS' suffix back in -->
-<!-- colnames(scmetws_human) <- paste0(colnames(scmetws_human), "WS")  -->
-<!-- scmetws_human <- scmetws_human %>%  rename(COMID = COMIDWS) # except for COMID -->
-
-<!--   # Do the same thing for metrics not ending in 'WS' -->
-<!-- scmetsnows <- scmets %>%  -->
-<!--     select(!ends_with("ws")) %>%  -->
-<!--     select(-c("PCT_EROD", "PCT_RESIST", "STRMPOW_CAT", "NHD_pSLOPE", "SITE_TYPE")) # Ignore the metrics that didn't come from StreamCat. -->
-
-<!-- scmet_human <- scmetsnows[ , names(scmetsnows) %in% human.mets] # 1 variable = COMID. (No other human variables in this group.) -->
-
-<!-- sc_human <- scmetws_human # 28 columns. -->
-
-<!-- # Join with table to get ref status. -->
-<!-- sc_human_ref <- sc_human %>%  -->
-<!--   inner_join(tss.sc, sc_human, by='COMID') %>%  -->
-<!--   select(c(COMID:PCTNONAGINTRODMANAGVEGWS.x, ReferenceSite)) %>%  -->
-<!--   filter(ReferenceSite=='REFERENCE') %>%  -->
-<!--   select(-c(COMID, ReferenceSite)) -->
-
-<!-- # Tidy up. -->
-<!-- rm(list=c('human.mets', 'scmetsws', 'scmetws_human', 'scmetsnows', 'scmet_human', 'sc.human')) -->
-<!-- ``` -->
-
-<!-- ```{r} -->
-<!-- # TBD -->
-
-<!-- # sample code for creating test data Using caret package -->
-<!-- # set.seed(123)  # for reproducibility -->
-<!-- # index_2 <- createDataPartition(ames$Sale_Price, p = 0.7,  -->
-<!-- #                                list = FALSE) -->
-<!-- # train_2 <- ames[index_2, ] -->
-<!-- # test_2  <- ames[-index_2, ] -->
-<!-- ``` -->
-
-
-<!-- ## REGRESSION TREES - INFORMATIONAL ONLY AT THIS STAGE -->
-
-<!-- ```{r} -->
-<!-- # REGRESSION TREES EXPERIMENTATION -->
-<!-- # FULL MODEL -->
-<!-- rt <- rpart(TSS ~ ., data = tss.cal) -->
-<!-- plot(rt) -->
-<!-- text(rt, use.n = FALSE) -->
-
-<!-- names(rt) -->
-<!-- print(rt) -->
-<!-- summary(rt) -->
-
-<!-- # NICER LOOKING TREE -->
-<!-- prp(rt, #plot the tree model -->
-<!--     faclen=0,#use full names for factor labels -->
-<!--     extra=1)#display number of obs. for each terminal node -->
-<!-- ``` -->
-
-
 ### PLOTS for final paper
+
 ```{r}
 tss.plots <- tss %>%   # These get removed in the code later, but I'm taking them out here to take advantage of all the columns that came from AWQMs before they get removed.
   filter(MLocID != '23856-ORDEQ') %>% 

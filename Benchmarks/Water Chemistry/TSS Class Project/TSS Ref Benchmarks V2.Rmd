@@ -275,7 +275,7 @@ cv_pctzero <- tss_vars_num %>%
 rm(cv)
 ```
 
-#### Select out variables that were not selected based on correlation analysis.
+#### Select variables based on correlation analysis.
 
 ```{r}
 tss_vars_selected <- tss_vars %>% 
@@ -321,28 +321,6 @@ tss_vars_num_selected <- tss_vars_selected %>%
   select(!c(PCT_EROD:L3Eco)) %>% 
   select(!c(MLocID:logTSS)) 
 
-```
-
-## SUBSET DATA - CALIBRATION, VALIDATION, AND REFERENCE ONLY
-
-```{r}
-# SUBSET DATA AND REMOVE NON-VARIABLE COLUMNS
-tss.cal <- tss.sc %>%  #subset CALibration dataset
-  filter(cal_val == 'CAL') %>%  
-  select(-c(MLocID, StationDes, EcoRegion4:COMID))%>% 
-  select(-TSS)
-
-tss.val <- tss.sc %>%  #subset VALidation dataset
-  filter(cal_val == 'VAL') %>%  
-  select(-c(MLocID, StationDes, EcoRegion4:COMID)) %>% 
-  select(-TSS)
-
-tss.ref <- tss.sc %>% #subset reference only dataset
-  filter(ReferenceSite == 'REFERENCE') %>%  
-  select(-c(MLocID, StationDes, EcoRegion4:COMID)) %>% 
-  select(-TSS)
-
-tss.cal_val <- rbind(tss.cal, tss.val)
 ```
 
 # **4 - EXPLORE DATA**

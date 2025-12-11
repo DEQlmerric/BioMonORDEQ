@@ -1,7 +1,7 @@
 ---
 title: "TSS Reference Benchmarks V2"
 author: "S. Berzins, A. Thompson"
-date: "2025-10-21"
+date: "2025-12-09"
 output: html_document
 ---
 
@@ -214,7 +214,7 @@ erod_resist_strmpow <- erod_resist_strmpow %>%
   mutate(STRMPOW_CAT = totdasqkm + PRECIP9120WS * slope) %>%  # WSAREASQKM from SC, instead pulling totdasqkm from get_NHD (they are the same)
   select(COMID, PCT_EROD, STRMPOW_CAT, NHD_pSLOPE, SITE_TYPE) # Drop PCT_RESIST since it's the inverse of PCT_ERODE
 
-# JOIN WITH OTHER PARAMETERS NOT FROM SC (erodible vs. resistant, slope, stream power)
+# JOIN WITH OTHER PARAMETERS NOT FROM SC
 tss_vars <- sc_all %>% 
   inner_join(erod_resist_strmpow, by='COMID') %>% 
   inner_join(tss, by = 'COMID')
@@ -225,16 +225,18 @@ tss_vars <- tss_vars %>%
   mutate(logTSS = log(TSS+1)) %>%  # Log transform TSS column
   relocate(logTSS, .after = TSS) %>%  
   relocate(L2Eco:L3Eco, .after = SITE_TYPE) %>% 
-  select(-c(HUC8, EcoRegion4)) %>% 
-  relocate(Lat_DD:Long_DD, .after = NHD_pSLOPE)
+  select(-c(HUC8, EcoRegion4)) 
 ```
+
+#### Explore co-varied metrics and select which we want to retain for modeling purposes.
 
 #### Make Spearman correlation matrix to identify co-varied parameters
 
 ```{r, warning=FALSE}
 # Subset numeric variables only
 tss_vars_num <- tss_vars %>% 
-  select(PCTAGDRAINAGEWS:Long_DD)
+  select(!c(PCT_EROD:L3Eco)) %>% 
+  select(!c(MLocID:logTSS)) 
 
 # FULL CORRELATION MATRIX
 spear <- cor(tss_vars_num, method = "spearman", use = "pairwise.complete.obs")
@@ -245,7 +247,7 @@ spear.rows <- tibble::rownames_to_column(spear)
 #write_xlsx(spear.rows, path = "C:/Users/athomps/Oregon/DEQ - Biomonitoring is Fun! - General/Env't Stats Class Project 2025/StreamCat/Spearmans_rerun.xlsx")
 
 # CONDENSED CORRELATION MATRIX (>0.8 ONLY)
-matrix <- spear.rows %>%  
+matrix_new <- spear.rows %>%  
   gather(-rowname, key = "colname", value = "cor") %>% 
   filter(abs(cor) > 0.8)
 
@@ -255,19 +257,17 @@ matrix <- spear.rows %>%
 rm(list=c('spear', 'spear.rows'))
 ```
 
-#### Explore co-varied metrics and select which we want to retain for modeling purposes.
-
 ##### NOTE: SB, SH, AT did this together in Excel. See "Spearman2 - predictor decisions" on Teams for list of discarded/retained metrics.
 
 ```{r}
 # Look at Coefficient of Variance for predictors.
 cv <- tss_vars_num %>% 
   summarise(across(everything(), ~ cv(.x))) %>% 
-  pivot_longer(1:139, names_to="Var", values_to="CV")
+  pivot_longer(1:134, names_to="Var", values_to="CV") # Change first argument to 1:# columns
 
 cv_pctzero <- tss_vars_num %>%
   summarise(across(everything(), ~ sum(. == 0) / n() * 100)) %>% 
-  pivot_longer(1:139, names_to="Var", values_to="Percent Zeros") %>% 
+  pivot_longer(1:134, names_to="Var", values_to="Percent Zeros") %>%  # Change  first argument to 1:# columns
   inner_join(cv, by = "Var")
 
 #write_xlsx(cv_pctzero, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//CofV", Sys.Date(), ".xlsx"))
@@ -275,17 +275,11 @@ cv_pctzero <- tss_vars_num %>%
 rm(cv)
 ```
 
-#### Drop variables that were not selected based on correlation analysis.
+#### Select out variables that were not selected based on correlation analysis.
+
 ```{r}
 tss_vars_selected <- tss_vars %>% 
-  select(!c(NSURPWS,NANIWS,PCTAGSLPHIGH2001WS,WATERINPUTWS,AGKFFACTWS,CBNFWS,MANUREWS,FERTWS,PCTHAY2001WS,
-            TMAX8110WS,PRECIP8110WS,NO32008WS,TMEAN8110WS,PRECIP2008WS,INORGNWETDEP2008WS,NH42008WS,TMIN8110WS,
-            TMEAN2008WS,SN2008WS,TMAX9120WS,TMEAN9120WS,TMIN9120WS,NABD_DENSWS,DAMNRMSTORWS,NABD_NRMSTORWS,
-            NABD_NIDSTORWS,DAMNIDSTORWS,RUNOFFWS,HABTWS,HYDWS,CONNWS,TEMPWS,CHEMWS,SEDWS,PCTURBLO2001WS,
-            PCTDECID2001WS,SIO2WS,K2OWS,P2O5WS,AL2O3WS,CAOWS,MGOWS,PERMWS,PCTSILICICWS,PCTNONCARBRESIDWS,
-            WWTPMINORDENSWS,PCTIMPSLPHIGH2001WS,PCTIMPSLPMID2001WS,HUDEN2010WS,PCTBURNAREA2002WS,
-            PCTUNDSEV2002WS,PCTLOWSEV2002WS,PCTMODSEV2002WS,PCTHIGHSEV2002WS,ICI,IWI,MAST2008,MWST2008,
-            WETTEDWIDTH,THALWAGDEPTH,BANKFULLDEPTH))
+  select(c(MLocID:COMID, BANKFULLWIDTH,BFIWS,CANALDENSWS,CLAYWS,COALMINEDENSWS,COMPSTRGTHWS,DAMDENSWS,ELEVWS,FE2O3WS,HYDRLCONDWS,KFFACTWS,MINEDENSWS,MSST2008,NWS,NA2OWS,NPDESDENSWS,OMWS,PCTAGDRAINAGEWS,PCTAGSLPMID2001WS,PCTALKINTRUVOLWS,PCTALLUVCOASTWS,PCTBL2001WS,PCTCARBRESIDWS,PCTCOASTCRSWS,PCTCOLLUVSEDWS,PCTCONIF2001WS,PCTCROP2001WS,PCTEOLCRSWS,PCTEOLFINEWS,PCTEXTRUVOLWS,PCTFIRE2002WS,PCTFRSTLOSS2002WS,PCTGLACLAKECRSWS,PCTGLACLAKEFINEWS,PCTGLACTILCLAYWS,PCTGLACTILCRSWS,PCTGLACTILLOAMWS,PCTGRS2001WS,PCTHBWET2001WS,PCTHYDRICWS,PCTICE2001WS,PCTIMP2001WS,PCTINCVEGRESP2002WS,PCTMXFST2001WS,PCTNONAGINTRODMANAGVEGWS,PCTNONPROCMASK2002WS,PCTOW2001WS,PCTSALLAKEWS,PCTSHRB2001WS,PCTURBHI2001WS,PCTURBMD2001WS,PCTURBOP2001WS,PCTWATERWS,PCTWDWET2001WS,PESTIC1997WS,POPDEN2010WS,PRECIP9120WS,RCKDEPWS,RDCRSWS,RDCRSSLPWTDWS,RDDENSWS,ROCKNWS,SWS,SANDWS,SEPTICWS,SUPERFUNDDENSWS,SW_FLUXWS,TRIDENSWS,WDRW_LDWS,WETINDEXWS,WTDEPWS,WWTPALLDENSWS,WWTPMAJORDENSWS, PCT_EROD:L3Eco)) # 79 vars in total starting with BANKFULLWIDTH
 ```
 
 #### Perform final correlation check
@@ -293,7 +287,8 @@ tss_vars_selected <- tss_vars %>%
 ```{r, warning=FALSE}
 # Subset numeric variables only
 tss_vars_num_selected <- tss_vars_selected %>% 
-  select(PCTAGDRAINAGEWS:Long_DD)
+  select(!c(PCT_EROD:L3Eco)) %>% 
+  select(!c(MLocID:logTSS)) 
 
 # FULL CORRELATION MATRIX
 spear2 <- cor(tss_vars_num_selected, method = "spearman", use = "pairwise.complete.obs")
@@ -301,10 +296,11 @@ spear2 <- as.data.frame(spear2)
 spear.rows2 <- tibble::rownames_to_column(spear2)
 
 # CONDENSED CORRELATION MATRIX (>0.8 ONLY)
-matrix2 <- spear.rows2 %>%  
+matrix2_new <- spear.rows2 %>%  
   gather(-rowname, key = "colname", value = "cor") %>% 
   filter(abs(cor) > 0.8)
 
+rm(list=c('spear2', 'spear.rows2'))
 # ***CONTINUE ONCE NO CORRELATED VARIABLES REMAIN***
 ```
 
@@ -314,11 +310,16 @@ matrix2 <- spear.rows2 %>%
 
 ```{r, warning=FALSE}
 # FIND OUT WHICH COLUMNS HAVE NAs (AND WRITE CODE FOR THEM BELOW)
-sapply(scmets, function(x) sum(is.na(x)))
+sapply(tss_vars_selected, function(x) sum(is.na(x)))
 
 # PERFORM NA ROUGHFIX FUNCTION ON ALL METRICS WITH AT LEAST 1 NA VALUE (ADD CODE AS NEEDED)
-scmets$BANKFULLWIDTH <- na.roughfix(scmets$BANKFULLWIDTH) #bankfull width (n = 66 NAs)
-scmets$SW_FLUXWS <- na.roughfix(scmets$SW_FLUXWS) #surface water flux (n = 2 NAs)
+tss_vars_selected$BANKFULLWIDTH <- na.roughfix(tss_vars_selected$BANKFULLWIDTH) #bankfull width (n = 66 NAs)
+tss_vars_selected$SW_FLUXWS <- na.roughfix(tss_vars_selected$SW_FLUXWS) #surface water flux (n = 2 NAs)
+
+# Subset numeric variables only
+tss_vars_num_selected <- tss_vars_selected %>% 
+  select(!c(PCT_EROD:L3Eco)) %>% 
+  select(!c(MLocID:logTSS)) 
 
 ```
 
@@ -350,39 +351,28 @@ tss.cal_val <- rbind(tss.cal, tss.val)
 
 ```{r}
 # HISTOGRAM
-hist(tss.sc$TSS, main = "", xlab = "TSS") #raw data
-hist(tss.sc$logTSS, main = "", xlab = "log TSS") #log-transformed
+hist(tss_vars_selected$TSS, main = "", xlab = "TSS") #raw data
+hist(tss_vars_selected$logTSS, main = "", xlab = "log TSS") #log-transformed
 
 # DENSITY PLOT
-hist(tss.sc$logTSS, main="", prob=T, xlab = "TSS")
-d <- density(tss.sc$logTSS) #Estimate probability density and save it into **d**
+hist(tss_vars_selected$logTSS, main="", prob=T, xlab = "TSS")
+d <- density(tss_vars_selected$logTSS) #Estimate probability density and save it into **d**
 lines(d, col='red',lwd=2) #Superimpose the probability density as a curve on the previous probability density histogram
 
 # BOX PLOT & STRIP CHART
-boxplot(tss.sc$logTSS, ylab = "TSS")
-#stripchart(tss$TSS, vertical = T, pch=1, col='red', add = T)
+boxplot(tss_vars_selected$logTSS, ylab = "TSS")
+#stripchart(tss_vars_selected$TSS, vertical = T, pch=1, col='red', add = T)
 
-# NORMALITY ASSUMPTION - GRAPHICALLY 
-qqnorm(tss.sc$TSS) #Q-Q plot
-qqline(tss.sc$TSS) #not normal
 ```
 
+## PREDICTOR VARIABLES
 ```{r}
-join <- inner_join(scmets, tss, by='COMID')
+# Top 20 variables from RF model broken out by reference status
 
-join_ref_plot <- join %>% 
+# Reference
+tss_vars_selected %>% 
   filter(ReferenceSite == 'REFERENCE') %>% 
-  select(SW_FLUXWS:NHD_pSLOPE) 
-
-join_mod_plot <- join %>% 
-  filter(ReferenceSite == 'MODERATELY DISTURBED') %>% 
-  select(SW_FLUXWS:NHD_pSLOPE) 
-
-join_most_plot <- join %>% 
-  filter(ReferenceSite == 'MOST DISTURBED') %>% 
-  select(SW_FLUXWS:NHD_pSLOPE) 
-
-join_ref_plot %>%
+  select(BANKFULLWIDTH:L3Eco) %>% 
   select('WDRW_LDWS', 'PCTCONIF2001WS' , 'CLAYWS' , 'PESTIC1997WS' , 'SANDWS' , 'PCTCROP2001WS' , 'POPDEN2010WS' , 'PRECIP9120WS' , 'PCTAGSLPMID2001WS' , 'PCT_EROD' , 'SW_FLUXWS' , 'PCTIMP2001WS' , 'RDCRSWS' , 'WTDEPWS' , 'ELEVWS' , 'WETINDEXWS' , 'PCTSHRB2001WS' , 'KFFACTWS' , 'PCTICE2001WS' , 'RCKDEPWS') %>% 
   keep(is.numeric) %>% 
   gather() %>% 
@@ -391,40 +381,46 @@ join_ref_plot %>%
   geom_density() +
   geom_rug() + ggtitle("Reference")
 
-join_mod_plot %>%
+# Moderately Disturbed
+tss_vars_selected %>% 
+  filter(ReferenceSite == 'MODERATELY DISTURBED') %>% 
+  select(BANKFULLWIDTH:L3Eco) %>% 
   select('WDRW_LDWS', 'PCTCONIF2001WS' , 'CLAYWS' , 'PESTIC1997WS' , 'SANDWS' , 'PCTCROP2001WS' , 'POPDEN2010WS' , 'PRECIP9120WS' , 'PCTAGSLPMID2001WS' , 'PCT_EROD' , 'SW_FLUXWS' , 'PCTIMP2001WS' , 'RDCRSWS' , 'WTDEPWS' , 'ELEVWS' , 'WETINDEXWS' , 'PCTSHRB2001WS' , 'KFFACTWS' , 'PCTICE2001WS' , 'RCKDEPWS') %>% 
   keep(is.numeric) %>% 
   gather() %>% 
   ggplot(aes(value)) +
   facet_wrap(~ key, scales = "free") +
   geom_density() +
-  geom_rug() + ggtitle("Moderately Disturbed")
+  geom_rug() + ggtitle("MODERATELY DISTURBED")
 
-join_most_plot %>%
+# MOST DISTURBED
+tss_vars_selected %>% 
+  filter(ReferenceSite == 'MOST DISTURBED') %>% 
+  select(BANKFULLWIDTH:L3Eco) %>% 
   select('WDRW_LDWS', 'PCTCONIF2001WS' , 'CLAYWS' , 'PESTIC1997WS' , 'SANDWS' , 'PCTCROP2001WS' , 'POPDEN2010WS' , 'PRECIP9120WS' , 'PCTAGSLPMID2001WS' , 'PCT_EROD' , 'SW_FLUXWS' , 'PCTIMP2001WS' , 'RDCRSWS' , 'WTDEPWS' , 'ELEVWS' , 'WETINDEXWS' , 'PCTSHRB2001WS' , 'KFFACTWS' , 'PCTICE2001WS' , 'RCKDEPWS') %>% 
   keep(is.numeric) %>% 
   gather() %>% 
   ggplot(aes(value)) +
   facet_wrap(~ key, scales = "free") +
   geom_density() +
-  geom_rug() + ggtitle("Most Disturbed")
+  geom_rug() + ggtitle("MOST DISTURBED")
 
-join_ND_plot <- join %>% 
-  filter(TSS<=0.25 | TSS<=0.5) # N = 356
-
-join_ND_plot %>%
+# Non-detects
+tss_vars_selected %>%
+  filter(TSS<=0.25 | TSS<=0.5) %>%  # N = 356
+  select(BANKFULLWIDTH:L3Eco) %>% 
   select('WDRW_LDWS', 'PCTCONIF2001WS' , 'CLAYWS' , 'PESTIC1997WS' , 'SANDWS' , 'PCTCROP2001WS' , 'POPDEN2010WS' , 'PRECIP9120WS' , 'PCTAGSLPMID2001WS' , 'PCT_EROD' , 'SW_FLUXWS' , 'PCTIMP2001WS' , 'RDCRSWS' , 'WTDEPWS' , 'ELEVWS' , 'WETINDEXWS' , 'PCTSHRB2001WS' , 'KFFACTWS' , 'PCTICE2001WS' , 'RCKDEPWS') %>% 
   keep(is.numeric) %>% 
   gather() %>% 
   ggplot(aes(value)) +
   facet_wrap(~ key, scales = "free") +
   geom_density() +
-  geom_rug() + ggtitle("Non-detects")
+  geom_rug() + ggtitle("ND")
 
-join_midTSS_plot <- join %>% 
-  filter(TSS > 0.5 | TSS <= 20) # N = 717
-
-join_midTSS_plot %>%
+# >0.5 - 20 mg/L
+tss_vars_selected %>%
+  filter(TSS > 0.5 | TSS <= 20) %>% # N = 717
+  select(BANKFULLWIDTH:L3Eco) %>% 
   select('WDRW_LDWS', 'PCTCONIF2001WS' , 'CLAYWS' , 'PESTIC1997WS' , 'SANDWS' , 'PCTCROP2001WS' , 'POPDEN2010WS' , 'PRECIP9120WS' , 'PCTAGSLPMID2001WS' , 'PCT_EROD' , 'SW_FLUXWS' , 'PCTIMP2001WS' , 'RDCRSWS' , 'WTDEPWS' , 'ELEVWS' , 'WETINDEXWS' , 'PCTSHRB2001WS' , 'KFFACTWS' , 'PCTICE2001WS' , 'RCKDEPWS') %>% 
   keep(is.numeric) %>% 
   gather() %>% 
@@ -433,10 +429,10 @@ join_midTSS_plot %>%
   geom_density() +
   geom_rug() + ggtitle("TSS 1-20 mg/L")
 
-join_highTSS_plot <- join %>% 
-  filter(TSS > 20) # N = 35
-
-join_highTSS_plot %>%
+# >20 mg/L
+tss_vars_selected %>%
+  filter(TSS > 20) %>% # N = 35
+  select(BANKFULLWIDTH:L3Eco) %>% 
   select('WDRW_LDWS', 'PCTCONIF2001WS' , 'CLAYWS' , 'PESTIC1997WS' , 'SANDWS' , 'PCTCROP2001WS' , 'POPDEN2010WS' , 'PRECIP9120WS' , 'PCTAGSLPMID2001WS' , 'PCT_EROD' , 'SW_FLUXWS' , 'PCTIMP2001WS' , 'RDCRSWS' , 'WTDEPWS' , 'ELEVWS' , 'WETINDEXWS' , 'PCTSHRB2001WS' , 'KFFACTWS' , 'PCTICE2001WS' , 'RCKDEPWS') %>% 
   keep(is.numeric) %>% 
   gather() %>% 
@@ -445,42 +441,16 @@ join_highTSS_plot %>%
   geom_density() +
   geom_rug() + ggtitle("TSS >20 mg/L")
 
-join_all_plot <- join %>% 
-  select(SW_FLUXWS:NHD_pSLOPE) 
-
-
-join_all_plot %>%
+# All TSS
+tss_vars_selected %>%
+  select(BANKFULLWIDTH:L3Eco) %>% 
   select('WDRW_LDWS', 'PCTCONIF2001WS' , 'CLAYWS' , 'PESTIC1997WS' , 'SANDWS' , 'PCTCROP2001WS' , 'POPDEN2010WS' , 'PRECIP9120WS' , 'PCTAGSLPMID2001WS' , 'PCT_EROD' , 'SW_FLUXWS' , 'PCTIMP2001WS' , 'RDCRSWS' , 'WTDEPWS' , 'ELEVWS' , 'WETINDEXWS' , 'PCTSHRB2001WS' , 'KFFACTWS' , 'PCTICE2001WS' , 'RCKDEPWS') %>% 
   keep(is.numeric) %>% 
   gather() %>% 
   ggplot(aes(value)) +
   facet_wrap(~ key, scales = "free") +
   geom_density() +
-  geom_rug() + ggtitle("all sites")
-```
-
-## PREDICTOR VARIABLES
-
-```{r}
-# HISTOGRAMS
-hist(scmets$WDRW_LDWS, main = "", xlab = "Water Withdrawal")
-hist(scmets$PCTCONIF2001WS, main = "", xlab = "Pct Conif")
-hist(scmets$CLAYWS, main = "", xlab = "Mean Clay")
-hist(scmets$PESTIC1997WS, main = "", xlab = "Pesticides")
-hist(scmets$SANDWS, main = "", xlab = "Mean Sand")
-hist(scmets$PCTCROP2001WS, main = "", xlab = "Pct Crop")
-
-# KERNEL DENSITY PLOTS
-kern <- scmets %>%
-  select(WDRW_LDWS , PCTCONIF2001WS , CLAYWS , PESTIC1997WS , SANDWS , PCTCROP2001WS , POPDEN2010WS)
-
-kern %>%
-  keep(is.numeric) %>% 
-  gather() %>% 
-  ggplot(aes(value)) +
-  facet_wrap(~ key, scales = "free") +
-  geom_density() +
-  geom_rug() 
+  geom_rug() + ggtitle("All sites")
 ```
 
 # **5 - RANDOM FOREST MODELS**
@@ -1287,4 +1257,29 @@ ggplot(tss.plots, aes(x = ReferenceSite,y = TSS)) +
     geom_boxplot(outlier.size = 0.9) +
     labs(x = "Reference Status", y = "TSS (mg/L)")  +
     theme(axis.text.x = element_text( vjust = 0.5))
+```
+
+
+## PREDICTOR VARIABLES
+
+```{r}
+# HISTOGRAMS
+hist(scmets$WDRW_LDWS, main = "", xlab = "Water Withdrawal")
+hist(scmets$PCTCONIF2001WS, main = "", xlab = "Pct Conif")
+hist(scmets$CLAYWS, main = "", xlab = "Mean Clay")
+hist(scmets$PESTIC1997WS, main = "", xlab = "Pesticides")
+hist(scmets$SANDWS, main = "", xlab = "Mean Sand")
+hist(scmets$PCTCROP2001WS, main = "", xlab = "Pct Crop")
+
+# KERNEL DENSITY PLOTS
+kern <- scmets %>%
+  select(WDRW_LDWS , PCTCONIF2001WS , CLAYWS , PESTIC1997WS , SANDWS , PCTCROP2001WS , POPDEN2010WS)
+
+kern %>%
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_density() +
+  geom_rug() 
 ```

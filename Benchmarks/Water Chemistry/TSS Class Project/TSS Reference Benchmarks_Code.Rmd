@@ -107,7 +107,7 @@ if(type == "Agriculture"){
 if(type == "Climate"){
 
   streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'precip2008,precip8110,precip9120,tmax8110,tmax9120,tmean2008,tmean8110,tmean9120,tmin8110,tmin9120,inorgnwetdep2008,nh42008,no32008,sn2008,precipminusevt,wetindex', 
+                                                                           metric = 'precip2008,precip8110,precip9120,tmax8110,tmax9120,tmean2008,tmean8110,tmean9120,tmin8110,tmin9120,inorgnwetdep2008,nh42008,no32008,sn2008,precip_minus_evt,wetindex', 
                                                                            showAreaSqKm = FALSE,
                                                                            aoi='watershed'))
   }
@@ -187,7 +187,7 @@ if(type == "Wildfire"){
 if(type == "Others"){
 
   streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'bankfulldepth,bankfullwidth,ici,iwi,mast2008,msst2008,mwst2008,thalwagdepth,wettedwidth', 
+                                                                           metric = 'bankfulldepth,bankfullwidth,ici,iwi,mast2008,msst2008,mwst2008,thalwegdepth,wettedwidth', 
                                                                            showAreaSqKm = FALSE,
                                                                            aoi='other')) 
   }

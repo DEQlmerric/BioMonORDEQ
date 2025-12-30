@@ -1,0 +1,329 @@
+---
+title: "StreamCat Years"
+author: "S. Berzins, A. Thompson"
+date: "2025-12-09"
+output: html_document
+---
+
+#### **PREFACE:** This script explores the creation of a site-specific reference benchmark for total suspended solids (TSS) for ESM 566 Fall Environmental Statistics final project.
+
+V2 = cleaned up code from the class version.
+
+# **1 - LOAD PACKAGES**
+
+```{r warning=FALSE}
+library(tidyverse)
+library(StreamCatTools) 
+```
+
+# **2 - IMPORT COMIDS**
+
+```{r}
+tss <- read_excel("~/BioMonORDEQ/Benchmarks/Water Chemistry/TSS Class Project/TSS_amb_2025-11-12.xlsx") #output file from ref benchmarks script - Ambient sites included
+
+comids <- tss %>% 
+  select(COMID) %>%  #get just the COMIDs for next step
+  filter(!COMID %in% c("23774647", "23877125","23810652")) # REMOVE UNWANTED COMIDS FOR SITES ON HIGH RES NHD
+```
+
+## WATERSHED PREDICTOR VARIABLES - *FROM EPA STREAMCAT*
+
+#### Learn about StreamCat predictors: <https://www.epa.gov/national-aquatic-resource-surveys/streamcat-metrics-and-definitions>
+
+#### View StreamCat updates: <https://www.epa.gov/national-aquatic-resource-surveys/streamcat-updates>
+
+#### Make table of StreamCat metadata and clean up in Excel
+
+```{r}
+# METHOD 1: FIND QUERY-ABLE METRIC NAMES
+partable <- StreamCatTools::sc_get_metric_names()
+#write_xlsx(partable, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//partable", Sys.Date(), ".xlsx"))
+
+# METHOD 2: FIND QUERY-ABLE METRIC NAMES (slightly different than above)
+#scpar <- StreamCatTools::sc_get_params(param = 'metric_names') 
+
+metrics_desc <- read_excel("~/BioMonORDEQ/Benchmarks/Water Chemistry/TSS Class Project/StreamCatMetrics_new.xlsx") #final cleaned-up metrics table
+
+# FOR TESTING INDIVIDUAL METRICS/COMIDS (e.g., to ensure names match)
+#test <- StreamCatTools::sc_get_data(comid = '23910659', metric = 'precipminusevt', showAreaSqKm = FALSE, aoi='watershed')
+#test <- StreamCatTools::sc_get_data(comid = '23910659', metric = 'thalwegdepth', showAreaSqKm = FALSE, aoi='other')
+```
+
+#### Run function to query ALL StreamCat data for selected COMIDs by subcategory
+
+```{r}
+# NOTE: StreamCat doesn't pull data for 'other' areas of interest when aoi='watershed, catchment, other'. 
+# Instead, use aoi='watershed' and run separate line for aoi='other' since they don't pull unless on their own.
+# ALSO: Do not separate metric lists onto a new line by hitting the enter button, as any metric after the break will be excluded from the pull.
+
+# FUNCTION - START +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+get_streamcat <- function(comids, type = c("pctagslphigh","pctagslpmid","pctbl","pctconif","pctcrop","pctdecid","pctgrs","pcthay","pcthbwet","pctice","pctimp","pctimpslphigh","pctimpslpmid","pctmxfst","pctow","pctshrb","pcturbhi","pcturblo","pcturbmd","pcturbop","pctwdwet","wsareasqkmrp100")){
+type <- match.arg(type)
+#comids_split <- split(comids, ceiling(seq_along(comids)/750)) #removed b/c doesn't seem to be doing anything - wrong data class??
+
+if(type == "pctagslphigh"){
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pctagslphigh2001,pctagslphigh2004,pctagslphigh2006,pctagslphigh2008,pctagslphigh2011,pctagslphigh2013,pctagslphigh2016,pctagslphigh2019
+',
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed')) 
+  }
+
+if(type == "pctagslpmid"){
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pctagslpmid2001,pctagslpmid2004,pctagslpmid2006,pctagslpmid2008,pctagslpmid2011,pctagslpmid2013,pctagslpmid2016,pctagslpmid2019
+', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "pctbl"){
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pctbl2001,pctbl2004,pctbl2006,pctbl2008,pctbl2011,pctbl2013,pctbl2016,pctbl2019
+', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "pctconif"){
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pctconif2001,pctconif2004,pctconif2006,pctconif2008,pctconif2011,pctconif2013,pctconif2016,pctconif2019
+', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "pctcrop"){
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pctcrop2001,pctcrop2004,pctcrop2006,pctcrop2008,pctcrop2011,pctcrop2013,pctcrop2016,pctcrop2019
+', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "pctdecid"){
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pctdecid2001,pctdecid2004,pctdecid2006,pctdecid2008,pctdecid2011,pctdecid2013,pctdecid2016,pctdecid2019', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "pctgrs"){ 
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pctgrs2001,pctgrs2004,pctgrs2006,pctgrs2008,pctgrs2011,pctgrs2013,pctgrs2016,pctgrs2019',
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "pcthay"){
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pcthay2001,pcthay2004,pcthay2006,pcthay2008,pcthay2011,pcthay2013,pcthay2016,pcthay2019', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "pcthbwet"){ 
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pcthbwet2001,pcthbwet2004,pcthbwet2006,pcthbwet2008,pcthbwet2011,pcthbwet2013,pcthbwet2016,pcthbwet2019
+', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "pctice"){ 
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pctice2001,pctice2004,pctice2006,pctice2008,pctice2011,pctice2013,pctice2016,pctice2019', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "pctimp"){ 
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pctimp2001,pctimp2004,pctimp2006,pctimp2008,pctimp2011,pctimp2013,pctimp2016,pctimp2019', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "pctimpslphigh"){
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pctimpslphigh2001,pctimpslphigh2004,pctimpslphigh2006,pctimpslphigh2008,pctimpslphigh2011,pctimpslphigh2013,pctimpslphigh2016,pctimpslphigh2019
+', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed')) 
+  }
+if(type == "pctimp"){ 
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pctimp2001,pctimp2004,pctimp2006,pctimp2008,pctimp2011,pctimp2013,pctimp2016,pctimp2019', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+}
+if(type == "pctimpslphigh"){ 
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pctimpslphigh2001,pctimpslphigh2004,pctimpslphigh2006,pctimpslphigh2008,pctimpslphigh2011,pctimpslphigh2013,pctimpslphigh2016,pctimpslphigh2019', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+}
+if(type == "pctimpslpmid"){ 
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pctimpslpmid2001,pctimpslpmid2004,pctimpslpmid2006,pctimpslpmid2008,pctimpslpmid2011,pctimpslpmid2013,pctimpslpmid2016,pctimpslpmid2019', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+}
+if(type == "pctmxfst"){ 
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pctmxfst2001,pctmxfst2004,pctmxfst2006,pctmxfst2008,pctmxfst2011,pctmxfst2013,pctmxfst2016,pctmxfst2019', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+}
+if(type == "pctow"){ 
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pctow2001,pctow2004,pctow2006,pctow2008,pctow2011,pctow2013,pctow2016,pctow2019', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+}
+if(type == "pctshrb"){ 
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pctshrb2001,pctshrb2004,pctshrb2006,pctshrb2008,pctshrb2011,pctshrb2013,pctshrb2016,pctshrb2019', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+}
+if(type == "pcturbhi"){ 
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pcturbhi2001,pcturbhi2004,pcturbhi2006,pcturbhi2008,pcturbhi2011,pcturbhi2013,pcturbhi2016,pcturbhi2019', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+}
+if(type == "pcturblo"){ 
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pcturblo2001,pcturblo2004,pcturblo2006,pcturblo2008,pcturblo2011,pcturblo2013,pcturblo2016,pcturblo2019', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+}
+if(type == "pcturbmd"){ 
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pcturbmd2001,pcturbmd2004,pcturbmd2006,pcturbmd2008,pcturbmd2011,pcturbmd2013,pcturbmd2016,pcturbmd2019', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+}
+if(type == "pcturbop"){ 
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pcturbop2001,pcturbop2004,pcturbop2006,pcturbop2008,pcturbop2011,pcturbop2013,pcturbop2016,pcturbop2019', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+}
+if(type == "pctwdwet"){ 
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pctwdwet2001,pctwdwet2004,pctwdwet2006,pctwdwet2008,pctwdwet2011,pctwdwet2013,pctwdwet2016,pctwdwet2019', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+
+}
+names(streamcat) <- base::toupper(names(streamcat))
+return(streamcat)
+}
+# FUNCTION - END  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+```
+
+#### Pull ALL StreamCat data and associated site info
+
+```{r}
+# PULL DATA 
+pull_function  <- function(SC_var) {
+  get_streamcat(comids = comids, type = SC_var) %>% 
+  inner_join(tss, by='COMID') %>% 
+  select(-c(MLocID,Lat_DD,Long_DD, EcoRegion4, HUC8, cal_val, TSS)) %>% 
+  relocate(COMID, .after = ReferenceSite) %>% 
+  pivot_longer(
+    cols = starts_with(SC_var),
+    names_to = "variable",
+    values_to = "values"
+  )
+}
+
+a<- pull_function("pctagslphigh")
+b<- pull_function("pctagslpmid")
+c<- pull_function("pctbl")
+d<-pull_function("pctconif")
+d<-pull_function("pctcrop")
+e<-pull_function("pctdecid")
+f<-pull_function("pctgrs")
+g<-pull_function("pcthay")
+h<-pull_function("pcthbwet")
+i<-pull_function("pctice")
+j<-pull_function("pctimp")
+k<-pull_function("pctimpslphigh")
+l<-pull_function("pctimpslpmid")
+m<-pull_function("pctmxfst")
+n<-pull_function("pctow")
+o<-pull_function("pctshrb")
+p<-pull_function("pcturbhi")
+q<-pull_function("pcturblo")
+r<-pull_function("pcturbmd")
+s<-pull_function("pcturbop")
+t<-pull_function("pctwdwet")
+
+```  
+
+Pull in site info by COMID, and graph
+```{r}
+# By L3Ecoregion
+plots <- function(data) {
+  ggplot(data, aes(x = variable, y = values, fill = L3Eco)) +
+    geom_boxplot(fill="slateblue", alpha = 0.2) +
+    theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5)) +
+    facet_wrap(~L3Eco)
+}
+# By reference Site
+# plots <- function(data) {
+#   ggplot(data, aes(x = variable, y = values, fill = ReferenceSite)) +
+#     geom_boxplot(fill="slateblue", alpha = 0.2) +
+#     theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5)) +
+#     facet_wrap(~ReferenceSite)
+# }
+
+plots(a) + scale_y_continuous(trans='log10')
+plots(b) + scale_y_continuous(trans='log10')
+plots(c) + scale_y_continuous(trans='log10')
+plots(d) + scale_y_continuous(trans='log10')
+plots(e) + scale_y_continuous(trans='log10')
+plots(f) + scale_y_continuous(trans='log10')
+plots(g) + scale_y_continuous(trans='log10')
+plots(h) + scale_y_continuous(trans='log10')
+plots(i) + scale_y_continuous(trans='log10')
+plots(j) + scale_y_continuous(trans='log10')
+plots(k) + scale_y_continuous(trans='log10')
+plots(l) + scale_y_continuous(trans='log10')
+plots(m) + scale_y_continuous(trans='log10')
+plots(n) + scale_y_continuous(trans='log10')
+plots(o) + scale_y_continuous(trans='log10')
+plots(p) + scale_y_continuous(trans='log10')
+plots(q) + scale_y_continuous(trans='log10')
+plots(r) + scale_y_continuous(trans='log10')
+plots(s) + scale_y_continuous(trans='log10')
+plots(t) + scale_y_continuous(trans='log10')
+
+```
+

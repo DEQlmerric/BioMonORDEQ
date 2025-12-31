@@ -5,9 +5,7 @@ date: "2025-12-09"
 output: html_document
 ---
 
-#### **PREFACE:** This script explores the creation of a site-specific reference benchmark for total suspended solids (TSS) for ESM 566 Fall Environmental Statistics final project.
-
-V2 = cleaned up code from the class version.
+#### Plots of StreamCat variables with more than one year available.
 
 # **1 - LOAD PACKAGES**
 

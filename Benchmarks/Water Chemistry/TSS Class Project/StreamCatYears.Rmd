@@ -14,6 +14,7 @@ V2 = cleaned up code from the class version.
 ```{r warning=FALSE}
 library(tidyverse)
 library(StreamCatTools) 
+library(readxl)
 ```
 
 # **2 - IMPORT COMIDS**
@@ -42,7 +43,7 @@ partable <- StreamCatTools::sc_get_metric_names()
 # METHOD 2: FIND QUERY-ABLE METRIC NAMES (slightly different than above)
 #scpar <- StreamCatTools::sc_get_params(param = 'metric_names') 
 
-metrics_desc <- read_excel("~/BioMonORDEQ/Benchmarks/Water Chemistry/TSS Class Project/StreamCatMetrics_new.xlsx") #final cleaned-up metrics table
+#metrics_desc <- read_excel("~/BioMonORDEQ/Benchmarks/Water Chemistry/TSS Class Project/StreamCatMetrics_new.xlsx") #final cleaned-up metrics table
 
 # FOR TESTING INDIVIDUAL METRICS/COMIDS (e.g., to ensure names match)
 #test <- StreamCatTools::sc_get_data(comid = '23910659', metric = 'precipminusevt', showAreaSqKm = FALSE, aoi='watershed')
@@ -57,7 +58,9 @@ metrics_desc <- read_excel("~/BioMonORDEQ/Benchmarks/Water Chemistry/TSS Class P
 # ALSO: Do not separate metric lists onto a new line by hitting the enter button, as any metric after the break will be excluded from the pull.
 
 # FUNCTION - START +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-get_streamcat <- function(comids, type = c("pctagslphigh","pctagslpmid","pctbl","pctconif","pctcrop","pctdecid","pctgrs","pcthay","pcthbwet","pctice","pctimp","pctimpslphigh","pctimpslpmid","pctmxfst","pctow","pctshrb","pcturbhi","pcturblo","pcturbmd","pcturbop","pctwdwet","wsareasqkmrp100")){
+get_streamcat <- function(comids, type = c("pctagslphigh","pctagslpmid","pctbl","pctconif","pctcrop","pctdecid","pctgrs","pcthay","pcthbwet","pctice","pctimp","pctimpslphigh","pctimpslpmid","pctmxfst","pctow","pctshrb","pcturbhi","pcturblo","pcturbmd","pcturbop","pctwdwet","pctburnarea","pcthighsev","pctincvegresp","pctlowsev","pctmodsev","pctnofire","pctnonprocmask","pctundsev","pctfire","pctfrstloss"
+))
+  {
 type <- match.arg(type)
 #comids_split <- split(comids, ceiling(seq_along(comids)/750)) #removed b/c doesn't seem to be doing anything - wrong data class??
 
@@ -241,6 +244,84 @@ if(type == "pctwdwet"){
                                                                            aoi='watershed'))
 
 }
+
+if(type == "pctburnarea"){
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pctburnarea,pctburnarea1981,pctburnarea1982,pctburnarea1983,pctburnarea1984,pctburnarea1985,pctburnarea1986,pctburnarea1987,pctburnarea1988,pctburnarea1989,pctburnarea1990,pctburnarea1991,pctburnarea1992,pctburnarea1993,pctburnarea1994,pctburnarea1995,pctburnarea1996,pctburnarea1997,pctburnarea1998,pctburnarea1999,pctburnarea2000,pctburnarea2001,pctburnarea2002,pctburnarea2003,pctburnarea2004,pctburnarea2005,pctburnarea2006,pctburnarea2007,pctburnarea2008,pctburnarea2009,pctburnarea2010', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "pcthighsev"){
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pcthighsev,pcthighsev1981,pcthighsev1982,pcthighsev1983,pcthighsev1984,pcthighsev1985,pcthighsev1986,pcthighsev1987,pcthighsev1988,pcthighsev1989,pcthighsev1990,pcthighsev1991,pcthighsev1992,pcthighsev1993,pcthighsev1994,pcthighsev1995,pcthighsev1996,pcthighsev1997,pcthighsev1998,pcthighsev1999,pcthighsev2000,pcthighsev2001,pcthighsev2002,pcthighsev2003,pcthighsev2004,pcthighsev2005,pcthighsev2006,pcthighsev2007,pcthighsev2008,pcthighsev2009,pcthighsev2010', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "pctincvegresp"){
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pctincvegresp,pctincvegresp1981,pctincvegresp1982,pctincvegresp1983,pctincvegresp1984,pctincvegresp1985,pctincvegresp1986,pctincvegresp1987,pctincvegresp1988,pctincvegresp1989,pctincvegresp1990,pctincvegresp1991,pctincvegresp1992,pctincvegresp1993,pctincvegresp1994,pctincvegresp1995,pctincvegresp1996,pctincvegresp1997,pctincvegresp1998,pctincvegresp1999,pctincvegresp2000,pctincvegresp2001,pctincvegresp2002,pctincvegresp2003,pctincvegresp2004,pctincvegresp2005,pctincvegresp2006,pctincvegresp2007,pctincvegresp2008,pctincvegresp2009,pctincvegresp2010', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "pctlowsev"){ 
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pctlowsev,pctlowsev1981,pctlowsev1982,pctlowsev1983,pctlowsev1984,pctlowsev1985,pctlowsev1986,pctlowsev1987,pctlowsev1988,pctlowsev1989,pctlowsev1990,pctlowsev1991,pctlowsev1992,pctlowsev1993,pctlowsev1994,pctlowsev1995,pctlowsev1996,pctlowsev1997,pctlowsev1998,pctlowsev1999,pctlowsev2000,pctlowsev2001,pctlowsev2002,pctlowsev2003,pctlowsev2004,pctlowsev2005,pctlowsev2006,pctlowsev2007,pctlowsev2008,pctlowsev2009,pctlowsev2010',
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "pctmodsev"){
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pctmodsev,pctmodsev1981,pctmodsev1982,pctmodsev1983,pctmodsev1984,pctmodsev1985,pctmodsev1986,pctmodsev1987,pctmodsev1988,pctmodsev1989,pctmodsev1990,pctmodsev1991,pctmodsev1992,pctmodsev1993,pctmodsev1994,pctmodsev1995,pctmodsev1996,pctmodsev1997,pctmodsev1998,pctmodsev1999,pctmodsev2000,pctmodsev2001,pctmodsev2002,pctmodsev2003,pctmodsev2004,pctmodsev2005,pctmodsev2006,pctmodsev2007,pctmodsev2008,pctmodsev2009,pctmodsev2010', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "pctnofire"){ 
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pctnofire,pctnofire1981,pctnofire1982,pctnofire1983,pctnofire1984,pctnofire1985,pctnofire1986,pctnofire1987,pctnofire1988,pctnofire1989,pctnofire1990,pctnofire1991,pctnofire1992,pctnofire1993,pctnofire1994,pctnofire1995,pctnofire1996,pctnofire1997,pctnofire1998,pctnofire1999,pctnofire2000,pctnofire2001,pctnofire2002,pctnofire2003,pctnofire2004,pctnofire2005,pctnofire2006,pctnofire2007,pctnofire2008,pctnofire2009,pctnofire2010', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "pctnonprocmask"){ 
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pctnonprocmask,pctnonprocmask1981,pctnonprocmask1982,pctnonprocmask1983,pctnonprocmask1984,pctnonprocmask1985,pctnonprocmask1986,pctnonprocmask1987,pctnonprocmask1988,pctnonprocmask1989,pctnonprocmask1990,pctnonprocmask1991,pctnonprocmask1992,pctnonprocmask1993,pctnonprocmask1994,pctnonprocmask1995,pctnonprocmask1996,pctnonprocmask1997,pctnonprocmask1998,pctnonprocmask1999,pctnonprocmask2000,pctnonprocmask2001,pctnonprocmask2002,pctnonprocmask2003,pctnonprocmask2004,pctnonprocmask2005,pctnonprocmask2006,pctnonprocmask2007,pctnonprocmask2008,pctnonprocmask2009,pctnonprocmask2010', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "pctundsev"){ 
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pctundsev,pctundsev1981,pctundsev1982,pctundsev1983,pctundsev1984,pctundsev1985,pctundsev1986,pctundsev1987,pctundsev1988,pctundsev1989,pctundsev1990,pctundsev1991,pctundsev1992,pctundsev1993,pctundsev1994,pctundsev1995,pctundsev1996,pctundsev1997,pctundsev1998,pctundsev1999,pctundsev2000,pctundsev2001,pctundsev2002,pctundsev2003,pctundsev2004,pctundsev2005,pctundsev2006,pctundsev2007,pctundsev2008,pctundsev2009,pctundsev2010', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+if(type == "pctfire"){ 
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pctfire2001,pctfire2002,pctfire2003,pctfire2004,pctfire2005,pctfire2006,pctfire2007,pctfire2008,pctfire2009,pctfire2010', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+}
+if(type == "pctfrstloss"){ 
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pctfrstloss2001,pctfrstloss2002,pctfrstloss2003,pctfrstloss2004,pctfrstloss2005,pctfrstloss2006,pctfrstloss2007,pctfrstloss2008,pctfrstloss2009,pctfrstloss2010,pctfrstloss2011,pctfrstloss2011,pctfrstloss2012', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
 names(streamcat) <- base::toupper(names(streamcat))
 return(streamcat)
 }
@@ -267,28 +348,42 @@ a<- pull_function("pctagslphigh")
 b<- pull_function("pctagslpmid")
 c<- pull_function("pctbl")
 d<-pull_function("pctconif")
-d<-pull_function("pctcrop")
-e<-pull_function("pctdecid")
-f<-pull_function("pctgrs")
-g<-pull_function("pcthay")
-h<-pull_function("pcthbwet")
-i<-pull_function("pctice")
-j<-pull_function("pctimp")
-k<-pull_function("pctimpslphigh")
-l<-pull_function("pctimpslpmid")
-m<-pull_function("pctmxfst")
-n<-pull_function("pctow")
-o<-pull_function("pctshrb")
-p<-pull_function("pcturbhi")
-q<-pull_function("pcturblo")
-r<-pull_function("pcturbmd")
-s<-pull_function("pcturbop")
-t<-pull_function("pctwdwet")
+e<-pull_function("pctcrop")
+f<-pull_function("pctdecid")
+g<-pull_function("pctgrs")
+h<-pull_function("pcthay")
+i<-pull_function("pcthbwet")
+j<-pull_function("pctice")
+k<-pull_function("pctimp")
+l<-pull_function("pctimpslphigh")
+m<-pull_function("pctimpslpmid")
+n<-pull_function("pctmxfst")
+o<-pull_function("pctow")
+p<-pull_function("pctshrb")
+q<-pull_function("pcturbhi")
+r<-pull_function("pcturblo")
+s<-pull_function("pcturbmd")
+t<-pull_function("pcturbop")
+u<-pull_function("pctwdwet")
+v<-pull_function("pctfire")
+w<-pull_function("pctfrstloss")
+
+aa<- pull_function("pctburnarea")
+bb<- pull_function("pcthighsev")
+cc<- pull_function("pctincvegresp")
+dd<- pull_function("pctlowsev")
+ee<- pull_function("pctmodsev")
+ff<- pull_function("pctnofire")
+gg<- pull_function("pctnonprocmask")
+hh<- pull_function("pctundsev")
+
 
 ```  
 
-Pull in site info by COMID, and graph
+####Pull in site info by COMID, and graph
 ```{r}
+# Boxplots
+
 # By L3Ecoregion
 plots <- function(data) {
   ggplot(data, aes(x = variable, y = values, fill = L3Eco)) +
@@ -296,7 +391,7 @@ plots <- function(data) {
     theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5)) +
     facet_wrap(~L3Eco)
 }
-# By reference Site
+# By reference status
 # plots <- function(data) {
 #   ggplot(data, aes(x = variable, y = values, fill = ReferenceSite)) +
 #     geom_boxplot(fill="slateblue", alpha = 0.2) +
@@ -304,26 +399,90 @@ plots <- function(data) {
 #     facet_wrap(~ReferenceSite)
 # }
 
-plots(a) + scale_y_continuous(trans='log10')
-plots(b) + scale_y_continuous(trans='log10')
-plots(c) + scale_y_continuous(trans='log10')
-plots(d) + scale_y_continuous(trans='log10')
-plots(e) + scale_y_continuous(trans='log10')
-plots(f) + scale_y_continuous(trans='log10')
-plots(g) + scale_y_continuous(trans='log10')
-plots(h) + scale_y_continuous(trans='log10')
-plots(i) + scale_y_continuous(trans='log10')
-plots(j) + scale_y_continuous(trans='log10')
-plots(k) + scale_y_continuous(trans='log10')
-plots(l) + scale_y_continuous(trans='log10')
-plots(m) + scale_y_continuous(trans='log10')
-plots(n) + scale_y_continuous(trans='log10')
-plots(o) + scale_y_continuous(trans='log10')
-plots(p) + scale_y_continuous(trans='log10')
-plots(q) + scale_y_continuous(trans='log10')
-plots(r) + scale_y_continuous(trans='log10')
-plots(s) + scale_y_continuous(trans='log10')
-plots(t) + scale_y_continuous(trans='log10')
+
+plots(a) + scale_y_continuous(trans='log10') + labs(title = "Percent of Agriculture of 20% Slope")
+plots(b) + scale_y_continuous(trans='log10') + labs(title = "Percent of Agriculture of 10% Slope")
+plots(c) + scale_y_continuous(trans='log10') + labs(title = "Bedrock and Similar Earthen Material Percentage")
+plots(d) + scale_y_continuous(trans='log10') + labs(title = "Evergreen Forest Percentage")
+plots(e) + scale_y_continuous(trans='log10') + labs(title = "Row Crop Percentage")
+plots(f) + scale_y_continuous(trans='log10') + labs(title = "Deciduous Forest Percentage")
+plots(g) + scale_y_continuous(trans='log10') + labs(title = "Grassland/Herbaceous Percentage")
+plots(h) + scale_y_continuous(trans='log10') + labs(title = "Pasture/Hay Percentage")
+plots(i) + scale_y_continuous(trans='log10') + labs(title = "Herbaceous Wetland Percentage")
+plots(j) + scale_y_continuous(trans='log10') + labs(title = "Ice/Snow Cover Percentage")
+plots(k) + scale_y_continuous(trans='log10') + labs(title = "Mean Imperviousness")
+plots(l) + scale_y_continuous(trans='log10') + labs(title = "Percent Imperviousness on 20% Slope")
+plots(m) + scale_y_continuous(trans='log10') + labs(title = "Percent Imperviousness on 10% Slope")
+plots(n) + scale_y_continuous(trans='log10') + labs(title = "Mixed Deciduous/Evergreen Forest Percentage")
+plots(o) + scale_y_continuous(trans='log10') + labs(title = "Shrub/Scrub Percentage")
+plots(p) + scale_y_continuous(trans='log10') + labs(title = "Developed, High Intensity Land Use Percentage")
+plots(q) + scale_y_continuous(trans='log10') + labs(title = "Developed, Low Intensity Land Use Percentage")
+plots(r) + scale_y_continuous(trans='log10') + labs(title = "Developed, Medium Intensity Land Use Percentage")
+plots(s) + scale_y_continuous(trans='log10') + labs(title = "Developed, Open Space Land Use Percentage")
+plots(t) + scale_y_continuous(trans='log10') + labs(title = "Woody Wetland Percentage")
+plots(u) + scale_y_continuous(trans='log10') + labs(title = "Watershed Area Square Kilometers Riparian 100 Meters")
+plots(v) + scale_y_continuous(trans='log10') + labs(title = "Forest Fire Loss")
+plots(w) + scale_y_continuous(trans='log10') + labs(title = "Forest Loss")
+
+plots(aa) + scale_y_continuous(trans='log10') + labs(title = "Wildfire Burn Percent 1984-2018")
+plots(bb) + scale_y_continuous(trans='log10') + labs(title = "Percent High Burn Severity Class For Year")
+plots(cc) + scale_y_continuous(trans='log10') + labs(title = "Percent Increased Greenness and Veg Response Class For Year")
+plots(dd) + scale_y_continuous(trans='log10') + labs(title = "Percent Low Burn Severity Class For Year")
+plots(ee) + scale_y_continuous(trans='log10') + labs(title = "Percent Moderate Burn Severity Class For Year")
+plots(ff) + scale_y_continuous(trans='log10') + labs(title = "Percent No Fire Burn Class Class For Year")
+plots(gg) + scale_y_continuous(trans='log10') + labs(title = "Percent Non Processing Mask Class For Year")
+plots(hh) + scale_y_continuous(trans='log10') + labs(title = "Percent Underburned to Low Burn Severity Class For Year")
+```
+```{r}
+# Line plots
+
+# By ecoregion
+# Line plots by ecoregion
+plots_lines <- function(data) {
+  ggplot(data, aes(x = variable, y = values, group = COMID, color = L3Eco)) +
+    geom_point() + geom_line() +
+    theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+}
+
+# Line plots by reference status
+plots_lines <- function(data) {
+  ggplot(data, aes(x = variable, y = values, group = COMID, color = ReferenceSite)) +
+    geom_point() + geom_line() +
+    theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5)) +
+      scale_color_manual(values = c("MOST DISTURBED" = "red", "MODERATELY DISTURBED" = "blue", "REFERENCE" = "green"))
+ }
+
+plots_lines(a) + labs(title = "Percent of Agriculture of 20% Slope")
+plots_lines(b) + labs(title = "Percent of Agriculture of 10% Slope")
+plots_lines(c) + labs(title = "Bedrock and Similar Earthen Material Percentage")
+plots_lines(d) + labs(title = "Evergreen Forest Percentage")
+plots_lines(e) + labs(title = "Row Crop Percentage")
+plots_lines(f) + labs(title = "Deciduous Forest Percentage")
+plots_lines(g) + labs(title = "Grassland/Herbaceous Percentage")
+plots_lines(h) + labs(title = "Pasture/Hay Percentage")
+plots_lines(i) + labs(title = "Herbaceous Wetland Percentage")
+plots_lines(j) + labs(title = "Ice/Snow Cover Percentage")
+plots_lines(k) + labs(title = "Mean Imperviousness")
+plots_lines(l) + labs(title = "Percent Imperviousness on 20% Slope")
+plots_lines(m) + labs(title = "Percent Imperviousness on 10% Slope")
+plots_lines(n) + labs(title = "Mixed Deciduous/Evergreen Forest Percentage")
+plots_lines(o) + labs(title = "Shrub/Scrub Percentage")
+plots_lines(p) + labs(title = "Developed, High Intensity Land Use Percentage")
+plots_lines(q) + labs(title = "Developed, Low Intensity Land Use Percentage")
+plots_lines(r) + labs(title = "Developed, Medium Intensity Land Use Percentage")
+plots_lines(s) + labs(title = "Developed, Open Space Land Use Percentage")
+plots_lines(t) + labs(title = "Woody Wetland Percentage")
+plots_lines(u) + labs(title = "Watershed Area Square Kilometers Riparian 100 Meters")
+plots_lines(v) + labs(title = "Forest Fire Loss")
+plots_lines(w) + labs(title = "Forest Loss")
+
+plots_lines(aa) + labs(title = "Wildfire Burn Percent 1984-2018")
+plots_lines(bb) + labs(title = "Percent High Burn Severity Class For Year")
+plots_lines(cc) + labs(title = "Percent Increased Greenness and Veg Response Class For Year")
+plots_lines(dd) + labs(title = "Percent Low Burn Severity Class For Year")
+plots_lines(ee) + labs(title = "Percent Moderate Burn Severity Class For Year")
+plots_lines(ff) + labs(title = "Percent No Fire Burn Class Class For Year")
+plots_lines(gg) + labs(title = "Percent Non Processing Mask Class For Year")
+plots_lines(hh) + labs(title = "Percent Underburned to Low Burn Severity Class For Year")
 
 ```
-

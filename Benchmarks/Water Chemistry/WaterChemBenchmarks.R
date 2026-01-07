@@ -326,13 +326,19 @@ cal_chem.ref.wq <- cal_chem.ref.wq %>%
 # Combine the previous two tables.
 cal.val_chem.ref.wq <- rbind(cal_chem.ref.wq, val_chem.ref.wq)
 
+cond <- cal.val_chem.ref.wq %>%
+  filter(Char_Name == 'Conductivity') %>% 
+  select(c(MLocID, Project1, StationDes, Lat_DD, Long_DD, Result_Numeric_mod, L2Eco, L3Eco, EcoRegion4, HUC8, ReferenceSite, cal_val, COMID)) %>%
+  mutate(Conductivity = Result_Numeric_mod) %>% 
+  select(-Result_Numeric_mod)
+
 tss <- cal.val_chem.ref.wq %>%
   filter(Char_Name == 'Total suspended solids') %>% 
   select(c(MLocID, Project1, StationDes, Lat_DD, Long_DD, Result_Numeric_mod, L2Eco, L3Eco, EcoRegion4, HUC8, ReferenceSite, cal_val, COMID)) %>%
   mutate(TSS = Result_Numeric_mod) %>% 
   select(-Result_Numeric_mod)
 
-write_xlsx(tss, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//TSS_amb_", Sys.Date(), ".xlsx"))
+write_xlsx(cond, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//Conductivity", Sys.Date(), ".xlsx"))
 #write_xlsx(tss, path = paste0("C://Users//athomps//OneDrive - Oregon//Desktop//TSS_", Sys.Date(), ".xlsx")) #temporary path so can include Ambient sites
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # SUMMARY TABLES, FIGURES

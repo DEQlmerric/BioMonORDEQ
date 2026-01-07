@@ -1,13 +1,11 @@
 ---
-title: "TSS Reference Benchmarks V2"
+title: "Conductivity Reference Benchmarks"
 author: "S. Berzins, A. Thompson"
-date: "2025-12-09"
+date: "2026-01-06"
 output: html_document
 ---
 
-#### This script explores the creation of a site-specific reference benchmark for total suspended solids (TSS) for ESM 566 Fall Environmental Statistics final project.
-
-V2 = cleaned up code from the class version.  SYB note 1/6/26 - I verified that this script produces the same output that the class script did, but in order to get the same model run, you have to re-order the input data table for random forest so the rows and columns are in the same order as the class script version (I haven't saved that re-ordering here as the order in the original script is somewhat arbitrary. Instead I have ordered rows and columns alphabetically and by type).
+#### Trying the script we created in class for a different parameter (Conductivity)
 
 # **1 - LOAD PACKAGES**
 
@@ -31,11 +29,11 @@ library(EnvStats)
 ## STATIONS/TSS - *FROM WATER CHEMISTRY BENCHMARKS SCRIPT*
 
 ```{r}
-tss <- read_excel("TSS_amb_2025-11-12.xlsx") #output file from ref benchmarks script - Ambient sites included
+cond <- read_excel("Conductivity2026-01-06.xlsx") #output file from ref benchmarks script - Ambient sites included
 
-comids <- tss %>% 
+comids <- cond %>% 
   select(COMID) %>%  #get just the COMIDs for next step
-  filter(!COMID %in% c("23774647", "23877125","23810652")) # REMOVE UNWANTED COMIDS FOR SITES ON HIGH RES NHD
+  filter(!COMID %in% c("23915259","23810652","23765365","23910789","24505148","23881294","23876327","24506738","23774647","23877125","23872909","23941071")) # REMOVE UNWANTED COMIDS ('used closest COMID') FOR SITES ON HIGH RES NHD
 ```
 
 ## WATERSHED PREDICTOR VARIABLES - *FROM EPA STREAMCAT*
@@ -71,7 +69,6 @@ comids <- tss %>%
 get_streamcat <- function(comids, type = c("Agriculture","Climate","Dams","Flow","IWI","Land Cover","Lithology","Mining_Toxics","Roads",
                                            "Urban","Wildfire","Others")){
 type <- match.arg(type)
-#comids_split <- split(comids, ceiling(seq_along(comids)/750)) #removed b/c doesn't seem to be doing anything - wrong data class??
 
 if(type == "Agriculture"){
 
@@ -108,7 +105,7 @@ if(type == "Flow"){
 if(type == "IWI"){
 
   streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'chem,conn,habt,hyd,sed,temp', 
+                                                                           metric = 'chem,conn,habt,hyd,sed,temp,prg_bmmi0809', 
                                                                            showAreaSqKm = FALSE,
                                                                            aoi='watershed'))
   }
@@ -183,7 +180,7 @@ ag <- get_streamcat(comids = comids, type = "Agriculture")
 clim <- get_streamcat(comids = comids, type = "Climate")
 dams <- get_streamcat(comids = comids, type = "Dams")
 flow <- get_streamcat(comids = comids, type = "Flow")
-iwi <- get_streamcat(comids = comids, type = "IWI") #except prg_bmmi0809 b/c it crashes API
+iwi <- get_streamcat(comids = comids, type = "IWI") 
 cover <- get_streamcat(comids = comids, type = "Land Cover")
 litho <- get_streamcat(comids = comids, type = "Lithology") 
 mintox <- get_streamcat(comids = comids, type = "Mining_Toxics")
@@ -216,15 +213,13 @@ erod_resist_strmpow <- erod_resist_strmpow %>%
   select(COMID, PCT_EROD, STRMPOW_CAT, NHD_pSLOPE, SITE_TYPE) # Drop PCT_RESIST since it's the inverse of PCT_ERODE
 
 # JOIN WITH OTHER PARAMETERS NOT FROM SC
-tss_vars <- sc_all %>% 
+cond_vars <- sc_all %>% 
   inner_join(erod_resist_strmpow, by='COMID') %>% 
-  inner_join(tss, by = 'COMID')
+  inner_join(cond, by = 'COMID')
 
 # RE-ORDER COLUMNS 
-tss_vars <- tss_vars %>% 
-  relocate(MLocID:TSS, .before = 'COMID') %>% 
-  mutate(logTSS = log(TSS+1)) %>%  # Log transform TSS column
-  relocate(logTSS, .after = TSS) %>%  
+cond_vars <- cond_vars %>% 
+  relocate(MLocID:Conductivity, .before = 'COMID') %>% 
   relocate(L2Eco:L3Eco, .after = SITE_TYPE) %>% 
   select(-c(HUC8, EcoRegion4)) 
 ```
@@ -235,48 +230,130 @@ tss_vars <- tss_vars %>%
 
 ```{r, warning=FALSE}
 # Subset numeric variables only
-tss_vars_num <- tss_vars %>% 
-  select(!c(PCT_EROD:L3Eco)) %>% 
-  select(!c(MLocID:logTSS)) 
+cond_vars_num <- cond_vars %>% 
+  select(!c(SITE_TYPE:L3Eco)) %>% 
+  select(!c(MLocID:Conductivity)) %>%  
+  relocate(sort(names(.))) # sort columns alphabetically
+
+# FIND OUT WHICH COLUMNS HAVE NAs (AND WRITE CODE FOR THEM BELOW)
+sapply(cond_vars_num, function(x) sum(is.na(x)))
+
+# PERFORM NA ROUGHFIX FUNCTION ON METRICS WITH just a few missing values (wait to see about the ones that are missing a lot: BANKFULLDEPTH, BANKFULLWIDTH, MAST2008, THALWEGDEPTH, WETTEDWIDTH)
+cond_vars_num$CLAYWS  <- na.roughfix(cond_vars_num$CLAYWS ) # 1 NA
+cond_vars_num$MSST2008 <- na.roughfix(cond_vars_num$ MSST2008) # 1 NA
+cond_vars_num$MWST2008 <- na.roughfix(cond_vars_num$ MWST2008) # 12 NAs
+cond_vars_num$NANIWS <- na.roughfix(cond_vars_num$NANIWS) # 1 NA
+cond_vars_num$NSURPWS <- na.roughfix(cond_vars_num$NSURPWS) # 1 NA
+cond_vars_num$OMWS <- na.roughfix(cond_vars_num$OMWS) # 1 NA
+cond_vars_num$PCTIMPSLPHIGH2001WS <- na.roughfix(cond_vars_num$PCTIMPSLPHIGH2001WS) # 4 NAs
+cond_vars_num$PERMWS <- na.roughfix(cond_vars_num$PERMWS) # 1 NA
+cond_vars_num$RCKDEPWS <- na.roughfix(cond_vars_num$RCKDEPWS) # 1 NA
+cond_vars_num$SANDWS <- na.roughfix(cond_vars_num$SANDWS) # 1 NA
+cond_vars_num$SW_FLUXWS <- na.roughfix(cond_vars_num$SW_FLUXWS) # 1 NA
+cond_vars_num$WTDEPWS <- na.roughfix(cond_vars_num$WTDEPWS) # 1 NA
 
 # FULL CORRELATION MATRIX
-spear <- cor(tss_vars_num, method = "spearman", use = "pairwise.complete.obs")
+spear <- cor(cond_vars_num, method = "spearman", use = "pairwise.complete.obs")
 spear <- as.data.frame(spear)
 spear.rows <- tibble::rownames_to_column(spear)
 
 #export once, then clean up in Excel
-#write_xlsx(spear.rows, path = "C:/Users/athomps/Oregon/DEQ - Biomonitoring is Fun! - General/Env't Stats Class Project 2025/StreamCat/Spearmans_rerun.xlsx")
+#write_xlsx(spear.rows, path = "~/BioMonORDEQ/Benchmarks/Water Chemistry/Conductivity/Cond_Spearmans_Full_Matrix.xlsx")
 
 # CONDENSED CORRELATION MATRIX (>0.8 ONLY)
-matrix_new <- spear.rows %>%  
+matrix <- spear.rows %>%  
   gather(-rowname, key = "colname", value = "cor") %>% 
   filter(abs(cor) > 0.8)
 
 #export once, then clean up in Excel
-#write_xlsx(matrix, path = "C:/Users/athomps/Oregon/DEQ - Biomonitoring is Fun! - General/Env't Stats Class Project 2025/StreamCat/Spearmans2_rerun.xlsx")
+write_xlsx(matrix, path = "~/BioMonORDEQ/Benchmarks/Water Chemistry/Conductivity/Cond_Spearmans_Matrix.xlsx")
 
 rm(list=c('spear', 'spear.rows'))
 ```
 
-##### NOTE: SB, SH, AT did this together in Excel. See "Spearman2 - predictor decisions" on Teams for list of discarded/retained metrics.
+##### NOTE: Take the correlation matrix and make predictor decisions. Look at CV and proportion of 0s to help make these decisions.
 
 ```{r}
 # Look at Coefficient of Variance for predictors.
-cv <- tss_vars_num %>% 
+cv <- cond_vars_num %>% 
   summarise(across(everything(), ~ cv(.x))) %>% 
-  pivot_longer(1:134, names_to="Var", values_to="CV") # Change first argument to 1:# columns
+  pivot_longer(1:139, names_to="Var", values_to="CV") # Change first argument to 1:# columns
 
-cv_pctzero <- tss_vars_num %>%
+cv_pctzero <- cond_vars_num %>%
   summarise(across(everything(), ~ sum(. == 0) / n() * 100)) %>% 
-  pivot_longer(1:134, names_to="Var", values_to="Percent Zeros") %>%  # Change  first argument to 1:# columns
+  pivot_longer(1:139, names_to="Var", values_to="Percent Zeros") %>%  # Change  first argument to 1:# columns
   inner_join(cv, by = "Var")
 
 #write_xlsx(cv_pctzero, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//CofV", Sys.Date(), ".xlsx"))
 
 rm(cv)
 ```
+ 
+```{r}
+# Look at KD plots for predictors.
 
-#### Select variables based on correlation analysis.
+# List of variables  
+# "AGKFFACTWS","AL2O3WS","BANKFULLDEPTH","BANKFULLWIDTH","BFIWS","CAOWS","CBNFWS","CLAYWS","CONNWS","DAMDENSWS","DAMNIDSTORWS","DAMNRMSTORWS","ELEVWS","FE2O3WS","FERTWS","HABTWS","HUDEN2010WS","ICI","INORGNWETDEP2008WS","IWI","K2OWS","MANUREWS","MAST2008","MGOWS","MWST2008","NA2OWS","NABD_DENSWS","NABD_NIDSTORWS","NABD_NRMSTORWS","NANIWS","NH42008WS","NO32008WS","NSURPWS","P2O5WS","PCT_EROD","PCTAGSLPHIGH2001WS","PCTAGSLPMID2001WS","PCTBURNAREA2002WS","PCTDECID2001WS","PCTFIRE2002WS","PCTHAY2001WS","PCTHIGHSEV2002WS","PCTIMP2001WS","PCTIMPSLPHIGH2001WS","PCTIMPSLPMID2001WS","PCTLOWSEV2002WS","PCTMODSEV2002WS","PCTMXFST2001WS","PCTNONCARBRESIDWS","PCTSILICICWS","PCTUNDSEV2002WS","PCTURBLO2001WS","PCTURBMD2001WS","PERMWS","POPDEN2010WS","PRECIP_MINUS_EVTWS","PRECIP2008WS","PRECIP8110WS","PRECIP9120WS","RUNOFFWS","SANDWS","SEDWS","SIO2WS","SN2008WS","SW_FLUXWS","TEMPWS","THALWEGDEPTH","TMAX8110WS","TMAX9120WS","TMEAN2008WS","TMEAN8110WS","TMEAN9120WS","TMIN8110WS","TMIN9120WS","WATERINPUTWS","WDRW_LDWS","WETTEDWIDTH","WWTPALLDENSWS","WWTPMINORDENSWS"
+
+# Kernel density plot function
+kd_plots <- function(data, filter_col_name, filter_value) {
+  data %>%
+    filter(.data[[filter_col_name]] == filter_value) %>% # Using .data[[]] for dynamic column names
+    select("AGKFFACTWS","AL2O3WS","BANKFULLDEPTH","BANKFULLWIDTH","BFIWS","CAOWS","CBNFWS","CLAYWS","CONNWS","DAMDENSWS","DAMNIDSTORWS","DAMNRMSTORWS") %>%  
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_density() +
+  geom_rug() + ggtitle(paste0(filter_value))
+}
+
+# broken out by reference status
+kd_plots(data = cond_vars, "ReferenceSite", "REFERENCE")
+kd_plots(data = cond_vars, "ReferenceSite", "MODERATELY DISTURBED")
+kd_plots(data = cond_vars, "ReferenceSite", "MOST DISTURBED")
+
+# broken out by L2 Ecoregion
+kd_plots(data = cond_vars, "L2Eco", "Western Cordillera")
+kd_plots(data = cond_vars, "L2Eco", "Cold Deserts")
+kd_plots(data = cond_vars, "L2Eco", "Marine West Coast Forest")
+
+# not filtered
+cond_vars %>%
+    select("AGKFFACTWS","AL2O3WS","BANKFULLDEPTH","BANKFULLWIDTH","BFIWS","CAOWS","CBNFWS","CLAYWS","CONNWS","DAMDENSWS","DAMNIDSTORWS","DAMNRMSTORWS") %>%  
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_density() +
+  geom_rug()
+```
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ # Not edited beyond this point!  SYB 1/7/26
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+#### Select variables based on correlation analysis. (Either select desired vars or drop undesired ones. Helps if they are in alphabetical order. Don't get rid of columns you want to keep from AWQMS at this stage.)
 
 ```{r}
 tss_vars_selected <- tss_vars %>% 
@@ -307,7 +384,7 @@ rm(list=c('spear2', 'spear.rows2'))
 
 # **3 - PREPARE DATA FOR MODELS**
 
-## HANDLE NA VALUES AND MERGE PREDICTORS WITH TSS DATA
+## HANDLE NA VALUES AND TRANSFORM DATA
 
 ```{r, warning=FALSE}
 # FIND OUT WHICH COLUMNS HAVE NAs (AND WRITE CODE FOR THEM BELOW)
@@ -330,8 +407,13 @@ tss_vars_num_selected <- tss_vars_selected %>%
 
 ```{r}
 # HISTOGRAM
-hist(tss_vars_selected$TSS, main = "", xlab = "TSS") #raw data
-hist(tss_vars_selected$logTSS, main = "", xlab = "log TSS") #log-transformed
+hist(cond_vars$Conductivity, main = "", xlab = "Conductivity") #raw data
+
+cond_vars <- cond_vars %>% 
+  mutate(logCond = log(Conductivity)) %>% 
+  relocate(.after= Conductivity)
+
+hist(cond_vars$logCond, main = "", xlab = "log(Conductivity)")
 
 # DENSITY PLOT
 hist(tss_vars_selected$logTSS, main="", prob=T, xlab = "TSS")

@@ -507,23 +507,20 @@ plot(rf.full, log="x", main = '')  # 500 seems to work fine.
 ```{r}
 # Predictions
 pred.rf <- predict(rf.full, newdata = cond.cal)
-plot(cond.cal$logCond ~ pred.rf, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'Full model')
-abline(a=0,b=1)
-text(4,6, "RMSE=29.16")
 
-# Full model error
-# Un-logged
+# Full model error and percent variance explained
 full.rmse<- rmse(exp(pred.rf), exp(cond.cal$logCond))
-
-# Not de-logged
-#rmse(pred.rf, cond.cal$logCond)
-
-# # Model error
-#(rmse<-sqrt(sum((exp(pred.rf) - exp(cond.cal$logCond))^2)/length(cond.cal$logCond))) #untransformed prediction error
 
 range_cond <- max(exp(cond.cal_val$logCond)) - min(exp(cond.cal_val$logCond))
 rmse.rf.full_scaled <- full.rmse/range_cond
-print(paste("scaled untransformed RMSE", rmse.rf.full_scaled*100, '%'))
+
+rf.full_pct.var <- round(100 * rf.full$rsq[length(rf.full$rsq)], 2)
+
+# Plot
+plot(cond.cal$logCond ~ pred.rf, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'Full model')
+abline(a=0,b=1)
+text(4,6, paste0("RMSE = ",round(full.rmse, 2)," | scaled RMSE = ", round(rmse.rf.full_scaled*100,2), "%"))
+text(4,5.5, paste0("Variance explained = ",rf.full_pct.var,"%"))
 ```
 ## REDUCED MODEL - IMPORTANT PREDICTORS ONLY
 

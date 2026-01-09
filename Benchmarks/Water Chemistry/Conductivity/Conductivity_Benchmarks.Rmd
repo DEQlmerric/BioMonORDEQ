@@ -19,6 +19,7 @@ library(vip)
 library(caret)
 library(ORDEQBioassessment)
 library(EnvStats)
+library(Metrics)
 # devtools::install_github("TravisPritchardODEQ/ORDEQBioassessment", 
 #                         host = "https://api.github.com", 
 #                        dependencies = TRUE, force = TRUE, upgrade = "never")
@@ -463,23 +464,23 @@ cond.cal_val <- rbind(cond.cal, cond.val)
 ```{r}
 # One way to find best mtry based on tuneRF.
     # Tune mtry based on OOB error
-best_mtry <- tuneRF(cond.cal[, -which(names(cond.cal) == "logCond")], # Predictors
-                        cond.cal$logCond, # Response
-                        ntreeTry = 500, # Number of trees to try for each mtry
-                        stepFactor = 2, # Factor to multiply/divide mtry by
-                        improve = 0.01, # Minimum improvement to continue search
-                        trace = TRUE, # Print progress
-                        plot = TRUE) # Plot OOB error vs. mtry
-print(best_mtry)
-
-# Another approach using Caret.  Takes >50 minutes to run, not that different from mtry approach above.
-control <- trainControl(method="repeatedcv", number=10,repeats = 3, search="random")
-set.seed(1)
-mtry <- sqrt(ncol(cond.cal[ , 2:74]
-))
-rf_random <- train(logCond ~., data = cond.cal, method = "rf", metric = "RMSE", tuneLength = 15, trControl=control)
-print(rf_random)
-plot(rf_random)
+# best_mtry <- tuneRF(cond.cal[, -which(names(cond.cal) == "logCond")], # Predictors
+#                         cond.cal$logCond, # Response
+#                         ntreeTry = 500, # Number of trees to try for each mtry
+#                         stepFactor = 2, # Factor to multiply/divide mtry by
+#                         improve = 0.01, # Minimum improvement to continue search
+#                         trace = TRUE, # Print progress
+#                         plot = TRUE) # Plot OOB error vs. mtry
+# print(best_mtry)
+# 
+# # Another approach using Caret.  Takes >50 minutes to run, not that different from mtry approach above.
+# control <- trainControl(method="repeatedcv", number=10,repeats = 3, search="random")
+# set.seed(1)
+# mtry <- sqrt(ncol(cond.cal[ , 2:74]
+# ))
+# rf_random <- train(logCond ~., data = cond.cal, method = "rf", metric = "RMSE", tuneLength = 15, trControl=control)
+# print(rf_random)
+# plot(rf_random)
 
 ```
 
@@ -492,7 +493,6 @@ rf.full <- randomForest(logCond ~ ., cond.cal, importance = TRUE, mtry=20, keep.
 print(rf.full)
 
 varImpPlot(rf.full, type = 1, n.var = 25, main = "All-Sites Model") #variable importance plot
-#varImpPlot(rf.full, type = 2, n.var = 20, main = "Full Model") #variable importance plot
 ```
 
 #### Tuning the model (how many trees)
@@ -509,29 +509,22 @@ plot(rf.full, log="x", main = '')  # 500 seems to work fine.
 pred.rf <- predict(rf.full, newdata = cond.cal)
 plot(cond.cal$logCond ~ pred.rf, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'Full model')
 abline(a=0,b=1)
-#text(4,1, "RMSE=6.30 
-#%Var=29.94")
+text(4,6, "RMSE=29.16")
+
+# Full model error
+# Un-logged
+full.rmse<- rmse(exp(pred.rf), exp(cond.cal$logCond))
+
+# Not de-logged
+#rmse(pred.rf, cond.cal$logCond)
 
 # # Model error
-# #(rmse<-sqrt(sum((pred.rf - tss.cal$logTSS)^2)/length(tss.cal$logTSS))) #untransformed prediction error
-# ut_pred.rf <- exp(pred.rf)-1
-# ut_tss.cal <- exp(tss.cal$logTSS)-1
-# RMSE.ut.rf.full <- sqrt(sum((ut_pred.rf - ut_tss.cal)^2)/length(tss.cal$logTSS))
-# print(paste("inverse natural log RMSE =", RMSE.ut.rf.full ))
-# 
-# range_tss <- max(exp(tss.cal_val$logTSS)-1) - min(exp(tss.cal_val$logTSS)-1)
-# RMSE.ut.rf.full_scaled <- RMSE.ut.rf.full/range_tss
-# print(paste("scaled untransformed RMSE", RMSE.ut.rf.full_scaled*100, '%'))
+#(rmse<-sqrt(sum((exp(pred.rf) - exp(cond.cal$logCond))^2)/length(cond.cal$logCond))) #untransformed prediction error
+
+range_cond <- max(exp(cond.cal_val$logCond)) - min(exp(cond.cal_val$logCond))
+rmse.rf.full_scaled <- full.rmse/range_cond
+print(paste("scaled untransformed RMSE", rmse.rf.full_scaled*100, '%'))
 ```
-
-
-
-
-# Not edited below this point.  SYB 1/8/26
-
-
-
-
 ## REDUCED MODEL - IMPORTANT PREDICTORS ONLY
 
 #### Build reduced model with 15 predictors
@@ -545,23 +538,29 @@ print(rf.red_15)
 summary(rf.red_15)
 
 varImpPlot(rf.red_15, type = 1, n.var = 15, main = "Reduced Model top 15") #variable importance plot
-#varImpPlot(rf.red_20, type = 2, n.var = 20, main = "Reduced Model top 20") #variable importance plot
 
 # Predictions & model error
 pred.rf.red_15 <- predict(rf.red_15, newdata = cond.cal)
 plot(cond.cal$logCond ~ pred.rf.red_15, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'red_15')
 abline(a=0,b=1)
+text(4,6, "RMSE=26.65")
 
-# # Model error
-# #(rmse<-sqrt(sum((pred.rf.red_20 - tss.cal$logTSS)^2)/length(tss.cal$logTSS))) #untransformed prediction error
-# ut_pred.rf.red_20 <- exp(pred.rf.red_20)-1
-# ut_tss.cal <- exp(tss.cal$logTSS)-1
-# RMSE.ut.rf.red_20 <- sqrt(sum((ut_pred.rf.red_20 - ut_tss.cal)^2)/length(tss.cal$logTSS))
-# print(paste("inverse natural log RMSE =", RMSE.ut.rf.red_20))
-# 
-# RMSE.ut.rf.red_20_scaled <- RMSE.ut.rf.red_20/range_tss
-# print(paste("scaled untransformed RMSE", RMSE.ut.rf.red_20_scaled*100, '%'))
+# Reduced 15 model error
+# Un-logged
+red_15.rmse<- rmse(exp(pred.rf.red_15), exp(cond.cal$logCond))
+
+rmse.rf.red_15_scaled <- red_15.rmse/range_cond
+print(paste("scaled untransformed RMSE", rmse.rf.red_15_scaled*100, '%'))
 ```
+
+
+
+
+# Not edited below this point.  SYB 1/9/26
+
+
+
+
 
 #### \* Final reduced model N = 15
 

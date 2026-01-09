@@ -443,7 +443,7 @@ cond_vars_selected %>%
 # SUBSET DATA
 cond.cal <- cond_vars_selected %>%  #subset CALibration dataset
   filter(cal_val == 'CAL') %>%  
-  select(-c(MLocID:COMID, Conductivity)) #drop conductivity in favor of logCond. Drop AWQMS columns too,
+  select(-c(MLocID:COMID, Conductivity)) #drop conductivity in favor of logCond. Drop AWQMS columns too.
 
 cond.val <- cond_vars_selected %>%  #subset VALidation dataset
   filter(cal_val == 'VAL') %>%  
@@ -508,18 +508,19 @@ plot(rf.full, log="x", main = '')  # 500 seems to work fine.
 # Predictions
 pred.rf <- predict(rf.full, newdata = cond.cal)
 
-# Full model error and percent variance explained
+# Model error 
 full.rmse<- rmse(exp(pred.rf), exp(cond.cal$logCond))
 
 range_cond <- max(exp(cond.cal_val$logCond)) - min(exp(cond.cal_val$logCond))
-rmse.rf.full_scaled <- full.rmse/range_cond
+full.rmse_scaled <- full.rmse/range_cond
 
+# Percent variance explained
 rf.full_pct.var <- round(100 * rf.full$rsq[length(rf.full$rsq)], 2)
 
 # Plot
 plot(cond.cal$logCond ~ pred.rf, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'Full model')
 abline(a=0,b=1)
-text(4,6, paste0("RMSE = ",round(full.rmse, 2)," | scaled RMSE = ", round(rmse.rf.full_scaled*100,2), "%"))
+text(4,6, paste0("RMSE = ",round(full.rmse, 2)," | scaled RMSE = ", round(full.rmse_scaled*100,2), "%"))
 text(4,5.5, paste0("Variance explained = ",rf.full_pct.var,"%"))
 ```
 ## REDUCED MODEL - IMPORTANT PREDICTORS ONLY
@@ -534,20 +535,23 @@ rf.red_15 <- randomForest(logCond ~ PRECIP9120WS+TMAX9120WS+KFFACTWS+MSST2008+OM
 print(rf.red_15)
 summary(rf.red_15)
 
-varImpPlot(rf.red_15, type = 1, n.var = 15, main = "Reduced Model top 15") #variable importance plot
+varImpPlot(rf.red_15, type = 1, n.var = 15, main = "Reduced Model Top 15") #variable importance plot
 
-# Predictions & model error
+# Predictions
 pred.rf.red_15 <- predict(rf.red_15, newdata = cond.cal)
-plot(cond.cal$logCond ~ pred.rf.red_15, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'red_15')
-abline(a=0,b=1)
-text(4,6, "RMSE=26.65")
 
-# Reduced 15 model error
-# Un-logged
+# Model error 
 red_15.rmse<- rmse(exp(pred.rf.red_15), exp(cond.cal$logCond))
+red_15.rmse_scaled <- red_15.rmse/range_cond
 
-rmse.rf.red_15_scaled <- red_15.rmse/range_cond
-print(paste("scaled untransformed RMSE", rmse.rf.red_15_scaled*100, '%'))
+# Percent variance explained
+rf.red_15_pct.var <- round(100 * rf.red_15$rsq[length(rf.red_15$rsq)], 2)
+
+# Plot
+plot(cond.cal$logCond ~ pred.rf.red_15, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'Reduced Model Top 15')
+abline(a=0,b=1)
+text(4,6, paste0("RMSE = ",round(red_15.rmse, 2)," | scaled RMSE = ", round(red_15.rmse_scaled*100,2), "%"))
+text(4,5.5, paste0("Variance explained = ",rf.red_15_pct.var,"%"))
 ```
 #### Build reduced model with 9 predictors
 
@@ -559,21 +563,53 @@ rf.red_9 <- randomForest(logCond ~ PRECIP9120WS+TMAX9120WS+KFFACTWS+MSST2008+OMW
 print(rf.red_9)
 summary(rf.red_9)
 
-varImpPlot(rf.red_9, type = 1, n.var = 9, main = "Reduced Model top 9") #variable importance plot
+varImpPlot(rf.red_9, type = 1, n.var = 9, main = "Reduced Model Top 9") #variable importance plot
 
-# Predictions & model error
+# Predictions
 pred.rf.red_9 <- predict(rf.red_9, newdata = cond.cal)
-plot(cond.cal$logCond ~ pred.rf.red_9, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'red_9')
-abline(a=0,b=1)
-text(4,6, "RMSE=27.79")
 
-# Reduced 9 model error
-# Un-logged
+# Model error 
 red_9.rmse<- rmse(exp(pred.rf.red_9), exp(cond.cal$logCond))
+red_9.rmse_scaled <- red_9.rmse/range_cond
 
-rmse.rf.red_9_scaled <- red_9.rmse/range_cond
-print(paste("scaled untransformed RMSE", rmse.rf.red_9_scaled*100, '%'))
+# Percent variance explained
+rf.red_9_pct.var <- round(100 * rf.red_9$rsq[length(rf.red_9$rsq)], 2)
+
+# Plot
+plot(cond.cal$logCond ~ pred.rf.red_9, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'Reduced Model Top 9')
+abline(a=0,b=1)
+text(4,6, paste0("RMSE = ",round(red_9.rmse, 2)," | scaled RMSE = ", round(red_9.rmse_scaled*100,2), "%"))
+text(4,5.5, paste0("Variance explained = ",rf.red_9_pct.var,"%"))
 ```
+#### Build reduced model with 5 predictors
+
+```{r}
+set.seed(32)
+
+rf.red_5 <- randomForest(logCond ~ PRECIP9120WS+TMAX9120WS+KFFACTWS+MSST2008+OMWS, data = cond.cal, importance = TRUE,  keep.forest = TRUE, mtry=5, ntree = 500) 
+
+print(rf.red_5)
+summary(rf.red_5)
+
+varImpPlot(rf.red_5, type = 1, n.var = 5, main = "Reduced Model Top 5") #variable importance plot
+
+# Predictions
+pred.rf.red_5 <- predict(rf.red_5, newdata = cond.cal)
+
+# Model error 
+red_5.rmse<- rmse(exp(pred.rf.red_5), exp(cond.cal$logCond))
+red_5.rmse_scaled <- red_5.rmse/range_cond
+
+# Percent variance explained
+rf.red_5_pct.var <- round(100 * rf.red_5$rsq[length(rf.red_5$rsq)], 2)
+
+# Plot
+plot(cond.cal$logCond ~ pred.rf.red_5, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'Reduced Model Top 5')
+abline(a=0,b=1)
+text(4,6, paste0("RMSE = ",round(red_5.rmse, 2)," | scaled RMSE = ", round(red_5.rmse_scaled*100,2), "%"))
+text(4,5.5, paste0("Variance explained = ",rf.red_5_pct.var,"%"))
+```
+
 
 #### Build reduced model with 3 predictors
 
@@ -585,20 +621,23 @@ rf.red_3 <- randomForest(logCond ~ PRECIP9120WS+TMAX9120WS+KFFACTWS, data = cond
 print(rf.red_3)
 summary(rf.red_3)
 
-varImpPlot(rf.red_3, type = 1, n.var = 3, main = "Reduced Model top 3") #variable importance plot
+varImpPlot(rf.red_3, type = 1, n.var = 3, main = "Reduced Model Top 3") #variable importance plot
 
-# Predictions & model error
+# Predictions
 pred.rf.red_3 <- predict(rf.red_3, newdata = cond.cal)
-plot(cond.cal$logCond ~ pred.rf.red_3, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'red_3')
-abline(a=0,b=1)
-text(4,6, "RMSE=31.72")
 
-# Reduced 3 model error
-# Un-logged
+# Model error 
 red_3.rmse<- rmse(exp(pred.rf.red_3), exp(cond.cal$logCond))
+red_3.rmse_scaled <- red_3.rmse/range_cond
 
-rmse.rf.red_3_scaled <- red_3.rmse/range_cond
-print(paste("scaled untransformed RMSE", rmse.rf.red_3_scaled*100, '%'))
+# Percent variance explained
+rf.red_3_pct.var <- round(100 * rf.red_3$rsq[length(rf.red_3$rsq)], 2)
+
+# Plot
+plot(cond.cal$logCond ~ pred.rf.red_3, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'Reduced Model Top 3')
+abline(a=0,b=1)
+text(4,6, paste0("RMSE = ",round(red_3.rmse, 2)," | scaled RMSE = ", round(red_3.rmse_scaled*100,2), "%"))
+text(4,5.5, paste0("Variance explained = ",rf.red_3_pct.var,"%"))
 ```
 #### Residual plot for red_3 model
 
@@ -607,6 +646,47 @@ residuals.red_3 <- exp(cond.cal$logCond) - exp(pred.rf.red_3) # Observed minus p
 plot(residuals.red_3 ~ exp(pred.rf.red_3), xlab = "Predicted Conductivity (uS/cm)", ylab = "Residuals", main="rf.red_3 residuals")
 abline(h=0, col = "red", lty = 2)
 ```
+
+#### Test reduced model with VAL data
+
+```{r}
+# Predictions
+pred.rf.red_9_val <- predict(rf.red_9, newdata = cond.val)
+
+# Model error 
+red_9_val.rmse<- rmse(exp(pred.rf.red_9_val), exp(cond.val$logCond))
+red_9_val.rmse_scaled <- red_9_val.rmse/range_cond
+
+# Plot
+plot(cond.val$logCond ~ pred.rf.red_9_val, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'VALIDATION Reduced Model Top 9')
+abline(a=0,b=1)
+text(4.25,6, paste0("RMSE = ",round(red_9_val.rmse, 2)," | scaled RMSE = ", round(red_9_val.rmse_scaled*100,2), "%"))
+
+#Untransformed plot no log scale axes
+plot(exp(cond.val$logCond) ~ exp(pred.rf.red_9_val), xlab = 'predicted Conductivity', ylab = 'observed Conductivity', main = 'VALIDATION Reduced Model Top 9 untransformed')
+abline(a=0,b=1)
+
+#Untransformed plot no log scale axes
+plot(exp(cond.val$logCond) ~ exp(pred.rf.red_9_val), log = 'xy', xlab = 'predicted Conductivity', ylab = 'observed Conductivity', main = 'VALIDATION Reduced Model Top 9 untransformed log scale axes')
+abline(a=0,b=1)
+```
+
+
+
+
+# Not edited past this point SYB 1/9/26
+
+
+
+
+
+
+
+
+## ADJUST HUMAN-INFLUENCED PREDICTORS TO REFERENCE LEVELS
+
+#### Examine reference distributions - Histograms and partial dependence plots
+
 #### Partial dependence plots
 ```{r}
 par(mfrow=c(1,2))
@@ -617,82 +697,6 @@ quantile(cond.cal_val$PRECIP9120WS, probs = seq(.1, .9, by = .1))
 ```
 
 
-
-
-
-
-
-# Not edited below this point.  SYB 1/9/26
-
-
-
-
-
-
-#### Test reduced model with VAL data
-
-```{r}
-# Predictions & model error
-pred.rf.red_15_val <- predict(rf.red_15, newdata = tss.val)
-
-# Model error
-ut_pred.rf.red_15_val <- exp(pred.rf.red_15_val)-1
-ut_tss.val <- exp(tss.val$logTSS)-1
-RMSE.ut.rf.red_15_val <- sqrt(sum((ut_pred.rf.red_15_val - ut_tss.val)^2)/length(tss.val$logTSS))
-print(paste("inverse natural log RMSE =", RMSE.ut.rf.red_15_val))
-
-RMSE.ut.rf.red_15_val_scaled <- RMSE.ut.rf.red_15_val/range_tss
-print(paste("scaled untransformed RMSE", RMSE.ut.rf.red_15_val_scaled*100, '%'))
-
-# Log plot
-plot(tss.val$logTSS ~ pred.rf.red_15_val, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,4.5), ylim = c(0,4.5), main = 'red_15_VAL')
-abline(a=0,b=1)
-
-#Untransformed plot log scale axes *** FOR REPORT
-plot((exp(tss.val$logTSS)-1) ~ (exp(pred.rf.red_15_val)-1), log = "xy",  xlab = 'predicted TSS (mg/L)', ylab = 'observed TSS (mg/L)', main = '',
-  xlim = (c(0.2,100)), ylim = c(0.2,100))
-abline(a=0,b=1)
-text(50, 0.5, "RMSE = 13.68 
-%Var = #")
-
-#Untransformed plot no log scale axes
-plot((exp(tss.val$logTSS)-1) ~ (exp(pred.rf.red_15_val)-1),  xlab = 'predicted TSS (mg/L)', ylab = 'observed TSS (mg/L)', main = 'red_15 VAL')
-abline(a=0,b=1)
-
-residuals.red_15_val <- (exp(tss.val$logTSS)-1) - (exp(pred.rf.red_15_val)-1) # Observed minus predicted 
-```
-
-#### 4 predictors (not using this one)
-
-```{r}
-set.seed(32)
-
-rf.red_4 <- randomForest(logTSS ~ WDRW_LDWS + PCTCONIF2001WS + CLAYWS + PESTIC1997WS, data = tss.cal, importance = TRUE,  keep.forest = TRUE, ntree = 500) 
-
-print(rf.red_4)
-
-varImpPlot(rf.red_4, type = 1, main = "Reduced Model top 4") #variable importance plot
-#varImpPlot(rf.red_4, type = 2, main = "Reduced Model top 4") #variable importance plot
-
-# Predictions & model error
-pred.rf.red_4 <- predict(rf.red_4, newdata = tss.cal)
-plot(tss.cal$logTSS ~ pred.rf.red_4, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,5), ylim = c(0,5), main = 'red_4')
-abline(a=0,b=1)
-
-# Model error
-#(rmse<-sqrt(sum((pred.rf.red_4 - tss.cal$logTSS)^2)/length(tss.cal$logTSS))) #untransformed prediction error
-ut_pred.rf.red_4 <- exp(pred.rf.red_4)-1
-ut_tss.cal <- exp(tss.cal$logTSS)-1
-RMSE.ut.rf.red_4 <- sqrt(sum((ut_pred.rf.red_4 - ut_tss.cal)^2)/length(tss.cal$logTSS))
-print(paste("inverse natural log RMSE =", RMSE.ut.rf.red_4))
-
-RMSE.ut.rf.red_4_scaled <- RMSE.ut.rf.red_4/range_tss
-print(paste("scaled untransformed RMSE", RMSE.ut.rf.red_4_scaled*100, '%'))
-```
-
-## ADJUST HUMAN-INFLUENCED PREDICTORS TO REFERENCE LEVELS
-
-#### Examine reference distributions - Histograms and partial dependence plots
 
 ```{r}
 # HUMAN INFLUENCED VARS --looking at all reference sites.

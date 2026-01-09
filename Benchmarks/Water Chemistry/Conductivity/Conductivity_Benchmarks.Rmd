@@ -549,6 +549,75 @@ red_15.rmse<- rmse(exp(pred.rf.red_15), exp(cond.cal$logCond))
 rmse.rf.red_15_scaled <- red_15.rmse/range_cond
 print(paste("scaled untransformed RMSE", rmse.rf.red_15_scaled*100, '%'))
 ```
+#### Build reduced model with 9 predictors
+
+```{r}
+set.seed(32)
+
+rf.red_9 <- randomForest(logCond ~ PRECIP9120WS+TMAX9120WS+KFFACTWS+MSST2008+OMWS+CLAYWS+SWS+PCT_EROD+ELEVWS, data = cond.cal, importance = TRUE,  keep.forest = TRUE, mtry=9, ntree = 500) 
+
+print(rf.red_9)
+summary(rf.red_9)
+
+varImpPlot(rf.red_9, type = 1, n.var = 9, main = "Reduced Model top 9") #variable importance plot
+
+# Predictions & model error
+pred.rf.red_9 <- predict(rf.red_9, newdata = cond.cal)
+plot(cond.cal$logCond ~ pred.rf.red_9, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'red_9')
+abline(a=0,b=1)
+text(4,6, "RMSE=27.79")
+
+# Reduced 9 model error
+# Un-logged
+red_9.rmse<- rmse(exp(pred.rf.red_9), exp(cond.cal$logCond))
+
+rmse.rf.red_9_scaled <- red_9.rmse/range_cond
+print(paste("scaled untransformed RMSE", rmse.rf.red_9_scaled*100, '%'))
+```
+
+#### Build reduced model with 3 predictors
+
+```{r}
+set.seed(32)
+
+rf.red_3 <- randomForest(logCond ~ PRECIP9120WS+TMAX9120WS+KFFACTWS, data = cond.cal, importance = TRUE,  keep.forest = TRUE, mtry=3, ntree = 500) 
+
+print(rf.red_3)
+summary(rf.red_3)
+
+varImpPlot(rf.red_3, type = 1, n.var = 3, main = "Reduced Model top 3") #variable importance plot
+
+# Predictions & model error
+pred.rf.red_3 <- predict(rf.red_3, newdata = cond.cal)
+plot(cond.cal$logCond ~ pred.rf.red_3, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'red_3')
+abline(a=0,b=1)
+text(4,6, "RMSE=31.72")
+
+# Reduced 3 model error
+# Un-logged
+red_3.rmse<- rmse(exp(pred.rf.red_3), exp(cond.cal$logCond))
+
+rmse.rf.red_3_scaled <- red_3.rmse/range_cond
+print(paste("scaled untransformed RMSE", rmse.rf.red_3_scaled*100, '%'))
+```
+#### Residual plot for red_3 model
+
+```{r}
+residuals.red_3 <- exp(cond.cal$logCond) - exp(pred.rf.red_3) # Observed minus predicted 
+plot(residuals.red_3 ~ exp(pred.rf.red_3), xlab = "Predicted Conductivity (uS/cm)", ylab = "Residuals", main="rf.red_3 residuals")
+abline(h=0, col = "red", lty = 2)
+```
+#### Partial dependence plots
+```{r}
+par(mfrow=c(1,2))
+partialPlot(rf.red_3, as.data.frame(cond.cal_val), PRECIP9120WS, main = '', ylab = "log Predicted Conductivity")
+abline(v=quantile(cond.cal_val$PRECIP9120WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
+hist(cond.cal_val$PRECIP9120WS, main = '')
+quantile(cond.cal_val$PRECIP9120WS, probs = seq(.1, .9, by = .1))
+```
+
+
+
 
 
 
@@ -559,52 +628,6 @@ print(paste("scaled untransformed RMSE", rmse.rf.red_15_scaled*100, '%'))
 
 
 
-#### \* Final reduced model N = 15
-
-```{r}
-set.seed(32)
-
-rf.red_15 <- randomForest(logTSS ~ WDRW_LDWS + PCTCONIF2001WS + CLAYWS + PESTIC1997WS + SANDWS + PCTCROP2001WS + POPDEN2010WS + PRECIP9120WS + PCTAGSLPMID2001WS + PCT_EROD + SW_FLUXWS + PCTIMP2001WS + RDCRSWS + WTDEPWS + ELEVWS, data = tss.cal, importance = TRUE,  keep.forest = TRUE, mtry=7, ntree = 500) 
-
-print(rf.red_15)
-
-varImpPlot(rf.red_15, type = 1, main = "Reduced Model top 15") #variable importance plot
-#varImpPlot(rf.red_15, type = 2, main = "Reduced Model top 15") #variable importance plot
-
-# Predictions
-pred.rf.red_15 <- predict(rf.red_15, newdata = tss.cal)
-plot(tss.cal$logTSS ~ pred.rf.red_15, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,4.5), ylim = c(0,4.5), main = 'red_15')
-abline(a=0,b=1)
-
-# Model error
-#(rmse<-sqrt(sum((pred.rf.red_15 - tss.cal$logTSS)^2)/length(tss.cal$logTSS))) #untransformed prediction error
-ut_pred.rf.red_15 <- exp(pred.rf.red_15)-1
-ut_tss.cal <- exp(tss.cal$logTSS)-1
-RMSE.ut.rf.red_15 <- sqrt(sum((ut_pred.rf.red_15 - ut_tss.cal)^2)/length(tss.cal$logTSS))
-print(paste("inverse natural log RMSE =", RMSE.ut.rf.red_15))
-
-RMSE.ut.rf.red_15_scaled <- RMSE.ut.rf.red_15/range_tss
-print(paste("scaled untransformed RMSE", RMSE.ut.rf.red_15_scaled*100, '%'))
-
-#Untransformed plot log scale axes *** FOR REPORT
-plot((exp(tss.cal$logTSS)-1) ~ (exp(pred.rf.red_15)-1), log = "xy",  xlab = 'predicted TSS (mg/L)', ylab = 'observed TSS (mg/L)', main = '', 
-     xlim = (c(0.2,100)), ylim = c(0.2,100))
-abline(a=0,b=1)
-text(50, 0.5, "RMSE = 6.35 
-%Var = 26.58")
-
-#Untransformed plot no log scale axes
-plot((exp(tss.cal$logTSS)-1) ~ (exp(pred.rf.red_15)-1),  xlab = 'predicted TSS (mg/L)', ylab = 'observed TSS (mg/L)', main = 'red_15')
-abline(a=0,b=1)
-```
-
-#### Residual plot for red_15 model
-
-```{r}
-residuals.red_15 <- (exp(tss.cal$logTSS)-1) - (exp(pred.rf.red_15)-1) # Observed minus predicted 
-plot(residuals.red_15 ~ (exp(pred.rf.red_15)-1), xlab = "Predicted TSS (mg/L)", ylab = "Residuals", main="rf.red_15 residuals")
-abline(h=0, col = "red", lty = 2)
-```
 
 #### Test reduced model with VAL data
 

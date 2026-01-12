@@ -638,6 +638,7 @@ plot(cond.cal$logCond ~ pred.rf.red_3, xlab = 'predicted logCond', ylab = 'obser
 abline(a=0,b=1)
 text(4,6, paste0("RMSE = ",round(red_3.rmse, 2)," | scaled RMSE = ", round(red_3.rmse_scaled*100,2), "%"))
 text(4,5.5, paste0("Variance explained = ",rf.red_3_pct.var,"%"))
+
 ```
 #### Residual plot for red_3 model
 
@@ -671,443 +672,28 @@ plot(exp(cond.val$logCond) ~ exp(pred.rf.red_9_val), log = 'xy', xlab = 'predict
 abline(a=0,b=1)
 ```
 
-
-
-
-# Not edited past this point SYB 1/9/26
-
-
-
-
-
-
-
-
-## ADJUST HUMAN-INFLUENCED PREDICTORS TO REFERENCE LEVELS
-
-#### Examine reference distributions - Histograms and partial dependence plots
-
-#### Partial dependence plots
 ```{r}
-par(mfrow=c(1,2))
-partialPlot(rf.red_3, as.data.frame(cond.cal_val), PRECIP9120WS, main = '', ylab = "log Predicted Conductivity")
-abline(v=quantile(cond.cal_val$PRECIP9120WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
-hist(cond.cal_val$PRECIP9120WS, main = '')
-quantile(cond.cal_val$PRECIP9120WS, probs = seq(.1, .9, by = .1))
-```
+# Predictions
+pred.rf.red_3_val <- predict(rf.red_3, newdata = cond.val)
 
+# Model error 
+red_3_val.rmse<- rmse(exp(pred.rf.red_3_val), exp(cond.val$logCond))
+red_3_val.rmse_scaled <- red_3_val.rmse/range_cond
 
-
-```{r}
-# HUMAN INFLUENCED VARS --looking at all reference sites.
-
-# Select only the 8 human influenced predictors from the reduced model.
-tss.ref.hi <- tss.ref %>% 
-  #filter(cal_val == 'CAL') %>% 
-  select(c(WDRW_LDWS,PESTIC1997WS,PCTCROP2001WS,POPDEN2010WS,PCTAGSLPMID2001WS,SW_FLUXWS,PCTIMP2001WS,RDCRSWS))
-
-# Agricultural fresh surface water withdrawl kg/sq km  
-# Want to scale back to 0.
-# Experimenting with plotting only the 50th percentile vertical reference line
-quantile(tss.ref.hi$WDRW_LDWS, probs = seq(.1, .9, by = .1))
-
-par(mfrow=c(1,2))
-partialPlot(rf.red_15, as.data.frame(tss.cal_val), WDRW_LDWS, main = '', ylab = "log Predicted TSS")
-abline(v= 0 , col = 'black', lty = 'dashed')
-hist(tss.ref.hi$WDRW_LDWS, main = '')
-
-# Mean pesticide use kg/sq km
-# Want to scale back to 0.
-par(mfrow=c(1,2))
-partialPlot(rf.red_15, as.data.frame(tss.cal_val), PESTIC1997WS, main = '', ylab = "log Predicted TSS")
-abline(v=quantile(tss.ref.hi$PESTIC1997WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
-hist(tss.ref.hi$PESTIC1997WS, main = '')
-quantile(tss.ref.hi$PESTIC1997WS, probs = seq(.1, .9, by = .1))
-
-# Percent of WS classified as row crops.
-# Want to scale back to 0.
-par(mfrow=c(1,2))
-partialPlot(rf.red_15, as.data.frame(tss.cal_val), PCTCROP2001WS, main = '', ylab = "Predicted TSS")
-abline(v=quantile(tss.ref.hi$PCTCROP2001WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
-hist(tss.ref.hi$PCTCROP2001WS, main = '')
-quantile(tss.ref.hi$PCTCROP2001WS, probs = seq(.1, .9, by = .1))
-
-# Mean population density people / sq km
-# Want to scale back to 50th percentile.
-par(mfrow=c(1,2))
-partialPlot(rf.red_15, as.data.frame(tss.cal_val), POPDEN2010WS, main = '', ylab = "log Predicted TSS", scale_x_log10())
-abline(v=quantile(tss.ref.hi$POPDEN2010WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
-hist(tss.ref.hi$POPDEN2010WS, main = '')
-quantile(tss.ref.hi$POPDEN2010WS, probs = seq(.1, .9, by = .1))
-
-# Percent landcover ag dominated on >10% slope
-# Want to scale back to 0.
-par(mfrow=c(1,2))
-partialPlot(rf.red_15, as.data.frame(tss.cal_val), PCTAGSLPMID2001WS, main = '', ylab = "log Predicted TSS")
-abline(v=quantile(tss.ref.hi$PCTAGSLPMID2001WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
-hist(tss.ref.hi$PCTAGSLPMID2001WS, main = '')
-quantile(tss.ref.hi$PCTAGSLPMID2001WS, probs = seq(.1, .9, by = .1))
-
-# Surface Water Nitrogen Flux
-# Scale back to 50th percent.  Partial dependence plot looks strange and is hard to explain- might consider dropping from model.
-par(mfrow=c(1,2))
-partialPlot(rf.red_15, as.data.frame(tss.cal_val), SW_FLUXWS, main = '', ylab = "log Predicted TSS")
-abline(v=quantile(tss.ref.hi$SW_FLUXWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
-hist(tss.ref.hi$SW_FLUXWS, main = '')
-quantile(tss.ref.hi$SW_FLUXWS, probs = seq(.1, .9, by = .1))
-
-# Mean imperviousness 
-# Scale back to 50th percentile.
-par(mfrow=c(1,2))
-partialPlot(rf.red_15, as.data.frame(tss.cal_val), PCTIMP2001WS, main = '', ylab = "log Predicted TSS")
-abline(v=quantile(tss.ref.hi$PCTIMP2001WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
-hist(tss.ref.hi$PCTIMP2001WS, main = '')
-quantile(tss.ref.hi$PCTIMP2001WS, probs = seq(.1, .9, by = .1))
-
-# Road and stream intersection density per sq km
-# Want to scale back to 0.
-# Experimenting with plotting only the 50th percentile vertical reference line
-quantile(tss.ref.hi$RDCRSWS, probs = seq(.1, .9, by = .1))
-
-par(mfrow=c(1,2))
-partialPlot(rf.red_15, as.data.frame(tss.cal_val), RDCRSWS, main = '', ylab = "log Predicted TSS", xlab = "Road Stream Crossings (#/sq km)")
-abline(v = 0, col = 'black',lty = 'dashed')
-hist(tss.ref.hi$RDCRSWS, main = '', xlab = "Road Stream Crossings (#/sq km)", ylim = c(0,100))
-abline(v = 0.005, col = 'black',lty = 'dashed')
-```
-
-#### Reference expectations for environmental variables
-
-```{r}
-# Adjust human influenced variables to ref levels
-
-tss.cal_val.refadj <- tss.cal_val %>% 
-  select(c('logTSS','WDRW_LDWS','PCTCONIF2001WS','CLAYWS','PESTIC1997WS', 'SANDWS','PCTCROP2001WS','POPDEN2010WS','PRECIP9120WS', 'PCTAGSLPMID2001WS','PCT_EROD','SW_FLUXWS','PCTIMP2001WS','RDCRSWS', 'WTDEPWS','ELEVWS')) %>% 
-    mutate(WDRW_LDWS = case_when(
-    WDRW_LDWS > 0 ~ 0, # 50th percentile is 0
-    TRUE ~ WDRW_LDWS)) %>% 
-  
-    mutate(PESTIC1997WS = case_when(
-    PESTIC1997WS > 0 ~ 0, # 50th percentile is 0
-    TRUE ~ PESTIC1997WS)) %>% 
-  
-    mutate(PCTCROP2001WS = case_when(
-    PCTCROP2001WS > 0 ~ 0, # 50th percentile is 0
-    TRUE ~ PCTCROP2001WS)) %>% 
-  
-    mutate(POPDEN2010WS = case_when(
-    POPDEN2010WS > quantile(tss.ref.hi$POPDEN2010WS, probs = 0.5) ~ 0,
-    TRUE ~ POPDEN2010WS)) %>% 
-    
-    mutate(PCTAGSLPMID2001WS = case_when(
-    PCTAGSLPMID2001WS > 0 ~ 0, # 50th percentile is 0
-    TRUE ~ PCTAGSLPMID2001WS)) %>% 
-  
-    mutate(SW_FLUXWS = case_when(
-    SW_FLUXWS > quantile(tss.ref.hi$SW_FLUXWS, probs = 0.5) ~ 0,
-    TRUE ~ SW_FLUXWS)) %>% 
-  
-    mutate(PCTIMP2001WS = case_when(
-    PCTIMP2001WS > quantile(tss.ref.hi$PCTIMP2001WS, probs = 0.5) ~ 0,
-    TRUE ~ PCTIMP2001WS)) %>% 
-
-    mutate(RDCRSWS = case_when(
-    RDCRSWS > 0 ~ 0, # 50th percentile is zero
-    TRUE ~ RDCRSWS))
-```
-
-#### Run reduced model with adjusted human-influenced predictors to get All Sites Ref Expectations
-
-```{r}
-# REFERENCE EXPECTATIONS FOR ALL-SITES REDUCED
-pred.rf.red_15.all<- predict(rf.red_15, tss.cal_val.refadj) #model prediction on cal+val dataset
-plot(tss.cal_val.refadj$logTSS ~ pred.rf.red_15.all, xlab = 'predicted logTSS', ylab = 'observed logTSS', ylim = c(0,6), main = 'red_15 CAL and VAL ref adjusted')
-
-
-# see what same scale as others looks like
-
-
-# Model error - NOT REALLY RELEVANT HERE SO OMIT IN PLOTS
-#(rmse<-sqrt(sum((pred.rf.red_15.all - tss.cal_val.refadj$logTSS)^2)/length(tss.cal_val.refadj$logTSS)))
-ut_pred.rf.red_15.all <- exp(pred.rf.red_15.all)-1
-ut_tss.all <- exp(tss.cal_val.refadj$logTSS)-1
-RMSE.ut.rf.red_15.all <- sqrt(sum((ut_pred.rf.red_15.all - ut_tss.all)^2)/length(tss.cal_val.refadj$logTSS))
-print(paste("inverse natural log RMSE =", RMSE.ut.rf.red_15.all))
-
-RMSE.ut.rf.red_15.all_scaled <- RMSE.ut.rf.red_15.all/range_tss
-print(paste("scaled untransformed RMSE", RMSE.ut.rf.red_15.all_scaled*100, '%'))
-```
-
-## REFERENCE ONLY MODEL
-
-#### Tuning the model (finding best mtry) --sticking w/ mtry = 7.
-
-```{r}
-# One way to find best mtry based on tuneRF.
-    # Tune mtry based on OOB error
-best_mtry <- tuneRF(tss.ref[, -which(names(tss.ref) == "logTSS")], # Predictors
-                        tss.ref$logTSS, # Response
-                        ntreeTry = 500, # Number of trees to try for each mtry
-                        stepFactor = 1.5, # Factor to multiply/divide mtry by
-                        improve = 0.01, # Minimum improvement to continue search
-                        trace = TRUE, # Print progress
-                        plot = TRUE) # Plot OOB error vs. mtry
-print(best_mtry)
-
-# Another approach using Caret.  Takes >50 minutes to run, not that different from mtry approach above.
-# control <- trainControl(method="repeatedcv", number=10,repeats = 3, search="random")
-# set.seed(1)
-# mtry <- sqrt(ncol(tss.cal[ , 2:83]
-# ))
-# rf_random <- train(log(TSS + 1)~., data = tss.cal, method = "rf", metric = "RMSE", tuneLength = 15, trControl=control)
-# print(rf_random)
-# plot(rf_random)
-
-```
-
-#### Build reference only model
-
-```{r}
-tss.ref <- tss.ref %>% 
-  select(c("logTSS", "PRECIP9120WS", "WETINDEXWS", "BFIWS", "ELEVWS", "PCTBL2001WS", "PCTCONIF2001WS", "PCTGRS2001WS", "PCTHBWET2001WS", "PCTICE2001WS", "PCTMXFST2001WS", "PCTOW2001WS", "PCTSHRB2001WS", "PCTURBHI2001WS", "PCTURBMD2001WS", "PCTURBOP2001WS", "PCTWDWET2001WS", "PCTFRSTLOSS2002WS", "COMPSTRGTHWS", "FE2O3WS", "HYDRLCONDWS", "NA2OWS", "PCTALKINTRUVOLWS", "PCTALLUVCOASTWS", "PCTCARBRESIDWS", "PCTCOASTCRSWS", "PCTCOLLUVSEDWS", "PCTEOLCRSWS", "PCTEOLFINEWS", "PCTEXTRUVOLWS", "PCTGLACLAKECRSWS", "PCTGLACLAKEFINEWS", "PCTGLACTILCLAYWS", "PCTGLACTILCRSWS", "PCTGLACTILLOAMWS", "PCTHYDRICWS", "PCTSALLAKEWS", "PCTWATERWS", "ROCKNWS", "SWS", "CLAYWS", "KFFACTWS", "OMWS", "RCKDEPWS", "RCKDEPWS", "SANDWS", "WTDEPWS", "PCTFIRE2002WS", "PCTINCVEGRESP2002WS", "PCTNONPROCMASK2002WS", "MSST2008", "BANKFULLWIDTH", "PCT_EROD", "STRMPOW_CAT", "NHD_pSLOPE", "SITE_TYPE", "L2Eco", "L3Eco"))
-
-set.seed(39)
-rf.full.ref <- randomForest(logTSS ~ ., tss.ref, importance = TRUE, mtry=7, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
-print(rf.full.ref)
-
-varImpPlot(rf.full.ref, type = 1, n.var = 20, main = "Reference-Only Model") #variable importance plot
-#varImpPlot(rf.full.ref, type = 2, n.var = 20, main = "Full Model Ref only") #variable importance plot
-
-# LOG +1-TRANSFORMED TSS
-pred.rf.full.ref <- predict(rf.full.ref, newdata = tss.ref)
-plot(tss.ref$logTSS ~ pred.rf.full.ref, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,4.5), ylim = c(0,4.5), main = 'rf.full.ref')
+# Plot
+plot(cond.val$logCond ~ pred.rf.red_3_val, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'VALIDATION Reduced Model Top 3')
 abline(a=0,b=1)
+text(4.25,6, paste0("RMSE = ",round(red_3_val.rmse, 2)," | scaled RMSE = ", round(red_3_val.rmse_scaled*100,2), "%"))
 
-# Model error
-#(rmse<-sqrt(sum((pred.rf.full.ref - tss.ref$logTSS)^2)/length(tss.ref$logTSS)))#untransformed prediction error
-ut_pred.rf.full.ref <- exp(pred.rf.full.ref)-1
-ut_tss.ref <- exp(tss.ref$logTSS)-1
-
-RMSE.ut.rf.full.ref <- sqrt(sum((ut_pred.rf.full.ref - ut_tss.ref)^2)/length(tss.ref$logTSS))
-print(paste("inverse natural log RMSE =", RMSE.ut.rf.full.ref))
-
-RMSE.ut.rf.full.ref_scaled <- RMSE.ut.rf.full.ref/range_tss
-print(paste("scaled untransformed RMSE", RMSE.ut.rf.full.ref_scaled*100, '%'))
-```
-
-#### Tuning the model (how many trees)
-
-```{r}
-# How many trees is appropriate?
-plot(rf.full.ref, log="x")  # 500 seems to work fine.
-```
-
-#### Reduce the reference only model
-
-```{r}
-set.seed(39)
-rf.ref.red_20 <- randomForest(logTSS ~ ROCKNWS + PCT_EROD + PCTBL2001WS + SWS + ELEVWS + NA2OWS + PCTICE2001WS + PRECIP9120WS + FE2O3WS + PCTCONIF2001WS + OMWS + BFIWS + L3Eco + KFFACTWS + SANDWS + CLAYWS + L2Eco + STRMPOW_CAT + MSST2008 + PCTFRSTLOSS2002WS, tss.ref, importance = TRUE, mtry=7, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
-print(rf.ref.red_20)
-
-varImpPlot(rf.ref.red_20, type = 1, n.var = 20, main = "Full Model Ref only") #variable importance plot
-#varImpPlot(rf.ref.red_20, type = 2, n.var = 20, main = "Full Model Ref only") #variable importance plot
-
-# LOG +1-TRANSFORMED TSS
-pred.rf.ref.red_20 <- predict(rf.ref.red_20, newdata = tss.ref)
-plot(tss.ref$logTSS ~ pred.rf.ref.red_20, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,4.5), ylim = c(0,4.5), main = 'rf.ref.red_20')
+#Untransformed plot no log scale axes
+plot(exp(cond.val$logCond) ~ exp(pred.rf.red_3_val), xlab = 'predicted Conductivity', ylab = 'observed Conductivity', main = 'VALIDATION Reduced Model Top 9 untransformed')
 abline(a=0,b=1)
+text(150,600, paste0("RMSE = ",round(red_3_val.rmse, 2)," | scaled RMSE = ", round(red_3_val.rmse_scaled*100,2), "%"))
 
-# Model error
-#(rmse<-sqrt(sum((pred.rf.ref.red_20 - tss.ref$logTSS)^2)/length(tss.ref$logTSS))) #untransformed prediction error
-ut_pred.rf.ref.red_20 <- exp(pred.rf.ref.red_20)-1
-ut_tss.ref <- exp(tss.ref$logTSS)-1
-
-RMSE.ut.rf.ref.red_20 <- sqrt(sum((ut_pred.rf.ref.red_20 - ut_tss.ref)^2)/length(tss.ref$logTSS))
-print(paste("inverse natural log RMSE =", RMSE.ut.rf.ref.red_20))
-
-RMSE.ut.rf.ref.red_20_scaled <- RMSE.ut.rf.ref.red_20/range_tss
-print(paste("scaled untransformed RMSE", RMSE.ut.rf.ref.red_20_scaled*100, '%'))
-```
-
-#### \* Final reduced ref only model - red_11
-
-```{r}
-set.seed(39)
-rf.ref.red_11 <- randomForest(logTSS ~ ROCKNWS + PCT_EROD + PCTBL2001WS + SWS + ELEVWS + NA2OWS + PCTICE2001WS + PRECIP9120WS + FE2O3WS + PCTCONIF2001WS + OMWS, tss.ref, importance = TRUE, mtry=7, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
-print(rf.ref.red_11)
-
-varImpPlot(rf.ref.red_11, type = 1, main = "Reduced11 Model Ref only") #variable importance plot
-#varImpPlot(rf.ref.red_11, type = 2, main = "Reduced11 Model Ref only") #variable importance plot
-
-# LOG +1-TRANSFORMED TSS
-pred.rf.ref.red_11 <- predict(rf.ref.red_11, newdata = tss.ref)
-plot(tss.ref$logTSS ~ pred.rf.ref.red_11, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,4.5), ylim = c(0,4.5), main = 'rf.ref.red_11')
+#Untransformed plot no log scale axes
+plot(exp(cond.val$logCond) ~ exp(pred.rf.red_3_val), log = 'xy', xlab = 'predicted Conductivity', ylab = 'observed Conductivity', main = 'VALIDATION Reduced Model Top 3 untransformed log scale axes')
 abline(a=0,b=1)
-
-# Model error
-# (rmse<-sqrt(sum((pred.rf.ref.red_11 - tss.ref$logTSS)^2)/length(tss.ref$logTSS))) #untransformed prediction error
-ut_pred.rf.ref.red_11 <- exp(pred.rf.ref.red_11)-1
-ut_tss.ref <- exp(tss.ref$logTSS)-1
-RMSE.ut.rf.ref.red_11 <- sqrt(sum((ut_pred.rf.ref.red_11 - ut_tss.ref)^2)/length(tss.ref$logTSS))
-print(paste("inverse natural log RMSE =", RMSE.ut.rf.ref.red_11))
-
-RMSE.ut.rf.ref.red_11_scaled <- RMSE.ut.rf.ref.red_11/range_tss
-print(paste("scaled untransformed RMSE", RMSE.ut.rf.ref.red_11_scaled*100, '%'))
-```
-
-#### Residual plot for ref.red_11 model
-
-```{r}
-residuals.ref.red_11 <- (exp(tss.ref$logTSS)-1) - (exp(pred.rf.ref.red_11)-1) # Observed minus predicted 
-plot(residuals.ref.red_11 ~ (exp(pred.rf.ref.red_11)-1) , xlab = "Predicted TSS (mg/L)", ylab = "Residuals", main="rf.ref.red_11 residuals")
-abline(h=0, col = "red", lty = 2)
-```
-
-#### 5 predictors (not using this one)
-
-```{r}
-set.seed(39)
-rf.ref.red_5 <- randomForest(logTSS ~ ROCKNWS + PCT_EROD + PCTBL2001WS + SWS + ELEVWS, tss.ref, importance = TRUE, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
-print(rf.ref.red_5)
-
-varImpPlot(rf.ref.red_5, type = 1, main = "Reduced5 Model Ref only") #variable importance plot
-#varImpPlot(rf.ref.red_5, type = 2, main = "Reduced5 Model Ref only") #variable importance plot
-
-# LOG +1-TRANSFORMED TSS
-pred.rf.ref.red_5 <- predict(rf.ref.red_5, newdata = tss.ref)
-plot(tss.ref$logTSS ~ pred.rf.ref.red_5, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,4.5), ylim = c(0,4.5), main = 'rf.ref.red_5')
-abline(a=0,b=1)
-
-# Model error
-#(rmse<-sqrt(sum((pred.rf.ref.red_5 - tss.ref$logTSS)^2)/length(tss.ref$logTSS))) #untransformed prediction error
-ut_pred.rf.ref.red_5 <- exp(pred.rf.ref.red_5)-1
-ut_tss.ref <- exp(tss.ref$logTSS)-1
-
-RMSE.ut.rf.ref.red_5 <- sqrt(sum((ut_pred.rf.ref.red_5 - ut_tss.ref)^2)/length(tss.ref$logTSS))
-print(paste("inverse natural log RMSE =", RMSE.ut.rf.ref.red_5))
-
-RMSE.ut.rf.ref.red_5_scaled <- RMSE.ut.rf.ref.red_5/range_tss
-print(paste("scaled untransformed RMSE", RMSE.ut.rf.ref.red_5_scaled*100, '%'))
-```
-
-#### Run all sites through to get ref expectations
-
-```{r}
-tss.cal_val.immutable <- tss.cal_val %>% 
-  select(c("logTSS", "PRECIP9120WS", "WETINDEXWS", "BFIWS", "ELEVWS", "PCTBL2001WS", "PCTCONIF2001WS", "PCTGRS2001WS", "PCTHBWET2001WS", "PCTICE2001WS", "PCTMXFST2001WS", "PCTOW2001WS", "PCTSHRB2001WS", "PCTURBHI2001WS", "PCTURBMD2001WS", "PCTURBOP2001WS", "PCTWDWET2001WS", "PCTFRSTLOSS2002WS", "COMPSTRGTHWS", "FE2O3WS", "HYDRLCONDWS", "NA2OWS", "PCTALKINTRUVOLWS", "PCTALLUVCOASTWS", "PCTCARBRESIDWS", "PCTCOASTCRSWS", "PCTCOLLUVSEDWS", "PCTEOLCRSWS", "PCTEOLFINEWS", "PCTEXTRUVOLWS", "PCTGLACLAKECRSWS", "PCTGLACLAKEFINEWS", "PCTGLACTILCLAYWS", "PCTGLACTILCRSWS", "PCTGLACTILLOAMWS", "PCTHYDRICWS", "PCTSALLAKEWS", "PCTWATERWS", "ROCKNWS", "SWS", "CLAYWS", "KFFACTWS", "OMWS", "RCKDEPWS", "RCKDEPWS", "SANDWS", "WTDEPWS", "PCTFIRE2002WS", "PCTINCVEGRESP2002WS", "PCTNONPROCMASK2002WS", "MSST2008", "BANKFULLWIDTH", "PCT_EROD", "STRMPOW_CAT", "NHD_pSLOPE", "SITE_TYPE", "L2Eco", "L3Eco"))
-
-pred.rf.ref.red_11.all<- predict(rf.ref.red_11, tss.cal_val.immutable) #model prediction on cal+val dataset
-plot(tss.cal_val.immutable$logTSS ~ pred.rf.ref.red_11.all, xlab = 'predicted logTSS', ylab = 'observed logTSS', ylim = c(0,6), main = 'ref.red_11 CAL and VAL')
-
-# Model error
-#(rmse<-sqrt(sum((pred.rf.ref.red_11 - tss.cal_val.refadj$logTSS)^2)/length(tss.cal_val.refadj$logTSS)))#untransformed prediction error
-ut_pred.rf.ref.red_11.all <- exp(pred.rf.ref.red_11.all)-1
-ut_tss.cal_val.immutable<- exp(tss.cal_val.immutable$logTSS)-1
-
-RMSE.ut_pred.rf.ref.red_11.all <- sqrt(sum((ut_pred.rf.ref.red_11.all - ut_tss.cal_val.immutable)^2)/length(tss.cal_val.immutable$logTSS))
-print(paste("inverse natural log RMSE =", RMSE.ut_pred.rf.ref.red_11.all))
-
-RMSE.ut_pred.rf.ref.red_11.all_scaled <- RMSE.ut_pred.rf.ref.red_11.all/range_tss
-print(paste("scaled untransformed RMSE", RMSE.ut_pred.rf.ref.red_11.all_scaled*100, '%'))
-```
-
-#### Run all sites (CAL AND VAL) through final reduced model.
-
-```{r}
-pred.rf.red_15_all <- predict(rf.red_15, newdata = tss.cal_val)
-plot(tss.cal_val$logTSS ~ pred.rf.red_15_all, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,5), ylim = c(0,5), main = 'red_15_ALL')
-abline(a=0,b=1)
-
-# Model error
-# (rmse<-sqrt(sum((pred.rf.red_15_all - tss.cal_val$logTSS)^2)/length(tss.cal_val$logTSS))) #untransformed RMSE
-ut_pred.rf.red_15_all <- exp(pred.rf.red_15_all)-1
-ut_tss.all <- exp(tss.cal_val$logTSS)-1
-RMSE.ut.rf.red_15_all <- sqrt(sum((ut_pred.rf.red_15_all - ut_tss.all)^2)/length(tss.cal_val$logTSS))
-print(paste("inverse natural log RMSE =", RMSE.ut.rf.red_15_all))
-
-RMSE.ut.rf.red_15_all_scaled <- RMSE.ut.rf.red_15_all/range_tss
-print(paste("scaled untransformed RMSE", RMSE.ut.rf.red_15_all_scaled*100, '%'))
-
-oe.allsites <- cbind(pred.rf.red_15_all, tss.cal_val$logTSS)
-oe.allsites <- as.data.frame(oe.allsites) %>% 
-  rename(pred_logTSS = V2) %>% 
-  mutate(obs_TSS = exp(tss.cal_val$logTSS) -1) %>% 
-  mutate(pred_TSS = exp(pred.rf.red_15_all)-1) %>% 
-  mutate('O/E' = obs_TSS/pred_TSS)
-
-print(sum(oe.allsites$`O/E`>1)/741) # prop above 1:1 line
-print(sum(oe.allsites$`O/E`>2)/741) # prop above 2:1 line
-```
-
-#### Section just for making report plots
-
-```{r}
-# ALL-SITES PREDICTION PLOTS -----------------------------------------------------------------------------------------------------------------------
-par(mfrow = c(1,2))
-
-#Untransformed plot log scale axes *** FOR REPORT --- CAL dataset 
-plot((exp(tss.cal$logTSS)-1) ~ (exp(pred.rf.red_15)-1), log = "xy",  xlab = 'predicted TSS (mg/L)', ylab = 'observed TSS (mg/L)', main = 'CAL', 
-     xlim = (c(0.2,100)), ylim = c(0.2,100))
-abline(a=0,b=1)
-#text(50, 0.5, "RMSE = 6.35 
-#%Var = 26.58")
-
-par(mfrow = c(1,2))
-
-#Untransformed plot log scale axes *** FOR REPORT --- apply CAL model to VAL dataset 
-plot((exp(tss.val$logTSS)-1) ~ (exp(pred.rf.red_15_val)-1), log = "xy",  xlab = 'predicted TSS (mg/L)', ylab = 'observed TSS (mg/L)', main = '',
-  xlim = (c(0.2,100)), ylim = c(0.2,100))
-abline(a=0,b=1)
-#text(50, 0.5, "RMSE = 13.68 
-#%Var = #")
-
-# VAL residuals
-#residuals.red_15 <- (exp(tss.cal$logTSS)-1) - (exp(pred.rf.red_15)-1) # Observed minus predicted 
-plot(residuals.red_15_val ~ (exp(pred.rf.red_15_val)-1), xlab = "predicted TSS (mg/L)", ylab = "residuals (obs-pred)", main="", log = "x")
-abline(h=0, col = "red", pch = 2, lty = 2)
-
-# REF-ONLY PREDICTION PLOT -------------------------------------------------------------------------------------------------------------------------
-par(mfrow = c(1,2))
-
-pred.rf.ref.red_11 <- predict(rf.ref.red_11, newdata = tss.ref)
-plot((exp(tss.ref$logTSS) -1) ~ (exp(pred.rf.ref.red_11)-1), log = "xy",
-     xlab = 'predicted TSS (mg/L)', ylab = 'observed TSS (mg/L)', xlim = c(0.2,100), ylim = c(0.2,100), main = '')
-abline(a=0,b=1)
-
-# REF RESIDUALS
-residuals.ref_11 <- (exp(tss.ref$logTSS)-1) - (exp(pred.rf.ref.red_11)-1) # Observed minus predicted 
-plot(residuals.ref_11 ~ (exp(pred.rf.ref.red_11)-1), xlab = "predicted TSS (mg/L)", ylab = "residuals (obs-pred)", main="", log = "x")
-abline(h=0, col = "red", pch = 2, lty = 2)
-
-
-par(mfrow = c(1,2))
-# ALL-SITESREF EXPECTATIONS ------------------------------------------------------------------------------------------------------------------------
-pred.rf.red_15.all<- predict(rf.red_15, tss.cal_val.refadj) #model prediction on cal+val dataset
-plot((exp(tss.cal_val.refadj$logTSS)-1) ~ (exp(pred.rf.red_15.all)-1), log = "xy", xlab = 'TSS reference expectations (mg/L)', ylab = 'observed TSS (mg/L)', ylim = c(0.2,100), xlim = c(0.2,100), main = 'All-Sites')
-abline(a=0,b=1, untf = TRUE)
-#abline(a=0.6931472,b=1, col = 'red')
-abline(a=0,b=2, col = 'red', lty = 'dashed', untf = TRUE)
-#fix scales and logs
-
-
-# REF-ONLY REF EXPECTATIONS ------------------------------------------------------------------------------------------------------------------------
-pred.rf.ref.red_11 <- predict(rf.ref.red_11, newdata = tss.cal_val)
-plot((exp(tss.cal_val$logTSS) -1) ~ (exp(pred.rf.ref.red_11)-1), log = "xy",
-     xlab = 'TSS reference expectations (mg/L)', ylab = 'observed TSS (mg/L)', xlim = c(0.2,100), ylim = c(0.2,100), main = 'Reference-Only')
-abline(a=0,b=1, untf = TRUE)
-abline(a=0,b=2, col = 'red', lty = 'dashed', untf = TRUE)
-
-
-# CALCULATE PROPORTIONS ABOVE 1:1 AND 2:1 LINES
-oe.ref <- cbind(pred.rf.ref.red_11, tss.cal_val$logTSS)
-oe.ref <- as.data.frame(oe.ref) %>% 
-  rename(pred_logTSS = V2) %>% 
-  mutate(obs_TSS = exp(tss.cal_val$logTSS) -1) %>% 
-  mutate(pred_TSS = exp(pred.rf.ref.red_11)-1) %>% 
-  mutate('O/E' = obs_TSS/pred_TSS)
-
-print(sum(oe.ref$`O/E`>1)/741) # prop above 1:1 line
-print(sum(oe.ref$`O/E`>2)/741) # prop above 2:1 line
+text(60,500, paste0("RMSE = ",round(red_3_val.rmse, 2)," | scaled RMSE = ", round(red_3_val.rmse_scaled*100,2), "%"))
 ```
 
 #### Plot Obs vs pred CAL and VAL all sites
@@ -1116,30 +702,57 @@ print(sum(oe.ref$`O/E`>2)/741) # prop above 2:1 line
 # plot obs vs. predicted CAL 
 par(mfrow=c(1,2))
 par(mar=c(4.3,5,1,1))
-plot(x = (exp(pred.rf.red_15)-1), y = exp(tss.cal$logTSS)-1,
-	  xlab='Predicted TSS (mg/L)', ylab='Observed TSS (mg/L)', main='red_15', lwd=1.5, 
-	  cex.lab=1.5, las = 1, font = 2)#
-#abline(a=0, b=1, col='blue', lwd=4)  ---> lm line plots exactly over a 1:1 line
-#abline(lm_cal, lwd=4, lty=2)
- 
+plot(x = exp(pred.rf.red_3), y = exp(cond.cal$logCond),
+	  xlab='Predicted Conductivity (μS/cm)', ylab='Observed Conductivity (μS/cm)', main='red_3 CAL', lwd=1.5, 
+	  cex.lab=1.5, las = 1, font = 2)
+abline(a=0, b=1, col='blue', lty=2) 
+
 # plot obs vs. predicted VAL
 par(new=TRUE)
-plot(x = pred.rf.red_15_val, y = exp(tss.val$logTSS)-1,
+plot(x = exp(pred.rf.red_3_val), y = exp(cond.val$logCond),
 	  xlab='', ylab='', main='', pch=2, col='red', cex=1.3, lwd=1.5,axes=FALSE) 
-#abline(lm_val, col='red', lwd=1.8)
  
 # plot residuals CAL
 par(mar=c(4.3,4.3,1,1))
-plot(x = (exp(pred.rf.red_15)-1), y = residuals.red_15,
-	  xlab='Predicted TSS (mg/L)', ylab='Residuals (obs-pred)', main='', 
+plot(x = (exp(pred.rf.red_3)-1), y = exp(cond.cal$logCond)-exp(pred.rf.red_3),
+	  xlab='Predicted Conductivity (μS/cm)', ylab='Residuals (obs-pred)', main='red_3 VAL', 
 	  lwd=1.5,cex.lab=1.5, las = 1, font = 2)
-abline(h=1, col="blue", lty = 2)
+abline(h=0, col="blue", lty = 2)
  
 # plot residuals VAL
 par(new=TRUE)	
-plot(x = (exp(pred.rf.red_15_val)-1), y = residuals.red_15_val,
+plot(x = (exp(pred.rf.red_3_val)), y = exp(cond.val$logCond)-exp(pred.rf.red_3_val),
 	  xlab='', ylab="", main="", 
 	  pch=2, col='red', 
 	  lwd=1.5,cex.lab=1.5, las = 1, font = 2, cex=1.3,
 	  axes=FALSE)
 ```
+Predictions on CAL + VAL
+```{r}
+# Predictions
+pred.rf.red_3_cal_val <- predict(rf.red_3, newdata = cond.cal_val)
+
+# Plot
+plot(cond.cal_val$logCond ~ pred.rf.red_3_cal_val, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'CAL & VAL Reduced Model Top 3')
+abline(a=0,b=1)
+
+#Untransformed plot no log scale axes
+plot(exp(cond.cal_val$logCond) ~ exp(pred.rf.red_3_cal_val), xlab = 'predicted Conductivity', ylab = 'observed Conductivity', main = 'CAL & VAL Reduced Model Top 3 untransformed')
+abline(a=0,b=1)
+
+#Untransformed plot no log scale axes
+plot(exp(cond.cal_val$logCond) ~ exp(pred.rf.red_3_cal_val), log = 'xy', xlab = 'predicted Conductivity', ylab = 'observed Conductivity', main = 'CAL & VAL Reduced Model Top 3 untransformed log scale axes')
+abline(a=0,b=1)
+
+# CALCULATE PROPORTIONS ABOVE 1:1 AND 2:1 LINES
+oe <- cbind(pred.rf.red_3_cal_val, cond.cal_val$logCond)
+oe <- as.data.frame(oe) %>% 
+  rename(pred_logCond = V2) %>% 
+  mutate(obs_Cond = exp(cond.cal_val$logCond)) %>% 
+  mutate(pred_Cond = exp(pred.rf.red_3_cal_val)) %>% 
+  mutate('O/E' = obs_Cond/pred_Cond)
+
+print(sum(oe$`O/E`>1)/nrow(cond.cal_val)) # prop above 1:1 line
+print(sum(oe$`O/E`>2)/nrow(cond.cal_val)) # prop above 2:1 line
+```
+

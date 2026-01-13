@@ -275,11 +275,11 @@ rm(list=c('spear', 'spear.rows'))
 # Look at Coefficient of Variance for predictors.
 cv <- cond_vars_num %>% 
   summarise(across(everything(), ~ cv(.x))) %>% 
-  pivot_longer(1:139, names_to="Var", values_to="CV") # Change first argument to 1:# columns
+  pivot_longer(1:140, names_to="Var", values_to="CV") # Change first argument to 1:# columns
 
 cv_pctzero <- cond_vars_num %>%
   summarise(across(everything(), ~ sum(. == 0) / n() * 100)) %>% 
-  pivot_longer(1:139, names_to="Var", values_to="Percent Zeros") %>%  # Change  first argument to 1:# columns
+  pivot_longer(1:140, names_to="Var", values_to="Percent Zeros") %>%  # Change  first argument to 1:# columns
   inner_join(cv, by = "Var")
 
 #write_xlsx(cv_pctzero, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//CofV", Sys.Date(), ".xlsx"))
@@ -648,7 +648,7 @@ plot(residuals.red_3 ~ exp(pred.rf.red_3), xlab = "Predicted Conductivity (uS/cm
 abline(h=0, col = "red", lty = 2)
 ```
 
-#### Test reduced model with VAL data
+#### Test reduced model (red_9) with VAL data
 
 ```{r}
 # Predictions
@@ -671,7 +671,7 @@ abline(a=0,b=1)
 plot(exp(cond.val$logCond) ~ exp(pred.rf.red_9_val), log = 'xy', xlab = 'predicted Conductivity', ylab = 'observed Conductivity', main = 'VALIDATION Reduced Model Top 9 untransformed log scale axes')
 abline(a=0,b=1)
 ```
-
+#### Test reduced model (red_3) with VAL data
 ```{r}
 # Predictions
 pred.rf.red_3_val <- predict(rf.red_3, newdata = cond.val)
@@ -754,5 +754,39 @@ oe <- as.data.frame(oe) %>%
 
 print(sum(oe$`O/E`>1)/nrow(cond.cal_val)) # prop above 1:1 line
 print(sum(oe$`O/E`>2)/nrow(cond.cal_val)) # prop above 2:1 line
+```
+Create file for mapping purposes
+```{r}
+# Need to join predictions to AWQMs columns, but there are no unique identifiers in the cond.cal_val table. Predictions will be in the same order as the cal_val table initially.
+
+# Join predictions to cal_val table
+cond.obs_predict <- cbind(pred.rf.red_3_cal_val, cond.cal_val)
+
+# Order the rows based on StreamCat variables that have ALL unique values.
+# any(duplicated(cond.obs_predict$ELEVWS))
+# any(duplicated(cond.obs_predict$MSST2008))
+# any(duplicated(cond.obs_predict$PRECIP9120WS))
+cond.obs_predict <- cond.obs_predict %>% 
+  arrange(ELEVWS, MSST2008, PRECIP9120WS)
+
+cond.awqms <- cond_vars_selected %>% 
+  arrange(ELEVWS, MSST2008, PRECIP9120WS) %>% 
+  select(MLocID:Conductivity)
+
+# Join cond_vars_selected with cond.obs_predict, and makes sure the conductivity results match.
+cond_map <- cbind(cond.awqms,cond.obs_predict)
+
+# Then get rid of StreamCat columns, and save file.
+cond_map <- cond_map %>% 
+  select(MLocID:pred.rf.red_3_cal_val, L2Eco, L3Eco, PRECIP9120WS, TMAX9120WS, KFFACTWS) %>% 
+  rename(pred_logCond = pred.rf.red_3_cal_val) %>% 
+  mutate(pred_Cond = exp(pred_logCond)) %>% 
+  rename(obs_Cond = Conductivity) %>% 
+  rename(obs_logCond = logCond) %>% 
+  relocate(L2Eco:L3Eco, .before = ReferenceSite) %>% 
+  relocate(pred_Cond, .after = pred_logCond) %>% 
+  mutate(across(obs_logCond:pred_Cond, round, 2))
+
+write_xlsx(cond_map, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//Cond_Map", Sys.Date(), ".xlsx"))
 ```
 

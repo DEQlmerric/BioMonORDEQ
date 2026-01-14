@@ -30,7 +30,7 @@ library(Metrics)
 ## STATIONS/TSS - *FROM WATER CHEMISTRY BENCHMARKS SCRIPT*
 
 ```{r}
-cond <- read_excel("Conductivity2026-01-06.xlsx") #output file from ref benchmarks script - Ambient sites included
+cond <- read_excel("Conductivity2026-01-13.xlsx") #output file from ref benchmarks script - Ambient sites included
 
 comids <- cond %>% 
   select(COMID) %>%  #get just the COMIDs for next step
@@ -230,6 +230,9 @@ cond_vars <- cond_vars %>%
 #### Make Spearman correlation matrix to identify co-varied parameters
 
 ```{r, warning=FALSE}
+# FIND OUT WHICH COLUMNS HAVE NAs (AND WRITE CODE FOR THEM BELOW)
+sapply(cond_vars, function(x) sum(is.na(x)))
+
 # PERFORM NA ROUGHFIX FUNCTION ON METRICS WITH just a few missing values (wait to see about the ones that are missing a lot: BANKFULLDEPTH, BANKFULLWIDTH, MAST2008, THALWEGDEPTH, WETTEDWIDTH)
 cond_vars$CLAYWS  <- na.roughfix(cond_vars$CLAYWS ) # 1 NA
 cond_vars$MSST2008 <- na.roughfix(cond_vars$ MSST2008) # 1 NA
@@ -249,9 +252,6 @@ cond_vars_num <- cond_vars %>%
   select(!c(SITE_TYPE:L3Eco)) %>% 
   select(!c(MLocID:Conductivity)) %>%  
   relocate(sort(names(.))) # sort columns alphabetically
-
-# FIND OUT WHICH COLUMNS HAVE NAs (AND WRITE CODE FOR THEM BELOW)
-sapply(cond_vars_num, function(x) sum(is.na(x)))
 
 # FULL CORRELATION MATRIX
 spear <- cor(cond_vars_num, method = "spearman", use = "pairwise.complete.obs")
@@ -290,7 +290,7 @@ rm(cv)
 ```{r}
 # Look at KD plots for predictors.
 cond_vars %>%
-    select("AGKFFACTWS","AL2O3WS","BANKFULLDEPTH","BANKFULLWIDTH","BFIWS","CAOWS","CBNFWS","CLAYWS","CONNWS","DAMDENSWS","DAMNIDSTORWS","DAMNRMSTORWS") %>%  # Edit this line to include different vars
+    select("AGKFFACTWS","AL2O3WS","BANKFULLDEPTH","BANKFULLWIDTH","BFIWS","CAOWS","CBNFWS","CLAYWS","CONNWS","DAMDENSWS","DAMNIDSTORWS","DAMNRMSTORWS") %>%  # Edit this line to include vars that you want to look at.
   keep(is.numeric) %>% 
   gather() %>% 
   ggplot(aes(value)) +
@@ -443,15 +443,15 @@ cond_vars_selected %>%
 # SUBSET DATA
 cond.cal <- cond_vars_selected %>%  #subset CALibration dataset
   filter(cal_val == 'CAL') %>%  
-  select(-c(MLocID:COMID, Conductivity)) #drop conductivity in favor of logCond. Drop AWQMS columns too.
+  select(-c(MLocID:COMID, Conductivity, SampleStartDate)) #drop conductivity in favor of logCond. Drop AWQMS columns too.
 
 cond.val <- cond_vars_selected %>%  #subset VALidation dataset
   filter(cal_val == 'VAL') %>%  
-  select(-c(MLocID:COMID, Conductivity))
+  select(-c(MLocID:COMID, Conductivity, SampleStartDate))
 
 cond.ref <- cond_vars_selected %>% #subset reference only dataset
   filter(ReferenceSite == 'REFERENCE') %>%  
-  select(-c(MLocID:COMID, Conductivity))
+  select(-c(MLocID:COMID, Conductivity, SampleStartDate))
 
 cond.cal_val <- rbind(cond.cal, cond.val)
 #write_xlsx(cond.cal_val, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//Cond-Cal-val_New", Sys.Date(), ".xlsx"))
@@ -785,7 +785,10 @@ cond_map <- cond_map %>%
   rename(obs_logCond = logCond) %>% 
   relocate(L2Eco:L3Eco, .before = ReferenceSite) %>% 
   relocate(pred_Cond, .after = pred_logCond) %>% 
-  mutate(across(obs_logCond:pred_Cond, round, 2))
+  mutate(across(obs_logCond:pred_Cond, round, 2)) %>% 
+  mutate(across(PRECIP9120WS:KFFACTWS, round, 3)) %>% 
+  mutate(delta = obs_Cond - pred_Cond) %>% 
+  relocate(delta, .before = PRECIP9120WS)
 
 write_xlsx(cond_map, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//Cond_Map", Sys.Date(), ".xlsx"))
 ```

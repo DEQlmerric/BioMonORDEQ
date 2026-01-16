@@ -790,6 +790,34 @@ cond_map <- cond_map %>%
   mutate(delta = obs_Cond - pred_Cond) %>% 
   relocate(delta, .before = PRECIP9120WS)
 
-write_xlsx(cond_map, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//Cond_Map", Sys.Date(), ".xlsx"))
+#write_xlsx(cond_map, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//Cond_Map", Sys.Date(), ".xlsx"))
 ```
 
+# Ref only model
+```{r}
+set.seed(39)
+
+rf.ref.full <- randomForest(logCond ~ BFIWS+ CAOWS+ CLAYWS+ COMPSTRGTHWS+ ELEVWS+ FE2O3WS+ HYDRLCONDWS+ K2OWS+ KFFACTWS+  MSST2008+ NA2OWS+ NHD_pSLOPE+  NWS+ OMWS+ PCT_EROD+ PCTALKINTRUVOLWS+ PCTALLUVCOASTWS+ PCTBL2001WS+ PCTBURNAREA2002WS+ PCTCOLLUVSEDWS+ PCTCONIF2001WS+ PCTDECID2001WS+ PCTEOLCRSWS+ PCTEOLFINEWS+ PCTEXTRUVOLWS+ PCTGLACLAKECRSWS+ PCTGLACLAKEFINEWS+ PCTGLACTILCRSWS+ PCTGRS2001WS+ PCTHBWET2001WS+ PCTICE2001WS+  PCTINCVEGRESP2002WS+  PCTOW2001WS+ PCTSALLAKEWS+ PCTSHRB2001WS+  PCTWATERWS+  PRECIP9120WS+ RCKDEPWS+ RDCRSSLPWTDWS+  ROCKNWS+ SANDWS+  STRMPOW_CAT+  SW_FLUXWS+ SWS+ TMAX9120WS+ TRIDENSWS+ WATERINPUTWS+ WETINDEXWS+ WETTEDWIDTH+ WTDEPWS+ +SITE_TYPE+ L2Eco + L3Eco, cond.ref, importance = TRUE, mtry=20, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors. mtry=20 based on Caret grid search results.
+print(rf.ref.full)
+
+varImpPlot(rf.ref.full, type = 1, n.var = 25, main = "Ref-Only Full Model") #variable importance plot
+```
+```{r}
+# Predictions
+pred.rf.ref <- predict(rf.ref.full, newdata = cond.ref)
+
+# Model error 
+full.ref.rmse<- rmse(exp(pred.rf.ref), exp(cond.ref$logCond))
+
+range_cond <- max(exp(cond.cal_val$logCond)) - min(exp(cond.cal_val$logCond))
+full.ref.rmse_scaled <- full.ref.rmse/range_cond
+
+# Percent variance explained
+rf.ref.full_pct.var <- round(100 * rf.ref.full$rsq[length(rf.ref.full$rsq)], 2)
+
+# Plot
+plot(cond.ref$logCond ~ pred.rf.ref, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'Full model reference-only')
+abline(a=0,b=1)
+text(3.5,5, paste0("RMSE = ",round(full.ref.rmse, 2)," | scaled RMSE = ", round(full.ref.rmse_scaled*100,2), "%"))
+text(3.5,4.5, paste0("Variance explained = ",rf.ref.full_pct.var,"%"))
+```

@@ -26,6 +26,14 @@ library(leaflet.providers)
 library(RColorBrewer)
 library(lubridate)
 
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
+#     ___        _____  __  __ ____      ____    _  _____  _    
+#    / \ \      / / _ \|  \/  / ___|    |  _ \  / \|_   _|/ \   
+#   / _ \ \ /\ / / | | | |\/| \___ \    | | | |/ _ \ | | / _ \  
+#  / ___ \ V  V /| |_| | |  | |___) |   | |_| / ___ \| |/ ___ \ 
+# /_/   \_\_/\_/  \__\_\_|  |_|____/    |____/_/   \_\_/_/   \_\
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
+
 # IMPORT WADEABLE STATIONS WITH A REFERENCE DESIGNATION FROM STATIONS DB (N = 2522 as of 8/8/25, 2520 10/1/25 - wadeable only n=1851)
 stations <- query_stations()
 ref_stations <- stations %>% 
@@ -96,6 +104,11 @@ chem.ref <- chem.ref %>%
 #   filter(!(MLocID == '12060-ORDEQ' & year(SampleStartDate) == '1994')) %>%  # Dark Canyon Creek Upper (Transect 1) 1994 (Historical LASAR data)
 #   filter(!(MLocID == '12057-ORDEQ' & year(SampleStartDate) == '1995')) # Meadow Creek Lower (Transect 1) in 1995 (Historical LASAR data)
 
+# Drop rows where QC_Comm contains 'Used Closed COMID' or -99999
+chem.ref <- chem.ref %>% 
+  filter(!str_detect(QC_Comm, regex('Used closest COMID', ignore_case = TRUE))) %>% 
+  filter(!COMID == '-99999')
+
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # MISC. DATA CLEAN-UP
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -156,7 +169,9 @@ chem.ref <- chem.ref %>%
 # GET RID OF SOME UNUSED COLUMNS FOR READABILITY. (Could get rid of more.)
 chem.ref <- chem.ref %>% 
   select(!c(Project2, Project3, act_id,Activity_Type, SampleStartTZ:chr_uid, Result_Text, URLType:URLUnit, Sample_Fraction:Result_UID, 
-            Unit_UID:Analytical_Lab, WQX_submit_date:res_last_change_date))
+            Unit_UID:Analytical_Lab, WQX_submit_date:res_last_change_date)) %>% 
+  # Add column to indicate data source
+  mutate(Data_source = "ORDEQ")
 
 # NARROW TABLE TO CHARS OF INTEREST ONLY (From StressorID Team: Temp, pH, DO, TP, TN, TSS, NH3) # AT, SH = do we want others included?
 study_chars = c("Temperature, water", "pH", "Dissolved oxygen (DO)", "Dissolved oxygen saturation", "Total Phosphorus, mixed forms", 
@@ -222,24 +237,69 @@ chem.ref.wq <- rbind(TN, chem.ref.wq) %>%
 rm(list = c('TN', 'tn.nits', 'tn.nits.tkn', 'tn.tkn', 'tn1', 'tn2'))
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
+# ____  _     __  __      ____    _  _____  _    
+# | __ )| |   |  \/  |    |  _ \  / \|_   _|/ \   
+# |  _ \| |   | |\/| |    | | | |/ _ \ | | / _ \  
+# | |_) | |___| |  | |    | |_| / ___ \| |/ ___ \ 
+# |____/|_____|_|  |_|    |____/_/   \_\_/_/   \_\
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
+BLM <- read_excel("Benchmarks/Water Chemistry/External Data/BLM_Ecoregions.xls")
+
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
+# _   _ ____  ____    _         ____    _  _____  _    
+# | \ | |  _ \/ ___|  / \       |  _ \  / \|_   _|/ \   
+# |  \| | |_) \___ \ / _ \      | | | |/ _ \ | | / _ \  
+# | |\  |  _ < ___) / ___ \     | |_| / ___ \| |/ ___ \ 
+# |_| \_|_| \_\____/_/   \_\    |____/_/   \_\_/_/   \_\
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
+NRSA <- read_excel("Benchmarks/Water Chemistry/External Data/NRSA_Ecoregions.xls")
+
+
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
 # RANDOMLY SELECT ONE SITE FROM SITES THAT WERE SAMPLED MORE THAN ONCE, &
 # FROM SITES THAT SHARE A STREAM SEGMENT.  
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 set.seed(42) # If you run random functions (sample_n() in this case), this will give the same result on subsequent runs.
 
-#1 Randomly select one sample for sites that were sampled more than once per char.
-samp_mult_dates <- chem.ref.wq %>% 
+is_outlier <- function(x) {
+  Q1 <- quantile(x, 0.25, na.rm = TRUE)
+  Q3 <- quantile(x, 0.75, na.rm = TRUE)
+  IQR <- Q3 - Q1
+  lower_bound <- Q1 - 1.5 * IQR
+  upper_bound <- Q3 + 1.5 * IQR
+  # Return TRUE for outliers, FALSE otherwise
+  x < lower_bound | x > upper_bound
+}
+
+#1 If a site was sampled more than once per char:
+
+# List sites that were sampled more than 5X per character:
+samp_mult_dates_5plus <- chem.ref.wq %>% 
   group_by(MLocID, Char_Name) %>% 
-  filter(n()>1) %>% 
-  sample_n(1) # randomly choose one sampling date  For most recent, try slice(which.max(SampleStartDate))
+  filter(n()>=5) %>% 
+  filter(!is_outlier(Result_Numeric_mod)) %>%  # Drop rows if the result is an outlier (outside of 1.5X the IQR for the available samples for that site and char).
+  sample_n(1) # Randomly select one sampling date per character.
+
+# Filter by parameter, sort by MLocID. Use this table to get a sense of which rows are being dropped in samp_mult_dates_5plus.
+# samp_mult_dates_5plus_checker <- chem.ref.wq %>% 
+#   group_by(MLocID, Char_Name) %>% 
+#   filter(n()>=5) %>% 
+#   mutate(outlier = is_outlier(Result_Numeric_mod)) %>% 
+#   select(MLocID, StationDes,SampleStartDate,Char_Name,Result_Numeric_mod,outlier)
+
+# List sites that were sampled 2-4X per character and randomly select one.  
+samp_mult_dates_under5 <- chem.ref.wq %>% 
+  group_by(MLocID, Char_Name) %>% 
+  filter(n()>1 & n()<5) %>% 
+  sample_n(1) # randomly choose one sampling date.  For most recent, try slice(which.max(SampleStartDate))
 
   # List sites that were sampled only one time per char.
 samp_single_dates <- chem.ref.wq %>% 
   group_by(MLocID, Char_Name) %>% 
   filter(n()==1)
 
-  # Join previous two tables together
-samp_dates <- rbind(samp_single_dates,samp_mult_dates)
+  # Join previous three tables together
+samp_dates <- rbind(samp_single_dates, samp_mult_dates_5plus, samp_mult_dates_under5)
 
 #2  ELIMINATE SITES ON THE SAME STREAM SEGMENT 
   # Randomly select one site for sites that share a Reachcode.
@@ -328,7 +388,7 @@ cal.val_chem.ref.wq <- rbind(cal_chem.ref.wq, val_chem.ref.wq)
 
 cond <- cal.val_chem.ref.wq %>%
   filter(Char_Name == 'Conductivity') %>% 
-  select(c(MLocID, Project1, StationDes, Lat_DD, Long_DD, Result_Numeric_mod, L2Eco, L3Eco, EcoRegion4, HUC8, ReferenceSite, cal_val, COMID)) %>%
+  select(c(MLocID, Project1, StationDes, Lat_DD, Long_DD, SampleStartDate, Result_Numeric_mod, L2Eco, L3Eco, EcoRegion4, HUC8, ReferenceSite, cal_val, COMID)) %>%
   mutate(Conductivity = Result_Numeric_mod) %>% 
   select(-Result_Numeric_mod)
 

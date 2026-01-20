@@ -67,7 +67,7 @@ file_input <- "FillInFileName.csv"
 #-------------------------------------------
 # OPTION A: GIS SHAPEFILE
 #-------------------------------------------
-willy<-st_read("C:/Users/athomps/Desktop/New folder/willy.shp") #change name and file path as needed
+willy<-st_read("C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/willy.shp") #change name and file path as needed
 
 #lookup crs and paste value below
 st_crs(willy)
@@ -88,13 +88,13 @@ comid <- data.frame(comid = willy$ComID)
 # if data is already in Excel and you don't have COMID, choose either Option B or C then run the subsequent lines of code.
 # Will need, at minimum, lat/longs and a coordinate ref system (for when lat/longs were generated - official OR is 2992 (ft) and 2991 (m))
 # Before proceeding, manually enter the coordinate reference system numbers in new "CRS" column in upload file (this is an existing field in stations db)
-latlonginput <- read.xlsx("C:/Users/athomps/Desktop/New folder/LatLongImportTest.xlsx") #change name and file path as needed
+latlonginput <- read.xlsx("C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/WillyTable.xlsx") #change name and file path as needed
 
 
 #-------------------------------------------
 # OPTION C: CSV FILE
 #-------------------------------------------
-latlonginput <- read.csv("C:/Users/athomps/Desktop/New folder/LatLongImportTest.csv")
+latlonginput <- read.csv("C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/LatLongImportTest.csv")
 
 
 # WORK IN PROGRESS - FUNCTION APPROACH
@@ -109,6 +109,21 @@ latlongcomid <- latlonginput |>
   mutate(comid = generatecomids(long = Long, lat = Lat, refsystem = CRS)) #change values after = sign to match the column names in upload file
 
 mapview(points)
+
+
+#-------------------------------------------
+# OPTION D: SINGLE LAT/LONG
+#-------------------------------------------
+# CHANGE LAT/LONG AND CRS
+start_point <- sf::st_sfc(sf::st_point(c(-122.8025, 43.8578)),
+                          crs = 4326)
+
+
+#-------------------------------------------
+# OPTION E: STATIONS DB
+#-------------------------------------------
+
+
 
 
 
@@ -148,7 +163,8 @@ subset <- subset_nhdplus(comids = as.integer(flowlines$UT$nhdplus_comid),
                          output_file = subset_file,
                          nhdplus_data = "download", 
                          flowline_only = FALSE,
-                         return_data = TRUE, overwrite = TRUE)
+                         return_data = TRUE, 
+                         overwrite = TRUE)
 
 #Get catchment files
 catchment <- sf::read_sf(subset_file, "CatchmentSP")
@@ -157,7 +173,7 @@ catchment <- sf::read_sf(subset_file, "CatchmentSP")
 catchment <- sf::st_union(catchment)
 
 #Convert to sf object and add an attribute so we can associate the catchment with the comid used to generate
-# if we need any other attributes, this is where to out it.
+# if we need any other attributes, this is where to put it.
 ###  Change the mutate function here to include whatever you want to pass to the shp file
 catchment2  <- st_sf(catchment)|> 
   mutate(orig_comid = comid,
@@ -195,10 +211,10 @@ start.time <- Sys.time()
 #don't forget to change 'test' to the dataframe from above and to set the shp file location and name. 
 
 #version 1
-purrr::map(comids, ~ delineate_comid_watersheds(.,shp_file = "C:/Users/athomps/Desktop/New folder/delintestall.shp"))
+purrr::map(comids, ~ delineate_comid_watersheds(.,shp_file = "C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/delintestall.shp"))
 
 #version 2
-purrr::pmap(test, ~delineate_comid_watersheds(comid = {..1}, random = {..2}, ofid2 = {..3}, shp_file = "C:/Users/athomps/Desktop/New folder/delintestall.shp"))
+purrr::pmap(test, ~delineate_comid_watersheds(comid = {..1}, random = {..2}, ofid2 = {..3}, shp_file = "C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/delintestall.shp"))
 
 
 end.time <- Sys.time()
@@ -206,12 +222,17 @@ time.taken <- end.time - start.time
 time.taken
 
 #calculate watershed areas
-#area is calculate din sq meters here. You can convert if needed
+#area is calculate in sq meters here. You can convert if needed
 catchment2 <- st_sf(catchment)|> 
   mutate(orig_comid = comid) 
 
 catchment2 <- catchment2|> 
   mutate(area = st_area(catchment2))
+
+
+
+
+
 
 
 
@@ -303,5 +324,44 @@ test <- head(test) |>
 
 
 
+#####################################
+delin <- function(comid, ofid2, random, shp_file)
+
+#designate output shapefile
+shp_file <- "C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/willytest.shp"
+
+#enter starting comid
+#start_comid <- latlonginput$ComID
+start_comid <- "23759604"
+
+flowlines <- navigate_nldi(list(featureSource = "comid",
+                                featureID = start_comid),
+                           mode = "upstreamTributaries",
+                           distance_km = 1000)
+
+subset_file <- tempfile(fileext = ".gpkg")
+
+subset <- subset_nhdplus(comids = as.integer(flowlines$UT$nhdplus_comid),
+                         output_file = subset_file,
+                         nhdplus_data = "download",
+                         flowline_only = FALSE,
+                         return_data = TRUE, overwrite = TRUE)
+
+catchment <- sf::read_sf(subset_file, "CatchmentSP")
+
+catchment <- sf::st_union(catchment)
+
+flownet <- subset$NHDFlowline_Network
+
+#calculate watershed area in square meters
+#catchment$area_sqm <- st_area(catchment)
+
+#append watershed to shapefile specified above
+st_write(catchment, shp_file, append = TRUE)
 
 
+#view output
+mapview(flowlines) + mapview(catchment) + mapview(flownet)
+
+
+purrr::pmap(subset$comid, ~delin(comid = {..8}, random = {..1}, ofid2 = {..3} ,shp_file = "C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/delineate_test.shp" ))

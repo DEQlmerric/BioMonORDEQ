@@ -164,7 +164,7 @@ chem.ref <- chem.ref %>%
   relocate(Result_Numeric_mod, .after = Result_Numeric)
 # Note 10/23: need to add code for exceedences. There are only 2 in the dataset (both Turbidity) so let's worry about this later.  -SB
 
-# IF WATER TEMP WAS REPORTED IN DEG F (why??), CONVERT TO DEG C
+# IF WATER TEMP WAS REPORTED IN DEG F, CONVERT TO DEG C
 chem.ref <- chem.ref %>% 
   mutate(Result_Numeric_mod = ifelse(Result_Unit == 'deg F', (Result_Numeric_mod - 32) * (5/9), Result_Numeric_mod)) %>% 
   mutate(Result_Unit = ifelse(Result_Unit == 'deg F', 'deg C', Result_Unit))       
@@ -181,10 +181,12 @@ study_chars = c("Temperature, water", "pH", "Dissolved oxygen (DO)", "Dissolved 
                 "Nitrogen", "Nitrate + Nitrite", "Total Kjeldahl nitrogen", "Total suspended solids", "Ammonia", "Turbidity Field", "Total solids", 
                 "Conductivity", "Sulfate", "Chloride", "Specific conductance", "Orthophosphate", "Turbidity")
 
+# TOTAL PHOSPHORUS STEPS (note: speciation = "none" should be usable TP data, per Zach Mandera Jan 2026)
 chem.ref.wq <- chem.ref %>% 
   filter(Char_Name %in% study_chars) %>% 
   filter(!(Char_Name=='Total Phosphorus, mixed forms' & Sample_Fraction=='Dissolved')) %>% # Excludes TP data w/ Sample Fraction 'Dissolved'.
   select(!Sample_Fraction)
+
 #--------------------------------------------------------------------------------------------------------------------
 # CALCULATE TOTAL NITROGEN. TN = TKN + Nitrate + Nitrite
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -302,7 +304,7 @@ is_outlier <- function(x) {
 
 #1 If a site was sampled more than once per char:
 
-# List sites that were sampled more than 5X per character:
+  # List sites that were sampled more than 5X per character:
 samp_mult_dates_5plus <- chem.ref.wq %>% 
   group_by(MLocID, Char_Name) %>% 
   filter(n()>=5) %>% 
@@ -316,7 +318,7 @@ samp_mult_dates_5plus <- chem.ref.wq %>%
 #   mutate(outlier = is_outlier(Result_Numeric_mod)) %>% 
 #   select(MLocID, StationDes,SampleStartDate,Char_Name,Result_Numeric_mod,outlier)
 
-# List sites that were sampled 2-4X per character and randomly select one.  
+  # List sites that were sampled 2-4X per character and randomly select one.  
 samp_mult_dates_under5 <- chem.ref.wq %>% 
   group_by(MLocID, Char_Name) %>% 
   filter(n()>1 & n()<5) %>% 
@@ -358,23 +360,24 @@ cal.val_chem.ref.wq <- rbind(reach_mult, reach_single)
 #   mutate(COMID = ifelse(MLocID == '33518-ORDEQ', 23815014, COMID)) %>%  # Miller Creek.  Still need to ask Dan to update.  Changed from 23815386.
 #   mutate(COMID = ifelse(MLocID== '16999-ORDEQ',24515990, COMID )) # Fox Creek at FSR.  Still need to ask Dan to update. Changed from 24516234.
 
-# List sites that have more than one COMID.  Randomly sample 1 site to keep.
+  # List sites that have more than one COMID.  Randomly sample 1 site to keep.
 mult.comids <- cal.val_chem.ref.wq %>% 
   group_by(Char_Name, COMID) %>% 
   filter(n() > 1) %>% 
   sample_n(1) #%>% 
   #filter(Char_Name == 'Total suspended solids') # Look at this per each char and double-check COMIDs make sense.
 
-# List all sites with just 1 COMID.
+  # List all sites with just 1 COMID.
 single.comids <- cal.val_chem.ref.wq %>% 
   group_by(Char_Name, COMID) %>% 
   filter(n() == 1)
 
-# Join the previous two tables together.
+  # Join the previous two tables together.
 cal.val_chem.ref.wq <- rbind(mult.comids, single.comids)
 
-# Clear out intermediaries
-rm(list = c('samp_mult_dates', 'samp_single_dates', 'samp_dates', 'reach_mult', 'reach_single', 'mult.comids', 'single.comids'))
+  # Clear out intermediaries
+rm(list = c('samp_mult_dates_5plus', 'samp_mult_dates_under5', 'samp_single_dates', 'samp_dates', 'reach_mult', 'reach_single', 'mult.comids', 'single.comids'))
+
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # CREATE CAL AND VAL DATASETS 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -412,6 +415,12 @@ cal_chem.ref.wq <- cal_chem.ref.wq %>%
 # Combine the previous two tables.
 cal.val_chem.ref.wq <- rbind(cal_chem.ref.wq, val_chem.ref.wq)
 
+tp <- cal.val_chem.ref.wq %>%
+  filter(Char_Name == 'Total Phosphorus, mixed forms') %>% 
+  select(c(MLocID, Project1, StationDes, Lat_DD, Long_DD, SampleStartDate, Result_Numeric_mod, L2Eco, L3Eco, EcoRegion4, HUC8, ReferenceSite, cal_val, COMID)) %>%
+  mutate(TP = Result_Numeric_mod) %>% 
+  select(-Result_Numeric_mod)
+
 cond <- cal.val_chem.ref.wq %>%
   filter(Char_Name == 'Conductivity') %>% 
   select(c(MLocID, Project1, StationDes, Lat_DD, Long_DD, SampleStartDate, Result_Numeric_mod, L2Eco, L3Eco, EcoRegion4, HUC8, ReferenceSite, cal_val, COMID)) %>%
@@ -424,8 +433,10 @@ tss <- cal.val_chem.ref.wq %>%
   mutate(TSS = Result_Numeric_mod) %>% 
   select(-Result_Numeric_mod)
 
+#write.xlsx(tp, file = "Benchmarks/Water Chemistry/Total Phosphorus/totalP2026_01-21.xlsx")
 #write_xlsx(cond, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//Conductivity", Sys.Date(), ".xlsx"))
 #write_xlsx(tss, path = paste0("C://Users//athomps//OneDrive - Oregon//Desktop//TSS_", Sys.Date(), ".xlsx")) #temporary path so can include Ambient sites
+
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # SUMMARY TABLES, FIGURES
 #-----------------------------------------------------------------------------------------------------------------------------------------------------

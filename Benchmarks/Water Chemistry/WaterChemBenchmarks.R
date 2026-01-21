@@ -439,8 +439,8 @@ tss <- cal.val_chem.ref.wq %>%
   mutate(TSS = Result_Numeric_mod) %>% 
   select(-Result_Numeric_mod)
 
-#write.xlsx(tp, file = "Benchmarks/Water Chemistry/Total Phosphorus/totalP2026_01-21.xlsx")
-#write.xlsx(tn, file = "Benchmarks/Water Chemistry/Total Nitrogen/totalN2026_01-21.xlsx")
+#write_xlsx(tp, path = paste0("Benchmarks//Water Chemistry//Total Phosphorus//totalP", Sys.Date(), ".xlsx"))
+#write_xlsx(tn, path = paste0("Benchmarks//Water Chemistry//Total Nitrogen//totalN", Sys.Date(), ".xlsx"))
 #write_xlsx(cond, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//Conductivity", Sys.Date(), ".xlsx"))
 #write_xlsx(tss, path = paste0("C://Users//athomps//OneDrive - Oregon//Desktop//TSS_", Sys.Date(), ".xlsx")) 
 

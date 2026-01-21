@@ -173,8 +173,7 @@ chem.ref <- chem.ref %>%
 chem.ref <- chem.ref %>% 
   select(!c(Project2, Project3, act_id,Activity_Type, SampleStartTZ:chr_uid, Result_Text, URLType:URLUnit, CASNumber:Result_UID, 
             Unit_UID:Analytical_Lab, WQX_submit_date:res_last_change_date)) %>% 
-  # Add column to indicate data source
-  mutate(Data_source = "ORDEQ")
+  mutate(Data_source = "ORDEQ") # Add column to indicate data source
 
 # NARROW TABLE TO CHARS OF INTEREST ONLY (From StressorID Team: Temp, pH, DO, TP, TN, TSS, NH3) # AT, SH = do we want others included?
 study_chars = c("Temperature, water", "pH", "Dissolved oxygen (DO)", "Dissolved oxygen saturation", "Total Phosphorus, mixed forms", 
@@ -188,7 +187,8 @@ chem.ref.wq <- chem.ref %>%
   select(!Sample_Fraction)
 
 #--------------------------------------------------------------------------------------------------------------------
-# CALCULATE TOTAL NITROGEN. TN = TKN + Nitrate + Nitrite
+# CALCULATE TOTAL NITROGEN for sites sampled prior to 2018. 
+#  (per Zach Mandera, TN started being recorded in early 2018.  For samples prior to 2018, use TN = TKN + Nitrate + Nitrite)
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # nits
 tn.nits<-subset(chem.ref.wq, chem.ref.wq$`Char_Name`=="Nitrate + Nitrite")
@@ -197,8 +197,8 @@ tn.tkn<-subset(chem.ref.wq, chem.ref.wq$`Char_Name`=="Total Kjeldahl nitrogen")
 # merge
 tn.nits.tkn<-rbind(tn.nits, tn.tkn)
 
-# ONLY INCLUDE SAMPLES THAT HAVE BOTH TKN AND NITRATE + NITRITE. Keep nits and tkn samples where
-#  each appears once per sampling event per site.
+# ONLY INCLUDE SAMPLES THAT HAVE BOTH TKN AND NITRATE+NITRITE. Keep nits and tkn samples where
+#  each appears once per sampling event per site. (TKN stopped being run in early 2018, so no need to filter by year.)
 tn1 <- tn.nits.tkn %>% 
   group_by(MLocID, dateTime) %>%   
   filter(any(Char_Name == "Nitrate + Nitrite") & any(Char_Name == "Total Kjeldahl nitrogen") 
@@ -418,7 +418,7 @@ cal.val_chem.ref.wq <- rbind(cal_chem.ref.wq, val_chem.ref.wq)
 tn <- cal.val_chem.ref.wq %>%
   filter(Char_Name == 'Nitrogen') %>% 
   select(c(MLocID, Project1, StationDes, Lat_DD, Long_DD, SampleStartDate, Result_Numeric_mod, L2Eco, L3Eco, EcoRegion4, HUC8, ReferenceSite, cal_val, COMID)) %>%
-  mutate(TN = Result_Numeric_mod) %>% 
+  mutate(TN = round(Result_Numeric_mod, 4)) %>%  
   select(-Result_Numeric_mod)
 
 tp <- cal.val_chem.ref.wq %>%
@@ -435,14 +435,14 @@ cond <- cal.val_chem.ref.wq %>%
 
 tss <- cal.val_chem.ref.wq %>%
   filter(Char_Name == 'Total suspended solids') %>% 
-  select(c(MLocID, Project1, StationDes, Lat_DD, Long_DD, Result_Numeric_mod, L2Eco, L3Eco, EcoRegion4, HUC8, ReferenceSite, cal_val, COMID)) %>%
+  select(c(MLocID, Project1, StationDes, Lat_DD, Long_DD, SampleStartDate, Result_Numeric_mod, L2Eco, L3Eco, EcoRegion4, HUC8, ReferenceSite, cal_val, COMID)) %>%
   mutate(TSS = Result_Numeric_mod) %>% 
   select(-Result_Numeric_mod)
 
 #write.xlsx(tp, file = "Benchmarks/Water Chemistry/Total Phosphorus/totalP2026_01-21.xlsx")
 #write.xlsx(tn, file = "Benchmarks/Water Chemistry/Total Nitrogen/totalN2026_01-21.xlsx")
 #write_xlsx(cond, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//Conductivity", Sys.Date(), ".xlsx"))
-#write_xlsx(tss, path = paste0("C://Users//athomps//OneDrive - Oregon//Desktop//TSS_", Sys.Date(), ".xlsx")) #temporary path so can include Ambient sites
+#write_xlsx(tss, path = paste0("C://Users//athomps//OneDrive - Oregon//Desktop//TSS_", Sys.Date(), ".xlsx")) 
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # SUMMARY TABLES, FIGURES

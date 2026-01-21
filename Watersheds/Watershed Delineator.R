@@ -27,6 +27,7 @@ library(sf)
 library(tidyverse)
 library(mapview) #for viewing intermediate map products
 library(openxlsx)
+library(AWQMSdata)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #
@@ -122,7 +123,7 @@ start_point <- sf::st_sfc(sf::st_point(c(-122.8025, 43.8578)),
 #-------------------------------------------
 # OPTION E: STATIONS DB
 #-------------------------------------------
-
+stations <- query_stations()
 
 
 
@@ -324,15 +325,28 @@ test <- head(test) |>
 
 
 
-#####################################
-delin <- function(comid, ofid2, random, shp_file)
+##################################### NEW LATEST GREATEST ###################################################################
+#define excel import table containing points of interest
+import <- read.xlsx("C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/WillyTable.xlsx")
+
+#make dataframe of comids
+dataframe_comid <- import %>%
+  rowwise() %>%
+  mutate(point = list(sf::st_sfc(sf::st_point(c(lon, lat)),crs = 4326 ))) |> 
+  mutate(comid = discover_nhdplus_id(point)) |> 
+  select(-point)
+
+dataframe_comid <- import$ComID
+
+#function start ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+delin <- function(comid, ofid2, random, shp_file){
 
 #designate output shapefile
 shp_file <- "C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/willytest.shp"
 
 #enter starting comid
-#start_comid <- latlonginput$ComID
-start_comid <- "23759604"
+start_comid <- import$ComID
+#start_comid <- "23759604"
 
 flowlines <- navigate_nldi(list(featureSource = "comid",
                                 featureID = start_comid),
@@ -356,12 +370,19 @@ flownet <- subset$NHDFlowline_Network
 #calculate watershed area in square meters
 #catchment$area_sqm <- st_area(catchment)
 
+catchment2 <- st_sf(catchment)|> 
+  mutate(orig_comid = comid,
+         ofid = ofid2,
+         rand = random) |>
+  st_transform(crs = 2992)  #reproject to NAD83 / Oregon GIC Lambert (ft). Change depending on what projection you need in the next step.
+
 #append watershed to shapefile specified above
-st_write(catchment, shp_file, append = TRUE)
+st_write(catchment2, shp_file, append = TRUE)
+}
+#end of function ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-
-#view output
+#optional - view output
 mapview(flowlines) + mapview(catchment) + mapview(flownet)
 
-
-purrr::pmap(subset$comid, ~delin(comid = {..8}, random = {..1}, ofid2 = {..3} ,shp_file = "C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/delineate_test.shp" ))
+#write to shapefile
+purrr::pmap(as.list(dataframe_comid), ~delin(comid = {..8}, random = {..1}, ofid2 = {..3} ,shp_file = "C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/delineate_test.shp" ))

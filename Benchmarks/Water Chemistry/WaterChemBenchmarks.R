@@ -415,6 +415,12 @@ cal_chem.ref.wq <- cal_chem.ref.wq %>%
 # Combine the previous two tables.
 cal.val_chem.ref.wq <- rbind(cal_chem.ref.wq, val_chem.ref.wq)
 
+tn <- cal.val_chem.ref.wq %>%
+  filter(Char_Name == 'Nitrogen') %>% 
+  select(c(MLocID, Project1, StationDes, Lat_DD, Long_DD, SampleStartDate, Result_Numeric_mod, L2Eco, L3Eco, EcoRegion4, HUC8, ReferenceSite, cal_val, COMID)) %>%
+  mutate(TN = Result_Numeric_mod) %>% 
+  select(-Result_Numeric_mod)
+
 tp <- cal.val_chem.ref.wq %>%
   filter(Char_Name == 'Total Phosphorus, mixed forms') %>% 
   select(c(MLocID, Project1, StationDes, Lat_DD, Long_DD, SampleStartDate, Result_Numeric_mod, L2Eco, L3Eco, EcoRegion4, HUC8, ReferenceSite, cal_val, COMID)) %>%
@@ -434,6 +440,7 @@ tss <- cal.val_chem.ref.wq %>%
   select(-Result_Numeric_mod)
 
 #write.xlsx(tp, file = "Benchmarks/Water Chemistry/Total Phosphorus/totalP2026_01-21.xlsx")
+#write.xlsx(tn, file = "Benchmarks/Water Chemistry/Total Nitrogen/totalN2026_01-21.xlsx")
 #write_xlsx(cond, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//Conductivity", Sys.Date(), ".xlsx"))
 #write_xlsx(tss, path = paste0("C://Users//athomps//OneDrive - Oregon//Desktop//TSS_", Sys.Date(), ".xlsx")) #temporary path so can include Ambient sites
 

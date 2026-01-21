@@ -1,11 +1,11 @@
 ---
-title: "Conductivity Reference Benchmarks"
+title: "Total Phosphorus Reference Benchmarks"
 author: "S. Berzins, A. Thompson"
-date: "2026-01-06"
+date: "2026-01-21"
 output: html_document
 ---
 
-#### Trying the script we created in class for a different parameter (Conductivity)
+#### Total Phosphorus
 
 # **1 - LOAD PACKAGES**
 
@@ -27,14 +27,14 @@ library(Metrics)
 
 # **2 - IMPORT DATA**
 
-## STATIONS/TSS - *FROM WATER CHEMISTRY BENCHMARKS SCRIPT*
+## STATIONS - *FROM WATER CHEMISTRY BENCHMARKS SCRIPT*
 
 ```{r}
-cond <- read_excel("Conductivity2026-01-13.xlsx") #output file from ref benchmarks script - Ambient sites included
+tp <- read_excel("~/BioMonORDEQ/Benchmarks/Water Chemistry/Total Phosphorus/totalP2026_01-21.xlsx") #output file from ref benchmarks script
 
-comids <- cond %>% 
-  select(COMID) %>%  #get just the COMIDs for next step
-  filter(!COMID %in% c("23915259","23810652","23765365","23910789","24505148","23881294","23876327","24506738","23774647","23877125","23872909","23941071")) # REMOVE UNWANTED COMIDS ('used closest COMID') FOR SITES ON HIGH RES NHD
+comids <- tp %>% 
+  select(COMID) #%>%  #get just the COMIDs for next step
+  #filter(!COMID %in% c("23915259","23810652","23765365","23910789","24505148","23881294","23876327","24506738","23774647","23877125","23872909","23941071")) # REMOVE UNWANTED COMIDS ('used closest COMID') FOR SITES ON HIGH RES NHD
 ```
 
 ## WATERSHED PREDICTOR VARIABLES - *FROM EPA STREAMCAT*
@@ -42,22 +42,6 @@ comids <- cond %>%
 #### Learn about StreamCat predictors: <https://www.epa.gov/national-aquatic-resource-surveys/streamcat-metrics-and-definitions>
 
 #### View StreamCat updates: <https://www.epa.gov/national-aquatic-resource-surveys/streamcat-updates>
-
-#### Make table of StreamCat metadata and clean up in Excel
-
-```{r}
-# METHOD 1: FIND QUERY-ABLE METRIC NAMES
-#partable <- StreamCatTools::sc_get_metric_names()
-
-# METHOD 2: FIND QUERY-ABLE METRIC NAMES (slightly different than above)
-#scpar <- StreamCatTools::sc_get_params(param = 'metric_names') 
-
-#metrics_desc <- read_excel("~/BioMonORDEQ/Benchmarks/Water Chemistry/TSS Class Project/StreamCatMetrics_new.xlsx") #final cleaned-up metrics table
-
-# FOR TESTING INDIVIDUAL METRICS/COMIDS (e.g., to ensure names match)
-#test <- StreamCatTools::sc_get_data(comid = '23910659', metric = 'precipminusevt', showAreaSqKm = FALSE, aoi='watershed')
-#test <- StreamCatTools::sc_get_data(comid = '23910659', metric = 'thalwegdepth', showAreaSqKm = FALSE, aoi='other')
-```
 
 #### Run function to query ALL StreamCat data for selected COMIDs by subcategory
 
@@ -214,13 +198,13 @@ erod_resist_strmpow <- erod_resist_strmpow %>%
   select(COMID, PCT_EROD, STRMPOW_CAT, NHD_pSLOPE, SITE_TYPE) # Drop PCT_RESIST since it's the inverse of PCT_ERODE
 
 # JOIN WITH OTHER PARAMETERS NOT FROM SC
-cond_vars <- sc_all %>% 
+tp_vars <- sc_all %>% 
   inner_join(erod_resist_strmpow, by='COMID') %>% 
-  inner_join(cond, by = 'COMID')
+  inner_join(tp, by = 'COMID')
 
 # RE-ORDER COLUMNS 
-cond_vars <- cond_vars %>% 
-  relocate(MLocID:Conductivity, .before = 'COMID') %>% 
+tp_vars <- tp_vars %>% 
+  relocate(MLocID:TP, .before = 'COMID') %>% 
   relocate(L2Eco:L3Eco, .after = SITE_TYPE) %>% 
   select(-c(HUC8, EcoRegion4)) 
 ```
@@ -231,30 +215,29 @@ cond_vars <- cond_vars %>%
 
 ```{r, warning=FALSE}
 # FIND OUT WHICH COLUMNS HAVE NAs (AND WRITE CODE FOR THEM BELOW)
-sapply(cond_vars, function(x) sum(is.na(x)))
+sapply(tp_vars, function(x) sum(is.na(x)))
 
-# PERFORM NA ROUGHFIX FUNCTION ON METRICS WITH just a few missing values (wait to see about the ones that are missing a lot: BANKFULLDEPTH, BANKFULLWIDTH, MAST2008, THALWEGDEPTH, WETTEDWIDTH)
-cond_vars$CLAYWS  <- na.roughfix(cond_vars$CLAYWS ) # 1 NA
-cond_vars$MSST2008 <- na.roughfix(cond_vars$ MSST2008) # 1 NA
-cond_vars$MWST2008 <- na.roughfix(cond_vars$ MWST2008) # 12 NAs
-cond_vars$NANIWS <- na.roughfix(cond_vars$NANIWS) # 1 NA
-cond_vars$NSURPWS <- na.roughfix(cond_vars$NSURPWS) # 1 NA
-cond_vars$OMWS <- na.roughfix(cond_vars$OMWS) # 1 NA
-cond_vars$PCTIMPSLPHIGH2001WS <- na.roughfix(cond_vars$PCTIMPSLPHIGH2001WS) # 4 NAs
-cond_vars$PERMWS <- na.roughfix(cond_vars$PERMWS) # 1 NA
-cond_vars$RCKDEPWS <- na.roughfix(cond_vars$RCKDEPWS) # 1 NA
-cond_vars$SANDWS <- na.roughfix(cond_vars$SANDWS) # 1 NA
-cond_vars$SW_FLUXWS <- na.roughfix(cond_vars$SW_FLUXWS) # 1 NA
-cond_vars$WTDEPWS <- na.roughfix(cond_vars$WTDEPWS) # 1 NA
+# PERFORM NA ROUGHFIX FUNCTION ON METRICS WITH MISSING VALUES
+tp_vars$NSURPWS  <- na.roughfix(tp_vars$NSURPWS) # 1 NA
+tp_vars$NANIWS  <- na.roughfix(tp_vars$NANIWS) # 1 NA
+tp_vars$SW_FLUXWS  <- na.roughfix(tp_vars$SW_FLUXWS) # 2 NA
+tp_vars$PCTIMPSLPHIGH2001WS  <- na.roughfix(tp_vars$PCTIMPSLPHIGH2001WS) # 4 NA
+tp_vars$MAST2008  <- na.roughfix(tp_vars$MAST2008) # 56 NA
+tp_vars$MWST2008  <- na.roughfix(tp_vars$MWST2008) # 9 NA
+tp_vars$PRG_BMMI0809  <- na.roughfix(tp_vars$PRG_BMMI0809) # 62 NA
+tp_vars$WETTEDWIDTH  <- na.roughfix(tp_vars$WETTEDWIDTH) # 64 NA
+tp_vars$THALWEGDEPTH  <- na.roughfix(tp_vars$THALWEGDEPTH) # 64 NA
+tp_vars$BANKFULLWIDTH  <- na.roughfix(tp_vars$BANKFULLWIDTH) # 64 NA
+tp_vars$BANKFULLDEPTH  <- na.roughfix(tp_vars$BANKFULLDEPTH) # 64 NA
 
 # Subset numeric variables only
-cond_vars_num <- cond_vars %>% 
+tp_vars_num <- tp_vars %>% 
   select(!c(SITE_TYPE:L3Eco)) %>% 
-  select(!c(MLocID:Conductivity)) %>%  
+  select(!c(MLocID:TP)) %>%  
   relocate(sort(names(.))) # sort columns alphabetically
 
 # FULL CORRELATION MATRIX
-spear <- cor(cond_vars_num, method = "spearman", use = "pairwise.complete.obs")
+spear <- cor(tp_vars_num, method = "spearman", use = "pairwise.complete.obs")
 spear <- as.data.frame(spear)
 spear.rows <- tibble::rownames_to_column(spear)
 
@@ -264,7 +247,7 @@ matrix <- spear.rows %>%
   filter(abs(cor) > 0.8)
 
 #export once, then clean up in Excel
-#write_xlsx(matrix, path = "~/BioMonORDEQ/Benchmarks/Water Chemistry/Conductivity/Cond_Spearmans_Matrix.xlsx")
+write_xlsx(matrix, path = "~/BioMonORDEQ/Benchmarks/Water Chemistry/Total Phosphorus/TP_Spearmans_Matrix.xlsx")
 
 rm(list=c('spear', 'spear.rows'))
 ```
@@ -273,23 +256,23 @@ rm(list=c('spear', 'spear.rows'))
 
 ```{r}
 # Look at Coefficient of Variance for predictors.
-cv <- cond_vars_num %>% 
+cv <- tp_vars_num %>% 
   summarise(across(everything(), ~ cv(.x))) %>% 
   pivot_longer(1:140, names_to="Var", values_to="CV") # Change first argument to 1:# columns
 
-cv_pctzero <- cond_vars_num %>%
+cv_pctzero <- tp_vars_num %>%
   summarise(across(everything(), ~ sum(. == 0) / n() * 100)) %>% 
   pivot_longer(1:140, names_to="Var", values_to="Percent Zeros") %>%  # Change  first argument to 1:# columns
   inner_join(cv, by = "Var")
 
-#write_xlsx(cv_pctzero, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//CofV", Sys.Date(), ".xlsx"))
+#write_xlsx(cv_pctzero, path = "~/BioMonORDEQ/Benchmarks/Water Chemistry/Total Phosphorus/TP_CofV.xlsx")
 
 rm(cv)
 ```
  
 ```{r}
 # Look at KD plots for predictors.
-cond_vars %>%
+tp_vars %>%
     select("AGKFFACTWS","AL2O3WS","BANKFULLDEPTH","BANKFULLWIDTH","BFIWS","CAOWS","CBNFWS","CLAYWS","CONNWS","DAMDENSWS","DAMNIDSTORWS","DAMNRMSTORWS") %>%  # Edit this line to include vars that you want to look at.
   keep(is.numeric) %>% 
   gather() %>% 
@@ -301,23 +284,23 @@ cond_vars %>%
 #### Select variables based on correlation analysis. (Either select desired vars or drop undesired ones. Helps if they are in alphabetical order. Don't get rid of columns you want to keep from AWQMS at this stage.)  SH, AT, and SB did this together and recorded decisions in 'Var selection decision 1-8-26.xlsx'
 
 ```{r}
-cond_vars_selected <- cond_vars %>% 
+tp_vars_selected <- tp_vars %>% 
   select(c(MLocID:COMID,BFIWS, CANALDENSWS, CAOWS, CLAYWS, COMPSTRGTHWS, DAMDENSWS, ELEVWS, FE2O3WS, HYDRLCONDWS, K2OWS, KFFACTWS, MINEDENSWS, MSST2008, NA2OWS, NHD_pSLOPE, NPDESDENSWS, NWS, OMWS, PCT_EROD, PCTAGDRAINAGEWS, PCTAGSLPMID2001WS, PCTALKINTRUVOLWS, PCTALLUVCOASTWS, PCTBL2001WS, PCTBURNAREA2002WS, PCTCOLLUVSEDWS, PCTCONIF2001WS, PCTCROP2001WS, PCTDECID2001WS, PCTEOLCRSWS, PCTEOLFINEWS, PCTEXTRUVOLWS, PCTFRSTLOSS2002WS, PCTGLACLAKECRSWS, PCTGLACLAKEFINEWS, PCTGLACTILCRSWS, PCTGRS2001WS, PCTHBWET2001WS, PCTICE2001WS, PCTIMP2001WS, PCTINCVEGRESP2002WS, PCTNONAGINTRODMANAGVEGWS, PCTOW2001WS, PCTSALLAKEWS, PCTSHRB2001WS, PCTURBHI2001WS, PCTURBLO2001WS, PCTURBOP2001WS, PCTWATERWS, PESTIC1997WS, POPDEN2010WS, PRECIP9120WS, RCKDEPWS, RDCRSSLPWTDWS, RDCRSWS, RDDENSWS, ROCKNWS, SANDWS, SEPTICWS, STRMPOW_CAT, SUPERFUNDDENSWS, SW_FLUXWS, SWS, TMAX9120WS, TRIDENSWS, WATERINPUTWS, WETINDEXWS, WETTEDWIDTH, WTDEPWS, WWTPALLDENSWS,SITE_TYPE:L3Eco)) %>% 
   relocate(COMID, .after = cal_val) %>% 
-  mutate(logCond = log(Conductivity)) %>% 
-  relocate(logCond, .before= Conductivity)
+  mutate(logTP = log(TP)) %>% 
+  relocate(logTP, .before= TP)
 ```
 
 #### Perform final correlation check
 
 ```{r, warning=FALSE}
 # Subset numeric variables only
-cond_vars_num_selected <- cond_vars_selected %>% 
+tp_vars_num_selected <- tp_vars_selected %>% 
   select(!c(SITE_TYPE:L3Eco)) %>% 
-  select(!c(MLocID:Conductivity)) 
+  select(!c(MLocID:TP)) 
 
 # FULL CORRELATION MATRIX
-spear2 <- cor(cond_vars_num_selected, method = "spearman", use = "pairwise.complete.obs")
+spear2 <- cor(tp_vars_num_selected, method = "spearman", use = "pairwise.complete.obs")
 spear2 <- as.data.frame(spear2)
 spear2.rows <- tibble::rownames_to_column(spear2)
 
@@ -326,11 +309,11 @@ matrix2 <- spear2.rows %>%
   gather(-rowname, key = "colname", value = "cor") %>% 
   filter(abs(cor) > 0.8)
 
-rm(list=c('spear2', 'spear2.rows', 'cond_vars_num_selected'))
+rm(list=c('spear2', 'spear2.rows', 'tp_vars_num_selected'))
 
 # ***CONTINUE ONCE NO CORRELATED VARIABLES REMAIN***
 
-rm('cond_vars_num_selected')
+rm('tp_vars_num_selected')
 ```
 
 # **3 - PREPARE DATA FOR MODELS**
@@ -339,10 +322,10 @@ rm('cond_vars_num_selected')
 
 ```{r, warning=FALSE}
 # FIND OUT WHICH COLUMNS HAVE NAs (AND WRITE CODE FOR THEM BELOW)
-sapply(cond_vars_selected, function(x) sum(is.na(x)))
+sapply(tp_vars_selected, function(x) sum(is.na(x)))
 
 # PERFORM NA ROUGHFIX FUNCTION ON ALL REMAINING METRICS.
-cond_vars_selected$WETTEDWIDTH <- na.roughfix(cond_vars_selected$WETTEDWIDTH) # 70 NAs
+tp_vars_selected$WETTEDWIDTH <- na.roughfix(tp_vars_selected$WETTEDWIDTH) # 70 NAs
 ```
 
 # **4 - EXPLORE DATA**
@@ -351,16 +334,16 @@ cond_vars_selected$WETTEDWIDTH <- na.roughfix(cond_vars_selected$WETTEDWIDTH) # 
 
 ```{r}
 # HISTOGRAM
-hist(cond_vars_selected$Conductivity, main = "", xlab = "Conductivity") #raw data
-hist(cond_vars_selected$logCond, main = "", xlab = "log(Conductivity)")
+hist(tp_vars_selected$TP, main = "", xlab = "Total Phosphorus") #raw data
+hist(tp_vars_selected$logTP, main = "", xlab = "log(TP)")
 
 # DENSITY PLOT
-hist(cond_vars_selected$logCond, main="", prob=T, xlab = "logCond")
-d <- density(cond_vars_selected$logCond) #Estimate probability density and save it into **d**
+hist(tp_vars_selected$logTP, main="", prob=T, xlab = "logTP")
+d <- density(tp_vars_selected$logTP) #Estimate probability density and save it into **d**
 lines(d, col='red',lwd=2) #Superimpose the probability density as a curve on the previous probability density histogram
 
 # BOX PLOT & STRIP CHART
-boxplot(cond_vars_selected$logCond, ylab = "logCond")
+boxplot(tp_vars_selected$logTP, ylab = "logTP")
 #stripchart(tss_vars_selected$TSS, vertical = T, pch=1, col='red', add = T)
 
 ```
@@ -382,51 +365,51 @@ kd_plots <- function(data, filter_col_name, filter_value) {
 }
 
 # Top 20 variables from RF model broken out by reference status
-kd_plots(data = cond_vars_selected, "ReferenceSite", "REFERENCE")
-kd_plots(data = cond_vars_selected, "ReferenceSite", "MODERATELY DISTURBED")
-kd_plots(data = cond_vars_selected, "ReferenceSite", "MOST DISTURBED")
+kd_plots(data = tp_vars_selected, "ReferenceSite", "REFERENCE")
+kd_plots(data = tp_vars_selected, "ReferenceSite", "MODERATELY DISTURBED")
+kd_plots(data = tp_vars_selected, "ReferenceSite", "MOST DISTURBED")
 
 # Top 20 variables from RF model broken out by L2 Ecoregion
-kd_plots(data = cond_vars_selected, "L2Eco", "Western Cordillera")
-kd_plots(data = cond_vars_selected, "L2Eco", "Cold Deserts")
-kd_plots(data = cond_vars_selected, "L2Eco", "Marine West Coast Forest")
+kd_plots(data = tp_vars_selected, "L2Eco", "Western Cordillera")
+kd_plots(data = tp_vars_selected, "L2Eco", "Cold Deserts")
+kd_plots(data = tp_vars_selected, "L2Eco", "Marine West Coast Forest")
 
-# Top 20 variables from RF model broken out by Conductivity category 
+# Top 20 variables from RF model broken out by TP category 
 # < 100
-cond_vars_selected %>%
-  filter(Conductivity<=100) %>%  
+tp_vars_selected %>%
+  filter(TP<=100) %>%  
   select(PRECIP9120WS,TMAX9120WS,KFFACTWS,MSST2008,OMWS,CLAYWS,SWS,PCT_EROD,ELEVWS,SW_FLUXWS,POPDEN2010WS,NA2OWS,ROCKNWS,SANDWS,COMPSTRGTHWS,WTDEPWS,RDCRSWS,CAOWS,BFIWS,PCTDECID2001WS) %>% 
   keep(is.numeric) %>% 
   gather() %>% 
   ggplot(aes(value)) +
   facet_wrap(~ key, scales = "free") +
   geom_density() +
-  geom_rug() + ggtitle("Conductivity 0-100")
+  geom_rug() + ggtitle("TP 0-100")
 
 # 100-300
-cond_vars_selected %>%
-  filter(Conductivity > 100 | Conductivity <= 300) %>% 
+tp_vars_selected %>%
+  filter(TP > 100 | TP <= 300) %>% 
   select(PRECIP9120WS,TMAX9120WS,KFFACTWS,MSST2008,OMWS,CLAYWS,SWS,PCT_EROD,ELEVWS,SW_FLUXWS,POPDEN2010WS,NA2OWS,ROCKNWS,SANDWS,COMPSTRGTHWS,WTDEPWS,RDCRSWS,CAOWS,BFIWS,PCTDECID2001WS) %>% 
   keep(is.numeric) %>% 
   gather() %>% 
   ggplot(aes(value)) +
   facet_wrap(~ key, scales = "free") +
   geom_density() +
-  geom_rug() + ggtitle("Conductivity 100-300")
+  geom_rug() + ggtitle("TP 100-300")
 
 # 300+
-cond_vars_selected %>%
-  filter(Conductivity > 300) %>% 
+tp_vars_selected %>%
+  filter(TP > 300) %>% 
   select(PRECIP9120WS,TMAX9120WS,KFFACTWS,MSST2008,OMWS,CLAYWS,SWS,PCT_EROD,ELEVWS,SW_FLUXWS,POPDEN2010WS,NA2OWS,ROCKNWS,SANDWS,COMPSTRGTHWS,WTDEPWS,RDCRSWS,CAOWS,BFIWS,PCTDECID2001WS) %>% 
   keep(is.numeric) %>% 
   gather() %>% 
   ggplot(aes(value)) +
   facet_wrap(~ key, scales = "free") +
   geom_density() +
-  geom_rug() + ggtitle("Conductivity >300")
+  geom_rug() + ggtitle("TP >300")
 
 # All TSS
-cond_vars_selected %>%
+tp_vars_selected %>%
   select(PRECIP9120WS,TMAX9120WS,KFFACTWS,MSST2008,OMWS,CLAYWS,SWS,PCT_EROD,ELEVWS,SW_FLUXWS,POPDEN2010WS,NA2OWS,ROCKNWS,SANDWS,COMPSTRGTHWS,WTDEPWS,RDCRSWS,CAOWS,BFIWS,PCTDECID2001WS) %>% 
   keep(is.numeric) %>% 
   gather() %>% 
@@ -441,20 +424,20 @@ cond_vars_selected %>%
 
 ```{r}
 # SUBSET DATA
-cond.cal <- cond_vars_selected %>%  #subset CALibration dataset
+tp.cal <- tp_vars_selected %>%  #subset CALibration dataset
   filter(cal_val == 'CAL') %>%  
-  select(-c(MLocID:COMID, Conductivity, SampleStartDate)) #drop conductivity in favor of logCond. Drop AWQMS columns too.
+  select(-c(MLocID:COMID, TP, SampleStartDate)) #drop TP in favor of logTP. Drop AWQMS columns too.
 
-cond.val <- cond_vars_selected %>%  #subset VALidation dataset
+tp.val <- tp_vars_selected %>%  #subset VALidation dataset
   filter(cal_val == 'VAL') %>%  
-  select(-c(MLocID:COMID, Conductivity, SampleStartDate))
+  select(-c(MLocID:COMID, TP, SampleStartDate))
 
-cond.ref <- cond_vars_selected %>% #subset reference only dataset
+tp.ref <- tp_vars_selected %>% #subset reference only dataset
   filter(ReferenceSite == 'REFERENCE') %>%  
-  select(-c(MLocID:COMID, Conductivity, SampleStartDate))
+  select(-c(MLocID:COMID, TP, SampleStartDate))
 
-cond.cal_val <- rbind(cond.cal, cond.val)
-#write_xlsx(cond.cal_val, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//Cond-Cal-val_New", Sys.Date(), ".xlsx"))
+tp.cal_val <- rbind(tp.cal, tp.val)
+#write_xlsx(tp.cal_val, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//TP-Cal-val_New", Sys.Date(), ".xlsx"))
 ```
 
 ## FULL MODEL - ALL PREDICTORS INCLUDED (N = 79)
@@ -464,8 +447,8 @@ cond.cal_val <- rbind(cond.cal, cond.val)
 ```{r}
 # One way to find best mtry based on tuneRF.
     # Tune mtry based on OOB error
-# best_mtry <- tuneRF(cond.cal[, -which(names(cond.cal) == "logCond")], # Predictors
-#                         cond.cal$logCond, # Response
+# best_mtry <- tuneRF(tp.cal[, -which(names(tp.cal) == "logTP")], # Predictors
+#                         tp.cal$logTP, # Response
 #                         ntreeTry = 500, # Number of trees to try for each mtry
 #                         stepFactor = 2, # Factor to multiply/divide mtry by
 #                         improve = 0.01, # Minimum improvement to continue search
@@ -476,9 +459,9 @@ cond.cal_val <- rbind(cond.cal, cond.val)
 # # Another approach using Caret.  Takes >50 minutes to run, not that different from mtry approach above.
 # control <- trainControl(method="repeatedcv", number=10,repeats = 3, search="random")
 # set.seed(1)
-# mtry <- sqrt(ncol(cond.cal[ , 2:74]
+# mtry <- sqrt(ncol(tp.cal[ , 2:74]
 # ))
-# rf_random <- train(logCond ~., data = cond.cal, method = "rf", metric = "RMSE", tuneLength = 15, trControl=control)
+# rf_random <- train(logTP ~., data = tp.cal, method = "rf", metric = "RMSE", tuneLength = 15, trControl=control)
 # print(rf_random)
 # plot(rf_random)
 
@@ -489,7 +472,7 @@ cond.cal_val <- rbind(cond.cal, cond.val)
 ```{r}
 set.seed(39)
 
-rf.full <- randomForest(logCond ~ ., cond.cal, importance = TRUE, mtry=20, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors. mtry=20 based on Caret grid search results.
+rf.full <- randomForest(logTP ~ ., tp.cal, importance = TRUE, mtry=20, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors. mtry=20 based on Caret grid search results.
 print(rf.full)
 
 varImpPlot(rf.full, type = 1, n.var = 25, main = "All-Sites Model") #variable importance plot
@@ -506,23 +489,24 @@ plot(rf.full, log="x", main = '')  # 500 seems to work fine.
 
 ```{r}
 # Predictions
-pred.rf <- predict(rf.full, newdata = cond.cal)
+pred.rf <- predict(rf.full, newdata = tp.cal)
 
 # Model error 
-full.rmse<- rmse(exp(pred.rf), exp(cond.cal$logCond))
+full.rmse<- rmse(exp(pred.rf), exp(tp.cal$logTP))
 
-range_cond <- max(exp(cond.cal_val$logCond)) - min(exp(cond.cal_val$logCond))
-full.rmse_scaled <- full.rmse/range_cond
+range_tp <- max(exp(tp.cal_val$logTP)) - min(exp(tp.cal_val$logTP))
+full.rmse_scaled <- full.rmse/range_tp
 
 # Percent variance explained
 rf.full_pct.var <- round(100 * rf.full$rsq[length(rf.full$rsq)], 2)
 
 # Plot
-plot(cond.cal$logCond ~ pred.rf, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'Full model')
+plot(tp.cal$logTP ~ pred.rf, xlab = 'predicted logTP', ylab = 'observed logTP', main = 'Full model')
 abline(a=0,b=1)
 text(4,6, paste0("RMSE = ",round(full.rmse, 2)," | scaled RMSE = ", round(full.rmse_scaled*100,2), "%"))
 text(4,5.5, paste0("Variance explained = ",rf.full_pct.var,"%"))
 ```
+
 ## REDUCED MODEL - IMPORTANT PREDICTORS ONLY
 
 #### Build reduced model with 15 predictors
@@ -530,7 +514,7 @@ text(4,5.5, paste0("Variance explained = ",rf.full_pct.var,"%"))
 ```{r}
 set.seed(32)
 
-rf.red_15 <- randomForest(logCond ~ PRECIP9120WS+TMAX9120WS+KFFACTWS+MSST2008+OMWS+CLAYWS+SWS+PCT_EROD+ELEVWS+SW_FLUXWS+POPDEN2010WS+NA2OWS+ROCKNWS+SANDWS+COMPSTRGTHWS, data = cond.cal, importance = TRUE,  keep.forest = TRUE, mtry=15, ntree = 500) 
+rf.red_15 <- randomForest(logTP ~ PRECIP9120WS+TMAX9120WS+KFFACTWS+MSST2008+OMWS+CLAYWS+SWS+PCT_EROD+ELEVWS+SW_FLUXWS+POPDEN2010WS+NA2OWS+ROCKNWS+SANDWS+COMPSTRGTHWS, data = tp.cal, importance = TRUE,  keep.forest = TRUE, mtry=15, ntree = 500) 
 
 print(rf.red_15)
 summary(rf.red_15)
@@ -538,21 +522,22 @@ summary(rf.red_15)
 varImpPlot(rf.red_15, type = 1, n.var = 15, main = "Reduced Model Top 15") #variable importance plot
 
 # Predictions
-pred.rf.red_15 <- predict(rf.red_15, newdata = cond.cal)
+pred.rf.red_15 <- predict(rf.red_15, newdata = tp.cal)
 
 # Model error 
-red_15.rmse<- rmse(exp(pred.rf.red_15), exp(cond.cal$logCond))
-red_15.rmse_scaled <- red_15.rmse/range_cond
+red_15.rmse<- rmse(exp(pred.rf.red_15), exp(tp.cal$logTP))
+red_15.rmse_scaled <- red_15.rmse/range_tp
 
 # Percent variance explained
 rf.red_15_pct.var <- round(100 * rf.red_15$rsq[length(rf.red_15$rsq)], 2)
 
 # Plot
-plot(cond.cal$logCond ~ pred.rf.red_15, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'Reduced Model Top 15')
+plot(tp.cal$logTP ~ pred.rf.red_15, xlab = 'predicted logTP', ylab = 'observed logTP', main = 'Reduced Model Top 15')
 abline(a=0,b=1)
 text(4,6, paste0("RMSE = ",round(red_15.rmse, 2)," | scaled RMSE = ", round(red_15.rmse_scaled*100,2), "%"))
 text(4,5.5, paste0("Variance explained = ",rf.red_15_pct.var,"%"))
 ```
+
 #### Build reduced model with 9 predictors
 
 ```{r}

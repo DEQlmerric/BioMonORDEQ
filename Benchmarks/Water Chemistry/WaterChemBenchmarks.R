@@ -20,6 +20,7 @@
 #LOAD PACKAGES
 library(AWQMSdata) # Visit 'https://github.com/TravisPritchardODEQ/AWQMSdata' for installation instructions
 library(tidyverse)
+library(readxl)
 library(writexl)
 library(leaflet)
 library(leaflet.providers)
@@ -53,6 +54,8 @@ chem.all_ref <- AWQMS_Data(MLocID = ref_stations$MLocID)
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 chem.all_ref <- inner_join(chem.all_ref, ref_stations, by = "MLocID")
 
+# or use this file downloaded 1/20/2026 if you don't want to do the AWQMS pull.
+#chem.all_ref <- read_excel("Benchmarks/Water Chemistry/chem.all_ref.xlsx")
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # REMOVE UNWANTED DATA FROM FURTHER ANALYSIS
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -168,7 +171,7 @@ chem.ref <- chem.ref %>%
 
 # GET RID OF SOME UNUSED COLUMNS FOR READABILITY. (Could get rid of more.)
 chem.ref <- chem.ref %>% 
-  select(!c(Project2, Project3, act_id,Activity_Type, SampleStartTZ:chr_uid, Result_Text, URLType:URLUnit, Sample_Fraction:Result_UID, 
+  select(!c(Project2, Project3, act_id,Activity_Type, SampleStartTZ:chr_uid, Result_Text, URLType:URLUnit, CASNumber:Result_UID, 
             Unit_UID:Analytical_Lab, WQX_submit_date:res_last_change_date)) %>% 
   # Add column to indicate data source
   mutate(Data_source = "ORDEQ")
@@ -180,7 +183,8 @@ study_chars = c("Temperature, water", "pH", "Dissolved oxygen (DO)", "Dissolved 
 
 chem.ref.wq <- chem.ref %>% 
   filter(Char_Name %in% study_chars) %>% 
-  filter(!(Char_Name=='Total Phosphorus, mixed forms' & Char_Speciation=='as P')) # Excludes 1999 data with undefined method speciation 
+  filter(!(Char_Name=='Total Phosphorus, mixed forms' & Sample_Fraction=='Dissolved')) %>% # Excludes TP data w/ Sample Fraction 'Dissolved'.
+  select(!Sample_Fraction)
 #--------------------------------------------------------------------------------------------------------------------
 # CALCULATE TOTAL NITROGEN. TN = TKN + Nitrate + Nitrite
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -236,24 +240,49 @@ chem.ref.wq <- rbind(TN, chem.ref.wq) %>%
 # Clear out intermediaries
 rm(list = c('TN', 'tn.nits', 'tn.nits.tkn', 'tn.tkn', 'tn1', 'tn2'))
 
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
-# ____  _     __  __      ____    _  _____  _    
-# | __ )| |   |  \/  |    |  _ \  / \|_   _|/ \   
-# |  _ \| |   | |\/| |    | | | |/ _ \ | | / _ \  
-# | |_) | |___| |  | |    | |_| / ___ \| |/ ___ \ 
-# |____/|_____|_|  |_|    |____/_/   \_\_/_/   \_\
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
-BLM <- read_excel("Benchmarks/Water Chemistry/External Data/BLM_Ecoregions.xls")
-
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
-# _   _ ____  ____    _         ____    _  _____  _    
-# | \ | |  _ \/ ___|  / \       |  _ \  / \|_   _|/ \   
-# |  \| | |_) \___ \ / _ \      | | | |/ _ \ | | / _ \  
-# | |\  |  _ < ___) / ___ \     | |_| / ___ \| |/ ___ \ 
-# |_| \_|_| \_\____/_/   \_\    |____/_/   \_\_/_/   \_\
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
-NRSA <- read_excel("Benchmarks/Water Chemistry/External Data/NRSA_Ecoregions.xls")
-
+# #-----------------------------------------------------------------------------------------------------------------------------------------------------
+# # ____  _     __  __      ____    _  _____  _    
+# # | __ )| |   |  \/  |    |  _ \  / \|_   _|/ \   
+# # |  _ \| |   | |\/| |    | | | |/ _ \ | | / _ \  
+# # | |_) | |___| |  | |    | |_| / ___ \| |/ ___ \ 
+# # |____/|_____|_|  |_|    |____/_/   \_\_/_/   \_\
+# #-----------------------------------------------------------------------------------------------------------------------------------------------------
+# BLM <- read_excel("Benchmarks/Water Chemistry/External Data/BLM_WQ_pHab.xlsx", sheet = "simple") # ALT pulled raw data and manually added/reviewed COMIDs 1/2026.
+# 
+# # Format and rearrange to start to match AWQMS columns
+# BLM <- BLM %>% 
+#   mutate(TotalNitrogen = as.numeric(TotalNitrogen)) %>% 
+#   mutate(TotalPhosphorous = as.numeric(TotalPhosphorous)) %>% 
+#   mutate(SpecificConductance = as.numeric(SpecificConductance)) %>% 
+#   mutate(pH = as.numeric(pH)) %>% 
+#   mutate(InstantTemp = as.numeric(InstantTemp)) %>% 
+#   mutate(TurbidityAvg = as.numeric(TurbidityAvg)) %>% 
+#   mutate(PctBankCoveredStableMIM = as.numeric(PctBankCoveredStableMIM)) %>% 
+#   mutate(PctPoolTailFinesLessThan2mm = as.numeric(PctPoolTailFinesLessThan2mm)) %>% 
+#   mutate(PctPoolTailFinesLessThan6mm = as.numeric(PctPoolTailFinesLessThan6mm)) %>% 
+#   mutate(PctBankCoveredMIM = as.numeric(PctBankCoveredMIM)) %>% 
+#   pivot_longer(
+#     cols = c(TotalNitrogen:TurbidityAvg, PoolCount:Sinuosity),
+#     names_to = 'Char_Name',
+#     values_to = "Result")
+# 
+# #-----------------------------------------------------------------------------------------------------------------------------------------------------
+# # _   _ ____  ____    _         ____    _  _____  _    
+# # | \ | |  _ \/ ___|  / \       |  _ \  / \|_   _|/ \   
+# # |  \| | |_) \___ \ / _ \      | | | |/ _ \ | | / _ \  
+# # | |\  |  _ < ___) / ___ \     | |_| / ___ \| |/ ___ \ 
+# # |_| \_|_| \_\____/_/   \_\    |____/_/   \_\_/_/   \_\
+# #-----------------------------------------------------------------------------------------------------------------------------------------------------
+# NRSA <- read_excel("Benchmarks/Water Chemistry/External Data/NRSA_WQ.xlsx", sheet = "simple") # ALT pulled raw data and manually added/reviewed COMIDs 1/2026.
+# 
+# #-----------------------------------------------------------------------------------------------------------------------------------------------------
+#     # _   _ ____   ____ ____           _       _        
+#     # | | | / ___| / ___/ ___|       __| | __ _| |_ __ _ 
+#     # | | | \___ \| |  _\___ \      / _` |/ _` | __/ _` |
+#     #   | |_| |___) | |_| |___) |    | (_| | (_| | || (_| 
+#     #  \___/|____/ \____|____/      \__,_|\__,_|\__\__,_| (TSS only)
+# #-----------------------------------------------------------------------------------------------------------------------------------------------------
+# USGS_TSS <- read_excel("Benchmarks/Water Chemistry/External Data/USGS_TSS.xlsx", sheet = "simple")  # ALT pulled raw data and manually added/reviewed COMIDs 1/2026.
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # RANDOMLY SELECT ONE SITE FROM SITES THAT WERE SAMPLED MORE THAN ONCE, &
@@ -344,9 +373,6 @@ single.comids <- cal.val_chem.ref.wq %>%
 # Join the previous two tables together.
 cal.val_chem.ref.wq <- rbind(mult.comids, single.comids)
 
-# TSS save
-#write_xlsx(cal.val_chem.ref.wq[cal.val_chem.ref.wq$Char_Name == 'Total suspended solids',], path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//tss", Sys.Date(), ".xlsx"))
-
 # Clear out intermediaries
 rm(list = c('samp_mult_dates', 'samp_single_dates', 'samp_dates', 'reach_mult', 'reach_single', 'mult.comids', 'single.comids'))
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -398,7 +424,7 @@ tss <- cal.val_chem.ref.wq %>%
   mutate(TSS = Result_Numeric_mod) %>% 
   select(-Result_Numeric_mod)
 
-write_xlsx(cond, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//Conductivity", Sys.Date(), ".xlsx"))
+#write_xlsx(cond, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//Conductivity", Sys.Date(), ".xlsx"))
 #write_xlsx(tss, path = paste0("C://Users//athomps//OneDrive - Oregon//Desktop//TSS_", Sys.Date(), ".xlsx")) #temporary path so can include Ambient sites
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # SUMMARY TABLES, FIGURES
@@ -407,7 +433,7 @@ write_xlsx(cond, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//
 
 sum.param <- cal.val_chem.ref.wq %>%
   group_by(Char_Name, cal_val) %>%
-  summarise(n.Samples = n(),
+  dplyr::summarise(n.Samples = n(),
             minDate = min(SampleStartDate),
             maxDate = max(SampleStartDate))
 
@@ -416,7 +442,7 @@ view(sum.param)
 #2: BY PARAMETER, REFERENCE STATUS
 sum.ref <- cal.val_chem.ref.wq %>%
   group_by(Char_Name, ReferenceSite, cal_val) %>%
-  summarise(n.Samples = n(),
+  dplyr::summarise(n.Samples = n(),
             minDate = min(SampleStartDate),
             maxDate = max(SampleStartDate))
 view(sum.ref)
@@ -428,7 +454,7 @@ ggplot(sum.ref, aes(x = ReferenceSite, y = n.Samples, fill = cal_val)) +
   #3: BY PARAMETER, REFERENCE STATUS, AND ECOREGION LEVEL 3
 sum.eco <- cal.val_chem.ref.wq %>%
   group_by(L3Eco, ReferenceSite, Char_Name, cal_val) %>%
-  summarise(n.Samples = n(),
+  dplyr::summarise(n.Samples = n(),
             minDate = min(SampleStartDate),
             maxDate = max(SampleStartDate))
 
@@ -441,7 +467,7 @@ ggplot(sum.eco, aes(x = ReferenceSite, y = n.Samples, fill = cal_val)) +
   #4: BY YEAR AND PARAMETER
 sum.year <- cal.val_chem.ref.wq %>% 
   group_by(Year = (year(SampleStartDate)), Char_Name) %>% 
-  summarise(n.Samples = n())
+  dplyr::summarise(n.Samples = n())
 view(sum.year)
 
 ggplot(sum.year, aes(x = Year, y = n.Samples, fill = Char_Name)) +
@@ -452,13 +478,13 @@ ggplot(sum.year, aes(x = Year, y = n.Samples, fill = Char_Name)) +
 #5: HOW MANY PARAMS PER SITE?
 sum.chars <- cal.val_chem.ref.wq %>% 
   group_by(MLocID) %>% 
-  summarise(n.chars = n_distinct(Char_Name))
+  dplyr::summarise(n.chars = n_distinct(Char_Name))
 view(sum.chars)
 
 #6: SUMMARY STATS BY ECOREGION
 sum.stats <- cal.val_chem.ref.wq %>% 
   group_by(Char_Name, L3Eco, cal_val) %>% 
-  summarize(n.Samples = n(),
+  dplyr::summarize(n.Samples = n(),
             mean = mean(Result_Numeric_mod),
             median = median(Result_Numeric_mod),
             min = min(Result_Numeric_mod),
@@ -470,7 +496,7 @@ view(sum.stats)
 #7: SUMMARY STATS BY ECOREGION AND REF STATUS
 sum.stats.ref <- cal.val_chem.ref.wq %>% 
   group_by(L3Eco, ReferenceSite, Char_Name, cal_val) %>% 
-  summarize(mean = mean(Result_Numeric_mod),
+  dplyr::summarize(mean = mean(Result_Numeric_mod),
             median = median(Result_Numeric_mod),
             min = min(Result_Numeric_mod),
             max = max(Result_Numeric_mod), 

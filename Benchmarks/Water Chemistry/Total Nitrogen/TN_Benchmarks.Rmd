@@ -5,7 +5,7 @@ date: "2026-01-21"
 output: html_document
 ---
 
-#### Total Phosphorus
+#### Total Nitrogen
 
 # **1 - LOAD PACKAGES**
 
@@ -30,9 +30,9 @@ library(Metrics)
 ## STATIONS - *FROM WATER CHEMISTRY BENCHMARKS SCRIPT*
 
 ```{r}
-tp <- read_excel("~/BioMonORDEQ/Benchmarks/Water Chemistry/Total Phosphorus/totalP2026_01-21.xlsx") #output file from ref benchmarks script
+tn <- read_excel("~/BioMonORDEQ/Benchmarks/Water Chemistry/Total Nitrogen/totalN2026-01-21.xlsx") #output file from ref benchmarks script
 
-comids <- tp %>% 
+comids <- tn %>% 
   select(COMID) #%>%  #get just the COMIDs for next step
   #filter(!COMID %in% c("23915259","23810652","23765365","23910789","24505148","23881294","23876327","24506738","23774647","23877125","23872909","23941071")) # REMOVE UNWANTED COMIDS ('used closest COMID') FOR SITES ON HIGH RES NHD
 ```
@@ -198,13 +198,13 @@ erod_resist_strmpow <- erod_resist_strmpow %>%
   select(COMID, PCT_EROD, STRMPOW_CAT, NHD_pSLOPE, SITE_TYPE) # Drop PCT_RESIST since it's the inverse of PCT_ERODE
 
 # JOIN WITH OTHER PARAMETERS NOT FROM SC
-tp_vars <- sc_all %>% 
+tn_vars <- sc_all %>% 
   inner_join(erod_resist_strmpow, by='COMID') %>% 
-  inner_join(tp, by = 'COMID')
+  inner_join(tn, by = 'COMID')
 
 # RE-ORDER COLUMNS 
-tp_vars <- tp_vars %>% 
-  relocate(MLocID:TP, .before = 'COMID') %>% 
+tn_vars <- tn_vars %>% 
+  relocate(MLocID:TN, .before = 'COMID') %>% 
   relocate(L2Eco:L3Eco, .after = SITE_TYPE) %>% 
   select(-c(HUC8, EcoRegion4)) 
 ```
@@ -215,29 +215,29 @@ tp_vars <- tp_vars %>%
 
 ```{r, warning=FALSE}
 # FIND OUT WHICH COLUMNS HAVE NAs (AND WRITE CODE FOR THEM BELOW)
-sapply(tp_vars, function(x) sum(is.na(x)))
+sapply(tn_vars, function(x) sum(is.na(x)))
 
 # PERFORM NA ROUGHFIX FUNCTION ON METRICS WITH MISSING VALUES
-tp_vars$NSURPWS  <- na.roughfix(tp_vars$NSURPWS) # 1 NA
-tp_vars$NANIWS  <- na.roughfix(tp_vars$NANIWS) # 1 NA
-tp_vars$SW_FLUXWS  <- na.roughfix(tp_vars$SW_FLUXWS) # 2 NA
-tp_vars$PCTIMPSLPHIGH2001WS  <- na.roughfix(tp_vars$PCTIMPSLPHIGH2001WS) # 4 NA
-tp_vars$MAST2008  <- na.roughfix(tp_vars$MAST2008) # 56 NA
-tp_vars$MWST2008  <- na.roughfix(tp_vars$MWST2008) # 9 NA
-tp_vars$PRG_BMMI0809  <- na.roughfix(tp_vars$PRG_BMMI0809) # 62 NA
-tp_vars$WETTEDWIDTH  <- na.roughfix(tp_vars$WETTEDWIDTH) # 64 NA
-tp_vars$THALWEGDEPTH  <- na.roughfix(tp_vars$THALWEGDEPTH) # 64 NA
-tp_vars$BANKFULLWIDTH  <- na.roughfix(tp_vars$BANKFULLWIDTH) # 64 NA
-tp_vars$BANKFULLDEPTH  <- na.roughfix(tp_vars$BANKFULLDEPTH) # 64 NA
+tn_vars$NSURPWS  <- na.roughfix(tn_vars$NSURPWS) # 1 NA
+tn_vars$NANIWS  <- na.roughfix(tn_vars$NANIWS) # 1 NA
+tn_vars$SW_FLUXWS  <- na.roughfix(tn_vars$SW_FLUXWS) # 2 NA
+tn_vars$PCTIMPSLPHIGH2001WS  <- na.roughfix(tn_vars$PCTIMPSLPHIGH2001WS) # 4 NA
+tn_vars$MAST2008  <- na.roughfix(tn_vars$MAST2008) # 56 NA
+tn_vars$MWST2008  <- na.roughfix(tn_vars$MWST2008) # 9 NA
+tn_vars$PRG_BMMI0809  <- na.roughfix(tn_vars$PRG_BMMI0809) # 61 NA
+tn_vars$WETTEDWIDTH  <- na.roughfix(tn_vars$WETTEDWIDTH) # 63 NA
+tn_vars$THALWEGDEPTH  <- na.roughfix(tn_vars$THALWEGDEPTH) # 63 NA
+tn_vars$BANKFULLWIDTH  <- na.roughfix(tn_vars$BANKFULLWIDTH) # 63 NA
+tn_vars$BANKFULLDEPTH  <- na.roughfix(tn_vars$BANKFULLDEPTH) # 63 NA
 
 # Subset numeric variables only
-tp_vars_num <- tp_vars %>% 
+tn_vars_num <- tn_vars %>% 
   select(!c(SITE_TYPE:L3Eco)) %>% 
-  select(!c(MLocID:TP)) %>%  
+  select(!c(MLocID:TN)) %>%  
   relocate(sort(names(.))) # sort columns alphabetically
 
 # FULL CORRELATION MATRIX
-spear <- cor(tp_vars_num, method = "spearman", use = "pairwise.complete.obs")
+spear <- cor(tn_vars_num, method = "spearman", use = "pairwise.complete.obs")
 spear <- as.data.frame(spear)
 spear.rows <- tibble::rownames_to_column(spear)
 
@@ -247,7 +247,7 @@ matrix <- spear.rows %>%
   filter(abs(cor) > 0.8)
 
 #export once, then clean up in Excel
-write_xlsx(matrix, path = "~/BioMonORDEQ/Benchmarks/Water Chemistry/Total Phosphorus/TP_Spearmans_Matrix.xlsx")
+write_xlsx(matrix, path = "~/BioMonORDEQ/Benchmarks/Water Chemistry/Total Nitrogen/TN_Spearmans_Matrix.xlsx")
 
 rm(list=c('spear', 'spear.rows'))
 ```

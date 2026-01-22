@@ -224,13 +224,13 @@ tp_tn_vars$NSURPWS  <- na.roughfix(tp_tn_vars$NSURPWS) # 1 NA
 tp_tn_vars$NANIWS  <- na.roughfix(tp_tn_vars$NANIWS) # 1 NA
 tp_tn_vars$SW_FLUXWS  <- na.roughfix(tp_tn_vars$SW_FLUXWS) # 2 NA
 tp_tn_vars$PCTIMPSLPHIGH2001WS  <- na.roughfix(tp_tn_vars$PCTIMPSLPHIGH2001WS) # 4 NA
-tp_tn_vars$MAST2008  <- na.roughfix(tp_tn_vars$MAST2008) # 56 NA
+#tp_tn_vars$MAST2008  <- na.roughfix(tp_tn_vars$MAST2008) # 56 NA
 tp_tn_vars$MWST2008  <- na.roughfix(tp_tn_vars$MWST2008) # 9 NA
-tp_tn_vars$PRG_BMMI0809  <- na.roughfix(tp_tn_vars$PRG_BMMI0809) # 62 NA
-tp_tn_vars$WETTEDWIDTH  <- na.roughfix(tp_tn_vars$WETTEDWIDTH) # 64 NA
-tp_tn_vars$THALWEGDEPTH  <- na.roughfix(tp_tn_vars$THALWEGDEPTH) # 64 NA
-tp_tn_vars$BANKFULLWIDTH  <- na.roughfix(tp_tn_vars$BANKFULLWIDTH) # 64 NA
-tp_tn_vars$BANKFULLDEPTH  <- na.roughfix(tp_tn_vars$BANKFULLDEPTH) # 64 NA
+# tp_tn_vars$PRG_BMMI0809  <- na.roughfix(tp_tn_vars$PRG_BMMI0809) # 62 NA
+# tp_tn_vars$WETTEDWIDTH  <- na.roughfix(tp_tn_vars$WETTEDWIDTH) # 64 NA
+# tp_tn_vars$THALWEGDEPTH  <- na.roughfix(tp_tn_vars$THALWEGDEPTH) # 64 NA
+# tp_tn_vars$BANKFULLWIDTH  <- na.roughfix(tp_tn_vars$BANKFULLWIDTH) # 64 NA
+# tp_tn_vars$BANKFULLDEPTH  <- na.roughfix(tp_tn_vars$BANKFULLDEPTH) # 64 NA
 
 # Subset numeric variables only
 tp_tn_vars_num <- tp_tn_vars %>% 
@@ -283,13 +283,17 @@ tp_tn_vars %>%
   geom_density() +
   geom_rug()
 ```
-#### Select variables based on correlation analysis. (Either select desired vars or drop undesired ones. Helps if they are in alphabetical order. Don't get rid of columns you want to keep from AWQMS at this stage.)  SH, AT, and SB did this together and recorded decisions in 'Var selection decision 1-8-26.xlsx'
+
+#### Select variables based on correlation analysis. (Either select desired vars or drop undesired ones. Helps if they are in alphabetical order. Don't get rid of columns you want to keep from AWQMS at this stage.)  SH, AT, and SB did this together and recorded decisions in 'Var selection decision 1-22-26.xlsx'
 
 ```{r}
+# Did not copy over metrics with 100% zeros. Use formula (=TEXTJOIN(", ", TRUE, A1:range)) to compile list to paste below.
+tp_vars <- semi_join(tp_tn_vars, tp, by = "COMID") # Select only COMIDs with TP samples (drop TN only rows), also dropped bad COMID for Twentymile Cr 12266-ORDEQ
+
 tp_vars_selected <- tp_vars %>% 
-  select(c(MLocID:COMID,BFIWS, CANALDENSWS, CAOWS, CLAYWS, COMPSTRGTHWS, DAMDENSWS, ELEVWS, FE2O3WS, HYDRLCONDWS, K2OWS, KFFACTWS, MINEDENSWS, MSST2008, NA2OWS, NHD_pSLOPE, NPDESDENSWS, NWS, OMWS, PCT_EROD, PCTAGDRAINAGEWS, PCTAGSLPMID2001WS, PCTALKINTRUVOLWS, PCTALLUVCOASTWS, PCTBL2001WS, PCTBURNAREA2002WS, PCTCOLLUVSEDWS, PCTCONIF2001WS, PCTCROP2001WS, PCTDECID2001WS, PCTEOLCRSWS, PCTEOLFINEWS, PCTEXTRUVOLWS, PCTFRSTLOSS2002WS, PCTGLACLAKECRSWS, PCTGLACLAKEFINEWS, PCTGLACTILCRSWS, PCTGRS2001WS, PCTHBWET2001WS, PCTICE2001WS, PCTIMP2001WS, PCTINCVEGRESP2002WS, PCTNONAGINTRODMANAGVEGWS, PCTOW2001WS, PCTSALLAKEWS, PCTSHRB2001WS, PCTURBHI2001WS, PCTURBLO2001WS, PCTURBOP2001WS, PCTWATERWS, PESTIC1997WS, POPDEN2010WS, PRECIP9120WS, RCKDEPWS, RDCRSSLPWTDWS, RDCRSWS, RDDENSWS, ROCKNWS, SANDWS, SEPTICWS, STRMPOW_CAT, SUPERFUNDDENSWS, SW_FLUXWS, SWS, TMAX9120WS, TRIDENSWS, WATERINPUTWS, WETINDEXWS, WETTEDWIDTH, WTDEPWS, WWTPALLDENSWS,SITE_TYPE:L3Eco)) %>% 
+  select(c(MLocID:COMID, BFIWS, CANALDENSWS, CLAYWS, COMPSTRGTHWS, DAMNRMSTORWS, ELEVWS, FE2O3WS, FERTWS, HYDRLCONDWS, K2OWS, KFFACTWS, MINEDENSWS, MSST2008, NANIWS, NHD_pSLOPE, NPDESDENSWS, NWS, OMWS, P2O5WS, PCT_EROD, PCTAGDRAINAGEWS, PCTALKINTRUVOLWS, PCTALLUVCOASTWS, PCTBL2001WS, PCTBURNAREA2002WS, PCTCARBRESIDWS, PCTCOLLUVSEDWS, PCTCONIF2001WS, PCTCROP2001WS, PCTDECID2001WS, PCTEOLFINEWS, PCTEXTRUVOLWS, PCTFRSTLOSS2002WS, PCTGLACLAKECRSWS, PCTGLACLAKEFINEWS, PCTGLACTILCRSWS, PCTGRS2001WS, PCTHAY2001WS, PCTHBWET2001WS, PCTICE2001WS, PCTIMP2001WS, PCTINCVEGRESP2002WS, PCTNONAGINTRODMANAGVEGWS, PCTOW2001WS, PCTSALLAKEWS, PCTSHRB2001WS, PCTURBHI2001WS, PCTURBLO2001WS, PCTURBOP2001WS, PCTWATERWS, PCTWDWET2001WS, PESTIC1997WS, POPDEN2010WS, PRECIP_MINUS_EVTWS, RCKDEPWS, RDCRSSLPWTDWS, RDCRSWS, RDDENSWS, ROCKNWS, SANDWS, SEPTICWS, STRMPOW_CAT, SUPERFUNDDENSWS, SW_FLUXWS, SWS, TMAX9120WS, TRIDENSWS, WETINDEXWS, WTDEPWS, WWTPALLDENSWS, WWTPMAJORDENSWS, SITE_TYPE:L3Eco)) %>% 
   relocate(COMID, .after = cal_val) %>% 
-  mutate(logTP = log(TP)) %>% 
+  mutate(logTP = log(TP+1)) %>% 
   relocate(logTP, .before= TP)
 ```
 
@@ -302,7 +306,7 @@ tp_tn_vars_num_selected <- tp_vars_selected %>%
   select(!c(MLocID:TP)) 
 
 # FULL CORRELATION MATRIX
-spear2 <- cor(tp_vars_num_selected, method = "spearman", use = "pairwise.complete.obs")
+spear2 <- cor(tp_tn_vars_num_selected, method = "spearman", use = "pairwise.complete.obs")
 spear2 <- as.data.frame(spear2)
 spear2.rows <- tibble::rownames_to_column(spear2)
 
@@ -316,24 +320,6 @@ rm(list=c('spear2', 'spear2.rows', 'tp_vars_num_selected'))
 # ***CONTINUE ONCE NO CORRELATED VARIABLES REMAIN***
 
 rm('tp_vars_num_selected')
-
-# 1/21/26 SYB = Need to add code to remove rows that are only applicable for TN samples!!!!
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ```
 
 # **3 - PREPARE DATA FOR MODELS**
@@ -341,11 +327,8 @@ rm('tp_vars_num_selected')
 ## HANDLE NA VALUES AND TRANSFORM DATA
 
 ```{r, warning=FALSE}
-# FIND OUT WHICH COLUMNS HAVE NAs (AND WRITE CODE FOR THEM BELOW)
+# FIND OUT WHICH COLUMNS HAVE NAs (AND WRITE CODE FOR THEM BELOW) - none remained!
 sapply(tp_vars_selected, function(x) sum(is.na(x)))
-
-# PERFORM NA ROUGHFIX FUNCTION ON ALL REMAINING METRICS.
-tp_vars_selected$WETTEDWIDTH <- na.roughfix(tp_vars_selected$WETTEDWIDTH) # 70 NAs
 ```
 
 # **4 - EXPLORE DATA**
@@ -355,20 +338,18 @@ tp_vars_selected$WETTEDWIDTH <- na.roughfix(tp_vars_selected$WETTEDWIDTH) # 70 N
 ```{r}
 # HISTOGRAM
 hist(tp_vars_selected$TP, main = "", xlab = "Total Phosphorus") #raw data
-hist(tp_vars_selected$logTP, main = "", xlab = "log(TP)")
+hist(tp_vars_selected$logTP, main = "", xlab = "log+1(TP)")
 
 # DENSITY PLOT
-hist(tp_vars_selected$logTP, main="", prob=T, xlab = "logTP")
+hist(tp_vars_selected$logTP, main="", prob=T, xlab = "log+1(TP)")
 d <- density(tp_vars_selected$logTP) #Estimate probability density and save it into **d**
 lines(d, col='red',lwd=2) #Superimpose the probability density as a curve on the previous probability density histogram
 
-# BOX PLOT & STRIP CHART
-boxplot(tp_vars_selected$logTP, ylab = "logTP")
-#stripchart(tss_vars_selected$TSS, vertical = T, pch=1, col='red', add = T)
-
+# BOX PLOT
+boxplot(tp_vars_selected$logTP, ylab = "log+1(TP)")
 ```
 
-## PREDICTOR VARIABLES
+## PREDICTOR VARIABLES - skip initially and revisit after knowing top predictors
 
 ```{r}
 # Kernel density plot function
@@ -446,15 +427,15 @@ tp_vars_selected %>%
 # SUBSET DATA
 tp.cal <- tp_vars_selected %>%  #subset CALibration dataset
   filter(cal_val == 'CAL') %>%  
-  select(-c(MLocID:COMID, TP, SampleStartDate)) #drop TP in favor of logTP. Drop AWQMS columns too.
+  select(-c(MLocID:COMID, logTP, SampleStartDate)) #drop TP in favor of logTP. Drop AWQMS columns too.
 
 tp.val <- tp_vars_selected %>%  #subset VALidation dataset
   filter(cal_val == 'VAL') %>%  
-  select(-c(MLocID:COMID, TP, SampleStartDate))
+  select(-c(MLocID:COMID, logTP, SampleStartDate))
 
 tp.ref <- tp_vars_selected %>% #subset reference only dataset
   filter(ReferenceSite == 'REFERENCE') %>%  
-  select(-c(MLocID:COMID, TP, SampleStartDate))
+  select(-c(MLocID:COMID, logTP, SampleStartDate))
 
 tp.cal_val <- rbind(tp.cal, tp.val)
 #write_xlsx(tp.cal_val, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//TP-Cal-val_New", Sys.Date(), ".xlsx"))
@@ -467,24 +448,23 @@ tp.cal_val <- rbind(tp.cal, tp.val)
 ```{r}
 # One way to find best mtry based on tuneRF.
     # Tune mtry based on OOB error
-# best_mtry <- tuneRF(tp.cal[, -which(names(tp.cal) == "logTP")], # Predictors
-#                         tp.cal$logTP, # Response
-#                         ntreeTry = 500, # Number of trees to try for each mtry
-#                         stepFactor = 2, # Factor to multiply/divide mtry by
-#                         improve = 0.01, # Minimum improvement to continue search
-#                         trace = TRUE, # Print progress
-#                         plot = TRUE) # Plot OOB error vs. mtry
-# print(best_mtry)
-# 
-# # Another approach using Caret.  Takes >50 minutes to run, not that different from mtry approach above.
-# control <- trainControl(method="repeatedcv", number=10,repeats = 3, search="random")
-# set.seed(1)
-# mtry <- sqrt(ncol(tp.cal[ , 2:74]
-# ))
-# rf_random <- train(logTP ~., data = tp.cal, method = "rf", metric = "RMSE", tuneLength = 15, trControl=control)
-# print(rf_random)
-# plot(rf_random)
+best_mtry <- tuneRF(tp.cal[, -which(names(tp.cal) == "TP")], # Predictors
+                        tp.cal$TP, # Response
+                        ntreeTry = 500, # Number of trees to try for each mtry
+                        stepFactor = 2, # Factor to multiply/divide mtry by
+                        improve = 0.01, # Minimum improvement to continue search
+                        trace = TRUE, # Print progress
+                        plot = TRUE) # Plot OOB error vs. mtry
+print(best_mtry)
 
+# Another approach using Caret.  Takes >50 minutes to run, not that different from mtry approach above.
+control <- trainControl(method="repeatedcv", number=10, repeats = 3, search="random")
+set.seed(1)
+mtry <- sqrt(ncol(tp.cal[ , 2:75]
+))
+rf_random <- train(TP ~., data = tp.cal, method = "rf", metric = "RMSE", tuneLength = 15, trControl=control)
+#print(rf_random)
+plot(rf_random)
 ```
 
 #### Build full model
@@ -492,7 +472,7 @@ tp.cal_val <- rbind(tp.cal, tp.val)
 ```{r}
 set.seed(39)
 
-rf.full <- randomForest(logTP ~ ., tp.cal, importance = TRUE, mtry=20, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors. mtry=20 based on Caret grid search results.
+rf.full <- randomForest(TP ~ ., tp.cal, importance = TRUE, mtry= 37, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors. mtry=37 based on Caret grid search results.
 print(rf.full)
 
 varImpPlot(rf.full, type = 1, n.var = 25, main = "All-Sites Model") #variable importance plot
@@ -512,139 +492,105 @@ plot(rf.full, log="x", main = '')  # 500 seems to work fine.
 pred.rf <- predict(rf.full, newdata = tp.cal)
 
 # Model error 
-full.rmse<- rmse(exp(pred.rf), exp(tp.cal$logTP))
+full.rmse<- rmse((pred.rf), tp.cal$TP)
 
-range_tp <- max(exp(tp.cal_val$logTP)) - min(exp(tp.cal_val$logTP))
+range_tp <- max(tp.cal_val$TP) - min(tp.cal_val$TP)
 full.rmse_scaled <- full.rmse/range_tp
 
 # Percent variance explained
 rf.full_pct.var <- round(100 * rf.full$rsq[length(rf.full$rsq)], 2)
 
 # Plot
-plot(tp.cal$logTP ~ pred.rf, xlab = 'predicted logTP', ylab = 'observed logTP', main = 'Full model')
+plot(tp.cal$TP ~ pred.rf, xlab = 'predicted TP', ylab = 'observed TP', main = 'Full model')
 abline(a=0,b=1)
-text(4,6, paste0("RMSE = ",round(full.rmse, 2)," | scaled RMSE = ", round(full.rmse_scaled*100,2), "%"))
-text(4,5.5, paste0("Variance explained = ",rf.full_pct.var,"%"))
+text(0.15,0.6, paste0("RMSE = ",round(full.rmse, 2)," | scaled RMSE = ", round(full.rmse_scaled*100,2), "%"))
+text(0.15,0.5, paste0("Variance explained = ",rf.full_pct.var,"%"))
 ```
 
 ## REDUCED MODEL - IMPORTANT PREDICTORS ONLY
 
-#### Build reduced model with 15 predictors
+#### Build reduced model with 8 predictors
 
 ```{r}
 set.seed(32)
 
-rf.red_15 <- randomForest(logTP ~ PRECIP9120WS+TMAX9120WS+KFFACTWS+MSST2008+OMWS+CLAYWS+SWS+PCT_EROD+ELEVWS+SW_FLUXWS+POPDEN2010WS+NA2OWS+ROCKNWS+SANDWS+COMPSTRGTHWS, data = tp.cal, importance = TRUE,  keep.forest = TRUE, mtry=15, ntree = 500) 
+rf.red_8 <- randomForest(TP ~ PCTCONIF2001WS + PRECIP_MINUS_EVTWS + OMWS + ROCKNWS + PCTAGDRAINAGEWS + PCTNONAGINTRODMANAGVEGWS + STRMPOW_CAT + PCTCROP2001WS, data = tp.cal, importance = TRUE,  keep.forest = TRUE, mtry = 37, ntree = 500) 
 
-print(rf.red_15)
-summary(rf.red_15)
+print(rf.red_8)
+summary(rf.red_8)
 
-varImpPlot(rf.red_15, type = 1, n.var = 15, main = "Reduced Model Top 15") #variable importance plot
+varImpPlot(rf.red_8, type = 1, n.var = 8, main = "Reduced Model Top 8") #variable importance plot
 
 # Predictions
-pred.rf.red_15 <- predict(rf.red_15, newdata = tp.cal)
+pred.rf.red_8 <- predict(rf.red_8, newdata = tp.cal)
 
 # Model error 
-red_15.rmse<- rmse(exp(pred.rf.red_15), exp(tp.cal$logTP))
-red_15.rmse_scaled <- red_15.rmse/range_tp
+red_8.rmse<- rmse(pred.rf.red_8, tp.cal$TP)
+red_8.rmse_scaled <- red_8.rmse/range_tp
 
 # Percent variance explained
-rf.red_15_pct.var <- round(100 * rf.red_15$rsq[length(rf.red_15$rsq)], 2)
+rf.red_8_pct.var <- round(100 * rf.red_8$rsq[length(rf.red_8$rsq)], 2)
 
 # Plot
-plot(tp.cal$logTP ~ pred.rf.red_15, xlab = 'predicted logTP', ylab = 'observed logTP', main = 'Reduced Model Top 15')
+plot(tp.cal$TP ~ pred.rf.red_8, xlab = 'predicted TP', ylab = 'observed TP', main = 'Reduced Model Top 8')
 abline(a=0,b=1)
-text(4,6, paste0("RMSE = ",round(red_15.rmse, 2)," | scaled RMSE = ", round(red_15.rmse_scaled*100,2), "%"))
-text(4,5.5, paste0("Variance explained = ",rf.red_15_pct.var,"%"))
+text(0.15,0.6, paste0("RMSE = ",round(red_8.rmse, 2)," | scaled RMSE = ", round(red_8.rmse_scaled*100,2), "%"))
+text(0.15,0.5, paste0("Variance explained = ",rf.red_8_pct.var,"%"))
 ```
 
-#### Build reduced model with 9 predictors
+#### Build reduced model with 2 predictors
 
 ```{r}
 set.seed(32)
 
-rf.red_9 <- randomForest(logCond ~ PRECIP9120WS+TMAX9120WS+KFFACTWS+MSST2008+OMWS+CLAYWS+SWS+PCT_EROD+ELEVWS, data = cond.cal, importance = TRUE,  keep.forest = TRUE, mtry=9, ntree = 500) 
+rf.red_2 <- randomForest(TP ~ PCTCONIF2001WS + PRECIP_MINUS_EVTWS, data = tp.cal, importance = TRUE,  keep.forest = TRUE, mtry = 37, ntree = 500) 
 
-print(rf.red_9)
-summary(rf.red_9)
+print(rf.red_2)
+summary(rf.red_2)
 
-varImpPlot(rf.red_9, type = 1, n.var = 9, main = "Reduced Model Top 9") #variable importance plot
-
-# Predictions
-pred.rf.red_9 <- predict(rf.red_9, newdata = cond.cal)
-
-# Model error 
-red_9.rmse<- rmse(exp(pred.rf.red_9), exp(cond.cal$logCond))
-red_9.rmse_scaled <- red_9.rmse/range_cond
-
-# Percent variance explained
-rf.red_9_pct.var <- round(100 * rf.red_9$rsq[length(rf.red_9$rsq)], 2)
-
-# Plot
-plot(cond.cal$logCond ~ pred.rf.red_9, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'Reduced Model Top 9')
-abline(a=0,b=1)
-text(4,6, paste0("RMSE = ",round(red_9.rmse, 2)," | scaled RMSE = ", round(red_9.rmse_scaled*100,2), "%"))
-text(4,5.5, paste0("Variance explained = ",rf.red_9_pct.var,"%"))
-```
-#### Build reduced model with 5 predictors
-
-```{r}
-set.seed(32)
-
-rf.red_5 <- randomForest(logCond ~ PRECIP9120WS+TMAX9120WS+KFFACTWS+MSST2008+OMWS, data = cond.cal, importance = TRUE,  keep.forest = TRUE, mtry=5, ntree = 500) 
-
-print(rf.red_5)
-summary(rf.red_5)
-
-varImpPlot(rf.red_5, type = 1, n.var = 5, main = "Reduced Model Top 5") #variable importance plot
+varImpPlot(rf.red_2, type = 1, n.var = 2, main = "Reduced Model Top 2") #variable importance plot
 
 # Predictions
-pred.rf.red_5 <- predict(rf.red_5, newdata = cond.cal)
+pred.rf.red_2 <- predict(rf.red_2, newdata = tp.cal)
 
 # Model error 
-red_5.rmse<- rmse(exp(pred.rf.red_5), exp(cond.cal$logCond))
-red_5.rmse_scaled <- red_5.rmse/range_cond
+red_2.rmse<- rmse(pred.rf.red_2, tp.cal$TP)
+red_2.rmse_scaled <- red_2.rmse/range_tp
 
 # Percent variance explained
-rf.red_5_pct.var <- round(100 * rf.red_5$rsq[length(rf.red_5$rsq)], 2)
+rf.red_2_pct.var <- round(100 * rf.red_2$rsq[length(rf.red_2$rsq)], 2)
 
 # Plot
-plot(cond.cal$logCond ~ pred.rf.red_5, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'Reduced Model Top 5')
+plot(tp.cal$TP ~ pred.rf.red_2, xlab = 'predicted TP', ylab = 'observed TP', main = 'Reduced Model Top 2')
 abline(a=0,b=1)
-text(4,6, paste0("RMSE = ",round(red_5.rmse, 2)," | scaled RMSE = ", round(red_5.rmse_scaled*100,2), "%"))
-text(4,5.5, paste0("Variance explained = ",rf.red_5_pct.var,"%"))
+text(0.15,0.6, paste0("RMSE = ",round(red_2.rmse, 2)," | scaled RMSE = ", round(red_2.rmse_scaled*100,2), "%"))
+text(0.15,0.5, paste0("Variance explained = ",rf.red_2_pct.var,"%"))
 ```
 
 
-#### Build reduced model with 3 predictors
 
-```{r}
-set.seed(32)
 
-rf.red_3 <- randomForest(logCond ~ PRECIP9120WS+TMAX9120WS+KFFACTWS, data = cond.cal, importance = TRUE,  keep.forest = TRUE, mtry=3, ntree = 500) 
 
-print(rf.red_3)
-summary(rf.red_3)
+# DID NOT MAKE EDITS BELOW THIS POINT...
 
-varImpPlot(rf.red_3, type = 1, n.var = 3, main = "Reduced Model Top 3") #variable importance plot
 
-# Predictions
-pred.rf.red_3 <- predict(rf.red_3, newdata = cond.cal)
 
-# Model error 
-red_3.rmse<- rmse(exp(pred.rf.red_3), exp(cond.cal$logCond))
-red_3.rmse_scaled <- red_3.rmse/range_cond
 
-# Percent variance explained
-rf.red_3_pct.var <- round(100 * rf.red_3$rsq[length(rf.red_3$rsq)], 2)
 
-# Plot
-plot(cond.cal$logCond ~ pred.rf.red_3, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'Reduced Model Top 3')
-abline(a=0,b=1)
-text(4,6, paste0("RMSE = ",round(red_3.rmse, 2)," | scaled RMSE = ", round(red_3.rmse_scaled*100,2), "%"))
-text(4,5.5, paste0("Variance explained = ",rf.red_3_pct.var,"%"))
 
-```
+
+
+
+
+
+
+
+
+
+
+
+
+
 #### Residual plot for red_3 model
 
 ```{r}
@@ -676,7 +622,9 @@ abline(a=0,b=1)
 plot(exp(cond.val$logCond) ~ exp(pred.rf.red_9_val), log = 'xy', xlab = 'predicted Conductivity', ylab = 'observed Conductivity', main = 'VALIDATION Reduced Model Top 9 untransformed log scale axes')
 abline(a=0,b=1)
 ```
+
 #### Test reduced model (red_3) with VAL data
+
 ```{r}
 # Predictions
 pred.rf.red_3_val <- predict(rf.red_3, newdata = cond.val)
@@ -732,7 +680,9 @@ plot(x = (exp(pred.rf.red_3_val)), y = exp(cond.val$logCond)-exp(pred.rf.red_3_v
 	  lwd=1.5,cex.lab=1.5, las = 1, font = 2, cex=1.3,
 	  axes=FALSE)
 ```
+
 Predictions on CAL + VAL
+
 ```{r}
 # Predictions
 pred.rf.red_3_cal_val <- predict(rf.red_3, newdata = cond.cal_val)

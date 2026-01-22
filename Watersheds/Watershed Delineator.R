@@ -332,11 +332,11 @@ import <- read.xlsx("C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/Willy
 #make dataframe of comids
 dataframe_comid <- import %>%
   rowwise() %>%
-  mutate(point = list(sf::st_sfc(sf::st_point(c(lon, lat)),crs = 4326 ))) |> 
+  mutate(point = list(sf::st_sfc(sf::st_point(c(lon, lat)), crs = 4326))) |> 
   mutate(comid = discover_nhdplus_id(point)) |> 
   select(-point)
 
-dataframe_comid <- import$ComID
+dataframe_comid <- data.frame(import$ComID)
 
 #function start ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 delin <- function(comid, ofid2, random, shp_file){
@@ -345,8 +345,8 @@ delin <- function(comid, ofid2, random, shp_file){
 shp_file <- "C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/willytest.shp"
 
 #enter starting comid
-start_comid <- import$ComID
-#start_comid <- "23759604"
+#start_comid <- dataframe_comid
+start_comid <- "23759604"
 
 flowlines <- navigate_nldi(list(featureSource = "comid",
                                 featureID = start_comid),
@@ -381,8 +381,14 @@ st_write(catchment2, shp_file, append = TRUE)
 }
 #end of function ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+
+
 #optional - view output
 mapview(flowlines) + mapview(catchment) + mapview(flownet)
 
+
+
 #write to shapefile
-purrr::pmap(as.list(dataframe_comid), ~delin(comid = {..8}, random = {..1}, ofid2 = {..3} ,shp_file = "C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/delineate_test.shp" ))
+purrr::pmap(as.list(dataframe_comid), ~ delin(comid = {..8}, random = {..1}, ofid2 = {..3}, shp_file = "C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/delineate_test.shp" ))
+
+purrr::map(dataframe_comid, ~ delin(.,shp_file = "C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/delineate_test.shp" ))

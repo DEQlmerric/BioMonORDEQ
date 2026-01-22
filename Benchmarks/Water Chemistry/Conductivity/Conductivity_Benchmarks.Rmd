@@ -30,11 +30,10 @@ library(Metrics)
 ## STATIONS/TSS - *FROM WATER CHEMISTRY BENCHMARKS SCRIPT*
 
 ```{r}
-cond <- read_excel("Conductivity2026-01-13.xlsx") #output file from ref benchmarks script - Ambient sites included
+cond <- read_excel('~/BioMonORDEQ/Benchmarks/Water Chemistry/Conductivity/Conductivity_no_outliers_2026-01-21.xlsx') #output file from ref benchmarks script - Ambient sites included
 
 comids <- cond %>% 
-  select(COMID) %>%  #get just the COMIDs for next step
-  filter(!COMID %in% c("23915259","23810652","23765365","23910789","24505148","23881294","23876327","24506738","23774647","23877125","23872909","23941071")) # REMOVE UNWANTED COMIDS ('used closest COMID') FOR SITES ON HIGH RES NHD
+  select(COMID) #get just the COMIDs for next step
 ```
 
 ## WATERSHED PREDICTOR VARIABLES - *FROM EPA STREAMCAT*

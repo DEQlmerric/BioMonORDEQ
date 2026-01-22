@@ -32,9 +32,11 @@ library(Metrics)
 ```{r}
 tp <- read_excel("~/BioMonORDEQ/Benchmarks/Water Chemistry/Total Phosphorus/totalP2026_01-21.xlsx") #output file from ref benchmarks script
 
-comids <- tp %>% 
-  select(COMID) #%>%  #get just the COMIDs for next step
-  #filter(!COMID %in% c("23915259","23810652","23765365","23910789","24505148","23881294","23876327","24506738","23774647","23877125","23872909","23941071")) # REMOVE UNWANTED COMIDS ('used closest COMID') FOR SITES ON HIGH RES NHD
+# Also grab COMIDs from TN to make the correlation table.
+tn <- read_excel("~/BioMonORDEQ/Benchmarks/Water Chemistry/Total Nitrogen/totalN2026-01-21.xlsx")
+
+comids <- bind_rows(tp, tn) %>% select(COMID) %>% distinct() # Get just the COMIDs for the next step (TN and TP combined)
+
 ```
 
 ## WATERSHED PREDICTOR VARIABLES - *FROM EPA STREAMCAT*
@@ -198,12 +200,12 @@ erod_resist_strmpow <- erod_resist_strmpow %>%
   select(COMID, PCT_EROD, STRMPOW_CAT, NHD_pSLOPE, SITE_TYPE) # Drop PCT_RESIST since it's the inverse of PCT_ERODE
 
 # JOIN WITH OTHER PARAMETERS NOT FROM SC
-tp_vars <- sc_all %>% 
+tp_tn_vars <- sc_all %>% 
   inner_join(erod_resist_strmpow, by='COMID') %>% 
   inner_join(tp, by = 'COMID')
 
 # RE-ORDER COLUMNS 
-tp_vars <- tp_vars %>% 
+tp_tn_vars <- tp_tn_vars %>% 
   relocate(MLocID:TP, .before = 'COMID') %>% 
   relocate(L2Eco:L3Eco, .after = SITE_TYPE) %>% 
   select(-c(HUC8, EcoRegion4)) 
@@ -215,29 +217,29 @@ tp_vars <- tp_vars %>%
 
 ```{r, warning=FALSE}
 # FIND OUT WHICH COLUMNS HAVE NAs (AND WRITE CODE FOR THEM BELOW)
-sapply(tp_vars, function(x) sum(is.na(x)))
+sapply(tp_tn_vars, function(x) sum(is.na(x)))
 
 # PERFORM NA ROUGHFIX FUNCTION ON METRICS WITH MISSING VALUES
-tp_vars$NSURPWS  <- na.roughfix(tp_vars$NSURPWS) # 1 NA
-tp_vars$NANIWS  <- na.roughfix(tp_vars$NANIWS) # 1 NA
-tp_vars$SW_FLUXWS  <- na.roughfix(tp_vars$SW_FLUXWS) # 2 NA
-tp_vars$PCTIMPSLPHIGH2001WS  <- na.roughfix(tp_vars$PCTIMPSLPHIGH2001WS) # 4 NA
-tp_vars$MAST2008  <- na.roughfix(tp_vars$MAST2008) # 56 NA
-tp_vars$MWST2008  <- na.roughfix(tp_vars$MWST2008) # 9 NA
-tp_vars$PRG_BMMI0809  <- na.roughfix(tp_vars$PRG_BMMI0809) # 62 NA
-tp_vars$WETTEDWIDTH  <- na.roughfix(tp_vars$WETTEDWIDTH) # 64 NA
-tp_vars$THALWEGDEPTH  <- na.roughfix(tp_vars$THALWEGDEPTH) # 64 NA
-tp_vars$BANKFULLWIDTH  <- na.roughfix(tp_vars$BANKFULLWIDTH) # 64 NA
-tp_vars$BANKFULLDEPTH  <- na.roughfix(tp_vars$BANKFULLDEPTH) # 64 NA
+tp_tn_vars$NSURPWS  <- na.roughfix(tp_tn_vars$NSURPWS) # 1 NA
+tp_tn_vars$NANIWS  <- na.roughfix(tp_tn_vars$NANIWS) # 1 NA
+tp_tn_vars$SW_FLUXWS  <- na.roughfix(tp_tn_vars$SW_FLUXWS) # 2 NA
+tp_tn_vars$PCTIMPSLPHIGH2001WS  <- na.roughfix(tp_tn_vars$PCTIMPSLPHIGH2001WS) # 4 NA
+tp_tn_vars$MAST2008  <- na.roughfix(tp_tn_vars$MAST2008) # 56 NA
+tp_tn_vars$MWST2008  <- na.roughfix(tp_tn_vars$MWST2008) # 9 NA
+tp_tn_vars$PRG_BMMI0809  <- na.roughfix(tp_tn_vars$PRG_BMMI0809) # 62 NA
+tp_tn_vars$WETTEDWIDTH  <- na.roughfix(tp_tn_vars$WETTEDWIDTH) # 64 NA
+tp_tn_vars$THALWEGDEPTH  <- na.roughfix(tp_tn_vars$THALWEGDEPTH) # 64 NA
+tp_tn_vars$BANKFULLWIDTH  <- na.roughfix(tp_tn_vars$BANKFULLWIDTH) # 64 NA
+tp_tn_vars$BANKFULLDEPTH  <- na.roughfix(tp_tn_vars$BANKFULLDEPTH) # 64 NA
 
 # Subset numeric variables only
-tp_vars_num <- tp_vars %>% 
+tp_tn_vars_num <- tp_tn_vars %>% 
   select(!c(SITE_TYPE:L3Eco)) %>% 
   select(!c(MLocID:TP)) %>%  
   relocate(sort(names(.))) # sort columns alphabetically
 
 # FULL CORRELATION MATRIX
-spear <- cor(tp_vars_num, method = "spearman", use = "pairwise.complete.obs")
+spear <- cor(tp_tn_vars_num, method = "spearman", use = "pairwise.complete.obs")
 spear <- as.data.frame(spear)
 spear.rows <- tibble::rownames_to_column(spear)
 
@@ -247,7 +249,7 @@ matrix <- spear.rows %>%
   filter(abs(cor) > 0.8)
 
 #export once, then clean up in Excel
-write_xlsx(matrix, path = "~/BioMonORDEQ/Benchmarks/Water Chemistry/Total Phosphorus/TP_Spearmans_Matrix.xlsx")
+#write_xlsx(matrix, path = "~/BioMonORDEQ/Benchmarks/Water Chemistry/Total Phosphorus/TP_TN_Spearmans_Matrix.xlsx")
 
 rm(list=c('spear', 'spear.rows'))
 ```
@@ -256,23 +258,23 @@ rm(list=c('spear', 'spear.rows'))
 
 ```{r}
 # Look at Coefficient of Variance for predictors.
-cv <- tp_vars_num %>% 
+cv <- tp_tn_vars_num %>% 
   summarise(across(everything(), ~ cv(.x))) %>% 
   pivot_longer(1:140, names_to="Var", values_to="CV") # Change first argument to 1:# columns
 
-cv_pctzero <- tp_vars_num %>%
+cv_pctzero <- tp_tn_vars_num %>%
   summarise(across(everything(), ~ sum(. == 0) / n() * 100)) %>% 
   pivot_longer(1:140, names_to="Var", values_to="Percent Zeros") %>%  # Change  first argument to 1:# columns
   inner_join(cv, by = "Var")
 
-#write_xlsx(cv_pctzero, path = "~/BioMonORDEQ/Benchmarks/Water Chemistry/Total Phosphorus/TP_CofV.xlsx")
+#write_xlsx(cv_pctzero, path = "~/BioMonORDEQ/Benchmarks/Water Chemistry/Total Phosphorus/TP_TN_CofV.xlsx")
 
 rm(cv)
 ```
  
 ```{r}
 # Look at KD plots for predictors.
-tp_vars %>%
+tp_tn_vars %>%
     select("AGKFFACTWS","AL2O3WS","BANKFULLDEPTH","BANKFULLWIDTH","BFIWS","CAOWS","CBNFWS","CLAYWS","CONNWS","DAMDENSWS","DAMNIDSTORWS","DAMNRMSTORWS") %>%  # Edit this line to include vars that you want to look at.
   keep(is.numeric) %>% 
   gather() %>% 
@@ -295,7 +297,7 @@ tp_vars_selected <- tp_vars %>%
 
 ```{r, warning=FALSE}
 # Subset numeric variables only
-tp_vars_num_selected <- tp_vars_selected %>% 
+tp_tn_vars_num_selected <- tp_vars_selected %>% 
   select(!c(SITE_TYPE:L3Eco)) %>% 
   select(!c(MLocID:TP)) 
 
@@ -314,6 +316,24 @@ rm(list=c('spear2', 'spear2.rows', 'tp_vars_num_selected'))
 # ***CONTINUE ONCE NO CORRELATED VARIABLES REMAIN***
 
 rm('tp_vars_num_selected')
+
+# 1/21/26 SYB = Need to add code to remove rows that are only applicable for TN samples!!!!
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ```
 
 # **3 - PREPARE DATA FOR MODELS**

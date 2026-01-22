@@ -1,0 +1,1099 @@
+---
+title: "TSS Reference Benchmarks V2"
+author: "S. Berzins, A. Thompson"
+date: "2025-12-09"
+output: html_document
+---
+
+#### This script explores the creation of a site-specific reference benchmark for total suspended solids (TSS) for ESM 566 Fall Environmental Statistics final project.
+
+V2 = cleaned up code from the class version.  SYB note 1/6/26 - I verified that this script produces the same output that the class script did, but in order to get the same model run, you have to re-order the input data table for random forest so the rows and columns are in the same order as the class script version (I haven't saved that re-ordering here as the order in the original script is somewhat arbitrary. Instead I have ordered rows and columns alphabetically and by type).
+
+# **1 - LOAD PACKAGES**
+
+```{r warning=FALSE}
+library(tidyverse)
+library(StreamCatTools) 
+library(readxl)
+library(writexl)
+library(randomForest)
+library(vip)
+library(caret)
+library(ORDEQBioassessment)
+library(EnvStats)
+# devtools::install_github("TravisPritchardODEQ/ORDEQBioassessment", 
+#                         host = "https://api.github.com", 
+#                        dependencies = TRUE, force = TRUE, upgrade = "never")
+```
+
+# **2 - IMPORT DATA**
+
+## STATIONS/TSS - *FROM WATER CHEMISTRY BENCHMARKS SCRIPT*
+
+```{r}
+tss <- read_excel("TSS_amb_2025-11-12.xlsx") #output file from ref benchmarks script - Ambient sites included
+
+comids <- tss %>% 
+  select(COMID) %>%  #get just the COMIDs for next step
+  filter(!COMID %in% c("23774647", "23877125","23810652")) # REMOVE UNWANTED COMIDS FOR SITES ON HIGH RES NHD
+```
+
+## WATERSHED PREDICTOR VARIABLES - *FROM EPA STREAMCAT*
+
+#### Learn about StreamCat predictors: <https://www.epa.gov/national-aquatic-resource-surveys/streamcat-metrics-and-definitions>
+
+#### View StreamCat updates: <https://www.epa.gov/national-aquatic-resource-surveys/streamcat-updates>
+
+#### Make table of StreamCat metadata and clean up in Excel
+
+```{r}
+# METHOD 1: FIND QUERY-ABLE METRIC NAMES
+#partable <- StreamCatTools::sc_get_metric_names()
+
+# METHOD 2: FIND QUERY-ABLE METRIC NAMES (slightly different than above)
+#scpar <- StreamCatTools::sc_get_params(param = 'metric_names') 
+
+#metrics_desc <- read_excel("~/BioMonORDEQ/Benchmarks/Water Chemistry/TSS Class Project/StreamCatMetrics_new.xlsx") #final cleaned-up metrics table
+
+# FOR TESTING INDIVIDUAL METRICS/COMIDS (e.g., to ensure names match)
+#test <- StreamCatTools::sc_get_data(comid = '23910659', metric = 'precipminusevt', showAreaSqKm = FALSE, aoi='watershed')
+#test <- StreamCatTools::sc_get_data(comid = '23910659', metric = 'thalwegdepth', showAreaSqKm = FALSE, aoi='other')
+```
+
+#### Run function to query ALL StreamCat data for selected COMIDs by subcategory
+
+```{r}
+# NOTE: StreamCat doesn't pull data for 'other' areas of interest when aoi='watershed, catchment, other'. 
+# Instead, use aoi='watershed' and run separate line for aoi='other' since they don't pull unless on their own.
+# ALSO: Do not separate metric lists onto a new line by hitting the enter button, as any metric after the break will be excluded from the pull.
+
+# FUNCTION - START +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+get_streamcat <- function(comids, type = c("Agriculture","Climate","Dams","Flow","IWI","Land Cover","Lithology","Mining_Toxics","Roads",
+                                           "Urban","Wildfire","Others")){
+type <- match.arg(type)
+#comids_split <- split(comids, ceiling(seq_along(comids)/750)) #removed b/c doesn't seem to be doing anything - wrong data class??
+
+if(type == "Agriculture"){
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'canaldens,pctagdrainage,pctagslphigh2001,pctagslpmid2001,pestic1997,sw_flux,waterinput,wdrw_LD,pctcrop2001,pcthay2001,cbnf,fert,manure,nani,nsurp,agkffact',
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed')) 
+  }
+
+if(type == "Climate"){
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'precip2008,precip8110,precip9120,tmax8110,tmax9120,tmean2008,tmean8110,tmean9120,tmin8110,tmin9120,inorgnwetdep2008,nh42008,no32008,sn2008,precip_minus_evt,wetindex', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "Dams"){
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'damdens,damnidstor,damnrmstor,NABD_Dens,NABD_NIDStor,NABD_NrmStor', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "Flow"){
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'bfi,elev,runoff', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "IWI"){
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'chem,conn,habt,hyd,sed,temp', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "Land Cover"){
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pctbl2001,pctconif2001,pctdecid2001,pctgrs2001,pcthbwet2001,pctice2001,pctmxfst2001,pctow2001,pctshrb2001,pcturbhi2001,pcturblo2001,pcturbmd2001,pcturbop2001,pctwdwet2001,pctfrstloss2002', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "Lithology"){ 
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'al2o3,cao,compstrgth,fe2o3,hydrlcond,k2o,mgo,na2o,p2o5,pctalkintruvol,pctalluvcoast,pctcarbresid,pctcoastcrs,pctcolluvsed,pcteolcrs,pcteolfine,pctextruvol,pctglaclakecrs,pctglaclakefine,pctglactilclay,pctglactilcrs,pctglactilloam,pcthydric,pctnoncarbresid,pctsallake,pctsilicic,pctwater,rockn,s,sio2,clay,kffact,om,perm,Rckdep,rckdep,sand,wtdep,n',
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "Mining_Toxics"){
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'coalminedens,minedens,superfunddens,tridens', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "Roads"){ 
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'rdcrs,rdcrsslpwtd,rddens', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "Urban"){ 
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'huden2010,npdesdens,popden2010,septic,wwtpalldens,wwtpmajordens,wwtpminordens,pctimp2001,pctimpslphigh2001,pctimpslpmid2001,pctnonagintrodmanagveg', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "Wildfire"){ 
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pctfire2002,pctburnarea2002,pcthighsev2002,pctincvegresp2002,pctlowsev2002,pctmodsev2002,pctnonprocmask2002,pctundsev2002', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "Others"){
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'bankfulldepth,bankfullwidth,ici,iwi,mast2008,msst2008,mwst2008,thalwegdepth,wettedwidth', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='other')) 
+  }
+
+names(streamcat) <- base::toupper(names(streamcat))
+return(streamcat)
+}
+# FUNCTION - END  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+```
+
+#### Pull ALL StreamCat data by subcategory and merge
+
+```{r}
+# PULL DATA BY SUBCATEGORY/TYPE
+ag <- get_streamcat(comids = comids, type = "Agriculture")
+clim <- get_streamcat(comids = comids, type = "Climate")
+dams <- get_streamcat(comids = comids, type = "Dams")
+flow <- get_streamcat(comids = comids, type = "Flow")
+iwi <- get_streamcat(comids = comids, type = "IWI") #except prg_bmmi0809 b/c it crashes API
+cover <- get_streamcat(comids = comids, type = "Land Cover")
+litho <- get_streamcat(comids = comids, type = "Lithology") 
+mintox <- get_streamcat(comids = comids, type = "Mining_Toxics")
+roads <- get_streamcat(comids = comids, type = "Roads")
+urb <- get_streamcat(comids = comids, type = "Urban")
+fire <- get_streamcat(comids = comids, type = "Wildfire")
+other <- get_streamcat(comids = comids, type = "Others")
+
+# MERGE INTO ONE TABLE
+sc_all <- list(ag, clim, dams, flow, iwi, cover, litho, mintox, roads, urb, fire, other)
+sc_all <- sc_all %>% reduce(full_join, by = 'COMID')
+
+rm(list=c('ag', 'clim', 'dams', 'flow','iwi', 'cover', 'litho', 'mintox', 'roads', 'urb', 'fire', 'other'))
+```
+
+#### Add predictor variables not in StreamCat (LII and III Ecoregion, Lat/Long, erodible vs. resistant geology, slope, stream power)
+
+```{r}
+# ERODIBLE VS RESISTENT GEOLOGY (KEPT ERODIBLE, SINCE RESISTENT IS INVERSE OF ERODIBLE)
+erod_resist_strmpow <- sc_all %>%
+  mutate(PCT_EROD = PCTALLUVCOASTWS+PCTCARBRESIDWS+PCTCOASTCRSWS+PCTCOLLUVSEDWS+PCTEOLCRSWS+PCTEOLFINEWS+PCTGLACLAKECRSWS+PCTGLACLAKEFINEWS+PCTGLACTILCLAYWS+PCTGLACTILCRSWS+PCTGLACTILLOAMWS+PCTSALLAKEWS+PCTNONCARBRESIDWS)  %>% 
+  mutate(PCT_RESIST = PCTALKINTRUVOLWS+PCTEXTRUVOLWS+PCTHYDRICWS+PCTSILICICWS) 
+
+# SLOPE FROM NHD (TAKES 1-2 MIN)
+erod_resist_strmpow <- ORDEQBioassessment::get_NHD_info(erod_resist_strmpow) 
+
+# WATERSHED AREA AND STREAM POWER
+erod_resist_strmpow <- erod_resist_strmpow %>% 
+  mutate(STRMPOW_CAT = totdasqkm + PRECIP9120WS * slope) %>%  # WSAREASQKM from SC, instead pulling totdasqkm from get_NHD (they are the same)
+  select(COMID, PCT_EROD, STRMPOW_CAT, NHD_pSLOPE, SITE_TYPE) # Drop PCT_RESIST since it's the inverse of PCT_ERODE
+
+# JOIN WITH OTHER PARAMETERS NOT FROM SC
+tss_vars <- sc_all %>% 
+  inner_join(erod_resist_strmpow, by='COMID') %>% 
+  inner_join(tss, by = 'COMID')
+
+# RE-ORDER COLUMNS 
+tss_vars <- tss_vars %>% 
+  relocate(MLocID:TSS, .before = 'COMID') %>% 
+  mutate(logTSS = log(TSS+1)) %>%  # Log transform TSS column
+  relocate(logTSS, .after = TSS) %>%  
+  relocate(L2Eco:L3Eco, .after = SITE_TYPE) %>% 
+  select(-c(HUC8, EcoRegion4)) 
+```
+
+#### Explore co-varied metrics and select which we want to retain for modeling purposes.
+
+#### Make Spearman correlation matrix to identify co-varied parameters
+
+```{r, warning=FALSE}
+# Subset numeric variables only
+tss_vars_num <- tss_vars %>% 
+  select(!c(PCT_EROD:L3Eco)) %>% 
+  select(!c(MLocID:logTSS)) 
+
+# FULL CORRELATION MATRIX
+spear <- cor(tss_vars_num, method = "spearman", use = "pairwise.complete.obs")
+spear <- as.data.frame(spear)
+spear.rows <- tibble::rownames_to_column(spear)
+
+#export once, then clean up in Excel
+#write_xlsx(spear.rows, path = "C:/Users/athomps/Oregon/DEQ - Biomonitoring is Fun! - General/Env't Stats Class Project 2025/StreamCat/Spearmans_rerun.xlsx")
+
+# CONDENSED CORRELATION MATRIX (>0.8 ONLY)
+matrix_new <- spear.rows %>%  
+  gather(-rowname, key = "colname", value = "cor") %>% 
+  filter(abs(cor) > 0.8)
+
+#export once, then clean up in Excel
+#write_xlsx(matrix, path = "C:/Users/athomps/Oregon/DEQ - Biomonitoring is Fun! - General/Env't Stats Class Project 2025/StreamCat/Spearmans2_rerun.xlsx")
+
+rm(list=c('spear', 'spear.rows'))
+```
+
+##### NOTE: SB, SH, AT did this together in Excel. See "Spearman2 - predictor decisions" on Teams for list of discarded/retained metrics.
+
+```{r}
+# Look at Coefficient of Variance for predictors.
+cv <- tss_vars_num %>% 
+  summarise(across(everything(), ~ cv(.x))) %>% 
+  pivot_longer(1:134, names_to="Var", values_to="CV") # Change first argument to 1:# columns
+
+cv_pctzero <- tss_vars_num %>%
+  summarise(across(everything(), ~ sum(. == 0) / n() * 100)) %>% 
+  pivot_longer(1:134, names_to="Var", values_to="Percent Zeros") %>%  # Change  first argument to 1:# columns
+  inner_join(cv, by = "Var")
+
+#write_xlsx(cv_pctzero, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//CofV", Sys.Date(), ".xlsx"))
+
+rm(cv)
+```
+
+#### Select variables based on correlation analysis.
+
+```{r}
+tss_vars_selected <- tss_vars %>% 
+  select(c(MLocID:COMID,BANKFULLWIDTH,BFIWS,CANALDENSWS,CLAYWS,COALMINEDENSWS,COMPSTRGTHWS,DAMDENSWS,ELEVWS,FE2O3WS,HYDRLCONDWS,KFFACTWS,MINEDENSWS,MSST2008,NWS,NA2OWS,NPDESDENSWS,OMWS,PCTAGDRAINAGEWS,PCTAGSLPMID2001WS,PCTALKINTRUVOLWS,PCTALLUVCOASTWS,PCTBL2001WS,PCTCARBRESIDWS,PCTCOASTCRSWS,PCTCOLLUVSEDWS,PCTCONIF2001WS,PCTCROP2001WS,PCTEOLCRSWS,PCTEOLFINEWS,PCTEXTRUVOLWS,PCTFIRE2002WS,PCTFRSTLOSS2002WS,PCTGLACLAKECRSWS,PCTGLACLAKEFINEWS,PCTGLACTILCLAYWS,PCTGLACTILCRSWS,PCTGLACTILLOAMWS,PCTGRS2001WS,PCTHBWET2001WS,PCTHYDRICWS,PCTICE2001WS,PCTIMP2001WS,PCTINCVEGRESP2002WS,PCTMXFST2001WS,PCTNONAGINTRODMANAGVEGWS,PCTNONPROCMASK2002WS,PCTOW2001WS,PCTSALLAKEWS,PCTSHRB2001WS,PCTURBHI2001WS,PCTURBMD2001WS,PCTURBOP2001WS,PCTWATERWS,PCTWDWET2001WS,PESTIC1997WS,POPDEN2010WS,PRECIP9120WS,RCKDEPWS,RDCRSWS,RDCRSSLPWTDWS,RDDENSWS,ROCKNWS,SWS,SANDWS,SEPTICWS,SUPERFUNDDENSWS,SW_FLUXWS,TRIDENSWS,WDRW_LDWS,WETINDEXWS,WTDEPWS,WWTPALLDENSWS,WWTPMAJORDENSWS, PCT_EROD:L3Eco)) # 79 vars in total starting with BANKFULLWIDTH
+```
+
+#### Perform final correlation check
+
+```{r, warning=FALSE}
+# Subset numeric variables only
+tss_vars_num_selected <- tss_vars_selected %>% 
+  select(!c(PCT_EROD:L3Eco)) %>% 
+  select(!c(MLocID:logTSS)) 
+
+# FULL CORRELATION MATRIX
+spear2 <- cor(tss_vars_num_selected, method = "spearman", use = "pairwise.complete.obs")
+spear2 <- as.data.frame(spear2)
+spear.rows2 <- tibble::rownames_to_column(spear2)
+
+# CONDENSED CORRELATION MATRIX (>0.8 ONLY)
+matrix2_new <- spear.rows2 %>%  
+  gather(-rowname, key = "colname", value = "cor") %>% 
+  filter(abs(cor) > 0.8)
+
+rm(list=c('spear2', 'spear.rows2'))
+# ***CONTINUE ONCE NO CORRELATED VARIABLES REMAIN***
+```
+
+# **3 - PREPARE DATA FOR MODELS**
+
+## HANDLE NA VALUES AND MERGE PREDICTORS WITH TSS DATA
+
+```{r, warning=FALSE}
+# FIND OUT WHICH COLUMNS HAVE NAs (AND WRITE CODE FOR THEM BELOW)
+sapply(tss_vars_selected, function(x) sum(is.na(x)))
+
+# PERFORM NA ROUGHFIX FUNCTION ON ALL METRICS WITH AT LEAST 1 NA VALUE (ADD CODE AS NEEDED)
+tss_vars_selected$BANKFULLWIDTH <- na.roughfix(tss_vars_selected$BANKFULLWIDTH) #bankfull width (n = 66 NAs)
+tss_vars_selected$SW_FLUXWS <- na.roughfix(tss_vars_selected$SW_FLUXWS) #surface water flux (n = 2 NAs)
+
+# Subset numeric variables only
+tss_vars_num_selected <- tss_vars_selected %>% 
+  select(!c(PCT_EROD:L3Eco)) %>% 
+  select(!c(MLocID:logTSS)) 
+
+```
+
+# **4 - EXPLORE DATA**
+
+## RESPONSE VARIABLE
+
+```{r}
+# HISTOGRAM
+hist(tss_vars_selected$TSS, main = "", xlab = "TSS") #raw data
+hist(tss_vars_selected$logTSS, main = "", xlab = "log TSS") #log-transformed
+
+# DENSITY PLOT
+hist(tss_vars_selected$logTSS, main="", prob=T, xlab = "TSS")
+d <- density(tss_vars_selected$logTSS) #Estimate probability density and save it into **d**
+lines(d, col='red',lwd=2) #Superimpose the probability density as a curve on the previous probability density histogram
+
+# BOX PLOT & STRIP CHART
+boxplot(tss_vars_selected$logTSS, ylab = "TSS")
+#stripchart(tss_vars_selected$TSS, vertical = T, pch=1, col='red', add = T)
+
+```
+
+## PREDICTOR VARIABLES
+
+```{r}
+# Kernel density plot function
+kd_plots <- function(data, filter_col_name, filter_value) {
+  data %>%
+    filter(.data[[filter_col_name]] == filter_value) %>% # Using .data[[]] for dynamic column names
+    select(BANKFULLWIDTH:L3Eco) %>% 
+    select('WDRW_LDWS', 'PCTCONIF2001WS' , 'CLAYWS' , 'PESTIC1997WS' , 'SANDWS' , 'PCTCROP2001WS' , 'POPDEN2010WS' , 'PRECIP9120WS' , 'PCTAGSLPMID2001WS' , 'PCT_EROD' , 'SW_FLUXWS' , 'PCTIMP2001WS' , 'RDCRSWS' , 'WTDEPWS' , 'ELEVWS' , 'WETINDEXWS' , 'PCTSHRB2001WS' , 'KFFACTWS' , 'PCTICE2001WS' , 'RCKDEPWS') %>% 
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_density() +
+  geom_rug() + ggtitle(paste0(filter_value))
+}
+
+# Top 20 variables from RF model broken out by reference status
+kd_plots(data = tss_vars_selected, "ReferenceSite", "REFERENCE")
+kd_plots(data = tss_vars_selected, "ReferenceSite", "MODERATELY DISTURBED")
+kd_plots(data = tss_vars_selected, "ReferenceSite", "MOST DISTURBED")
+
+# Top 20 variables from RF model broken out by L2 Ecoregion
+kd_plots(data = tss_vars_selected, "L2Eco", "Western Cordillera")
+kd_plots(data = tss_vars_selected, "L2Eco", "Cold Deserts")
+kd_plots(data = tss_vars_selected, "L2Eco", "Marine West Coast Forest")
+
+# Top 20 variables from RF model broken out by TSS category (ND, med, high)
+# Non-detects
+tss_vars_selected %>%
+  filter(TSS<=0.25 | TSS<=0.5) %>%  # N = 356
+  select(BANKFULLWIDTH:L3Eco) %>% 
+  select('WDRW_LDWS', 'PCTCONIF2001WS' , 'CLAYWS' , 'PESTIC1997WS' , 'SANDWS' , 'PCTCROP2001WS' , 'POPDEN2010WS' , 'PRECIP9120WS' , 'PCTAGSLPMID2001WS' , 'PCT_EROD' , 'SW_FLUXWS' , 'PCTIMP2001WS' , 'RDCRSWS' , 'WTDEPWS' , 'ELEVWS' , 'WETINDEXWS' , 'PCTSHRB2001WS' , 'KFFACTWS' , 'PCTICE2001WS' , 'RCKDEPWS') %>% 
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_density() +
+  geom_rug() + ggtitle("ND")
+
+# >0.5 - 20 mg/L
+tss_vars_selected %>%
+  filter(TSS > 0.5 | TSS <= 20) %>% # N = 717
+  select(BANKFULLWIDTH:L3Eco) %>% 
+  select('WDRW_LDWS', 'PCTCONIF2001WS' , 'CLAYWS' , 'PESTIC1997WS' , 'SANDWS' , 'PCTCROP2001WS' , 'POPDEN2010WS' , 'PRECIP9120WS' , 'PCTAGSLPMID2001WS' , 'PCT_EROD' , 'SW_FLUXWS' , 'PCTIMP2001WS' , 'RDCRSWS' , 'WTDEPWS' , 'ELEVWS' , 'WETINDEXWS' , 'PCTSHRB2001WS' , 'KFFACTWS' , 'PCTICE2001WS' , 'RCKDEPWS') %>% 
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_density() +
+  geom_rug() + ggtitle("TSS 1-20 mg/L")
+
+# >20 mg/L
+tss_vars_selected %>%
+  filter(TSS > 20) %>% # N = 35
+  select(BANKFULLWIDTH:L3Eco) %>% 
+  select('WDRW_LDWS', 'PCTCONIF2001WS' , 'CLAYWS' , 'PESTIC1997WS' , 'SANDWS' , 'PCTCROP2001WS' , 'POPDEN2010WS' , 'PRECIP9120WS' , 'PCTAGSLPMID2001WS' , 'PCT_EROD' , 'SW_FLUXWS' , 'PCTIMP2001WS' , 'RDCRSWS' , 'WTDEPWS' , 'ELEVWS' , 'WETINDEXWS' , 'PCTSHRB2001WS' , 'KFFACTWS' , 'PCTICE2001WS' , 'RCKDEPWS') %>% 
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_density() +
+  geom_rug() + ggtitle("TSS >20 mg/L")
+
+# All TSS
+tss_vars_selected %>%
+  select(BANKFULLWIDTH:L3Eco) %>% 
+  select('WDRW_LDWS', 'PCTCONIF2001WS' , 'CLAYWS' , 'PESTIC1997WS' , 'SANDWS' , 'PCTCROP2001WS' , 'POPDEN2010WS' , 'PRECIP9120WS' , 'PCTAGSLPMID2001WS' , 'PCT_EROD' , 'SW_FLUXWS' , 'PCTIMP2001WS' , 'RDCRSWS' , 'WTDEPWS' , 'ELEVWS' , 'WETINDEXWS' , 'PCTSHRB2001WS' , 'KFFACTWS' , 'PCTICE2001WS' , 'RCKDEPWS') %>% 
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_density() +
+  geom_rug() + ggtitle("All sites")
+
+```
+
+# **5 - RANDOM FOREST MODELS**
+
+```{r}
+# SUBSET DATA
+tss.cal <- tss_vars_selected %>%  #subset CALibration dataset
+  filter(cal_val == 'CAL') %>%  
+  select(-c(MLocID:TSS, COMID))
+
+tss.val <- tss_vars_selected %>%  #subset VALidation dataset
+  filter(cal_val == 'VAL') %>%  
+  select(-c(MLocID:TSS, COMID))
+
+tss.ref <- tss_vars_selected %>% #subset reference only dataset
+  filter(ReferenceSite == 'REFERENCE') %>%  
+  select(-c(MLocID:TSS, COMID))
+
+tss.cal_val <- rbind(tss.cal, tss.val)
+write_xlsx(tss.cal_val, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//TSS-Cal-val_New", Sys.Date(), ".xlsx"))
+```
+
+## FULL MODEL - ALL PREDICTORS INCLUDED (N = 79)
+
+#### Tuning the model (finding best mtry)
+
+```{r}
+# One way to find best mtry based on tuneRF.
+    # Tune mtry based on OOB error
+best_mtry <- tuneRF(tss.cal[, -which(names(tss.cal) == "logTSS")], # Predictors
+                        tss.cal$logTSS, # Response
+                        ntreeTry = 500, # Number of trees to try for each mtry
+                        stepFactor = 2, # Factor to multiply/divide mtry by
+                        improve = 0.01, # Minimum improvement to continue search
+                        trace = TRUE, # Print progress
+                        plot = TRUE) # Plot OOB error vs. mtry
+print(best_mtry)
+
+# Another approach using Caret.  Takes >50 minutes to run, not that different from mtry approach above.
+# control <- trainControl(method="repeatedcv", number=10,repeats = 3, search="random")
+# set.seed(1)
+# mtry <- sqrt(ncol(tss.cal[ , 2:80]
+# ))
+# rf_random <- train(logTSS ~., data = tss.cal, method = "rf", metric = "RMSE", tuneLength = 15, trControl=control)
+# print(rf_random)
+# plot(rf_random)
+
+```
+
+#### Build full model
+
+```{r}
+set.seed(39)
+
+rf.full <- randomForest(logTSS ~ ., tss.cal, importance = TRUE, mtry=7, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
+print(rf.full)
+
+varImpPlot(rf.full, type = 1, n.var = 20, main = "All-Sites Model") #variable importance plot
+#varImpPlot(rf.full, type = 2, n.var = 20, main = "Full Model") #variable importance plot
+```
+
+#### Tuning the model (how many trees)
+
+```{r}
+# How many trees is appropriate?
+plot(rf.full, log="x", main = '')  # 500 seems to work fine.
+```
+
+#### Model prediction errors - full model
+
+```{r}
+# Predictions
+pred.rf <- predict(rf.full, newdata = tss.cal)
+plot(tss.cal$logTSS ~ pred.rf, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,4.5), ylim = c(0,4.5), main = '')
+abline(a=0,b=1)
+text(4,1, "RMSE=6.30 
+%Var=29.94")
+
+# Model error
+#(rmse<-sqrt(sum((pred.rf - tss.cal$logTSS)^2)/length(tss.cal$logTSS))) #untransformed prediction error
+ut_pred.rf <- exp(pred.rf)-1
+ut_tss.cal <- exp(tss.cal$logTSS)-1
+RMSE.ut.rf.full <- sqrt(sum((ut_pred.rf - ut_tss.cal)^2)/length(tss.cal$logTSS))
+print(paste("inverse natural log RMSE =", RMSE.ut.rf.full ))
+
+range_tss <- max(exp(tss.cal_val$logTSS)-1) - min(exp(tss.cal_val$logTSS)-1)
+RMSE.ut.rf.full_scaled <- RMSE.ut.rf.full/range_tss
+print(paste("scaled untransformed RMSE", RMSE.ut.rf.full_scaled*100, '%'))
+```
+
+## REDUCED MODEL - IMPORTANT PREDICTORS ONLY
+
+#### Build reduced model with 20 predictors
+
+```{r}
+set.seed(32)
+
+rf.red_20 <- randomForest(logTSS ~ WDRW_LDWS + PCTCONIF2001WS + CLAYWS + PESTIC1997WS + SANDWS + PCTCROP2001WS + POPDEN2010WS + PRECIP9120WS + PCTAGSLPMID2001WS + PCT_EROD + SW_FLUXWS + PCTIMP2001WS + RDCRSWS + WTDEPWS + ELEVWS + WETINDEXWS + PCTSHRB2001WS + KFFACTWS + PCTICE2001WS + RCKDEPWS, data = tss.cal, importance = TRUE,  keep.forest = TRUE, mtry=7, ntree = 500) 
+
+print(rf.red_20)
+summary(rf.red_20)
+
+varImpPlot(rf.red_20, type = 1, n.var = 20, main = "Reduced Model top 20") #variable importance plot
+#varImpPlot(rf.red_20, type = 2, n.var = 20, main = "Reduced Model top 20") #variable importance plot
+
+# Predictions & model error
+pred.rf.red_20 <- predict(rf.red_20, newdata = tss.cal)
+plot(tss.cal$logTSS ~ pred.rf.red_20, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,4.5), ylim = c(0,4.5), main = 'red_20')
+abline(a=0,b=1)
+
+# Model error
+#(rmse<-sqrt(sum((pred.rf.red_20 - tss.cal$logTSS)^2)/length(tss.cal$logTSS))) #untransformed prediction error
+ut_pred.rf.red_20 <- exp(pred.rf.red_20)-1
+ut_tss.cal <- exp(tss.cal$logTSS)-1
+RMSE.ut.rf.red_20 <- sqrt(sum((ut_pred.rf.red_20 - ut_tss.cal)^2)/length(tss.cal$logTSS))
+print(paste("inverse natural log RMSE =", RMSE.ut.rf.red_20))
+
+RMSE.ut.rf.red_20_scaled <- RMSE.ut.rf.red_20/range_tss
+print(paste("scaled untransformed RMSE", RMSE.ut.rf.red_20_scaled*100, '%'))
+```
+
+#### \* Final reduced model N = 15
+
+```{r}
+set.seed(32)
+
+rf.red_15 <- randomForest(logTSS ~ WDRW_LDWS + PCTCONIF2001WS + CLAYWS + PESTIC1997WS + SANDWS + PCTCROP2001WS + POPDEN2010WS + PRECIP9120WS + PCTAGSLPMID2001WS + PCT_EROD + SW_FLUXWS + PCTIMP2001WS + RDCRSWS + WTDEPWS + ELEVWS, data = tss.cal, importance = TRUE,  keep.forest = TRUE, mtry=7, ntree = 500) 
+
+print(rf.red_15)
+
+varImpPlot(rf.red_15, type = 1, main = "Reduced Model top 15") #variable importance plot
+#varImpPlot(rf.red_15, type = 2, main = "Reduced Model top 15") #variable importance plot
+
+# Predictions
+pred.rf.red_15 <- predict(rf.red_15, newdata = tss.cal)
+plot(tss.cal$logTSS ~ pred.rf.red_15, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,4.5), ylim = c(0,4.5), main = 'red_15')
+abline(a=0,b=1)
+
+# Model error
+#(rmse<-sqrt(sum((pred.rf.red_15 - tss.cal$logTSS)^2)/length(tss.cal$logTSS))) #untransformed prediction error
+ut_pred.rf.red_15 <- exp(pred.rf.red_15)-1
+ut_tss.cal <- exp(tss.cal$logTSS)-1
+RMSE.ut.rf.red_15 <- sqrt(sum((ut_pred.rf.red_15 - ut_tss.cal)^2)/length(tss.cal$logTSS))
+print(paste("inverse natural log RMSE =", RMSE.ut.rf.red_15))
+
+RMSE.ut.rf.red_15_scaled <- RMSE.ut.rf.red_15/range_tss
+print(paste("scaled untransformed RMSE", RMSE.ut.rf.red_15_scaled*100, '%'))
+
+#Untransformed plot log scale axes *** FOR REPORT
+plot((exp(tss.cal$logTSS)-1) ~ (exp(pred.rf.red_15)-1), log = "xy",  xlab = 'predicted TSS (mg/L)', ylab = 'observed TSS (mg/L)', main = '', 
+     xlim = (c(0.2,100)), ylim = c(0.2,100))
+abline(a=0,b=1)
+text(50, 0.5, "RMSE = 6.35 
+%Var = 26.58")
+
+#Untransformed plot no log scale axes
+plot((exp(tss.cal$logTSS)-1) ~ (exp(pred.rf.red_15)-1),  xlab = 'predicted TSS (mg/L)', ylab = 'observed TSS (mg/L)', main = 'red_15')
+abline(a=0,b=1)
+```
+
+#### Residual plot for red_15 model
+
+```{r}
+residuals.red_15 <- (exp(tss.cal$logTSS)-1) - (exp(pred.rf.red_15)-1) # Observed minus predicted 
+plot(residuals.red_15 ~ (exp(pred.rf.red_15)-1), xlab = "Predicted TSS (mg/L)", ylab = "Residuals", main="rf.red_15 residuals")
+abline(h=0, col = "red", lty = 2)
+```
+
+#### Test reduced model with VAL data
+
+```{r}
+# Predictions & model error
+pred.rf.red_15_val <- predict(rf.red_15, newdata = tss.val)
+
+# Model error
+ut_pred.rf.red_15_val <- exp(pred.rf.red_15_val)-1
+ut_tss.val <- exp(tss.val$logTSS)-1
+RMSE.ut.rf.red_15_val <- sqrt(sum((ut_pred.rf.red_15_val - ut_tss.val)^2)/length(tss.val$logTSS))
+print(paste("inverse natural log RMSE =", RMSE.ut.rf.red_15_val))
+
+RMSE.ut.rf.red_15_val_scaled <- RMSE.ut.rf.red_15_val/range_tss
+print(paste("scaled untransformed RMSE", RMSE.ut.rf.red_15_val_scaled*100, '%'))
+
+# Log plot
+plot(tss.val$logTSS ~ pred.rf.red_15_val, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,4.5), ylim = c(0,4.5), main = 'red_15_VAL')
+abline(a=0,b=1)
+
+#Untransformed plot log scale axes *** FOR REPORT
+plot((exp(tss.val$logTSS)-1) ~ (exp(pred.rf.red_15_val)-1), log = "xy",  xlab = 'predicted TSS (mg/L)', ylab = 'observed TSS (mg/L)', main = '',
+  xlim = (c(0.2,100)), ylim = c(0.2,100))
+abline(a=0,b=1)
+text(50, 0.5, "RMSE = 13.68 
+%Var = #")
+
+#Untransformed plot no log scale axes
+plot((exp(tss.val$logTSS)-1) ~ (exp(pred.rf.red_15_val)-1),  xlab = 'predicted TSS (mg/L)', ylab = 'observed TSS (mg/L)', main = 'red_15 VAL')
+abline(a=0,b=1)
+
+residuals.red_15_val <- (exp(tss.val$logTSS)-1) - (exp(pred.rf.red_15_val)-1) # Observed minus predicted 
+```
+
+#### 4 predictors (not using this one)
+
+```{r}
+set.seed(32)
+
+rf.red_4 <- randomForest(logTSS ~ WDRW_LDWS + PCTCONIF2001WS + CLAYWS + PESTIC1997WS, data = tss.cal, importance = TRUE,  keep.forest = TRUE, ntree = 500) 
+
+print(rf.red_4)
+
+varImpPlot(rf.red_4, type = 1, main = "Reduced Model top 4") #variable importance plot
+#varImpPlot(rf.red_4, type = 2, main = "Reduced Model top 4") #variable importance plot
+
+# Predictions & model error
+pred.rf.red_4 <- predict(rf.red_4, newdata = tss.cal)
+plot(tss.cal$logTSS ~ pred.rf.red_4, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,5), ylim = c(0,5), main = 'red_4')
+abline(a=0,b=1)
+
+# Model error
+#(rmse<-sqrt(sum((pred.rf.red_4 - tss.cal$logTSS)^2)/length(tss.cal$logTSS))) #untransformed prediction error
+ut_pred.rf.red_4 <- exp(pred.rf.red_4)-1
+ut_tss.cal <- exp(tss.cal$logTSS)-1
+RMSE.ut.rf.red_4 <- sqrt(sum((ut_pred.rf.red_4 - ut_tss.cal)^2)/length(tss.cal$logTSS))
+print(paste("inverse natural log RMSE =", RMSE.ut.rf.red_4))
+
+RMSE.ut.rf.red_4_scaled <- RMSE.ut.rf.red_4/range_tss
+print(paste("scaled untransformed RMSE", RMSE.ut.rf.red_4_scaled*100, '%'))
+```
+
+## ADJUST HUMAN-INFLUENCED PREDICTORS TO REFERENCE LEVELS
+
+#### Examine reference distributions - Histograms and partial dependence plots
+
+```{r}
+# HUMAN INFLUENCED VARS --looking at all reference sites.
+
+# Select only the 8 human influenced predictors from the reduced model.
+tss.ref.hi <- tss.ref %>% 
+  #filter(cal_val == 'CAL') %>% 
+  select(c(WDRW_LDWS,PESTIC1997WS,PCTCROP2001WS,POPDEN2010WS,PCTAGSLPMID2001WS,SW_FLUXWS,PCTIMP2001WS,RDCRSWS))
+
+# Agricultural fresh surface water withdrawl kg/sq km  
+# Want to scale back to 0.
+# Experimenting with plotting only the 50th percentile vertical reference line
+quantile(tss.ref.hi$WDRW_LDWS, probs = seq(.1, .9, by = .1))
+
+par(mfrow=c(1,2))
+partialPlot(rf.red_15, as.data.frame(tss.cal_val), WDRW_LDWS, main = '', ylab = "log Predicted TSS")
+abline(v= 0 , col = 'black', lty = 'dashed')
+hist(tss.ref.hi$WDRW_LDWS, main = '')
+
+# Mean pesticide use kg/sq km
+# Want to scale back to 0.
+par(mfrow=c(1,2))
+partialPlot(rf.red_15, as.data.frame(tss.cal_val), PESTIC1997WS, main = '', ylab = "log Predicted TSS")
+abline(v=quantile(tss.ref.hi$PESTIC1997WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
+hist(tss.ref.hi$PESTIC1997WS, main = '')
+quantile(tss.ref.hi$PESTIC1997WS, probs = seq(.1, .9, by = .1))
+
+# Percent of WS classified as row crops.
+# Want to scale back to 0.
+par(mfrow=c(1,2))
+partialPlot(rf.red_15, as.data.frame(tss.cal_val), PCTCROP2001WS, main = '', ylab = "Predicted TSS")
+abline(v=quantile(tss.ref.hi$PCTCROP2001WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
+hist(tss.ref.hi$PCTCROP2001WS, main = '')
+quantile(tss.ref.hi$PCTCROP2001WS, probs = seq(.1, .9, by = .1))
+
+# Mean population density people / sq km
+# Want to scale back to 50th percentile.
+par(mfrow=c(1,2))
+partialPlot(rf.red_15, as.data.frame(tss.cal_val), POPDEN2010WS, main = '', ylab = "log Predicted TSS", scale_x_log10())
+abline(v=quantile(tss.ref.hi$POPDEN2010WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
+hist(tss.ref.hi$POPDEN2010WS, main = '')
+quantile(tss.ref.hi$POPDEN2010WS, probs = seq(.1, .9, by = .1))
+
+# Percent landcover ag dominated on >10% slope
+# Want to scale back to 0.
+par(mfrow=c(1,2))
+partialPlot(rf.red_15, as.data.frame(tss.cal_val), PCTAGSLPMID2001WS, main = '', ylab = "log Predicted TSS")
+abline(v=quantile(tss.ref.hi$PCTAGSLPMID2001WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
+hist(tss.ref.hi$PCTAGSLPMID2001WS, main = '')
+quantile(tss.ref.hi$PCTAGSLPMID2001WS, probs = seq(.1, .9, by = .1))
+
+# Surface Water Nitrogen Flux
+# Scale back to 50th percent.  Partial dependence plot looks strange and is hard to explain- might consider dropping from model.
+par(mfrow=c(1,2))
+partialPlot(rf.red_15, as.data.frame(tss.cal_val), SW_FLUXWS, main = '', ylab = "log Predicted TSS")
+abline(v=quantile(tss.ref.hi$SW_FLUXWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
+hist(tss.ref.hi$SW_FLUXWS, main = '')
+quantile(tss.ref.hi$SW_FLUXWS, probs = seq(.1, .9, by = .1))
+
+# Mean imperviousness 
+# Scale back to 50th percentile.
+par(mfrow=c(1,2))
+partialPlot(rf.red_15, as.data.frame(tss.cal_val), PCTIMP2001WS, main = '', ylab = "log Predicted TSS")
+abline(v=quantile(tss.ref.hi$PCTIMP2001WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
+hist(tss.ref.hi$PCTIMP2001WS, main = '')
+quantile(tss.ref.hi$PCTIMP2001WS, probs = seq(.1, .9, by = .1))
+
+# Road and stream intersection density per sq km
+# Want to scale back to 0.
+# Experimenting with plotting only the 50th percentile vertical reference line
+quantile(tss.ref.hi$RDCRSWS, probs = seq(.1, .9, by = .1))
+
+par(mfrow=c(1,2))
+partialPlot(rf.red_15, as.data.frame(tss.cal_val), RDCRSWS, main = '', ylab = "log Predicted TSS", xlab = "Road Stream Crossings (#/sq km)")
+abline(v = 0, col = 'black',lty = 'dashed')
+hist(tss.ref.hi$RDCRSWS, main = '', xlab = "Road Stream Crossings (#/sq km)", ylim = c(0,100))
+abline(v = 0.005, col = 'black',lty = 'dashed')
+```
+
+#### Reference expectations for environmental variables
+
+```{r}
+# Adjust human influenced variables to ref levels
+
+tss.cal_val.refadj <- tss.cal_val %>% 
+  select(c('logTSS','WDRW_LDWS','PCTCONIF2001WS','CLAYWS','PESTIC1997WS', 'SANDWS','PCTCROP2001WS','POPDEN2010WS','PRECIP9120WS', 'PCTAGSLPMID2001WS','PCT_EROD','SW_FLUXWS','PCTIMP2001WS','RDCRSWS', 'WTDEPWS','ELEVWS')) %>% 
+    mutate(WDRW_LDWS = case_when(
+    WDRW_LDWS > 0 ~ 0, # 50th percentile is 0
+    TRUE ~ WDRW_LDWS)) %>% 
+  
+    mutate(PESTIC1997WS = case_when(
+    PESTIC1997WS > 0 ~ 0, # 50th percentile is 0
+    TRUE ~ PESTIC1997WS)) %>% 
+  
+    mutate(PCTCROP2001WS = case_when(
+    PCTCROP2001WS > 0 ~ 0, # 50th percentile is 0
+    TRUE ~ PCTCROP2001WS)) %>% 
+  
+    mutate(POPDEN2010WS = case_when(
+    POPDEN2010WS > quantile(tss.ref.hi$POPDEN2010WS, probs = 0.5) ~ 0,
+    TRUE ~ POPDEN2010WS)) %>% 
+    
+    mutate(PCTAGSLPMID2001WS = case_when(
+    PCTAGSLPMID2001WS > 0 ~ 0, # 50th percentile is 0
+    TRUE ~ PCTAGSLPMID2001WS)) %>% 
+  
+    mutate(SW_FLUXWS = case_when(
+    SW_FLUXWS > quantile(tss.ref.hi$SW_FLUXWS, probs = 0.5) ~ 0,
+    TRUE ~ SW_FLUXWS)) %>% 
+  
+    mutate(PCTIMP2001WS = case_when(
+    PCTIMP2001WS > quantile(tss.ref.hi$PCTIMP2001WS, probs = 0.5) ~ 0,
+    TRUE ~ PCTIMP2001WS)) %>% 
+
+    mutate(RDCRSWS = case_when(
+    RDCRSWS > 0 ~ 0, # 50th percentile is zero
+    TRUE ~ RDCRSWS))
+```
+
+#### Run reduced model with adjusted human-influenced predictors to get All Sites Ref Expectations
+
+```{r}
+# REFERENCE EXPECTATIONS FOR ALL-SITES REDUCED
+pred.rf.red_15.all<- predict(rf.red_15, tss.cal_val.refadj) #model prediction on cal+val dataset
+plot(tss.cal_val.refadj$logTSS ~ pred.rf.red_15.all, xlab = 'predicted logTSS', ylab = 'observed logTSS', ylim = c(0,6), main = 'red_15 CAL and VAL ref adjusted')
+
+
+# see what same scale as others looks like
+
+
+# Model error - NOT REALLY RELEVANT HERE SO OMIT IN PLOTS
+#(rmse<-sqrt(sum((pred.rf.red_15.all - tss.cal_val.refadj$logTSS)^2)/length(tss.cal_val.refadj$logTSS)))
+ut_pred.rf.red_15.all <- exp(pred.rf.red_15.all)-1
+ut_tss.all <- exp(tss.cal_val.refadj$logTSS)-1
+RMSE.ut.rf.red_15.all <- sqrt(sum((ut_pred.rf.red_15.all - ut_tss.all)^2)/length(tss.cal_val.refadj$logTSS))
+print(paste("inverse natural log RMSE =", RMSE.ut.rf.red_15.all))
+
+RMSE.ut.rf.red_15.all_scaled <- RMSE.ut.rf.red_15.all/range_tss
+print(paste("scaled untransformed RMSE", RMSE.ut.rf.red_15.all_scaled*100, '%'))
+```
+
+## REFERENCE ONLY MODEL
+
+#### Tuning the model (finding best mtry) --sticking w/ mtry = 7.
+
+```{r}
+# One way to find best mtry based on tuneRF.
+    # Tune mtry based on OOB error
+best_mtry <- tuneRF(tss.ref[, -which(names(tss.ref) == "logTSS")], # Predictors
+                        tss.ref$logTSS, # Response
+                        ntreeTry = 500, # Number of trees to try for each mtry
+                        stepFactor = 1.5, # Factor to multiply/divide mtry by
+                        improve = 0.01, # Minimum improvement to continue search
+                        trace = TRUE, # Print progress
+                        plot = TRUE) # Plot OOB error vs. mtry
+print(best_mtry)
+
+# Another approach using Caret.  Takes >50 minutes to run, not that different from mtry approach above.
+# control <- trainControl(method="repeatedcv", number=10,repeats = 3, search="random")
+# set.seed(1)
+# mtry <- sqrt(ncol(tss.cal[ , 2:83]
+# ))
+# rf_random <- train(log(TSS + 1)~., data = tss.cal, method = "rf", metric = "RMSE", tuneLength = 15, trControl=control)
+# print(rf_random)
+# plot(rf_random)
+
+```
+
+#### Build reference only model
+
+```{r}
+tss.ref <- tss.ref %>% 
+  select(c("logTSS", "PRECIP9120WS", "WETINDEXWS", "BFIWS", "ELEVWS", "PCTBL2001WS", "PCTCONIF2001WS", "PCTGRS2001WS", "PCTHBWET2001WS", "PCTICE2001WS", "PCTMXFST2001WS", "PCTOW2001WS", "PCTSHRB2001WS", "PCTURBHI2001WS", "PCTURBMD2001WS", "PCTURBOP2001WS", "PCTWDWET2001WS", "PCTFRSTLOSS2002WS", "COMPSTRGTHWS", "FE2O3WS", "HYDRLCONDWS", "NA2OWS", "PCTALKINTRUVOLWS", "PCTALLUVCOASTWS", "PCTCARBRESIDWS", "PCTCOASTCRSWS", "PCTCOLLUVSEDWS", "PCTEOLCRSWS", "PCTEOLFINEWS", "PCTEXTRUVOLWS", "PCTGLACLAKECRSWS", "PCTGLACLAKEFINEWS", "PCTGLACTILCLAYWS", "PCTGLACTILCRSWS", "PCTGLACTILLOAMWS", "PCTHYDRICWS", "PCTSALLAKEWS", "PCTWATERWS", "ROCKNWS", "SWS", "CLAYWS", "KFFACTWS", "OMWS", "RCKDEPWS", "RCKDEPWS", "SANDWS", "WTDEPWS", "PCTFIRE2002WS", "PCTINCVEGRESP2002WS", "PCTNONPROCMASK2002WS", "MSST2008", "BANKFULLWIDTH", "PCT_EROD", "STRMPOW_CAT", "NHD_pSLOPE", "SITE_TYPE", "L2Eco", "L3Eco"))
+
+set.seed(39)
+rf.full.ref <- randomForest(logTSS ~ ., tss.ref, importance = TRUE, mtry=7, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
+print(rf.full.ref)
+
+varImpPlot(rf.full.ref, type = 1, n.var = 20, main = "Reference-Only Model") #variable importance plot
+#varImpPlot(rf.full.ref, type = 2, n.var = 20, main = "Full Model Ref only") #variable importance plot
+
+# LOG +1-TRANSFORMED TSS
+pred.rf.full.ref <- predict(rf.full.ref, newdata = tss.ref)
+plot(tss.ref$logTSS ~ pred.rf.full.ref, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,4.5), ylim = c(0,4.5), main = 'rf.full.ref')
+abline(a=0,b=1)
+
+# Model error
+#(rmse<-sqrt(sum((pred.rf.full.ref - tss.ref$logTSS)^2)/length(tss.ref$logTSS)))#untransformed prediction error
+ut_pred.rf.full.ref <- exp(pred.rf.full.ref)-1
+ut_tss.ref <- exp(tss.ref$logTSS)-1
+
+RMSE.ut.rf.full.ref <- sqrt(sum((ut_pred.rf.full.ref - ut_tss.ref)^2)/length(tss.ref$logTSS))
+print(paste("inverse natural log RMSE =", RMSE.ut.rf.full.ref))
+
+RMSE.ut.rf.full.ref_scaled <- RMSE.ut.rf.full.ref/range_tss
+print(paste("scaled untransformed RMSE", RMSE.ut.rf.full.ref_scaled*100, '%'))
+```
+
+#### Tuning the model (how many trees)
+
+```{r}
+# How many trees is appropriate?
+plot(rf.full.ref, log="x")  # 500 seems to work fine.
+```
+
+#### Reduce the reference only model
+
+```{r}
+set.seed(39)
+rf.ref.red_20 <- randomForest(logTSS ~ ROCKNWS + PCT_EROD + PCTBL2001WS + SWS + ELEVWS + NA2OWS + PCTICE2001WS + PRECIP9120WS + FE2O3WS + PCTCONIF2001WS + OMWS + BFIWS + L3Eco + KFFACTWS + SANDWS + CLAYWS + L2Eco + STRMPOW_CAT + MSST2008 + PCTFRSTLOSS2002WS, tss.ref, importance = TRUE, mtry=7, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
+print(rf.ref.red_20)
+
+varImpPlot(rf.ref.red_20, type = 1, n.var = 20, main = "Full Model Ref only") #variable importance plot
+#varImpPlot(rf.ref.red_20, type = 2, n.var = 20, main = "Full Model Ref only") #variable importance plot
+
+# LOG +1-TRANSFORMED TSS
+pred.rf.ref.red_20 <- predict(rf.ref.red_20, newdata = tss.ref)
+plot(tss.ref$logTSS ~ pred.rf.ref.red_20, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,4.5), ylim = c(0,4.5), main = 'rf.ref.red_20')
+abline(a=0,b=1)
+
+# Model error
+#(rmse<-sqrt(sum((pred.rf.ref.red_20 - tss.ref$logTSS)^2)/length(tss.ref$logTSS))) #untransformed prediction error
+ut_pred.rf.ref.red_20 <- exp(pred.rf.ref.red_20)-1
+ut_tss.ref <- exp(tss.ref$logTSS)-1
+
+RMSE.ut.rf.ref.red_20 <- sqrt(sum((ut_pred.rf.ref.red_20 - ut_tss.ref)^2)/length(tss.ref$logTSS))
+print(paste("inverse natural log RMSE =", RMSE.ut.rf.ref.red_20))
+
+RMSE.ut.rf.ref.red_20_scaled <- RMSE.ut.rf.ref.red_20/range_tss
+print(paste("scaled untransformed RMSE", RMSE.ut.rf.ref.red_20_scaled*100, '%'))
+```
+
+#### \* Final reduced ref only model - red_11
+
+```{r}
+set.seed(39)
+rf.ref.red_11 <- randomForest(logTSS ~ ROCKNWS + PCT_EROD + PCTBL2001WS + SWS + ELEVWS + NA2OWS + PCTICE2001WS + PRECIP9120WS + FE2O3WS + PCTCONIF2001WS + OMWS, tss.ref, importance = TRUE, mtry=7, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
+print(rf.ref.red_11)
+
+varImpPlot(rf.ref.red_11, type = 1, main = "Reduced11 Model Ref only") #variable importance plot
+#varImpPlot(rf.ref.red_11, type = 2, main = "Reduced11 Model Ref only") #variable importance plot
+
+# LOG +1-TRANSFORMED TSS
+pred.rf.ref.red_11 <- predict(rf.ref.red_11, newdata = tss.ref)
+plot(tss.ref$logTSS ~ pred.rf.ref.red_11, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,4.5), ylim = c(0,4.5), main = 'rf.ref.red_11')
+abline(a=0,b=1)
+
+# Model error
+# (rmse<-sqrt(sum((pred.rf.ref.red_11 - tss.ref$logTSS)^2)/length(tss.ref$logTSS))) #untransformed prediction error
+ut_pred.rf.ref.red_11 <- exp(pred.rf.ref.red_11)-1
+ut_tss.ref <- exp(tss.ref$logTSS)-1
+RMSE.ut.rf.ref.red_11 <- sqrt(sum((ut_pred.rf.ref.red_11 - ut_tss.ref)^2)/length(tss.ref$logTSS))
+print(paste("inverse natural log RMSE =", RMSE.ut.rf.ref.red_11))
+
+RMSE.ut.rf.ref.red_11_scaled <- RMSE.ut.rf.ref.red_11/range_tss
+print(paste("scaled untransformed RMSE", RMSE.ut.rf.ref.red_11_scaled*100, '%'))
+```
+
+#### Residual plot for ref.red_11 model
+
+```{r}
+residuals.ref.red_11 <- (exp(tss.ref$logTSS)-1) - (exp(pred.rf.ref.red_11)-1) # Observed minus predicted 
+plot(residuals.ref.red_11 ~ (exp(pred.rf.ref.red_11)-1) , xlab = "Predicted TSS (mg/L)", ylab = "Residuals", main="rf.ref.red_11 residuals")
+abline(h=0, col = "red", lty = 2)
+```
+
+#### 5 predictors (not using this one)
+
+```{r}
+set.seed(39)
+rf.ref.red_5 <- randomForest(logTSS ~ ROCKNWS + PCT_EROD + PCTBL2001WS + SWS + ELEVWS, tss.ref, importance = TRUE, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors
+print(rf.ref.red_5)
+
+varImpPlot(rf.ref.red_5, type = 1, main = "Reduced5 Model Ref only") #variable importance plot
+#varImpPlot(rf.ref.red_5, type = 2, main = "Reduced5 Model Ref only") #variable importance plot
+
+# LOG +1-TRANSFORMED TSS
+pred.rf.ref.red_5 <- predict(rf.ref.red_5, newdata = tss.ref)
+plot(tss.ref$logTSS ~ pred.rf.ref.red_5, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,4.5), ylim = c(0,4.5), main = 'rf.ref.red_5')
+abline(a=0,b=1)
+
+# Model error
+#(rmse<-sqrt(sum((pred.rf.ref.red_5 - tss.ref$logTSS)^2)/length(tss.ref$logTSS))) #untransformed prediction error
+ut_pred.rf.ref.red_5 <- exp(pred.rf.ref.red_5)-1
+ut_tss.ref <- exp(tss.ref$logTSS)-1
+
+RMSE.ut.rf.ref.red_5 <- sqrt(sum((ut_pred.rf.ref.red_5 - ut_tss.ref)^2)/length(tss.ref$logTSS))
+print(paste("inverse natural log RMSE =", RMSE.ut.rf.ref.red_5))
+
+RMSE.ut.rf.ref.red_5_scaled <- RMSE.ut.rf.ref.red_5/range_tss
+print(paste("scaled untransformed RMSE", RMSE.ut.rf.ref.red_5_scaled*100, '%'))
+```
+
+#### Run all sites through to get ref expectations
+
+```{r}
+tss.cal_val.immutable <- tss.cal_val %>% 
+  select(c("logTSS", "PRECIP9120WS", "WETINDEXWS", "BFIWS", "ELEVWS", "PCTBL2001WS", "PCTCONIF2001WS", "PCTGRS2001WS", "PCTHBWET2001WS", "PCTICE2001WS", "PCTMXFST2001WS", "PCTOW2001WS", "PCTSHRB2001WS", "PCTURBHI2001WS", "PCTURBMD2001WS", "PCTURBOP2001WS", "PCTWDWET2001WS", "PCTFRSTLOSS2002WS", "COMPSTRGTHWS", "FE2O3WS", "HYDRLCONDWS", "NA2OWS", "PCTALKINTRUVOLWS", "PCTALLUVCOASTWS", "PCTCARBRESIDWS", "PCTCOASTCRSWS", "PCTCOLLUVSEDWS", "PCTEOLCRSWS", "PCTEOLFINEWS", "PCTEXTRUVOLWS", "PCTGLACLAKECRSWS", "PCTGLACLAKEFINEWS", "PCTGLACTILCLAYWS", "PCTGLACTILCRSWS", "PCTGLACTILLOAMWS", "PCTHYDRICWS", "PCTSALLAKEWS", "PCTWATERWS", "ROCKNWS", "SWS", "CLAYWS", "KFFACTWS", "OMWS", "RCKDEPWS", "RCKDEPWS", "SANDWS", "WTDEPWS", "PCTFIRE2002WS", "PCTINCVEGRESP2002WS", "PCTNONPROCMASK2002WS", "MSST2008", "BANKFULLWIDTH", "PCT_EROD", "STRMPOW_CAT", "NHD_pSLOPE", "SITE_TYPE", "L2Eco", "L3Eco"))
+
+pred.rf.ref.red_11.all<- predict(rf.ref.red_11, tss.cal_val.immutable) #model prediction on cal+val dataset
+plot(tss.cal_val.immutable$logTSS ~ pred.rf.ref.red_11.all, xlab = 'predicted logTSS', ylab = 'observed logTSS', ylim = c(0,6), main = 'ref.red_11 CAL and VAL')
+
+# Model error
+#(rmse<-sqrt(sum((pred.rf.ref.red_11 - tss.cal_val.refadj$logTSS)^2)/length(tss.cal_val.refadj$logTSS)))#untransformed prediction error
+ut_pred.rf.ref.red_11.all <- exp(pred.rf.ref.red_11.all)-1
+ut_tss.cal_val.immutable<- exp(tss.cal_val.immutable$logTSS)-1
+
+RMSE.ut_pred.rf.ref.red_11.all <- sqrt(sum((ut_pred.rf.ref.red_11.all - ut_tss.cal_val.immutable)^2)/length(tss.cal_val.immutable$logTSS))
+print(paste("inverse natural log RMSE =", RMSE.ut_pred.rf.ref.red_11.all))
+
+RMSE.ut_pred.rf.ref.red_11.all_scaled <- RMSE.ut_pred.rf.ref.red_11.all/range_tss
+print(paste("scaled untransformed RMSE", RMSE.ut_pred.rf.ref.red_11.all_scaled*100, '%'))
+```
+
+#### Run all sites (CAL AND VAL) through final reduced model.
+
+```{r}
+pred.rf.red_15_all <- predict(rf.red_15, newdata = tss.cal_val)
+plot(tss.cal_val$logTSS ~ pred.rf.red_15_all, xlab = 'predicted logTSS', ylab = 'observed logTSS', xlim = c(0,5), ylim = c(0,5), main = 'red_15_ALL')
+abline(a=0,b=1)
+
+# Model error
+# (rmse<-sqrt(sum((pred.rf.red_15_all - tss.cal_val$logTSS)^2)/length(tss.cal_val$logTSS))) #untransformed RMSE
+ut_pred.rf.red_15_all <- exp(pred.rf.red_15_all)-1
+ut_tss.all <- exp(tss.cal_val$logTSS)-1
+RMSE.ut.rf.red_15_all <- sqrt(sum((ut_pred.rf.red_15_all - ut_tss.all)^2)/length(tss.cal_val$logTSS))
+print(paste("inverse natural log RMSE =", RMSE.ut.rf.red_15_all))
+
+RMSE.ut.rf.red_15_all_scaled <- RMSE.ut.rf.red_15_all/range_tss
+print(paste("scaled untransformed RMSE", RMSE.ut.rf.red_15_all_scaled*100, '%'))
+
+oe.allsites <- cbind(pred.rf.red_15_all, tss.cal_val$logTSS)
+oe.allsites <- as.data.frame(oe.allsites) %>% 
+  rename(pred_logTSS = V2) %>% 
+  mutate(obs_TSS = exp(tss.cal_val$logTSS) -1) %>% 
+  mutate(pred_TSS = exp(pred.rf.red_15_all)-1) %>% 
+  mutate('O/E' = obs_TSS/pred_TSS)
+
+print(sum(oe.allsites$`O/E`>1)/741) # prop above 1:1 line
+print(sum(oe.allsites$`O/E`>2)/741) # prop above 2:1 line
+```
+
+#### Section just for making report plots
+
+```{r}
+# ALL-SITES PREDICTION PLOTS -----------------------------------------------------------------------------------------------------------------------
+par(mfrow = c(1,2))
+
+#Untransformed plot log scale axes *** FOR REPORT --- CAL dataset 
+plot((exp(tss.cal$logTSS)-1) ~ (exp(pred.rf.red_15)-1), log = "xy",  xlab = 'predicted TSS (mg/L)', ylab = 'observed TSS (mg/L)', main = 'CAL', 
+     xlim = (c(0.2,100)), ylim = c(0.2,100))
+abline(a=0,b=1)
+#text(50, 0.5, "RMSE = 6.35 
+#%Var = 26.58")
+
+par(mfrow = c(1,2))
+
+#Untransformed plot log scale axes *** FOR REPORT --- apply CAL model to VAL dataset 
+plot((exp(tss.val$logTSS)-1) ~ (exp(pred.rf.red_15_val)-1), log = "xy",  xlab = 'predicted TSS (mg/L)', ylab = 'observed TSS (mg/L)', main = '',
+  xlim = (c(0.2,100)), ylim = c(0.2,100))
+abline(a=0,b=1)
+#text(50, 0.5, "RMSE = 13.68 
+#%Var = #")
+
+# VAL residuals
+#residuals.red_15 <- (exp(tss.cal$logTSS)-1) - (exp(pred.rf.red_15)-1) # Observed minus predicted 
+plot(residuals.red_15_val ~ (exp(pred.rf.red_15_val)-1), xlab = "predicted TSS (mg/L)", ylab = "residuals (obs-pred)", main="", log = "x")
+abline(h=0, col = "red", pch = 2, lty = 2)
+
+# REF-ONLY PREDICTION PLOT -------------------------------------------------------------------------------------------------------------------------
+par(mfrow = c(1,2))
+
+pred.rf.ref.red_11 <- predict(rf.ref.red_11, newdata = tss.ref)
+plot((exp(tss.ref$logTSS) -1) ~ (exp(pred.rf.ref.red_11)-1), log = "xy",
+     xlab = 'predicted TSS (mg/L)', ylab = 'observed TSS (mg/L)', xlim = c(0.2,100), ylim = c(0.2,100), main = '')
+abline(a=0,b=1)
+
+# REF RESIDUALS
+residuals.ref_11 <- (exp(tss.ref$logTSS)-1) - (exp(pred.rf.ref.red_11)-1) # Observed minus predicted 
+plot(residuals.ref_11 ~ (exp(pred.rf.ref.red_11)-1), xlab = "predicted TSS (mg/L)", ylab = "residuals (obs-pred)", main="", log = "x")
+abline(h=0, col = "red", pch = 2, lty = 2)
+
+
+par(mfrow = c(1,2))
+# ALL-SITESREF EXPECTATIONS ------------------------------------------------------------------------------------------------------------------------
+pred.rf.red_15.all<- predict(rf.red_15, tss.cal_val.refadj) #model prediction on cal+val dataset
+plot((exp(tss.cal_val.refadj$logTSS)-1) ~ (exp(pred.rf.red_15.all)-1), log = "xy", xlab = 'TSS reference expectations (mg/L)', ylab = 'observed TSS (mg/L)', ylim = c(0.2,100), xlim = c(0.2,100), main = 'All-Sites')
+abline(a=0,b=1, untf = TRUE)
+#abline(a=0.6931472,b=1, col = 'red')
+abline(a=0,b=2, col = 'red', lty = 'dashed', untf = TRUE)
+#fix scales and logs
+
+
+# REF-ONLY REF EXPECTATIONS ------------------------------------------------------------------------------------------------------------------------
+pred.rf.ref.red_11 <- predict(rf.ref.red_11, newdata = tss.cal_val)
+plot((exp(tss.cal_val$logTSS) -1) ~ (exp(pred.rf.ref.red_11)-1), log = "xy",
+     xlab = 'TSS reference expectations (mg/L)', ylab = 'observed TSS (mg/L)', xlim = c(0.2,100), ylim = c(0.2,100), main = 'Reference-Only')
+abline(a=0,b=1, untf = TRUE)
+abline(a=0,b=2, col = 'red', lty = 'dashed', untf = TRUE)
+
+
+# CALCULATE PROPORTIONS ABOVE 1:1 AND 2:1 LINES
+oe.ref <- cbind(pred.rf.ref.red_11, tss.cal_val$logTSS)
+oe.ref <- as.data.frame(oe.ref) %>% 
+  rename(pred_logTSS = V2) %>% 
+  mutate(obs_TSS = exp(tss.cal_val$logTSS) -1) %>% 
+  mutate(pred_TSS = exp(pred.rf.ref.red_11)-1) %>% 
+  mutate('O/E' = obs_TSS/pred_TSS)
+
+print(sum(oe.ref$`O/E`>1)/741) # prop above 1:1 line
+print(sum(oe.ref$`O/E`>2)/741) # prop above 2:1 line
+```
+
+#### Plot Obs vs pred CAL and VAL all sites
+
+```{r}
+# plot obs vs. predicted CAL 
+par(mfrow=c(1,2))
+par(mar=c(4.3,5,1,1))
+plot(x = (exp(pred.rf.red_15)-1), y = exp(tss.cal$logTSS)-1,
+	  xlab='Predicted TSS (mg/L)', ylab='Observed TSS (mg/L)', main='red_15', lwd=1.5, 
+	  cex.lab=1.5, las = 1, font = 2)#
+#abline(a=0, b=1, col='blue', lwd=4)  ---> lm line plots exactly over a 1:1 line
+#abline(lm_cal, lwd=4, lty=2)
+ 
+# plot obs vs. predicted VAL
+par(new=TRUE)
+plot(x = pred.rf.red_15_val, y = exp(tss.val$logTSS)-1,
+	  xlab='', ylab='', main='', pch=2, col='red', cex=1.3, lwd=1.5,axes=FALSE) 
+#abline(lm_val, col='red', lwd=1.8)
+ 
+# plot residuals CAL
+par(mar=c(4.3,4.3,1,1))
+plot(x = (exp(pred.rf.red_15)-1), y = residuals.red_15,
+	  xlab='Predicted TSS (mg/L)', ylab='Residuals (obs-pred)', main='', 
+	  lwd=1.5,cex.lab=1.5, las = 1, font = 2)
+abline(h=1, col="blue", lty = 2)
+ 
+# plot residuals VAL
+par(new=TRUE)	
+plot(x = (exp(pred.rf.red_15_val)-1), y = residuals.red_15_val,
+	  xlab='', ylab="", main="", 
+	  pch=2, col='red', 
+	  lwd=1.5,cex.lab=1.5, las = 1, font = 2, cex=1.3,
+	  axes=FALSE)
+```

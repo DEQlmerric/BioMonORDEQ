@@ -441,8 +441,8 @@ tss <- cal.val_chem.ref.wq %>%
 
 #write_xlsx(tp, path = paste0("Benchmarks//Water Chemistry//Total Phosphorus//totalP", Sys.Date(), ".xlsx"))
 #write_xlsx(tn, path = paste0("Benchmarks//Water Chemistry//Total Nitrogen//totalN", Sys.Date(), ".xlsx"))
-#write_xlsx(cond, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//Conductivity", Sys.Date(), ".xlsx"))
-#write_xlsx(tss, path = paste0("C://Users//athomps//OneDrive - Oregon//Desktop//TSS_", Sys.Date(), ".xlsx")) 
+#write_xlsx(cond, path = paste0("Benchmarks//Water Chemistry//Conductivity//Conductivity_no_outliers_", Sys.Date(), ".xlsx"))
+#write_xlsx(tss, path = paste0("Benchmarks//Water Chemistry//TSS v2//TSS_no_outliers", Sys.Date(), ".xlsx")) 
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # SUMMARY TABLES, FIGURES

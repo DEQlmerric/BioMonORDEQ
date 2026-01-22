@@ -1,5 +1,5 @@
 ---
-title: "Total Phosphorus Reference Benchmarks"
+title: "Total Nitrogen Reference Benchmarks"
 author: "S. Berzins, A. Thompson"
 date: "2026-01-21"
 output: html_document

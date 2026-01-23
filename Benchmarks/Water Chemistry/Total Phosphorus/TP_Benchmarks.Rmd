@@ -356,7 +356,7 @@ boxplot(tp_vars_selected$logTP, ylab = "log+1(TP)")
 kd_plots <- function(data, filter_col_name, filter_value) {
   data %>%
     filter(.data[[filter_col_name]] == filter_value) %>% # Using .data[[]] for dynamic column names
-    select(PRECIP9120WS,TMAX9120WS,KFFACTWS,MSST2008,OMWS,CLAYWS,SWS,PCT_EROD,ELEVWS,SW_FLUXWS,POPDEN2010WS,NA2OWS,ROCKNWS,SANDWS,COMPSTRGTHWS,WTDEPWS,RDCRSWS,CAOWS,BFIWS,PCTDECID2001WS) %>% 
+    select(PCTCONIF2001WS, PRECIP_MINUS_EVTWS, OMWS, ROCKNWS, PCTAGDRAINAGEWS, PCTNONAGINTRODMANAGVEGWS, STRMPOW_CAT, PCTCROP2001WS) %>% 
   keep(is.numeric) %>% 
   gather() %>% 
   ggplot(aes(value)) +
@@ -375,43 +375,43 @@ kd_plots(data = tp_vars_selected, "L2Eco", "Western Cordillera")
 kd_plots(data = tp_vars_selected, "L2Eco", "Cold Deserts")
 kd_plots(data = tp_vars_selected, "L2Eco", "Marine West Coast Forest")
 
-# Top 20 variables from RF model broken out by TP category 
-# < 100
+# Top 8 variables from RF model broken out by TP category 
+# <0.1
 tp_vars_selected %>%
-  filter(TP<=100) %>%  
-  select(PRECIP9120WS,TMAX9120WS,KFFACTWS,MSST2008,OMWS,CLAYWS,SWS,PCT_EROD,ELEVWS,SW_FLUXWS,POPDEN2010WS,NA2OWS,ROCKNWS,SANDWS,COMPSTRGTHWS,WTDEPWS,RDCRSWS,CAOWS,BFIWS,PCTDECID2001WS) %>% 
+  filter(TP <= 0.1) %>%  
+  select(PCTCONIF2001WS, PRECIP_MINUS_EVTWS, OMWS, ROCKNWS, PCTAGDRAINAGEWS, PCTNONAGINTRODMANAGVEGWS, STRMPOW_CAT, PCTCROP2001WS) %>% 
   keep(is.numeric) %>% 
   gather() %>% 
   ggplot(aes(value)) +
   facet_wrap(~ key, scales = "free") +
   geom_density() +
-  geom_rug() + ggtitle("TP 0-100")
+  geom_rug() + ggtitle("TP <0.1")
 
-# 100-300
+# 0.1 - 0.2
 tp_vars_selected %>%
-  filter(TP > 100 | TP <= 300) %>% 
-  select(PRECIP9120WS,TMAX9120WS,KFFACTWS,MSST2008,OMWS,CLAYWS,SWS,PCT_EROD,ELEVWS,SW_FLUXWS,POPDEN2010WS,NA2OWS,ROCKNWS,SANDWS,COMPSTRGTHWS,WTDEPWS,RDCRSWS,CAOWS,BFIWS,PCTDECID2001WS) %>% 
+  filter(TP > 0.1 | TP <= 0.2) %>% 
+  select(PCTCONIF2001WS, PRECIP_MINUS_EVTWS, OMWS, ROCKNWS, PCTAGDRAINAGEWS, PCTNONAGINTRODMANAGVEGWS, STRMPOW_CAT, PCTCROP2001WS) %>% 
   keep(is.numeric) %>% 
   gather() %>% 
   ggplot(aes(value)) +
   facet_wrap(~ key, scales = "free") +
   geom_density() +
-  geom_rug() + ggtitle("TP 100-300")
+  geom_rug() + ggtitle("TP 0.1 - 0.2")
 
-# 300+
+# >0.2
 tp_vars_selected %>%
-  filter(TP > 300) %>% 
-  select(PRECIP9120WS,TMAX9120WS,KFFACTWS,MSST2008,OMWS,CLAYWS,SWS,PCT_EROD,ELEVWS,SW_FLUXWS,POPDEN2010WS,NA2OWS,ROCKNWS,SANDWS,COMPSTRGTHWS,WTDEPWS,RDCRSWS,CAOWS,BFIWS,PCTDECID2001WS) %>% 
+  filter(TP > 0.2) %>% 
+  select(PCTCONIF2001WS, PRECIP_MINUS_EVTWS, OMWS, ROCKNWS, PCTAGDRAINAGEWS, PCTNONAGINTRODMANAGVEGWS, STRMPOW_CAT, PCTCROP2001WS) %>% 
   keep(is.numeric) %>% 
   gather() %>% 
   ggplot(aes(value)) +
   facet_wrap(~ key, scales = "free") +
   geom_density() +
-  geom_rug() + ggtitle("TP >300")
+  geom_rug() + ggtitle("TP >0.2")
 
-# All TSS
+# All TP
 tp_vars_selected %>%
-  select(PRECIP9120WS,TMAX9120WS,KFFACTWS,MSST2008,OMWS,CLAYWS,SWS,PCT_EROD,ELEVWS,SW_FLUXWS,POPDEN2010WS,NA2OWS,ROCKNWS,SANDWS,COMPSTRGTHWS,WTDEPWS,RDCRSWS,CAOWS,BFIWS,PCTDECID2001WS) %>% 
+  select(PCTCONIF2001WS, PRECIP_MINUS_EVTWS, OMWS, ROCKNWS, PCTAGDRAINAGEWS, PCTNONAGINTRODMANAGVEGWS, STRMPOW_CAT, PCTCROP2001WS) %>% 
   keep(is.numeric) %>% 
   gather() %>% 
   ggplot(aes(value)) +

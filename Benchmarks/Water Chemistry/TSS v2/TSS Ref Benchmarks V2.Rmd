@@ -31,11 +31,10 @@ library(EnvStats)
 ## STATIONS/TSS - *FROM WATER CHEMISTRY BENCHMARKS SCRIPT*
 
 ```{r}
-tss <- read_excel("TSS_amb_2025-11-12.xlsx") #output file from ref benchmarks script - Ambient sites included
+tss <- read_excel("~/BioMonORDEQ/Benchmarks/Water Chemistry/TSS v2/TSS_no_outliers2026-01-21.xlsx") #output file from ref benchmarks script - Ambient sites included
 
 comids <- tss %>% 
-  select(COMID) %>%  #get just the COMIDs for next step
-  filter(!COMID %in% c("23774647", "23877125","23810652")) # REMOVE UNWANTED COMIDS FOR SITES ON HIGH RES NHD
+  select(COMID) 
 ```
 
 ## WATERSHED PREDICTOR VARIABLES - *FROM EPA STREAMCAT*
@@ -164,7 +163,7 @@ if(type == "Wildfire"){
 if(type == "Others"){
 
   streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'bankfulldepth,bankfullwidth,ici,iwi,mast2008,msst2008,mwst2008,thalwegdepth,wettedwidth', 
+                                                                           metric = 'bankfulldepth,bankfullwidth,ici,iwi,mast2008,msst2008,mwst2008,thalwegdepth,wettedwidth,prg_bmmi0809', 
                                                                            showAreaSqKm = FALSE,
                                                                            aoi='other')) 
   }
@@ -183,7 +182,7 @@ ag <- get_streamcat(comids = comids, type = "Agriculture")
 clim <- get_streamcat(comids = comids, type = "Climate")
 dams <- get_streamcat(comids = comids, type = "Dams")
 flow <- get_streamcat(comids = comids, type = "Flow")
-iwi <- get_streamcat(comids = comids, type = "IWI") #except prg_bmmi0809 b/c it crashes API
+iwi <- get_streamcat(comids = comids, type = "IWI")
 cover <- get_streamcat(comids = comids, type = "Land Cover")
 litho <- get_streamcat(comids = comids, type = "Lithology") 
 mintox <- get_streamcat(comids = comids, type = "Mining_Toxics")
@@ -244,16 +243,13 @@ spear <- cor(tss_vars_num, method = "spearman", use = "pairwise.complete.obs")
 spear <- as.data.frame(spear)
 spear.rows <- tibble::rownames_to_column(spear)
 
-#export once, then clean up in Excel
-#write_xlsx(spear.rows, path = "C:/Users/athomps/Oregon/DEQ - Biomonitoring is Fun! - General/Env't Stats Class Project 2025/StreamCat/Spearmans_rerun.xlsx")
-
 # CONDENSED CORRELATION MATRIX (>0.8 ONLY)
-matrix_new <- spear.rows %>%  
+matrix <- spear.rows %>%  
   gather(-rowname, key = "colname", value = "cor") %>% 
   filter(abs(cor) > 0.8)
 
 #export once, then clean up in Excel
-#write_xlsx(matrix, path = "C:/Users/athomps/Oregon/DEQ - Biomonitoring is Fun! - General/Env't Stats Class Project 2025/StreamCat/Spearmans2_rerun.xlsx")
+write_xlsx(matrix, path = "~/BioMonORDEQ/Benchmarks/Water Chemistry/TSS v2/Spearmans2_no_outliers.xlsx")
 
 rm(list=c('spear', 'spear.rows'))
 ```
@@ -264,11 +260,11 @@ rm(list=c('spear', 'spear.rows'))
 # Look at Coefficient of Variance for predictors.
 cv <- tss_vars_num %>% 
   summarise(across(everything(), ~ cv(.x))) %>% 
-  pivot_longer(1:134, names_to="Var", values_to="CV") # Change first argument to 1:# columns
+  pivot_longer(1:137, names_to="Var", values_to="CV") # Change first argument to 1:# columns
 
 cv_pctzero <- tss_vars_num %>%
   summarise(across(everything(), ~ sum(. == 0) / n() * 100)) %>% 
-  pivot_longer(1:134, names_to="Var", values_to="Percent Zeros") %>%  # Change  first argument to 1:# columns
+  pivot_longer(1:137, names_to="Var", values_to="Percent Zeros") %>%  # Change  first argument to 1:# columns
   inner_join(cv, by = "Var")
 
 #write_xlsx(cv_pctzero, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//CofV", Sys.Date(), ".xlsx"))

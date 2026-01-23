@@ -27,13 +27,13 @@ library(Metrics)
 
 # **2 - IMPORT DATA**
 
-## STATIONS/TSS - *FROM WATER CHEMISTRY BENCHMARKS SCRIPT*
+## STATIONS - *FROM WATER CHEMISTRY BENCHMARKS SCRIPT*
 
 ```{r}
 cond <- read_excel('~/BioMonORDEQ/Benchmarks/Water Chemistry/Conductivity/Conductivity_no_outliers_2026-01-21.xlsx') #output file from ref benchmarks script - Ambient sites included
 
 comids <- cond %>% 
-  select(COMID) #get just the COMIDs for next step
+  select(COMID) # Get just the COMIDs for next step
 ```
 
 ## WATERSHED PREDICTOR VARIABLES - *FROM EPA STREAMCAT*
@@ -196,7 +196,7 @@ sc_all <- sc_all %>% reduce(full_join, by = 'COMID')
 rm(list=c('ag', 'clim', 'dams', 'flow','iwi', 'cover', 'litho', 'mintox', 'roads', 'urb', 'fire', 'other'))
 ```
 
-#### Add predictor variables not in StreamCat (LII and III Ecoregion, Lat/Long, erodible vs. resistant geology, slope, stream power)
+#### Add predictor variables not in StreamCat (LII and III Ecoregion, Lat/Long, erodible vs. resistant geology, slope, stream power) and transform data.
 
 ```{r}
 # ERODIBLE VS RESISTENT GEOLOGY (KEPT ERODIBLE, SINCE RESISTENT IS INVERSE OF ERODIBLE)
@@ -217,11 +217,13 @@ cond_vars <- sc_all %>%
   inner_join(erod_resist_strmpow, by='COMID') %>% 
   inner_join(cond, by = 'COMID')
 
-# RE-ORDER COLUMNS 
+# RE-ORDER COLUMNS and TRANSFORM DATA
 cond_vars <- cond_vars %>% 
   relocate(MLocID:Conductivity, .before = 'COMID') %>% 
   relocate(L2Eco:L3Eco, .after = SITE_TYPE) %>% 
-  select(-c(HUC8, EcoRegion4)) 
+  select(-c(HUC8, EcoRegion4)) %>% 
+  mutate(logCond = log(Conductivity)) %>% 
+  relocate(logCond, .before= Conductivity)
 ```
 
 #### Explore co-varied metrics and select which we want to retain for modeling purposes.
@@ -267,21 +269,20 @@ matrix <- spear.rows %>%
 
 rm(list=c('spear', 'spear.rows'))
 ```
-
-##### NOTE: Take the correlation matrix and make predictor decisions. Look at CV, proportion of 0s, and kernel density plots of variables to help make these decisions.
+##### Use CV, % of sites that have zero values, and KD plots for predictors to help make decisions about which correlated vars to keep/drop:
 
 ```{r}
 # Look at Coefficient of Variance for predictors.
 cv <- cond_vars_num %>% 
-  summarise(across(everything(), ~ cv(.x))) %>% 
+  summarise(across(everything(), ~ cv(.x, na.rm = TRUE))) %>% 
   pivot_longer(1:140, names_to="Var", values_to="CV") # Change first argument to 1:# columns
 
 cv_pctzero <- cond_vars_num %>%
-  summarise(across(everything(), ~ sum(. == 0) / n() * 100)) %>% 
+  summarise(across(everything(), ~ sum(. == 0, na.rm = TRUE) / n() * 100)) %>% 
   pivot_longer(1:140, names_to="Var", values_to="Percent Zeros") %>%  # Change  first argument to 1:# columns
   inner_join(cv, by = "Var")
 
-#write_xlsx(cv_pctzero, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//CofV", Sys.Date(), ".xlsx"))
+#write_xlsx(cv_pctzero, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//Cond_CofV", Sys.Date(), ".xlsx"))
 
 rm(cv)
 ```
@@ -296,15 +297,15 @@ cond_vars %>%
   facet_wrap(~ key, scales = "free") +
   geom_density() +
   geom_rug()
+
+# If warnings appear with the plot they pertain to NA values being present, ignore them.
 ```
 #### Select variables based on correlation analysis. (Either select desired vars or drop undesired ones. Helps if they are in alphabetical order. Don't get rid of columns you want to keep from AWQMS at this stage.)  SH, AT, and SB did this together and recorded decisions in 'Var selection decision 1-8-26.xlsx'
 
 ```{r}
 cond_vars_selected <- cond_vars %>% 
   select(c(MLocID:COMID,BFIWS, CANALDENSWS, CAOWS, CLAYWS, COMPSTRGTHWS, DAMDENSWS, ELEVWS, FE2O3WS, HYDRLCONDWS, K2OWS, KFFACTWS, MINEDENSWS, MSST2008, NA2OWS, NHD_pSLOPE, NPDESDENSWS, NWS, OMWS, PCT_EROD, PCTAGDRAINAGEWS, PCTAGSLPMID2001WS, PCTALKINTRUVOLWS, PCTALLUVCOASTWS, PCTBL2001WS, PCTBURNAREA2002WS, PCTCOLLUVSEDWS, PCTCONIF2001WS, PCTCROP2001WS, PCTDECID2001WS, PCTEOLCRSWS, PCTEOLFINEWS, PCTEXTRUVOLWS, PCTFRSTLOSS2002WS, PCTGLACLAKECRSWS, PCTGLACLAKEFINEWS, PCTGLACTILCRSWS, PCTGRS2001WS, PCTHBWET2001WS, PCTICE2001WS, PCTIMP2001WS, PCTINCVEGRESP2002WS, PCTNONAGINTRODMANAGVEGWS, PCTOW2001WS, PCTSALLAKEWS, PCTSHRB2001WS, PCTURBHI2001WS, PCTURBLO2001WS, PCTURBOP2001WS, PCTWATERWS, PESTIC1997WS, POPDEN2010WS, PRECIP9120WS, RCKDEPWS, RDCRSSLPWTDWS, RDCRSWS, RDDENSWS, ROCKNWS, SANDWS, SEPTICWS, STRMPOW_CAT, SUPERFUNDDENSWS, SW_FLUXWS, SWS, TMAX9120WS, TRIDENSWS, WATERINPUTWS, WETINDEXWS, WETTEDWIDTH, WTDEPWS, WWTPALLDENSWS,SITE_TYPE:L3Eco)) %>% 
-  relocate(COMID, .after = cal_val) %>% 
-  mutate(logCond = log(Conductivity)) %>% 
-  relocate(logCond, .before= Conductivity)
+  relocate(COMID, .after = cal_val) 
 ```
 
 #### Perform final correlation check
@@ -325,7 +326,7 @@ matrix2 <- spear2.rows %>%
   gather(-rowname, key = "colname", value = "cor") %>% 
   filter(abs(cor) > 0.8)
 
-rm(list=c('spear2', 'spear2.rows', 'cond_vars_num_selected'))
+rm(list=c('spear2', 'spear2.rows'))
 
 # ***CONTINUE ONCE NO CORRELATED VARIABLES REMAIN***
 
@@ -334,7 +335,7 @@ rm('cond_vars_num_selected')
 
 # **3 - PREPARE DATA FOR MODELS**
 
-## HANDLE NA VALUES AND TRANSFORM DATA
+## HANDLE NA VALUES
 
 ```{r, warning=FALSE}
 # FIND OUT WHICH COLUMNS HAVE NAs (AND WRITE CODE FOR THEM BELOW)
@@ -355,84 +356,10 @@ hist(cond_vars_selected$logCond, main = "", xlab = "log(Conductivity)" )
 
 # DENSITY PLOT
 hist(cond_vars_selected$logCond, main="", prob=T, xlab = "logCond")
-d <- density(cond_vars_selected$logCond) #Estimate probability density and save it into **d**
-lines(d, col='red',lwd=2) #Superimpose the probability density as a curve on the previous probability density histogram
 
 # BOX PLOT & STRIP CHART
 boxplot(cond_vars_selected$logCond, ylab = "logCond")
 #stripchart(tss_vars_selected$TSS, vertical = T, pch=1, col='red', add = T)
-
-```
-
-## PREDICTOR VARIABLES
-
-```{r}
-# Kernel density plot function
-kd_plots <- function(data, filter_col_name, filter_value) {
-  data %>%
-    filter(.data[[filter_col_name]] == filter_value) %>% # Using .data[[]] for dynamic column names
-    select(PRECIP9120WS,KFFACTWS,TMAX9120WS,MSST2008,OMWS,SWS,PCT_EROD,CLAYWS,WTDEPWS,ELEVWS,ROCKNWS,WETINDEXWS,FE2O3WS,NA2OWS,SW_FLUXWS) %>% 
-  keep(is.numeric) %>% 
-  gather() %>% 
-  ggplot(aes(value)) +
-  facet_wrap(~ key, scales = "free") +
-  geom_density() +
-  geom_rug() + ggtitle(paste0(filter_value))
-}
-
-# Top 15 variables from RF model broken out by reference status
-kd_plots(data = cond_vars_selected, "ReferenceSite", "REFERENCE")
-kd_plots(data = cond_vars_selected, "ReferenceSite", "MODERATELY DISTURBED")
-kd_plots(data = cond_vars_selected, "ReferenceSite", "MOST DISTURBED")
-
-# Top 15 variables from RF model broken out by L2 Ecoregion
-kd_plots(data = cond_vars_selected, "L2Eco", "Western Cordillera")
-kd_plots(data = cond_vars_selected, "L2Eco", "Cold Deserts")
-kd_plots(data = cond_vars_selected, "L2Eco", "Marine West Coast Forest")
-
-# Top 15 variables from RF model broken out by Conductivity category 
-# < 100
-cond_vars_selected %>%
-  filter(Conductivity<=100) %>%  
-  select(PRECIP9120WS,KFFACTWS,TMAX9120WS,MSST2008,OMWS,SWS,PCT_EROD,CLAYWS,WTDEPWS,ELEVWS,ROCKNWS,WETINDEXWS,FE2O3WS,NA2OWS,SW_FLUXWS) %>% 
-  keep(is.numeric) %>% 
-  gather() %>% 
-  ggplot(aes(value)) +
-  facet_wrap(~ key, scales = "free") +
-  geom_density() +
-  geom_rug() + ggtitle("Conductivity 0-100")
-
-# 100-300
-cond_vars_selected %>%
-  filter(Conductivity > 100 | Conductivity <= 300) %>% 
-  select(PRECIP9120WS,KFFACTWS,TMAX9120WS,MSST2008,OMWS,SWS,PCT_EROD,CLAYWS,WTDEPWS,ELEVWS,ROCKNWS,WETINDEXWS,FE2O3WS,NA2OWS,SW_FLUXWS) %>% 
-  keep(is.numeric) %>% 
-  gather() %>% 
-  ggplot(aes(value)) +
-  facet_wrap(~ key, scales = "free") +
-  geom_density() +
-  geom_rug() + ggtitle("Conductivity 100-300")
-
-# 300+
-cond_vars_selected %>%
-  filter(Conductivity > 300) %>% 
-  select(PRECIP9120WS,KFFACTWS,TMAX9120WS,MSST2008,OMWS,SWS,PCT_EROD,CLAYWS,WTDEPWS,ELEVWS,ROCKNWS,WETINDEXWS,FE2O3WS,NA2OWS,SW_FLUXWS) %>% 
-  keep(is.numeric) %>% 
-  gather() %>% 
-  ggplot(aes(value)) +
-  facet_wrap(~ key, scales = "free") +
-  geom_density() +
-  geom_rug() + ggtitle("Conductivity >300")
-
-# All COND
-cond_vars_selected %>%
-  select(PRECIP9120WS,KFFACTWS,TMAX9120WS,MSST2008,OMWS,SWS,PCT_EROD,CLAYWS,WTDEPWS,ELEVWS,ROCKNWS,WETINDEXWS,FE2O3WS,NA2OWS,SW_FLUXWS) %>% 
-  keep(is.numeric) %>% 
-  gather() %>% 
-  ggplot(aes(value)) +
-  facet_wrap(~ key, scales = "free") +
-  geom_density() +
-  geom_rug() + ggtitle("All sites")
 
 ```
 
@@ -453,10 +380,10 @@ cond.ref <- cond_vars_selected %>% #subset reference only dataset
   select(-c(MLocID:COMID, Conductivity, SampleStartDate))
 
 cond.cal_val <- rbind(cond.cal, cond.val)
-#write_xlsx(cond.cal_val, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//Cond-Cal-val_New", Sys.Date(), ".xlsx"))
+#write_xlsx(cond.cal_val, path = paste0("~/BioMonORDEQ/Benchmarks/Water Chemistry/Conductivity/Cond_cal_val", Sys.Date(), ".xlsx"))
 ```
 
-## FULL MODEL - ALL PREDICTORS INCLUDED (N = 79)
+## FULL MODEL - ALL PREDICTORS INCLUDED 
 
 #### Tuning the model (finding best mtry)
 
@@ -804,4 +731,76 @@ plot(cond.ref$logCond ~ pred.rf.ref, xlab = 'predicted logCond', ylab = 'observe
 abline(a=0,b=1)
 text(3.5,5, paste0("RMSE = ",round(full.ref.rmse, 2)," | scaled RMSE = ", round(full.ref.rmse_scaled*100,2), "%"))
 text(3.5,4.5, paste0("Variance explained = ",rf.ref.full_pct.var,"%"))
+```
+
+## PREDICTOR VARIABLES
+
+```{r}
+# Kernel density plot function
+kd_plots <- function(data, filter_col_name, filter_value) {
+  data %>%
+    filter(.data[[filter_col_name]] == filter_value) %>% # Using .data[[]] for dynamic column names
+    select(PRECIP9120WS,KFFACTWS,TMAX9120WS,MSST2008,OMWS,SWS,PCT_EROD,CLAYWS,WTDEPWS,ELEVWS,ROCKNWS,WETINDEXWS,FE2O3WS,NA2OWS,SW_FLUXWS) %>% 
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_density() +
+  geom_rug() + ggtitle(paste0(filter_value))
+}
+
+# Top 15 variables from RF model broken out by reference status
+kd_plots(data = cond_vars_selected, "ReferenceSite", "REFERENCE")
+kd_plots(data = cond_vars_selected, "ReferenceSite", "MODERATELY DISTURBED")
+kd_plots(data = cond_vars_selected, "ReferenceSite", "MOST DISTURBED")
+
+# Top 15 variables from RF model broken out by L2 Ecoregion
+kd_plots(data = cond_vars_selected, "L2Eco", "Western Cordillera")
+kd_plots(data = cond_vars_selected, "L2Eco", "Cold Deserts")
+kd_plots(data = cond_vars_selected, "L2Eco", "Marine West Coast Forest")
+
+# Top 15 variables from RF model broken out by Conductivity category 
+# < 100
+cond_vars_selected %>%
+  filter(Conductivity<=100) %>%  
+  select(PRECIP9120WS,KFFACTWS,TMAX9120WS,MSST2008,OMWS,SWS,PCT_EROD,CLAYWS,WTDEPWS,ELEVWS,ROCKNWS,WETINDEXWS,FE2O3WS,NA2OWS,SW_FLUXWS) %>% 
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_density() +
+  geom_rug() + ggtitle("Conductivity 0-100")
+
+# 100-300
+cond_vars_selected %>%
+  filter(Conductivity > 100 | Conductivity <= 300) %>% 
+  select(PRECIP9120WS,KFFACTWS,TMAX9120WS,MSST2008,OMWS,SWS,PCT_EROD,CLAYWS,WTDEPWS,ELEVWS,ROCKNWS,WETINDEXWS,FE2O3WS,NA2OWS,SW_FLUXWS) %>% 
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_density() +
+  geom_rug() + ggtitle("Conductivity 100-300")
+
+# 300+
+cond_vars_selected %>%
+  filter(Conductivity > 300) %>% 
+  select(PRECIP9120WS,KFFACTWS,TMAX9120WS,MSST2008,OMWS,SWS,PCT_EROD,CLAYWS,WTDEPWS,ELEVWS,ROCKNWS,WETINDEXWS,FE2O3WS,NA2OWS,SW_FLUXWS) %>% 
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_density() +
+  geom_rug() + ggtitle("Conductivity >300")
+
+# All COND
+cond_vars_selected %>%
+  select(PRECIP9120WS,KFFACTWS,TMAX9120WS,MSST2008,OMWS,SWS,PCT_EROD,CLAYWS,WTDEPWS,ELEVWS,ROCKNWS,WETINDEXWS,FE2O3WS,NA2OWS,SW_FLUXWS) %>% 
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_density() +
+  geom_rug() + ggtitle("All sites")
+
 ```

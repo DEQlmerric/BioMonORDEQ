@@ -351,7 +351,7 @@ cond_vars_selected$WETTEDWIDTH <- na.roughfix(cond_vars_selected$WETTEDWIDTH) # 
 ```{r}
 # HISTOGRAM
 hist(cond_vars_selected$Conductivity, main = "", xlab = "Conductivity") #raw data
-hist(cond_vars_selected$logCond, main = "", xlab = "log(Conductivity)")
+hist(cond_vars_selected$logCond, main = "", xlab = "log(Conductivity)" )
 
 # DENSITY PLOT
 hist(cond_vars_selected$logCond, main="", prob=T, xlab = "logCond")
@@ -371,7 +371,7 @@ boxplot(cond_vars_selected$logCond, ylab = "logCond")
 kd_plots <- function(data, filter_col_name, filter_value) {
   data %>%
     filter(.data[[filter_col_name]] == filter_value) %>% # Using .data[[]] for dynamic column names
-    select(PRECIP9120WS,TMAX9120WS,KFFACTWS,MSST2008,OMWS,CLAYWS,SWS,PCT_EROD,ELEVWS,SW_FLUXWS,POPDEN2010WS,NA2OWS,ROCKNWS,SANDWS,COMPSTRGTHWS,WTDEPWS,RDCRSWS,CAOWS,BFIWS,PCTDECID2001WS) %>% 
+    select(PRECIP9120WS,KFFACTWS,TMAX9120WS,MSST2008,OMWS,SWS,PCT_EROD,CLAYWS,WTDEPWS,ELEVWS,ROCKNWS,WETINDEXWS,FE2O3WS,NA2OWS,SW_FLUXWS) %>% 
   keep(is.numeric) %>% 
   gather() %>% 
   ggplot(aes(value)) +
@@ -380,21 +380,21 @@ kd_plots <- function(data, filter_col_name, filter_value) {
   geom_rug() + ggtitle(paste0(filter_value))
 }
 
-# Top 20 variables from RF model broken out by reference status
+# Top 15 variables from RF model broken out by reference status
 kd_plots(data = cond_vars_selected, "ReferenceSite", "REFERENCE")
 kd_plots(data = cond_vars_selected, "ReferenceSite", "MODERATELY DISTURBED")
 kd_plots(data = cond_vars_selected, "ReferenceSite", "MOST DISTURBED")
 
-# Top 20 variables from RF model broken out by L2 Ecoregion
+# Top 15 variables from RF model broken out by L2 Ecoregion
 kd_plots(data = cond_vars_selected, "L2Eco", "Western Cordillera")
 kd_plots(data = cond_vars_selected, "L2Eco", "Cold Deserts")
 kd_plots(data = cond_vars_selected, "L2Eco", "Marine West Coast Forest")
 
-# Top 20 variables from RF model broken out by Conductivity category 
+# Top 15 variables from RF model broken out by Conductivity category 
 # < 100
 cond_vars_selected %>%
   filter(Conductivity<=100) %>%  
-  select(PRECIP9120WS,TMAX9120WS,KFFACTWS,MSST2008,OMWS,CLAYWS,SWS,PCT_EROD,ELEVWS,SW_FLUXWS,POPDEN2010WS,NA2OWS,ROCKNWS,SANDWS,COMPSTRGTHWS,WTDEPWS,RDCRSWS,CAOWS,BFIWS,PCTDECID2001WS) %>% 
+  select(PRECIP9120WS,KFFACTWS,TMAX9120WS,MSST2008,OMWS,SWS,PCT_EROD,CLAYWS,WTDEPWS,ELEVWS,ROCKNWS,WETINDEXWS,FE2O3WS,NA2OWS,SW_FLUXWS) %>% 
   keep(is.numeric) %>% 
   gather() %>% 
   ggplot(aes(value)) +
@@ -405,7 +405,7 @@ cond_vars_selected %>%
 # 100-300
 cond_vars_selected %>%
   filter(Conductivity > 100 | Conductivity <= 300) %>% 
-  select(PRECIP9120WS,TMAX9120WS,KFFACTWS,MSST2008,OMWS,CLAYWS,SWS,PCT_EROD,ELEVWS,SW_FLUXWS,POPDEN2010WS,NA2OWS,ROCKNWS,SANDWS,COMPSTRGTHWS,WTDEPWS,RDCRSWS,CAOWS,BFIWS,PCTDECID2001WS) %>% 
+  select(PRECIP9120WS,KFFACTWS,TMAX9120WS,MSST2008,OMWS,SWS,PCT_EROD,CLAYWS,WTDEPWS,ELEVWS,ROCKNWS,WETINDEXWS,FE2O3WS,NA2OWS,SW_FLUXWS) %>% 
   keep(is.numeric) %>% 
   gather() %>% 
   ggplot(aes(value)) +
@@ -416,7 +416,7 @@ cond_vars_selected %>%
 # 300+
 cond_vars_selected %>%
   filter(Conductivity > 300) %>% 
-  select(PRECIP9120WS,TMAX9120WS,KFFACTWS,MSST2008,OMWS,CLAYWS,SWS,PCT_EROD,ELEVWS,SW_FLUXWS,POPDEN2010WS,NA2OWS,ROCKNWS,SANDWS,COMPSTRGTHWS,WTDEPWS,RDCRSWS,CAOWS,BFIWS,PCTDECID2001WS) %>% 
+  select(PRECIP9120WS,KFFACTWS,TMAX9120WS,MSST2008,OMWS,SWS,PCT_EROD,CLAYWS,WTDEPWS,ELEVWS,ROCKNWS,WETINDEXWS,FE2O3WS,NA2OWS,SW_FLUXWS) %>% 
   keep(is.numeric) %>% 
   gather() %>% 
   ggplot(aes(value)) +
@@ -424,9 +424,9 @@ cond_vars_selected %>%
   geom_density() +
   geom_rug() + ggtitle("Conductivity >300")
 
-# All TSS
+# All COND
 cond_vars_selected %>%
-  select(PRECIP9120WS,TMAX9120WS,KFFACTWS,MSST2008,OMWS,CLAYWS,SWS,PCT_EROD,ELEVWS,SW_FLUXWS,POPDEN2010WS,NA2OWS,ROCKNWS,SANDWS,COMPSTRGTHWS,WTDEPWS,RDCRSWS,CAOWS,BFIWS,PCTDECID2001WS) %>% 
+  select(PRECIP9120WS,KFFACTWS,TMAX9120WS,MSST2008,OMWS,SWS,PCT_EROD,CLAYWS,WTDEPWS,ELEVWS,ROCKNWS,WETINDEXWS,FE2O3WS,NA2OWS,SW_FLUXWS) %>% 
   keep(is.numeric) %>% 
   gather() %>% 
   ggplot(aes(value)) +
@@ -486,12 +486,12 @@ cond.cal_val <- rbind(cond.cal, cond.val)
 #### Build full model
 
 ```{r}
-set.seed(39)
+set.seed(39) # mtry = 20
 
 rf.full <- randomForest(logCond ~ ., cond.cal, importance = TRUE, mtry=20, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors. mtry=20 based on Caret grid search results.
-print(rf.full)
+#print(rf.full)
 
-varImpPlot(rf.full, type = 1, n.var = 25, main = "All-Sites Model") #variable importance plot
+varImpPlot(rf.full, type = 1, n.var = 25, main = "Conductivity All-Sites Full Model") #variable importance plot
 ```
 
 #### Tuning the model (how many trees)
@@ -524,100 +524,71 @@ text(4,5.5, paste0("Variance explained = ",rf.full_pct.var,"%"))
 ```
 ## REDUCED MODEL - IMPORTANT PREDICTORS ONLY
 
-#### Build reduced model with 15 predictors
+#### Build reduced model with 14 predictors
 
 ```{r}
 set.seed(32)
 
-rf.red_15 <- randomForest(logCond ~ PRECIP9120WS+TMAX9120WS+KFFACTWS+MSST2008+OMWS+CLAYWS+SWS+PCT_EROD+ELEVWS+SW_FLUXWS+POPDEN2010WS+NA2OWS+ROCKNWS+SANDWS+COMPSTRGTHWS, data = cond.cal, importance = TRUE,  keep.forest = TRUE, mtry=15, ntree = 500) 
+rf.red_14 <- randomForest(logCond ~ PRECIP9120WS+KFFACTWS+TMAX9120WS+MSST2008+OMWS+SWS+PCT_EROD+CLAYWS+WTDEPWS+ELEVWS+ROCKNWS+WETINDEXWS+FE2O3WS+NA2OWS, data = cond.cal, importance = TRUE,  keep.forest = TRUE, mtry=14, ntree = 500) 
 
-print(rf.red_15)
-summary(rf.red_15)
+#print(rf.red_14)
+summary(rf.red_14)
 
-varImpPlot(rf.red_15, type = 1, n.var = 15, main = "Reduced Model Top 15") #variable importance plot
+varImpPlot(rf.red_14, type = 1, n.var = 14, main = "Reduced Model Top 14") #variable importance plot
 
 # Predictions
-pred.rf.red_15 <- predict(rf.red_15, newdata = cond.cal)
+pred.rf.red_14 <- predict(rf.red_14, newdata = cond.cal)
 
 # Model error 
-red_15.rmse<- rmse(exp(pred.rf.red_15), exp(cond.cal$logCond))
-red_15.rmse_scaled <- red_15.rmse/range_cond
+red_14.rmse<- rmse(exp(pred.rf.red_14), exp(cond.cal$logCond))
+red_14.rmse_scaled <- red_14.rmse/range_cond
 
 # Percent variance explained
-rf.red_15_pct.var <- round(100 * rf.red_15$rsq[length(rf.red_15$rsq)], 2)
+rf.red_14_pct.var <- round(100 * rf.red_14$rsq[length(rf.red_14$rsq)], 2)
 
 # Plot
-plot(cond.cal$logCond ~ pred.rf.red_15, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'Reduced Model Top 15')
+plot(cond.cal$logCond ~ pred.rf.red_14, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'Reduced Model Top 14')
 abline(a=0,b=1)
-text(4,6, paste0("RMSE = ",round(red_15.rmse, 2)," | scaled RMSE = ", round(red_15.rmse_scaled*100,2), "%"))
-text(4,5.5, paste0("Variance explained = ",rf.red_15_pct.var,"%"))
+text(4,6, paste0("RMSE = ",round(red_14.rmse, 2)," | scaled RMSE = ", round(red_14.rmse_scaled*100,2), "%"))
+text(4,5.5, paste0("Variance explained = ",rf.red_14_pct.var,"%"))
 ```
-#### Build reduced model with 9 predictors
+#### Build reduced model with 7 predictors
 
 ```{r}
 set.seed(32)
 
-rf.red_9 <- randomForest(logCond ~ PRECIP9120WS+TMAX9120WS+KFFACTWS+MSST2008+OMWS+CLAYWS+SWS+PCT_EROD+ELEVWS, data = cond.cal, importance = TRUE,  keep.forest = TRUE, mtry=9, ntree = 500) 
+rf.red_7 <- randomForest(logCond ~ PRECIP9120WS+KFFACTWS+TMAX9120WS+MSST2008+OMWS+SWS+PCT_EROD, data = cond.cal, importance = TRUE,  keep.forest = TRUE, mtry=7, ntree = 500) 
 
-print(rf.red_9)
-summary(rf.red_9)
+#print(rf.red_7)
+summary(rf.red_7)
 
-varImpPlot(rf.red_9, type = 1, n.var = 9, main = "Reduced Model Top 9") #variable importance plot
-
-# Predictions
-pred.rf.red_9 <- predict(rf.red_9, newdata = cond.cal)
-
-# Model error 
-red_9.rmse<- rmse(exp(pred.rf.red_9), exp(cond.cal$logCond))
-red_9.rmse_scaled <- red_9.rmse/range_cond
-
-# Percent variance explained
-rf.red_9_pct.var <- round(100 * rf.red_9$rsq[length(rf.red_9$rsq)], 2)
-
-# Plot
-plot(cond.cal$logCond ~ pred.rf.red_9, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'Reduced Model Top 9')
-abline(a=0,b=1)
-text(4,6, paste0("RMSE = ",round(red_9.rmse, 2)," | scaled RMSE = ", round(red_9.rmse_scaled*100,2), "%"))
-text(4,5.5, paste0("Variance explained = ",rf.red_9_pct.var,"%"))
-```
-#### Build reduced model with 5 predictors
-
-```{r}
-set.seed(32)
-
-rf.red_5 <- randomForest(logCond ~ PRECIP9120WS+TMAX9120WS+KFFACTWS+MSST2008+OMWS, data = cond.cal, importance = TRUE,  keep.forest = TRUE, mtry=5, ntree = 500) 
-
-print(rf.red_5)
-summary(rf.red_5)
-
-varImpPlot(rf.red_5, type = 1, n.var = 5, main = "Reduced Model Top 5") #variable importance plot
+varImpPlot(rf.red_7, type = 1, n.var = 7, main = "Reduced Model Top 7") #variable importance plot
 
 # Predictions
-pred.rf.red_5 <- predict(rf.red_5, newdata = cond.cal)
+pred.rf.red_7 <- predict(rf.red_7, newdata = cond.cal)
 
 # Model error 
-red_5.rmse<- rmse(exp(pred.rf.red_5), exp(cond.cal$logCond))
-red_5.rmse_scaled <- red_5.rmse/range_cond
+red_7.rmse<- rmse(exp(pred.rf.red_7), exp(cond.cal$logCond))
+red_7.rmse_scaled <- red_7.rmse/range_cond
 
 # Percent variance explained
-rf.red_5_pct.var <- round(100 * rf.red_5$rsq[length(rf.red_5$rsq)], 2)
+rf.red_7_pct.var <- round(100 * rf.red_7$rsq[length(rf.red_7$rsq)], 2)
 
 # Plot
-plot(cond.cal$logCond ~ pred.rf.red_5, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'Reduced Model Top 5')
+plot(cond.cal$logCond ~ pred.rf.red_7, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'Reduced Model Top 7')
 abline(a=0,b=1)
-text(4,6, paste0("RMSE = ",round(red_5.rmse, 2)," | scaled RMSE = ", round(red_5.rmse_scaled*100,2), "%"))
-text(4,5.5, paste0("Variance explained = ",rf.red_5_pct.var,"%"))
+text(4,6, paste0("RMSE = ",round(red_7.rmse, 2)," | scaled RMSE = ", round(red_7.rmse_scaled*100,2), "%"))
+text(4,5.5, paste0("Variance explained = ",rf.red_7_pct.var,"%"))
 ```
-
 
 #### Build reduced model with 3 predictors
 
 ```{r}
 set.seed(32)
 
-rf.red_3 <- randomForest(logCond ~ PRECIP9120WS+TMAX9120WS+KFFACTWS, data = cond.cal, importance = TRUE,  keep.forest = TRUE, mtry=3, ntree = 500) 
+rf.red_3 <- randomForest(logCond ~ PRECIP9120WS+KFFACTWS+TMAX9120WS, data = cond.cal, importance = TRUE,  keep.forest = TRUE, mtry=3, ntree = 500) 
 
-print(rf.red_3)
+#print(rf.red_3)
 summary(rf.red_3)
 
 varImpPlot(rf.red_3, type = 1, n.var = 3, main = "Reduced Model Top 3") #variable importance plot
@@ -633,11 +604,23 @@ red_3.rmse_scaled <- red_3.rmse/range_cond
 rf.red_3_pct.var <- round(100 * rf.red_3$rsq[length(rf.red_3$rsq)], 2)
 
 # Plot
-plot(cond.cal$logCond ~ pred.rf.red_3, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'Reduced Model Top 3')
+plot(cond.cal$logCond ~ pred.rf.red_3, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'CAL Reduced Model Top 3 \n (PRECIP9120, KFFACT, TMAX9120)')
 abline(a=0,b=1)
 text(4,6, paste0("RMSE = ",round(red_3.rmse, 2)," | scaled RMSE = ", round(red_3.rmse_scaled*100,2), "%"))
 text(4,5.5, paste0("Variance explained = ",rf.red_3_pct.var,"%"))
 
+
+#Untransformed plot no log scale axes
+plot(exp(cond.cal$logCond) ~ exp(pred.rf.red_3), xlab = 'predicted Conductivity', ylab = 'observed Conductivity', main = 'CAL Reduced Model Top 3 untransformed \n (PRECIP9120, KFFACT, TMAX9120)')
+abline(a=0,b=1)
+text(150,600, paste0("RMSE = ",round(red_3.rmse, 2)," | scaled RMSE = ", round(red_3.rmse_scaled*100,2), "%"))
+text(150,500, paste0("Variance explained = ",rf.red_3_pct.var,"%"))
+
+#Untransformed plot no log scale axes
+plot(exp(cond.cal$logCond) ~ exp(pred.rf.red_3), log = 'xy', xlab = 'predicted Conductivity (μS/cm)', ylab = 'observed Conductivity (μS/cm)', main = 'CAL Reduced Model Top 3 log scale axes \n (PRECIP9120, KFFACT, TMAX9120)')
+abline(a=0,b=1)
+text(55,300, paste0("RMSE = ",round(red_3.rmse, 2)," | scaled RMSE = ", round(red_3.rmse_scaled*100,2), "%"))
+text(55,210, paste0("Variance explained = ",rf.red_3_pct.var,"%"))
 ```
 #### Residual plot for red_3 model
 
@@ -647,28 +630,30 @@ plot(residuals.red_3 ~ exp(pred.rf.red_3), xlab = "Predicted Conductivity (uS/cm
 abline(h=0, col = "red", lty = 2)
 ```
 
-#### Test reduced model (red_9) with VAL data
+#### Test reduced model (red_3) with VAL data
 
 ```{r}
 # Predictions
-pred.rf.red_9_val <- predict(rf.red_9, newdata = cond.val)
+pred.rf.red_3_val <- predict(rf.red_3, newdata = cond.val)
 
 # Model error 
-red_9_val.rmse<- rmse(exp(pred.rf.red_9_val), exp(cond.val$logCond))
-red_9_val.rmse_scaled <- red_9_val.rmse/range_cond
+red_3_val.rmse<- rmse(exp(pred.rf.red_3_val), exp(cond.val$logCond))
+red_3_val.rmse_scaled <- red_3_val.rmse/range_cond
 
 # Plot
-plot(cond.val$logCond ~ pred.rf.red_9_val, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'VALIDATION Reduced Model Top 9')
+plot(cond.val$logCond ~ pred.rf.red_3_val, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'VALIDATION Reduced Model Top 3')
 abline(a=0,b=1)
-text(4.25,6, paste0("RMSE = ",round(red_9_val.rmse, 2)," | scaled RMSE = ", round(red_9_val.rmse_scaled*100,2), "%"))
+text(4.3,6, paste0("RMSE = ",round(red_3_val.rmse, 2)," | scaled RMSE = ", round(red_3_val.rmse_scaled*100,2), "%"))
 
 #Untransformed plot no log scale axes
-plot(exp(cond.val$logCond) ~ exp(pred.rf.red_9_val), xlab = 'predicted Conductivity', ylab = 'observed Conductivity', main = 'VALIDATION Reduced Model Top 9 untransformed')
+plot(exp(cond.val$logCond) ~ exp(pred.rf.red_3_val), xlab = 'predicted Conductivity', ylab = 'observed Conductivity', main = 'VALIDATION Reduced Model Top 3')
 abline(a=0,b=1)
+text(130,600, paste0("RMSE = ",round(red_3_val.rmse, 2)," | scaled RMSE = ", round(red_3_val.rmse_scaled*100,2), "%"))
 
 #Untransformed plot no log scale axes
-plot(exp(cond.val$logCond) ~ exp(pred.rf.red_9_val), log = 'xy', xlab = 'predicted Conductivity', ylab = 'observed Conductivity', main = 'VALIDATION Reduced Model Top 9 untransformed log scale axes')
+plot(exp(cond.val$logCond) ~ exp(pred.rf.red_3_val), log = 'xy', xlab = 'predicted Conductivity (μS/cm)', ylab = 'observed Conductivity (μS/cm)', main = 'VALIDATION Reduced Model Top 3 log scale axes')
 abline(a=0,b=1)
+text(60,500, paste0("RMSE = ",round(red_3_val.rmse, 2)," | scaled RMSE = ", round(red_3_val.rmse_scaled*100,2), "%"))
 ```
 #### Test reduced model (red_3) with VAL data
 ```{r}
@@ -736,11 +721,11 @@ plot(cond.cal_val$logCond ~ pred.rf.red_3_cal_val, xlab = 'predicted logCond', y
 abline(a=0,b=1)
 
 #Untransformed plot no log scale axes
-plot(exp(cond.cal_val$logCond) ~ exp(pred.rf.red_3_cal_val), xlab = 'predicted Conductivity', ylab = 'observed Conductivity', main = 'CAL & VAL Reduced Model Top 3 untransformed')
+plot(exp(cond.cal_val$logCond) ~ exp(pred.rf.red_3_cal_val), xlab = 'predicted Conductivity', ylab = 'observed Conductivity', main = 'CAL & VAL Reduced Model Top 3')
 abline(a=0,b=1)
 
 #Untransformed plot no log scale axes
-plot(exp(cond.cal_val$logCond) ~ exp(pred.rf.red_3_cal_val), log = 'xy', xlab = 'predicted Conductivity', ylab = 'observed Conductivity', main = 'CAL & VAL Reduced Model Top 3 untransformed log scale axes')
+plot(exp(cond.cal_val$logCond) ~ exp(pred.rf.red_3_cal_val), log = 'xy', xlab = 'predicted Conductivity', ylab = 'observed Conductivity', main = 'CAL & VAL Reduced Model Top 3 log scale axes')
 abline(a=0,b=1)
 
 # CALCULATE PROPORTIONS ABOVE 1:1 AND 2:1 LINES

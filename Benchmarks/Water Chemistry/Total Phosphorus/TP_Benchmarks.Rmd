@@ -337,7 +337,7 @@ sapply(tp_vars_selected, function(x) sum(is.na(x)))
 
 ```{r}
 # HISTOGRAM
-hist(tp_vars_selected$TP, main = "", xlab = "Total Phosphorus") #raw data
+hist(tp_vars_selected$TP, main = "", xlab = "Total Phosphorus (mg/L)") #raw data
 hist(tp_vars_selected$logTP, main = "", xlab = "log+1(TP)")
 
 # DENSITY PLOT
@@ -472,7 +472,7 @@ plot(rf_random)
 ```{r}
 set.seed(39)
 
-rf.full <- randomForest(TP ~ ., tp.cal, importance = TRUE, mtry= 37, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors. mtry=37 based on Caret grid search results.
+rf.full <- randomForest(TP ~ ., tp.cal, importance = TRUE, mtry = 37, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors. mtry=37 based on Caret grid search results.
 print(rf.full)
 
 varImpPlot(rf.full, type = 1, n.var = 25, main = "All-Sites Model") #variable importance plot
@@ -566,88 +566,74 @@ abline(a=0,b=1)
 text(0.15,0.6, paste0("RMSE = ",round(red_2.rmse, 2)," | scaled RMSE = ", round(red_2.rmse_scaled*100,2), "%"))
 text(0.15,0.5, paste0("Variance explained = ",rf.red_2_pct.var,"%"))
 ```
-
-
-
-
-
-# DID NOT MAKE EDITS BELOW THIS POINT...
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#### Residual plot for red_3 model
+#### Residual plot for red_2 model
 
 ```{r}
-residuals.red_3 <- exp(cond.cal$logCond) - exp(pred.rf.red_3) # Observed minus predicted 
-plot(residuals.red_3 ~ exp(pred.rf.red_3), xlab = "Predicted Conductivity (uS/cm)", ylab = "Residuals", main="rf.red_3 residuals")
+residuals.red_2 <- tp.cal$TP - pred.rf.red_2 # Observed minus predicted 
+plot(residuals.red_2 ~ pred.rf.red_2, xlab = "Predicted Total Phosphorus (mg/L)", ylab = "Residuals", main = "rf.red_2 residuals")
 abline(h=0, col = "red", lty = 2)
 ```
 
-#### Test reduced model (red_9) with VAL data
+#### Test reduced model (red_2) with VAL data
 
 ```{r}
 # Predictions
-pred.rf.red_9_val <- predict(rf.red_9, newdata = cond.val)
+pred.rf.red_2_val <- predict(rf.red_2, newdata = tp.val)
 
 # Model error 
-red_9_val.rmse<- rmse(exp(pred.rf.red_9_val), exp(cond.val$logCond))
-red_9_val.rmse_scaled <- red_9_val.rmse/range_cond
+red_2_val.rmse<- rmse(pred.rf.red_2_val, tp.val$TP)
+red_2_val.rmse_scaled <- red_2_val.rmse/range_tp
 
 # Plot
-plot(cond.val$logCond ~ pred.rf.red_9_val, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'VALIDATION Reduced Model Top 9')
+plot(tp.val$TP ~ pred.rf.red_2_val, xlab = 'predicted Total Phosphorus (mg/L)', ylab = 'observed Total Phosphorus (mg/L)', main = 'VALIDATION Reduced Model Top 2')
 abline(a=0,b=1)
-text(4.25,6, paste0("RMSE = ",round(red_9_val.rmse, 2)," | scaled RMSE = ", round(red_9_val.rmse_scaled*100,2), "%"))
-
-#Untransformed plot no log scale axes
-plot(exp(cond.val$logCond) ~ exp(pred.rf.red_9_val), xlab = 'predicted Conductivity', ylab = 'observed Conductivity', main = 'VALIDATION Reduced Model Top 9 untransformed')
-abline(a=0,b=1)
-
-#Untransformed plot no log scale axes
-plot(exp(cond.val$logCond) ~ exp(pred.rf.red_9_val), log = 'xy', xlab = 'predicted Conductivity', ylab = 'observed Conductivity', main = 'VALIDATION Reduced Model Top 9 untransformed log scale axes')
-abline(a=0,b=1)
+text(0.1,0.5, paste0("RMSE = ",round(red_2_val.rmse, 2)," | scaled RMSE = ", round(red_2_val.rmse_scaled*100,2), "%"))
 ```
 
-#### Test reduced model (red_3) with VAL data
+# Ref only model
+```{r}
+set.seed(39)
 
+rf.ref.full <- randomForest(TP ~ ., data = tp.ref, importance = TRUE, mtry = 37, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors. mtry=37 based on Caret grid search results.
+print(rf.ref.full)
+
+varImpPlot(rf.ref.full, type = 1, n.var = 25, main = "Ref-Only Full Model") #variable importance plot
+```
 ```{r}
 # Predictions
-pred.rf.red_3_val <- predict(rf.red_3, newdata = cond.val)
+pred.rf.ref <- predict(rf.ref.full, newdata = tp.ref)
 
 # Model error 
-red_3_val.rmse<- rmse(exp(pred.rf.red_3_val), exp(cond.val$logCond))
-red_3_val.rmse_scaled <- red_3_val.rmse/range_cond
+full.ref.rmse<- rmse(pred.rf.ref, tp.ref$TP)
+
+range_tp <- max(tp.cal_val$TP) - min(tp.cal_val$TP)
+full.ref.rmse_scaled <- full.ref.rmse/range_tp
+
+# Percent variance explained
+rf.ref.full_pct.var <- round(100 * rf.ref.full$rsq[length(rf.ref.full$rsq)], 2)
 
 # Plot
-plot(cond.val$logCond ~ pred.rf.red_3_val, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'VALIDATION Reduced Model Top 3')
+plot(tp.ref$TP ~ pred.rf.ref, xlab = 'predicted Total Phosphorus (mg/L)', ylab = 'observed Total Phosphorus (mg/L)', main = 'Full model reference-only')
 abline(a=0,b=1)
-text(4.25,6, paste0("RMSE = ",round(red_3_val.rmse, 2)," | scaled RMSE = ", round(red_3_val.rmse_scaled*100,2), "%"))
-
-#Untransformed plot no log scale axes
-plot(exp(cond.val$logCond) ~ exp(pred.rf.red_3_val), xlab = 'predicted Conductivity', ylab = 'observed Conductivity', main = 'VALIDATION Reduced Model Top 9 untransformed')
-abline(a=0,b=1)
-text(150,600, paste0("RMSE = ",round(red_3_val.rmse, 2)," | scaled RMSE = ", round(red_3_val.rmse_scaled*100,2), "%"))
-
-#Untransformed plot no log scale axes
-plot(exp(cond.val$logCond) ~ exp(pred.rf.red_3_val), log = 'xy', xlab = 'predicted Conductivity', ylab = 'observed Conductivity', main = 'VALIDATION Reduced Model Top 3 untransformed log scale axes')
-abline(a=0,b=1)
-text(60,500, paste0("RMSE = ",round(red_3_val.rmse, 2)," | scaled RMSE = ", round(red_3_val.rmse_scaled*100,2), "%"))
+text(0.03,0.08, paste0("RMSE = ",round(full.ref.rmse, 2)," | scaled RMSE = ", round(full.ref.rmse_scaled*100,2), "%"))
+text(0.03,0.07, paste0("Variance explained = ",rf.ref.full_pct.var,"%"))
 ```
+
+
+
+
+
+
+
+
+# DID NOT MAKE EDITS BELOW THIS POINT....
+
+
+
+
+
+
+
 
 #### Plot Obs vs pred CAL and VAL all sites
 
@@ -746,33 +732,4 @@ cond_map <- cond_map %>%
   relocate(delta, .before = PRECIP9120WS)
 
 #write_xlsx(cond_map, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//Cond_Map", Sys.Date(), ".xlsx"))
-```
-
-# Ref only model
-```{r}
-set.seed(39)
-
-rf.ref.full <- randomForest(logCond ~ BFIWS+ CAOWS+ CLAYWS+ COMPSTRGTHWS+ ELEVWS+ FE2O3WS+ HYDRLCONDWS+ K2OWS+ KFFACTWS+  MSST2008+ NA2OWS+ NHD_pSLOPE+  NWS+ OMWS+ PCT_EROD+ PCTALKINTRUVOLWS+ PCTALLUVCOASTWS+ PCTBL2001WS+ PCTBURNAREA2002WS+ PCTCOLLUVSEDWS+ PCTCONIF2001WS+ PCTDECID2001WS+ PCTEOLCRSWS+ PCTEOLFINEWS+ PCTEXTRUVOLWS+ PCTGLACLAKECRSWS+ PCTGLACLAKEFINEWS+ PCTGLACTILCRSWS+ PCTGRS2001WS+ PCTHBWET2001WS+ PCTICE2001WS+  PCTINCVEGRESP2002WS+  PCTOW2001WS+ PCTSALLAKEWS+ PCTSHRB2001WS+  PCTWATERWS+  PRECIP9120WS+ RCKDEPWS+ RDCRSSLPWTDWS+  ROCKNWS+ SANDWS+  STRMPOW_CAT+  SW_FLUXWS+ SWS+ TMAX9120WS+ TRIDENSWS+ WATERINPUTWS+ WETINDEXWS+ WETTEDWIDTH+ WTDEPWS+ +SITE_TYPE+ L2Eco + L3Eco, cond.ref, importance = TRUE, mtry=20, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors. mtry=20 based on Caret grid search results.
-print(rf.ref.full)
-
-varImpPlot(rf.ref.full, type = 1, n.var = 25, main = "Ref-Only Full Model") #variable importance plot
-```
-```{r}
-# Predictions
-pred.rf.ref <- predict(rf.ref.full, newdata = cond.ref)
-
-# Model error 
-full.ref.rmse<- rmse(exp(pred.rf.ref), exp(cond.ref$logCond))
-
-range_cond <- max(exp(cond.cal_val$logCond)) - min(exp(cond.cal_val$logCond))
-full.ref.rmse_scaled <- full.ref.rmse/range_cond
-
-# Percent variance explained
-rf.ref.full_pct.var <- round(100 * rf.ref.full$rsq[length(rf.ref.full$rsq)], 2)
-
-# Plot
-plot(cond.ref$logCond ~ pred.rf.ref, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'Full model reference-only')
-abline(a=0,b=1)
-text(3.5,5, paste0("RMSE = ",round(full.ref.rmse, 2)," | scaled RMSE = ", round(full.ref.rmse_scaled*100,2), "%"))
-text(3.5,4.5, paste0("Variance explained = ",rf.ref.full_pct.var,"%"))
 ```

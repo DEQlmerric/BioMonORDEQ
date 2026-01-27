@@ -229,18 +229,13 @@ sapply(tp_tn_vars, function(x) sum(is.na(x)))
 #### PERFORM NA ROUGH FIX
 
 ```{r}
-# PERFORM NA ROUGHFIX FUNCTION ON METRICS WITH MISSING VALUES
+# PERFORM NA ROUGHFIX FUNCTION ON METRICS WITH ONLY A FEW MISSING VALUES (Leave metrics with >10 NAs [MAST2008, BMMI0809, WETTEDWITDTH, THALWEGDEPTH, BANKFULLWIDTH, BANKFULLDEPTH] until after the correlation table is built.)
 tp_tn_vars$NSURPWS  <- na.roughfix(tp_tn_vars$NSURPWS) # 1 NA
 tp_tn_vars$NANIWS  <- na.roughfix(tp_tn_vars$NANIWS) # 1 NA
 tp_tn_vars$SW_FLUXWS  <- na.roughfix(tp_tn_vars$SW_FLUXWS) # 2 NA
 tp_tn_vars$PCTIMPSLPHIGH2001WS  <- na.roughfix(tp_tn_vars$PCTIMPSLPHIGH2001WS) # 4 NA
-#tp_tn_vars$MAST2008  <- na.roughfix(tp_tn_vars$MAST2008) # 56 NA
 tp_tn_vars$MWST2008  <- na.roughfix(tp_tn_vars$MWST2008) # 9 NA
-# tp_tn_vars$PRG_BMMI0809  <- na.roughfix(tp_tn_vars$PRG_BMMI0809) # 62 NA
-# tp_tn_vars$WETTEDWIDTH  <- na.roughfix(tp_tn_vars$WETTEDWIDTH) # 64 NA
-# tp_tn_vars$THALWEGDEPTH  <- na.roughfix(tp_tn_vars$THALWEGDEPTH) # 64 NA
-# tp_tn_vars$BANKFULLWIDTH  <- na.roughfix(tp_tn_vars$BANKFULLWIDTH) # 64 NA
-# tp_tn_vars$BANKFULLDEPTH  <- na.roughfix(tp_tn_vars$BANKFULLDEPTH) # 64 NA
+
 ```
 
 ## B. PREDICTOR VARIABLE SELECTION
@@ -271,7 +266,7 @@ rm(list=c('spear', 'spear.rows'))
 
 ```{r}
 # Export once, then clean up in Excel.
-#write_xlsx(matrix, path = "~/BioMonORDEQ/Benchmarks/Water Chemistry/Total Phosphorus/TP_TN_Spearmans_Matrix.xlsx")
+#write_xlsx(matrix, path = paste0("~/BioMonORDEQ/Benchmarks/Water Chemistry/Total Phosphorus/TP_TN_Spearmans_Matrix", Sys.Date(), ".xlsx"))
 ```
 
 #### Calculate coefficient of variance (CV), proportion of 0s, and kernel density plots to guide variable selection decisions
@@ -279,12 +274,12 @@ rm(list=c('spear', 'spear.rows'))
 ```{r}
 # Calculate coefficient of variance (CV) for each predictor.
 cv <- tp_tn_vars_num %>% 
-  summarise(across(everything(), ~ cv(.x))) %>% 
+  summarise(across(everything(), ~ cv(.x, na.rm = TRUE))) %>% 
   pivot_longer(1:140, names_to="Var", values_to="CV") # Change first argument to 1:# columns
 
 # Calculate % of zeros for each predictor.
 cv_pctzero <- tp_tn_vars_num %>%
-  summarise(across(everything(), ~ sum(. == 0) / n() * 100)) %>% 
+  summarise(across(everything(), ~ sum(. == 0, na.rm = TRUE) / n() * 100)) %>% 
   pivot_longer(1:140, names_to="Var", values_to="Percent Zeros") %>%  # Change  first argument to 1:# columns
   inner_join(cv, by = "Var")
 
@@ -306,19 +301,20 @@ tp_tn_vars %>%
 #### Hold variable selection meeting
 
 ```{r}
-# 1. Make a variable selection decisions sheet in Excel based on the TEMPLATE (Benchmarks >> Water Chemistry) and save to model folder on GitHub.
+# 1. Make a variable selection decisions sheet in Excel based on the TEMPLATE (Benchmarks >> Water Chemistry >> TEMPLATE_Var selection deicions.xlsx) and save to model folder on GitHub.
 
 # 2. Clean up correlation matrix Excel table manually:
-  # a) Filter data to hide 1s.
+  # a) Filter data and delete rows where cor = 1.
   # b) Sort row names alphabetically.
   # c) Remove composite indexes (CHEM, CONN, HABT, HYD, ICI, IWI, SED, and TEMP).
-  # d) Make a new matrix predictor decisions sheet based on the TEMPLATE (Benchmarks >> Water Chemistry) and save to model folder on GitHub. 
-  #     Copy row names into template (col A) and update formulas, column names into col K, and correlations into col K. 
+  # d) Make a new matrix predictor decisions sheet based on the TEMPLATE (Benchmarks >> Water Chemistry >> TEMPLATE_Var selection correlations) and save to model folder on GitHub. 
+  #     Copy row names into template (col A) and update formulas, column names into col G, and correlations into col L. 
   #     Add horizontal borders between groupings. 
+  #     You may want to hide columns B and H (they are just for the formulas)
 
 # 3. For each co-varied predictor(s), discuss ecological considerations and data distribution (CV, how well covers gradient, %0s).
 
-# 4. Record which predictors to keep/remove and document rationale.
+# 4. Record which predictors to keep/remove and document rationale in the decisions sheet.
 
 # 5. Remove predictors that have 100% zeros (no modeling power) and paste list of keepers below.
 ```
@@ -326,7 +322,7 @@ tp_tn_vars %>%
 #### Update predictor list
 
 ```{r}
-# UNIQUE FOR THIS SCRIPT - Select only COMIDs with TP samples (drop TN only rows). Also drop bad COMID for Twentymile Cr 12266-ORDEQ.
+# UNIQUE FOR THIS SCRIPT - Select only COMIDs with TP samples (drop TN only rows). Also at this point we lose bad COMID for Twentymile Cr 12266-ORDEQ.
 tp_vars <- semi_join(tp_tn_vars, tp, by = "COMID") 
 
 # Use Excel formula (=TEXTJOIN(", ", TRUE, range:range)) to compile list and paste below.
@@ -366,10 +362,9 @@ rm('tp_vars_num_selected')
 
 ```{r}
 # FIND OUT WHICH COLUMNS HAVE NAs
-sapply(tp_tn_vars, function(x) sum(is.na(x)))
+sapply(tp_vars_selected, function(x) sum(is.na(x)))
 
-# DO ANY LAST NA ROUGH FIXES AS DESIRED (write code for specific predictors)
-# tp_tn_vars$BANKFULLDEPTH  <- na.roughfix(tp_tn_vars$BANKFULLDEPTH) # 64 NA
+# DO ANY LAST NA ROUGH FIXES AS DESIRED (write code for specific predictors) (none for TP)
 ```
 
 # **4 - EXPLORE DATA**
@@ -471,7 +466,7 @@ tp_vars_selected %>%
 # Subset CALibration dataset.
 tp.cal <- tp_vars_selected %>%  
   filter(cal_val == 'CAL') %>%  
-  select(-c(MLocID:COMID, logTP, SampleStartDate)) #drop TP in favor of logTP. Drop AWQMS columns too.
+  select(-c(MLocID:COMID, logTP, SampleStartDate)) #drop logTP in favor of TP. Drop AWQMS columns too.
 
 # Subset VALidation dataset.
 tp.val <- tp_vars_selected %>%  
@@ -508,13 +503,13 @@ print(best_mtry)
 
 
 # OPTION B: SLOWEST (~30 MIN) BUT HAS BETTER RESOLUTION. Based on Caret.
-control <- trainControl(method="repeatedcv", number=10, repeats = 3, search="random")
-set.seed(1)
-mtry <- sqrt(ncol(tp.cal[ , 2:75]
-))
-rf_random <- train(TP ~., data = tp.cal, method = "rf", metric = "RMSE", tuneLength = 15, trControl=control)
-
-plot(rf_random)
+# control <- trainControl(method="repeatedcv", number=10, repeats = 3, search="random")
+# set.seed(1)
+# mtry <- sqrt(ncol(tp.cal[ , 2:75]
+# ))
+# rf_random <- train(TP ~., data = tp.cal, method = "rf", metric = "RMSE", tuneLength = 15, trControl=control)
+# 
+# plot(rf_random)
 ```
 
 #### Tune the model: find optimum number of trees
@@ -699,15 +694,7 @@ text(0.03,0.08, paste0("RMSE = ",round(full.ref.rmse, 2)," | scaled RMSE = ", ro
 text(0.03,0.07, paste0("Variance explained = ",rf.ref.full_pct.var,"%"))
 ```
 
-
-
-
-
 # DID NOT MAKE EDITS BELOW THIS POINT....
-
-
-
-
 
 #### Plot Obs vs pred CAL and VAL all sites
 

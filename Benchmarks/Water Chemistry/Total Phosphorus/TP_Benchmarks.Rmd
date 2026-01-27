@@ -5,7 +5,7 @@ date: "2026-01-21"
 output: html_document
 ---
 
-#### Total Phosphorus
+# *Total Phosphorus*
 
 # **1 - LOAD PACKAGES**
 
@@ -20,14 +20,11 @@ library(caret)
 library(ORDEQBioassessment)
 library(EnvStats)
 library(Metrics)
-# devtools::install_github("TravisPritchardODEQ/ORDEQBioassessment", 
-#                         host = "https://api.github.com", 
-#                        dependencies = TRUE, force = TRUE, upgrade = "never")
 ```
 
 # **2 - IMPORT DATA**
 
-## STATIONS - *FROM WATER CHEMISTRY BENCHMARKS SCRIPT*
+## A. STATIONS - *FROM WATER CHEMISTRY BENCHMARKS SCRIPT*
 
 ```{r}
 tp <- read_excel("~/BioMonORDEQ/Benchmarks/Water Chemistry/Total Phosphorus/totalP2026_01-21.xlsx") #output file from ref benchmarks script
@@ -39,11 +36,11 @@ comids <- bind_rows(tp, tn) %>% select(COMID) %>% distinct() # Get just the COMI
 
 ```
 
-## WATERSHED PREDICTOR VARIABLES - *FROM EPA STREAMCAT*
+## B. WATERSHED PREDICTORS - *FROM EPA STREAMCAT*
 
-#### Learn about StreamCat predictors: <https://www.epa.gov/national-aquatic-resource-surveys/streamcat-metrics-and-definitions>
+##### Learn about StreamCat predictors: <https://www.epa.gov/national-aquatic-resource-surveys/streamcat-metrics-and-definitions>
 
-#### View StreamCat updates: <https://www.epa.gov/national-aquatic-resource-surveys/streamcat-updates>
+##### View StreamCat updates: <https://www.epa.gov/national-aquatic-resource-surveys/streamcat-updates>
 
 #### Run function to query ALL StreamCat data for selected COMIDs by subcategory
 
@@ -183,7 +180,9 @@ sc_all <- sc_all %>% reduce(full_join, by = 'COMID')
 rm(list=c('ag', 'clim', 'dams', 'flow','iwi', 'cover', 'litho', 'mintox', 'roads', 'urb', 'fire', 'other'))
 ```
 
-#### Add predictor variables not in StreamCat (LII and III Ecoregion, Lat/Long, erodible vs. resistant geology, slope, stream power)
+## C. OTHER PREDICTORS - *OUTSIDE OF STREAMCAT*
+
+#### Ecoregion II & III, lat/long, erodible geology, NHD slope, stream power
 
 ```{r}
 # ERODIBLE VS RESISTENT GEOLOGY (KEPT ERODIBLE, SINCE RESISTENT IS INVERSE OF ERODIBLE)
@@ -192,6 +191,7 @@ erod_resist_strmpow <- sc_all %>%
   mutate(PCT_RESIST = PCTALKINTRUVOLWS+PCTEXTRUVOLWS+PCTHYDRICWS+PCTSILICICWS) 
 
 # SLOPE FROM NHD (TAKES 1-2 MIN)
+# Note: do NOT push the downloaded file to GitHub as it's too large and will result in issues. Commit the ignore instead.
 erod_resist_strmpow <- ORDEQBioassessment::get_NHD_info(erod_resist_strmpow) 
 
 # WATERSHED AREA AND STREAM POWER
@@ -199,7 +199,7 @@ erod_resist_strmpow <- erod_resist_strmpow %>%
   mutate(STRMPOW_CAT = totdasqkm + PRECIP9120WS * slope) %>%  # WSAREASQKM from SC, instead pulling totdasqkm from get_NHD (they are the same)
   select(COMID, PCT_EROD, STRMPOW_CAT, NHD_pSLOPE, SITE_TYPE) # Drop PCT_RESIST since it's the inverse of PCT_ERODE
 
-# JOIN WITH OTHER PARAMETERS NOT FROM SC
+# JOIN WITH OTHER PARAMETERS NOT FROM STREAMCAT
 tp_tn_vars <- sc_all %>% 
   inner_join(erod_resist_strmpow, by='COMID') %>% 
   inner_join(tp, by = 'COMID')
@@ -211,14 +211,24 @@ tp_tn_vars <- tp_tn_vars %>%
   select(-c(HUC8, EcoRegion4)) 
 ```
 
-#### Explore co-varied metrics and select which we want to retain for modeling purposes.
+# **3 - PREPARE DATA FOR MODELS**
 
-#### Make Spearman correlation matrix to identify co-varied parameters
+## A. HANDLE NA VALUES
 
-```{r, warning=FALSE}
-# FIND OUT WHICH COLUMNS HAVE NAs (AND WRITE CODE FOR THEM BELOW)
+#### IDENTIFY COLUMNS WITH MISSING DATA
+
+```{r}
+# FIND OUT WHICH COLUMNS HAVE NAs
 sapply(tp_tn_vars, function(x) sum(is.na(x)))
 
+# THEN WRITE CODE FOR THEM IN ROUGH FIX SECTION BELOW.
+
+# Note: Some predictors may have a large number of missing values (e.g., bankfull width). Consider performing rough fix....
+```
+
+#### PERFORM NA ROUGH FIX
+
+```{r}
 # PERFORM NA ROUGHFIX FUNCTION ON METRICS WITH MISSING VALUES
 tp_tn_vars$NSURPWS  <- na.roughfix(tp_tn_vars$NSURPWS) # 1 NA
 tp_tn_vars$NANIWS  <- na.roughfix(tp_tn_vars$NANIWS) # 1 NA
@@ -231,7 +241,13 @@ tp_tn_vars$MWST2008  <- na.roughfix(tp_tn_vars$MWST2008) # 9 NA
 # tp_tn_vars$THALWEGDEPTH  <- na.roughfix(tp_tn_vars$THALWEGDEPTH) # 64 NA
 # tp_tn_vars$BANKFULLWIDTH  <- na.roughfix(tp_tn_vars$BANKFULLWIDTH) # 64 NA
 # tp_tn_vars$BANKFULLDEPTH  <- na.roughfix(tp_tn_vars$BANKFULLDEPTH) # 64 NA
+```
 
+## B. PREDICTOR VARIABLE SELECTION
+
+#### Make Spearman correlation matrix to identify co-varied predictors (\>0.8)
+
+```{r, warning=FALSE}
 # Subset numeric variables only
 tp_tn_vars_num <- tp_tn_vars %>% 
   select(!c(SITE_TYPE:L3Eco)) %>% 
@@ -248,32 +264,35 @@ matrix <- spear.rows %>%
   gather(-rowname, key = "colname", value = "cor") %>% 
   filter(abs(cor) > 0.8)
 
-#export once, then clean up in Excel
-#write_xlsx(matrix, path = "~/BioMonORDEQ/Benchmarks/Water Chemistry/Total Phosphorus/TP_TN_Spearmans_Matrix.xlsx")
-
 rm(list=c('spear', 'spear.rows'))
 ```
 
-##### NOTE: Take the correlation matrix and make predictor decisions. Look at CV, proportion of 0s, and kernel density plots of variables to help make these decisions.
+#### Export matrix and clean up in Excel
 
 ```{r}
-# Look at Coefficient of Variance for predictors.
+# Export once, then clean up in Excel.
+#write_xlsx(matrix, path = "~/BioMonORDEQ/Benchmarks/Water Chemistry/Total Phosphorus/TP_TN_Spearmans_Matrix.xlsx")
+```
+
+#### Calculate coefficient of variance (CV), proportion of 0s, and kernel density plots to guide variable selection decisions
+
+```{r}
+# Calculate coefficient of variance (CV) for each predictor.
 cv <- tp_tn_vars_num %>% 
   summarise(across(everything(), ~ cv(.x))) %>% 
   pivot_longer(1:140, names_to="Var", values_to="CV") # Change first argument to 1:# columns
 
+# Calculate % of zeros for each predictor.
 cv_pctzero <- tp_tn_vars_num %>%
   summarise(across(everything(), ~ sum(. == 0) / n() * 100)) %>% 
   pivot_longer(1:140, names_to="Var", values_to="Percent Zeros") %>%  # Change  first argument to 1:# columns
   inner_join(cv, by = "Var")
 
+# Write output to Excel for variable selection meeting.
 #write_xlsx(cv_pctzero, path = "~/BioMonORDEQ/Benchmarks/Water Chemistry/Total Phosphorus/TP_TN_CofV.xlsx")
-
 rm(cv)
-```
- 
-```{r}
-# Look at KD plots for predictors.
+
+# Make kernel density plots for predictors of interest to compare distributions.
 tp_tn_vars %>%
     select("AGKFFACTWS","AL2O3WS","BANKFULLDEPTH","BANKFULLWIDTH","BFIWS","CAOWS","CBNFWS","CLAYWS","CONNWS","DAMDENSWS","DAMNIDSTORWS","DAMNRMSTORWS") %>%  # Edit this line to include vars that you want to look at.
   keep(is.numeric) %>% 
@@ -284,12 +303,25 @@ tp_tn_vars %>%
   geom_rug()
 ```
 
-#### Select variables based on correlation analysis. (Either select desired vars or drop undesired ones. Helps if they are in alphabetical order. Don't get rid of columns you want to keep from AWQMS at this stage.)  SH, AT, and SB did this together and recorded decisions in 'Var selection decision 1-22-26.xlsx'
+#### Hold variable selection meeting
 
 ```{r}
-# Did not copy over metrics with 100% zeros. Use formula (=TEXTJOIN(", ", TRUE, A1:range)) to compile list to paste below.
-tp_vars <- semi_join(tp_tn_vars, tp, by = "COMID") # Select only COMIDs with TP samples (drop TN only rows), also dropped bad COMID for Twentymile Cr 12266-ORDEQ
+# 1. Make a variable selection decisions sheet in Excel: variable name, keep/remove, rationale, and ecological considerations
 
+# 2. For each co-varied predictor(s), discuss ecological considerations and data distribution (CV, how well covers gradient, %0s)
+
+# 3. Record which predictors to keep/remove and document rationale
+
+# 4. Remove predictors that are composite indexes (e.g., IWI) and have 100% zeros (no modeling power) and paste list of keepers below
+```
+
+#### Update predictor list
+
+```{r}
+# UNIQUE FOR THIS SCRIPT - Select only COMIDs with TP samples (drop TN only rows). Also drop bad COMID for Twentymile Cr 12266-ORDEQ.
+tp_vars <- semi_join(tp_tn_vars, tp, by = "COMID") 
+
+# Use Excel formula (=TEXTJOIN(", ", TRUE, A1:range)) to compile list and paste below.
 tp_vars_selected <- tp_vars %>% 
   select(c(MLocID:COMID, BFIWS, CANALDENSWS, CLAYWS, COMPSTRGTHWS, DAMNRMSTORWS, ELEVWS, FE2O3WS, FERTWS, HYDRLCONDWS, K2OWS, KFFACTWS, MINEDENSWS, MSST2008, NANIWS, NHD_pSLOPE, NPDESDENSWS, NWS, OMWS, P2O5WS, PCT_EROD, PCTAGDRAINAGEWS, PCTALKINTRUVOLWS, PCTALLUVCOASTWS, PCTBL2001WS, PCTBURNAREA2002WS, PCTCARBRESIDWS, PCTCOLLUVSEDWS, PCTCONIF2001WS, PCTCROP2001WS, PCTDECID2001WS, PCTEOLFINEWS, PCTEXTRUVOLWS, PCTFRSTLOSS2002WS, PCTGLACLAKECRSWS, PCTGLACLAKEFINEWS, PCTGLACTILCRSWS, PCTGRS2001WS, PCTHAY2001WS, PCTHBWET2001WS, PCTICE2001WS, PCTIMP2001WS, PCTINCVEGRESP2002WS, PCTNONAGINTRODMANAGVEGWS, PCTOW2001WS, PCTSALLAKEWS, PCTSHRB2001WS, PCTURBHI2001WS, PCTURBLO2001WS, PCTURBOP2001WS, PCTWATERWS, PCTWDWET2001WS, PESTIC1997WS, POPDEN2010WS, PRECIP_MINUS_EVTWS, RCKDEPWS, RDCRSSLPWTDWS, RDCRSWS, RDDENSWS, ROCKNWS, SANDWS, SEPTICWS, STRMPOW_CAT, SUPERFUNDDENSWS, SW_FLUXWS, SWS, TMAX9120WS, TRIDENSWS, WETINDEXWS, WTDEPWS, WWTPALLDENSWS, WWTPMAJORDENSWS, SITE_TYPE:L3Eco)) %>% 
   relocate(COMID, .after = cal_val) %>% 
@@ -297,7 +329,7 @@ tp_vars_selected <- tp_vars %>%
   relocate(logTP, .before= TP)
 ```
 
-#### Perform final correlation check
+#### Perform final correlation check to ensure no co-varied predictors remain
 
 ```{r, warning=FALSE}
 # Subset numeric variables only
@@ -317,23 +349,14 @@ matrix2 <- spear2.rows %>%
 
 rm(list=c('spear2', 'spear2.rows', 'tp_vars_num_selected'))
 
-# ***CONTINUE ONCE NO CORRELATED VARIABLES REMAIN***
+# ***OPEN NEWLY CREATED MATRIX AND CONTINUE ONLY IF NO CORRELATED VARIABLES REMAIN (ALL SHOULD BE 1)***
 
 rm('tp_vars_num_selected')
 ```
 
-# **3 - PREPARE DATA FOR MODELS**
-
-## HANDLE NA VALUES AND TRANSFORM DATA
-
-```{r, warning=FALSE}
-# FIND OUT WHICH COLUMNS HAVE NAs (AND WRITE CODE FOR THEM BELOW) - none remained!
-sapply(tp_vars_selected, function(x) sum(is.na(x)))
-```
-
 # **4 - EXPLORE DATA**
 
-## RESPONSE VARIABLE
+## A. RESPONSE VARIABLE
 
 ```{r}
 # HISTOGRAM
@@ -346,10 +369,11 @@ d <- density(tp_vars_selected$logTP) #Estimate probability density and save it i
 lines(d, col='red',lwd=2) #Superimpose the probability density as a curve on the previous probability density histogram
 
 # BOX PLOT
+boxplot(tp_vars_selected$TP, ylab = "TP")
 boxplot(tp_vars_selected$logTP, ylab = "log+1(TP)")
 ```
 
-## PREDICTOR VARIABLES - skip initially and revisit after knowing top predictors
+## B. PREDICTOR VARIABLES - skip initially and revisit after knowing top predictors
 
 ```{r}
 # Kernel density plot function
@@ -423,30 +447,37 @@ tp_vars_selected %>%
 
 # **5 - RANDOM FOREST MODELS**
 
+## A. SUBSET DATA
+
 ```{r}
-# SUBSET DATA
-tp.cal <- tp_vars_selected %>%  #subset CALibration dataset
+# Subset CALibration dataset.
+tp.cal <- tp_vars_selected %>%  
   filter(cal_val == 'CAL') %>%  
   select(-c(MLocID:COMID, logTP, SampleStartDate)) #drop TP in favor of logTP. Drop AWQMS columns too.
 
-tp.val <- tp_vars_selected %>%  #subset VALidation dataset
+# Subset VALidation dataset.
+tp.val <- tp_vars_selected %>%  
   filter(cal_val == 'VAL') %>%  
   select(-c(MLocID:COMID, logTP, SampleStartDate))
 
-tp.ref <- tp_vars_selected %>% #subset reference only dataset
+# Subset reference only dataset.
+tp.ref <- tp_vars_selected %>% 
   filter(ReferenceSite == 'REFERENCE') %>%  
   select(-c(MLocID:COMID, logTP, SampleStartDate))
 
+# Join CAL & VAL.
 tp.cal_val <- rbind(tp.cal, tp.val)
+
+# Write to Excel.
 #write_xlsx(tp.cal_val, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//TP-Cal-val_New", Sys.Date(), ".xlsx"))
 ```
 
-## FULL MODEL - ALL PREDICTORS INCLUDED (N = 79)
+## B. FULL MODEL - ALL PREDICTORS INCLUDED
 
-#### Tuning the model (finding best mtry)
+#### Tune the model: find best mtry number
 
 ```{r}
-# One way to find best mtry based on tuneRF.
+# OPTION A: QUICKEST BUT HAS LARGE GAPS
     # Tune mtry based on OOB error
 best_mtry <- tuneRF(tp.cal[, -which(names(tp.cal) == "TP")], # Predictors
                         tp.cal$TP, # Response
@@ -457,14 +488,22 @@ best_mtry <- tuneRF(tp.cal[, -which(names(tp.cal) == "TP")], # Predictors
                         plot = TRUE) # Plot OOB error vs. mtry
 print(best_mtry)
 
-# Another approach using Caret.  Takes >50 minutes to run, not that different from mtry approach above.
+
+# OPTION B: SLOWEST (~30 MIN) BUT HAS BETTER RESOLUTION. Based on Caret.
 control <- trainControl(method="repeatedcv", number=10, repeats = 3, search="random")
 set.seed(1)
 mtry <- sqrt(ncol(tp.cal[ , 2:75]
 ))
 rf_random <- train(TP ~., data = tp.cal, method = "rf", metric = "RMSE", tuneLength = 15, trControl=control)
-#print(rf_random)
+
 plot(rf_random)
+```
+
+#### Tune the model: find optimum number of trees
+
+```{r}
+# How many trees is appropriate?
+plot(rf.full, log="x", main = '')  # 500 seems to work fine.
 ```
 
 #### Build full model
@@ -476,13 +515,6 @@ rf.full <- randomForest(TP ~ ., tp.cal, importance = TRUE, mtry = 37, keep.fores
 print(rf.full)
 
 varImpPlot(rf.full, type = 1, n.var = 25, main = "All-Sites Model") #variable importance plot
-```
-
-#### Tuning the model (how many trees)
-
-```{r}
-# How many trees is appropriate?
-plot(rf.full, log="x", main = '')  # 500 seems to work fine.
 ```
 
 #### Model prediction errors - full model
@@ -507,7 +539,7 @@ text(0.15,0.6, paste0("RMSE = ",round(full.rmse, 2)," | scaled RMSE = ", round(f
 text(0.15,0.5, paste0("Variance explained = ",rf.full_pct.var,"%"))
 ```
 
-## REDUCED MODEL - IMPORTANT PREDICTORS ONLY
+## C. REDUCED MODEL(S) - IMPORTANT PREDICTORS ONLY
 
 #### Build reduced model with 8 predictors
 
@@ -566,6 +598,7 @@ abline(a=0,b=1)
 text(0.15,0.6, paste0("RMSE = ",round(red_2.rmse, 2)," | scaled RMSE = ", round(red_2.rmse_scaled*100,2), "%"))
 text(0.15,0.5, paste0("Variance explained = ",rf.red_2_pct.var,"%"))
 ```
+
 #### Residual plot for red_2 model
 
 ```{r}
@@ -574,7 +607,7 @@ plot(residuals.red_2 ~ pred.rf.red_2, xlab = "Predicted Total Phosphorus (mg/L)"
 abline(h=0, col = "red", lty = 2)
 ```
 
-#### Test reduced model (red_2) with VAL data
+## D. APPLY REDUCED MODEL TO VALIDATION DATA
 
 ```{r}
 # Predictions
@@ -590,7 +623,10 @@ abline(a=0,b=1)
 text(0.1,0.5, paste0("RMSE = ",round(red_2_val.rmse, 2)," | scaled RMSE = ", round(red_2_val.rmse_scaled*100,2), "%"))
 ```
 
-# Ref only model
+## E. REFERENCE ONLY MODEL
+
+#### Build model using reference sites and natural predictors
+
 ```{r}
 set.seed(39)
 
@@ -599,6 +635,9 @@ print(rf.ref.full)
 
 varImpPlot(rf.ref.full, type = 1, n.var = 25, main = "Ref-Only Full Model") #variable importance plot
 ```
+
+#### Model prediction errors - reference only model
+
 ```{r}
 # Predictions
 pred.rf.ref <- predict(rf.ref.full, newdata = tp.ref)
@@ -626,7 +665,13 @@ text(0.03,0.07, paste0("Variance explained = ",rf.ref.full_pct.var,"%"))
 
 
 
+
 # DID NOT MAKE EDITS BELOW THIS POINT....
+
+
+
+
+
 
 
 
@@ -696,7 +741,9 @@ oe <- as.data.frame(oe) %>%
 print(sum(oe$`O/E`>1)/nrow(cond.cal_val)) # prop above 1:1 line
 print(sum(oe$`O/E`>2)/nrow(cond.cal_val)) # prop above 2:1 line
 ```
+
 Create file for mapping purposes
+
 ```{r}
 # Need to join predictions to AWQMs columns, but there are no unique identifiers in the cond.cal_val table. Predictions will be in the same order as the cal_val table initially.
 

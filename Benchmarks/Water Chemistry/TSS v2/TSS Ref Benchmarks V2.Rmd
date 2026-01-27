@@ -545,7 +545,7 @@ text(15,100, paste0("RMSE = ",round(red_9.rmse, 2)," | scaled RMSE = ", round(re
 text(10,80, paste0("Variance explained = ",rf.red_9_pct.var,"%"))
 
 #Untransformed plot no log scale axes
-plot(exp(tss.cal$logTSS) ~ exp(pred.rf.red_9), log = 'xy', xlab = 'predicted TSS (μS/cm)', ylab = 'observed TSS (μS/cm)', main = 'CAL Reduced Model Top 9 log scale axes')
+plot(exp(tss.cal$logTSS) ~ exp(pred.rf.red_9), log = 'xy', xlab = 'predicted TSS (mg/L)', ylab = 'observed TSS (mg/L)', main = 'CAL Reduced Model Top 9 log scale axes')
 abline(a=0,b=1)
 text(3,50, paste0("RMSE = ",round(red_9.rmse, 2)," | scaled RMSE = ", round(red_9.rmse_scaled*100,2), "%"))
 text(3,35, paste0("Variance explained = ",rf.red_9_pct.var,"%"))
@@ -612,16 +612,16 @@ rf.red_9_pct.var_val <- round(100 * rf.red_9$rsq[length(rf.red_9$rsq)], 2)
 plot(tss.val$logTSS ~ pred.rf.red_9_val, xlab = 'predicted logTSS', ylab = 'observed logTSS', main = 'VAL Reduced Model Top 9')
 abline(a=0,b=1)
 text(1.2,4, paste0("RMSE = ",round(red_9.rmse_val, 2)," | scaled RMSE = ", round(red_9.rmse_scaled_val*100,2), "%"))
-text(1.2,3.3, paste0("Variance explained = ",rf.red_9_pct.var,"%"))
+text(1.2,3.3, paste0("Variance explained = ",rf.red_9_pct.var_val,"%"))
 
 #Untransformed plot no log scale axes
 plot(exp(tss.val$logTSS)-1 ~ exp(pred.rf.red_9_val)-1, xlab = 'predicted TSS', ylab = 'observed TSS', main = 'VAL Reduced Model Top 9 untransformed')
 abline(a=0,b=1)
 text(15,80, paste0("RMSE = ",round(red_9.rmse_val, 2)," | scaled RMSE = ", round(red_9.rmse_scaled_val*100,2), "%"))
-text(10,70, paste0("Variance explained = ",rf.red_9_pct.var,"%"))
+text(10,70, paste0("Variance explained = ",rf.red_9_pct.var_val,"%"))
 
 #Untransformed plot no log scale axes
-plot(exp(tss.val$logTSS) ~ exp(pred.rf.red_9_val), log = 'xy', xlab = 'predicted TSS (μS/cm)', ylab = 'observed TSS (μS/cm)', main = 'VAL Reduced Model Top 9 log scale axes')
+plot(exp(tss.val$logTSS) ~ exp(pred.rf.red_9_val), log = 'xy', xlab = 'predicted TSS (mg/L)', ylab = 'observed TSS (mg/L)', main = 'VAL Reduced Model Top 9 log scale axes')
 abline(a=0,b=1)
 text(3,50, paste0("RMSE = ",round(red_9.rmse_val, 2)," | scaled RMSE = ", round(red_9.rmse_scaled_val*100,2), "%"))
 text(3,35, paste0("Variance explained = ",rf.red_9_pct.var_val,"%"))

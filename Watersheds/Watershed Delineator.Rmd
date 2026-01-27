@@ -1,189 +1,143 @@
 ---
 title: "Watershed Delineator"
-author: "T. Pritchard, A. Thompson"
-date: "2025-10-14"
+author: "A. Thompson, T. Pritchard"
+date: "2026-01-27"
 output: html_document
 ---
 
-![](images/clipboard-1508299075.png)
+![](Watersheds/Images/Watershed%20Delineator%20title%20image.png){width="481"}
 
-#### **PREFACE:** This script batch delineates upstream watershed boundaries for a given set of stations/originating COMIDs.
+#### Purpose: Create watershed polygons upstream of a starting set of coordinates or COMIDs. Useful for evaluating human disturbances to screen sites for reference condition.
 
-# **1 - LOAD PACKAGES**
+# **1 - ASSIGN COMIDS**
+
+#### Prior to running this, assign and review COMIDs using RATS' Batch COMID R tool. Import files must include a COMID field.
+
+# **2 - LOAD PACKAGES**
 
 ```{r}
 library(nhdplusTools)
 library(sf)
 library(tidyverse)
-library(mapview) #for viewing intermediate map products
+library(mapview)
 library(openxlsx)
+library(AWQMSdata)
 ```
 
-# **2 - IMPORT DATA**
-
-#### Several import options exist depending on the format, size, and variables contained in your dataset.
-
-#### Use *ONE* of the following data import options below (GIS shapefile, Excel, CSV, or DEQ Stations Table)
-
-#### If drawing a single watershed boundary, use <https://streamstats.usgs.gov/ss/>.
-
-## PLACEHOLDERS - First, specify inputs, outputs, and directories.
+# **3 - SPECIFY OUTPUT SHAPEFILE**
 
 ```{r}
-analyst <- "First Last" #enter your name in quotes
-input_dir <- "//deqlab1/Biomon/FillInFilePath/FileName" #specify folder containing input file(s)
-output_dir <-"//deqlab1/Biomon/FillInFilePath/FileName" #specify folder where outputs should be saved
-file_input <- "FillInFileName.ext" #enter file name and extension (.shp, .xlsx, or .csv)
-subset_file <- tempfile(fileext = ".gpkg") #required - don't edit
+output <- "C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/willytest.shp"
 ```
 
-## FOR REALSIES - First, specify inputs, outputs, and directories.
+# **3 - IMPORT DATA**
+
+#### Choose *ONE* of the following three methods for importing sites/COMIDs. Update file paths.
+
+#### If wanting to delineate a single watershed, use USGS StreamStats instead (<https://streamstats.usgs.gov/ss/>).
+
+## OPTION A - EXCEL
 
 ```{r}
-analyst <- "Stations Despot M.D." #enter your name
-input_dir <- "C:/Users/athomps/OneDrive - Oregon/Desktop/New folder" #specify folder containing input file(s)
-output_dir <-"C:/Users/athomps/OneDrive - Oregon/Desktop/New folder" #specify folder where outputs should be saved
-file_input <- "Willy.shp" #enter file name and extension (.shp, .xlsx, or .csv)
-subset_file <- tempfile(fileext = ".gpkg") #required - don't edit
+import <- read.xlsx("C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/WillyTable.xlsx")
 ```
 
-## Import Option *A* - GIS Shapefile (.shp)
-
-#### Choose this option if stations are already in GIS and you don't need COMIDs.
+## OPTION B - SHAPEFILE
 
 ```{r}
-sta <- st_read(paste0(input_dir, "/", file_input)) #read GIS shapefile
-
-sta<-sta %>%
-  dplyr::mutate(lon = sf::st_coordinates(.)[,1],
-                lat = sf::st_coordinates(.)[,2]) #put latitude and longitude into their own columns
+import <- st_read("C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/willy.shp")
 ```
 
-#### Generate COMIDs based on lat/long values in GIS file. \<-- DOESN'T WORK. NO LONGER NEEDED??
+## OPTION C - STATIONS DATABASE
 
 ```{r}
-#mutate(comid2 = generatecomids(long, lat, refsystem = crs)) 
+import <- query_stations()
+#needs work
 ```
 
-## Import Option *B* - Excel (.xlsx)
-
-#### Choose this option if data are already in Excel (.xlsx) and you're missing COMIDs.
+# **4 - CREATE COMID DATAFRAME**
 
 ```{r}
-file_input <- "Willy.xlsx" #enter input file name
-latlonginput <- read.xlsx(file=paste0(input_dir, "/", file_input))
+# dataframe_comid <- import %>%
+#   rowwise() %>%
+#   mutate(point = list(sf::st_sfc(sf::st_point(c(lon, lat)), crs = 4326))) |> 
+#   mutate(comid = discover_nhdplus_id(point)) |> 
+#   select(-point)
+
+dataframe_comid <- data.frame(import$ComID)
 ```
 
-## Import Option *C* - Excel (.csv)
-
-#### Choose this option if data are already in Excel (.csv) and you're missing COMIDs.
+# **5 - RUN DELINEATION FUNCTION**
 
 ```{r}
-file_input <- "Willy.csv" #enter input file name
-latlonginput <- read.xlsx(file=paste0(input_dir, "/", file_input))
-```
+# START OF FUNCTION
+delin <- function(comid, ofid2, random, shp_file){
 
-## Import Option *D* - DEQ Stations Table
+# CALL SHAPEFILE WHERE DELINEATIONS WILL BE WRITTEN
+shp_file <- output
 
-#### Note: Requires ODBC connection to SQL database.
+# CALL STARTING COMID FROM ABOVE DATAFRAME
+#start_comid <- dataframe_comid
+start_comid <- "23759604" #option for delineating a single COMID
 
-#### Good option for when stations have already been created and ideally have COMIDs.
-
-```{r}
-stations <- query_stations()
-```
-
-# **3 - DEFINE COORDINATE REFERENCE SYSTEM (CRS)**
-
-#### Look up CRS for your set of stations (refer to last line of output)
-
-```{r}
-st_crs(sta)
-```
-
-#### Enter the resulting 4-digit coordinate reference system below (in quotes).
-
-```{r}
-crs <- "4269"
-```
-
-# **4 - GENERATE COMIDS**
-
-```{r}
-generatecomids <- function(long, lat, refsystem) {
- points <- st_sfc(st_point(c(long, lat), crs = refsystem)) #draws on CRS entered in Excel file (????)
- getcomid <- discover_nhdplus_id(points)
- return(getcomid)
-}
-```
-
-# **5 - DELINEATE WATERSHEDS**
-
-```{r}
-#~~~~~~~~~~start of function
-delineate_comid_watersheds <- function(comid, ofid2, random, shp_file){
-
-#Get flowline -- Travis: If this is needed later on in process also, we can figure that out
-flowlines <- navigate_nldi(list(featureSource = "comid", 
-                                featureID = comid), 
-                           mode = "upstreamTributaries", 
+# MAKE FLOWLINES
+flowlines <- navigate_nldi(list(featureSource = "comid",
+                                featureID = start_comid),
+                           mode = "upstreamTributaries",
                            distance_km = 1000)
 
-#Get nhdplus files
+# CREATE TEMPORARY GEOPACKAGE
+subset_file <- tempfile(fileext = ".gpkg")
+
+# SUBSET DATA
 subset <- subset_nhdplus(comids = as.integer(flowlines$UT$nhdplus_comid),
                          output_file = subset_file,
-                         nhdplus_data = "download", 
+                         nhdplus_data = "download",
                          flowline_only = FALSE,
                          return_data = TRUE, overwrite = TRUE)
 
-#Get catchment files
+# CREATE CATCHMENT POLYGONS
 catchment <- sf::read_sf(subset_file, "CatchmentSP")
 
-#Dissolve files to single catchment
+# UNIFY INTO SINGLE CATCHMENT POLYGON
 catchment <- sf::st_union(catchment)
 
-#Convert to sf object and add an attribute so we can associate the catchment with the comid used to generate
-# if we need any other attributes, this is where to out it.
-###  Change the mutate function here to include whatever you want to pass to the shp file
-catchment2  <- st_sf(catchment)|> 
-  mutate(orig_comid = comid,
-         ofid= ofid2,
-         rand = random) |> #delete "|>" if removing line below
-  st_transform(crs=2992)  #reproject to NAD83 / Oregon GIC Lambert (ft). Change depending on what projection you need in the next step. Or remove
+# DRAW THE FLOW NETWORK
+flownet <- subset$NHDFlowline_Network
 
-#Write to shp file. Create new file if it doesn't exists, append if it does
-st_write(catchment2, shp_file, append = TRUE)
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# CALCULATE WATERSHED AREA (m2)
+#catchment$area_sqm <- st_area(catchment)
 
-} #~~~~~~~~~~end of function
-```
-
-**6 - *STOP* - REVIEW AUTO-GENERATED COMIDS IN GIS** \## Write code to override any changes. Skip this section if all COMIDs are correct.
-
-```{r}
-#input$comid[input$comid=="123456"] <- "456789"
-```
-
-**7 - WRITE NEWLY DELINEATED WATERSHEDS TO GIS OUTPUT FILE** \#### This step....
-
-```{r}
-#comid <- data.frame(comid = sta$ComID)
-
-#version 1
-#purrr::map(comid, ~ delineate_comid_watersheds(.,shp_file = paste0(input_dir, "/", file_input)))
-purrr::map(sta$ComID, ~ delineate_comid_watersheds(.,shp_file = paste0(input_dir, "/", file_input)))
-
-#version 2
-#purrr::pmap(sta, ~delineate_comid_watersheds(comid = {..1}, random = {..2}, ofid2 = {..3}, shp_file =  paste0(input_dir, "/", file_input)))
-
-### BOTH GIVE ERRORS ABOUT NULL OR NON-EMPTY COMIDS
-```
-
-**8 - CALCULATE WATERSHED AREAS AND APPEND TO GIS SHAPEFILE** \#### Note: Area is calculated in sq meters. Convert manually if needed.
-
-```{r}
+# REPROJECT TO NAD83 / OREGON GIC LAMBERT (ft)
 catchment2 <- st_sf(catchment)|> 
-  mutate(orig_comid = comid) 
+  mutate(orig_comid = comid,
+         ofid = ofid2,
+         rand = random) |>
+  st_transform(crs = 2992)
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-catchment2 <- catchment2|> 
-  mutate(area = st_area(catchment2))
+# APPEND WATERSHEDS TO SHAPEFILE
+st_write(catchment, shp_file, append = TRUE)
+}
 ```
+
+# **5 - VIEW MAP PRODUCTS (*OPTIONAL*)**
+
+```{r}
+mapview(flowlines) + mapview(catchment) + mapview(flownet)
+```
+
+# **6 - WRITE TO SHAPEFILE**
+
+```{r}
+#OPTION A 
+purrr::pmap(as.list(dataframe_comid), ~ delin(comid = {..8}, random = {..1}, ofid2 = {..3}, shp_file = "C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/delineate_test.shp" ))
+
+#OPTION B
+purrr::map(dataframe_comid, ~ delin(.,shp_file = "C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/delineate_test.shp" ))
+```
+
+# **7 - REVIEW WATERSHEDS IN GIS FOLLOWING \_\_\_\_\_SOP**
+
+# THE END

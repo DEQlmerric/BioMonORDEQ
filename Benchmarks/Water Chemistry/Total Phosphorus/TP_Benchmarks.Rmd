@@ -182,7 +182,7 @@ rm(list=c('ag', 'clim', 'dams', 'flow','iwi', 'cover', 'litho', 'mintox', 'roads
 
 ## C. OTHER PREDICTORS - *OUTSIDE OF STREAMCAT*
 
-#### Ecoregion II & III, lat/long, erodible geology, NHD slope, stream power
+#### Erodible geology, NHD slope, stream power
 
 ```{r}
 # ERODIBLE VS RESISTENT GEOLOGY (KEPT ERODIBLE, SINCE RESISTENT IS INVERSE OF ERODIBLE)
@@ -223,7 +223,7 @@ sapply(tp_tn_vars, function(x) sum(is.na(x)))
 
 # THEN WRITE CODE FOR THEM IN ROUGH FIX SECTION BELOW.
 
-# Note: Some predictors may have a large number of missing values (e.g., bankfull width). Consider performing rough fix....
+# Note: Some predictors may have a large number of missing values (e.g., bankfull width, n = 64). Consider performing rough fix only for variables with ~10 or fewer missing values. This will avoid introducing error in the correlation matrix and variable selection phase.
 ```
 
 #### PERFORM NA ROUGH FIX
@@ -306,13 +306,21 @@ tp_tn_vars %>%
 #### Hold variable selection meeting
 
 ```{r}
-# 1. Make a variable selection decisions sheet in Excel: variable name, keep/remove, rationale, and ecological considerations
+# 1. Make a variable selection decisions sheet in Excel based on the TEMPLATE (Benchmarks >> Water Chemistry) and save to model folder on GitHub.
 
-# 2. For each co-varied predictor(s), discuss ecological considerations and data distribution (CV, how well covers gradient, %0s)
+# 2. Clean up correlation matrix Excel table manually:
+  # a) Filter data to hide 1s.
+  # b) Sort row names alphabetically.
+  # c) Remove composite indexes (CHEM, CONN, HABT, HYD, ICI, IWI, SED, and TEMP).
+  # d) Make a new matrix predictor decisions sheet based on the TEMPLATE (Benchmarks >> Water Chemistry) and save to model folder on GitHub. 
+  #     Copy row names into template (col A) and update formulas, column names into col K, and correlations into col K. 
+  #     Add horizontal borders between groupings. 
 
-# 3. Record which predictors to keep/remove and document rationale
+# 3. For each co-varied predictor(s), discuss ecological considerations and data distribution (CV, how well covers gradient, %0s).
 
-# 4. Remove predictors that are composite indexes (e.g., IWI) and have 100% zeros (no modeling power) and paste list of keepers below
+# 4. Record which predictors to keep/remove and document rationale.
+
+# 5. Remove predictors that have 100% zeros (no modeling power) and paste list of keepers below.
 ```
 
 #### Update predictor list
@@ -321,7 +329,7 @@ tp_tn_vars %>%
 # UNIQUE FOR THIS SCRIPT - Select only COMIDs with TP samples (drop TN only rows). Also drop bad COMID for Twentymile Cr 12266-ORDEQ.
 tp_vars <- semi_join(tp_tn_vars, tp, by = "COMID") 
 
-# Use Excel formula (=TEXTJOIN(", ", TRUE, A1:range)) to compile list and paste below.
+# Use Excel formula (=TEXTJOIN(", ", TRUE, range:range)) to compile list and paste below.
 tp_vars_selected <- tp_vars %>% 
   select(c(MLocID:COMID, BFIWS, CANALDENSWS, CLAYWS, COMPSTRGTHWS, DAMNRMSTORWS, ELEVWS, FE2O3WS, FERTWS, HYDRLCONDWS, K2OWS, KFFACTWS, MINEDENSWS, MSST2008, NANIWS, NHD_pSLOPE, NPDESDENSWS, NWS, OMWS, P2O5WS, PCT_EROD, PCTAGDRAINAGEWS, PCTALKINTRUVOLWS, PCTALLUVCOASTWS, PCTBL2001WS, PCTBURNAREA2002WS, PCTCARBRESIDWS, PCTCOLLUVSEDWS, PCTCONIF2001WS, PCTCROP2001WS, PCTDECID2001WS, PCTEOLFINEWS, PCTEXTRUVOLWS, PCTFRSTLOSS2002WS, PCTGLACLAKECRSWS, PCTGLACLAKEFINEWS, PCTGLACTILCRSWS, PCTGRS2001WS, PCTHAY2001WS, PCTHBWET2001WS, PCTICE2001WS, PCTIMP2001WS, PCTINCVEGRESP2002WS, PCTNONAGINTRODMANAGVEGWS, PCTOW2001WS, PCTSALLAKEWS, PCTSHRB2001WS, PCTURBHI2001WS, PCTURBLO2001WS, PCTURBOP2001WS, PCTWATERWS, PCTWDWET2001WS, PESTIC1997WS, POPDEN2010WS, PRECIP_MINUS_EVTWS, RCKDEPWS, RDCRSSLPWTDWS, RDCRSWS, RDDENSWS, ROCKNWS, SANDWS, SEPTICWS, STRMPOW_CAT, SUPERFUNDDENSWS, SW_FLUXWS, SWS, TMAX9120WS, TRIDENSWS, WETINDEXWS, WTDEPWS, WWTPALLDENSWS, WWTPMAJORDENSWS, SITE_TYPE:L3Eco)) %>% 
   relocate(COMID, .after = cal_val) %>% 
@@ -352,6 +360,16 @@ rm(list=c('spear2', 'spear2.rows', 'tp_vars_num_selected'))
 # ***OPEN NEWLY CREATED MATRIX AND CONTINUE ONLY IF NO CORRELATED VARIABLES REMAIN (ALL SHOULD BE 1)***
 
 rm('tp_vars_num_selected')
+```
+
+#### Perform final NA check and perform rough fix as desired
+
+```{r}
+# FIND OUT WHICH COLUMNS HAVE NAs
+sapply(tp_tn_vars, function(x) sum(is.na(x)))
+
+# DO ANY LAST NA ROUGH FIXES AS DESIRED (write code for specific predictors)
+# tp_tn_vars$BANKFULLDEPTH  <- na.roughfix(tp_tn_vars$BANKFULLDEPTH) # 64 NA
 ```
 
 # **4 - EXPLORE DATA**
@@ -609,6 +627,8 @@ abline(h=0, col = "red", lty = 2)
 
 ## D. APPLY REDUCED MODEL TO VALIDATION DATA
 
+#### Reduced 2
+
 ```{r}
 # Predictions
 pred.rf.red_2_val <- predict(rf.red_2, newdata = tp.val)
@@ -623,6 +643,22 @@ abline(a=0,b=1)
 text(0.1,0.5, paste0("RMSE = ",round(red_2_val.rmse, 2)," | scaled RMSE = ", round(red_2_val.rmse_scaled*100,2), "%"))
 ```
 
+#### Reduced 8
+
+```{r}
+# Predictions
+pred.rf.red_8_val <- predict(rf.red_8, newdata = tp.val)
+
+# Model error 
+red_8_val.rmse<- rmse(pred.rf.red_8_val, tp.val$TP)
+red_8_val.rmse_scaled <- red_8_val.rmse/range_tp
+
+# Plot
+plot(tp.val$TP ~ pred.rf.red_8_val, xlab = 'predicted Total Phosphorus (mg/L)', ylab = 'observed Total Phosphorus (mg/L)', main = 'VALIDATION Reduced Model Top 8')
+abline(a=0,b=1)
+text(0.1,0.5, paste0("RMSE = ",round(red_8_val.rmse, 2)," | scaled RMSE = ", round(red_8_val.rmse_scaled*100,2), "%"))
+```
+
 ## E. REFERENCE ONLY MODEL
 
 #### Build model using reference sites and natural predictors
@@ -630,7 +666,12 @@ text(0.1,0.5, paste0("RMSE = ",round(red_2_val.rmse, 2)," | scaled RMSE = ", rou
 ```{r}
 set.seed(39)
 
-rf.ref.full <- randomForest(TP ~ ., data = tp.ref, importance = TRUE, mtry = 37, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors. mtry=37 based on Caret grid search results.
+# Run reference only model only for natural predictors
+rf.ref.full <- randomForest(TP ~ BFIWS+CLAYWS+COMPSTRGTHWS+ELEVWS+FE2O3WS+HYDRLCONDWS+K2OWS+KFFACTWS+MSST2008+NHD_pSLOPE+NWS+OMWS+P2O5WS+PCT_EROD+PCTALKINTRUVOLWS+
+                              PCTALLUVCOASTWS+PCTBL2001WS+PCTBURNAREA2002WS+PCTCARBRESIDWS+PCTCOLLUVSEDWS+PCTCONIF2001WS+PCTDECID2001WS+PCTEOLFINEWS+
+                              PCTEXTRUVOLWS+PCTGLACLAKECRSWS+PCTGLACLAKEFINEWS+PCTGLACTILCRSWS+PCTGRS2001WS+PCTHBWET2001WS+PCTICE2001WS+PCTINCVEGRESP2002WS+
+                              PCTOW2001WS+PCTSALLAKEWS+PCTSHRB2001WS+PCTWATERWS+PCTWDWET2001WS+PRECIP_MINUS_EVTWS+RCKDEPWS+ROCKNWS+SANDWS+STRMPOW_CAT+
+                              SWS+TMAX9120WS+WETINDEXWS+WTDEPWS+SITE_TYPE+L2Eco+L3Eco, data = tp.ref, importance = TRUE, mtry = 37, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors. mtry=37 based on Caret grid search results.
 print(rf.ref.full)
 
 varImpPlot(rf.ref.full, type = 1, n.var = 25, main = "Ref-Only Full Model") #variable importance plot
@@ -662,19 +703,7 @@ text(0.03,0.07, paste0("Variance explained = ",rf.ref.full_pct.var,"%"))
 
 
 
-
-
-
-
 # DID NOT MAKE EDITS BELOW THIS POINT....
-
-
-
-
-
-
-
-
 
 
 

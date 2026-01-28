@@ -3,15 +3,16 @@ title: "Watershed Delineator"
 author: "A. Thompson, T. Pritchard"
 date: "2026-01-27"
 output: html_document
+  TOC: TRUE
 ---
 
-![](Watersheds/Images/Watershed%20Delineator%20title%20image.png){width="481"}
+# **WATERSHED DELINEATION TOOL**
 
 #### Purpose: Create watershed polygons upstream of a starting set of coordinates or COMIDs. Useful for evaluating human disturbances to screen sites for reference condition.
 
 # **1 - ASSIGN COMIDS**
 
-#### Prior to running this, assign and review COMIDs using RATS' Batch COMID R tool. Import files must include a COMID field.
+#### First assign and review COMIDs manually or via RATS' batch COMID script (<link>). All stations must have a valid COMID before proceeding.
 
 # **2 - LOAD PACKAGES**
 
@@ -36,49 +37,49 @@ output <- "C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/willytest.shp"
 
 #### If wanting to delineate a single watershed, use USGS StreamStats instead (<https://streamstats.usgs.gov/ss/>).
 
-## OPTION A - EXCEL
+## OPTION A - *EXCEL*
 
 ```{r}
 import <- read.xlsx("C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/WillyTable.xlsx")
 ```
 
-## OPTION B - SHAPEFILE
+## OPTION B - *SHAPEFILE*
 
 ```{r}
 import <- st_read("C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/willy.shp")
 ```
 
-## OPTION C - STATIONS DATABASE
+## OPTION C - *STATIONS DATABASE*
 
 ```{r}
-import <- query_stations()
-#needs work
+# IMPORT ALL STATIONS FROM STATIONS DB
+stations <- query_stations()
+
+# NARROW TO STATIONS OF INTEREST
+import <- stations |>
+  filter(MLocID %in% c("21848-ORDEQ")) #<--Enter desired MLocIDs
+
+rm(stations)
 ```
 
 # **4 - CREATE COMID DATAFRAME**
 
 ```{r}
-# dataframe_comid <- import %>%
-#   rowwise() %>%
-#   mutate(point = list(sf::st_sfc(sf::st_point(c(lon, lat)), crs = 4326))) |> 
-#   mutate(comid = discover_nhdplus_id(point)) |> 
-#   select(-point)
-
-dataframe_comid <- data.frame(import$ComID)
+dataframe_comid <- data.frame(import$COMID) #<--Might need to change format depending on data source (e.g., COMID vs ComID)
 ```
 
 # **5 - RUN DELINEATION FUNCTION**
 
 ```{r}
-# START OF FUNCTION
+# WRITE FUNCTION
 delin <- function(comid, ofid2, random, shp_file){
 
-# CALL SHAPEFILE WHERE DELINEATIONS WILL BE WRITTEN
+# CALL SHAPEFILE WHERE DELINEATIONS WILL BE SAVED
 shp_file <- output
 
-# CALL STARTING COMID FROM ABOVE DATAFRAME
-#start_comid <- dataframe_comid
-start_comid <- "23759604" #option for delineating a single COMID
+# CALL STARTING COMID
+start_comid <- dataframe_comid
+#start_comid <- "23759604" #option for delineating a single COMID
 
 # MAKE FLOWLINES
 flowlines <- navigate_nldi(list(featureSource = "comid",
@@ -99,7 +100,7 @@ subset <- subset_nhdplus(comids = as.integer(flowlines$UT$nhdplus_comid),
 # CREATE CATCHMENT POLYGONS
 catchment <- sf::read_sf(subset_file, "CatchmentSP")
 
-# UNIFY INTO SINGLE CATCHMENT POLYGON
+# UNIFY INTO SINGLE POLYGON
 catchment <- sf::st_union(catchment)
 
 # DRAW THE FLOW NETWORK
@@ -138,6 +139,6 @@ purrr::pmap(as.list(dataframe_comid), ~ delin(comid = {..8}, random = {..1}, ofi
 purrr::map(dataframe_comid, ~ delin(.,shp_file = "C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/delineate_test.shp" ))
 ```
 
-# **7 - REVIEW WATERSHEDS IN GIS FOLLOWING \_\_\_\_\_SOP**
+# **7 - QC AND CORRECT WATERSHEDS IN GIS ACCORDING TO SECTION X OF <_SOP>**
 
-# THE END
+# **THE END**

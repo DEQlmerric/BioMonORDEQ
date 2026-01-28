@@ -28,7 +28,7 @@ library(AWQMSdata)
 # **3 - SPECIFY OUTPUT SHAPEFILE**
 
 ```{r}
-output <- "C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/willytest.shp"
+export <- "C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/willytest.shp"
 ```
 
 # **3 - IMPORT DATA**
@@ -57,9 +57,7 @@ stations <- query_stations()
 
 # NARROW TO STATIONS OF INTEREST
 import <- stations |>
-  filter(MLocID %in% c("21848-ORDEQ")) #<--Enter desired MLocIDs
-
-rm(stations)
+  filter(MLocID %in% c("21848-ORDEQ", "32587-ORDEQ")) #<--Enter desired MLocIDs
 ```
 
 # **4 - CREATE COMID DATAFRAME**
@@ -75,10 +73,10 @@ dataframe_comid <- data.frame(import$COMID) #<--Might need to change format depe
 delin <- function(comid, ofid2, random, shp_file){
 
 # CALL SHAPEFILE WHERE DELINEATIONS WILL BE SAVED
-shp_file <- output
+shp_file <- export
 
 # CALL STARTING COMID
-start_comid <- dataframe_comid
+start_comid <- dataframe_comid$import.COMID
 #start_comid <- "23759604" #option for delineating a single COMID
 
 # MAKE FLOWLINES
@@ -126,7 +124,10 @@ st_write(catchment, shp_file, append = TRUE)
 # **5 - VIEW MAP PRODUCTS (*OPTIONAL*)**
 
 ```{r}
-mapview(flowlines) + mapview(catchment) + mapview(flownet)
+mapview(catchment, col.regions = "lightgreen") + mapview(flownet, color = "blue",
+  map.types = mapviewGetOption("basemaps"))
+                                                         
+#map.types = mapviewGetOption("basemaps"
 ```
 
 # **6 - WRITE TO SHAPEFILE**

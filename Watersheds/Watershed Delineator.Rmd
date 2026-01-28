@@ -151,6 +151,8 @@ purrr::pmap(as.list(dataframe_comid), ~ delin(comid = {..8}, random = {..1}, ofi
 purrr::map(dataframe_comid, ~ delin(.,shp_file = "C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/delineate_test.shp" ))
 ```
 
-# **7 - QC AND CORRECT WATERSHEDS IN GIS ACCORDING TO SECTION X OF <_SOP>**
+# **7 - QC AND CORRECT WATERSHEDS IN GIS**
+
+#### FOLLOW SECTION X OF <_SOP>
 
 # **THE END**

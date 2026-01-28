@@ -25,17 +25,27 @@ library(openxlsx)
 library(AWQMSdata)
 ```
 
-# **3 - SPECIFY OUTPUT SHAPEFILE**
+# **3 - SPECIFY OUTPUT FILE**
+
+#### Choose *ONE* of the following two file types for exporting delineated watersheds. Update file path.
+
+## OPTION A - *ARCGIS SHAPEFILE*
 
 ```{r}
 export <- "C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/willytest.shp"
 ```
 
+## OPTION B - *GOOGLE EARTH KML*
+
+```{r}
+export <- "C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/willytest.kml"
+```
+
 # **3 - IMPORT DATA**
 
-#### Choose *ONE* of the following three methods for importing sites/COMIDs. Update file paths.
+#### Choose *ONE* of the following three methods for importing sites/COMIDs. Update file path.
 
-#### If wanting to delineate a single watershed, use USGS StreamStats instead (<https://streamstats.usgs.gov/ss/>).
+#### Use USGS StreamStats to delineate a single watershed <https://streamstats.usgs.gov/ss/>.
 
 ## OPTION A - *EXCEL*
 
@@ -52,17 +62,18 @@ import <- st_read("C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/willy.s
 ## OPTION C - *STATIONS DATABASE*
 
 ```{r}
-# IMPORT ALL STATIONS FROM STATIONS DB
+# RETURN ALL STATIONS FROM STATIONS DB
 stations <- query_stations()
 
 # NARROW TO STATIONS OF INTEREST
 import <- stations |>
-  filter(MLocID %in% c("21848-ORDEQ", "32587-ORDEQ")) #<--Enter desired MLocIDs
+  filter(MLocID %in% c("21848-ORDEQ","10404-ORDEQ")) #<--Enter desired MLocIDs in quotes separated by commas
 ```
 
 # **4 - CREATE COMID DATAFRAME**
 
 ```{r}
+# MAKE DATAFRAME CONTAINING ALL COMIDS FROM USER-SELECTED INPUT METHOD
 dataframe_comid <- data.frame(import$COMID) #<--Might need to change format depending on data source (e.g., COMID vs ComID)
 ```
 
@@ -73,11 +84,11 @@ dataframe_comid <- data.frame(import$COMID) #<--Might need to change format depe
 delin <- function(comid, ofid2, random, shp_file){
 
 # CALL SHAPEFILE WHERE DELINEATIONS WILL BE SAVED
-shp_file <- export
+save_file <- export
 
 # CALL STARTING COMID
 start_comid <- dataframe_comid$import.COMID
-#start_comid <- "23759604" #option for delineating a single COMID
+start_comid <- "23648048" #option for delineating a single COMID
 
 # MAKE FLOWLINES
 flowlines <- navigate_nldi(list(featureSource = "comid",
@@ -117,17 +128,17 @@ catchment2 <- st_sf(catchment)|>
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # APPEND WATERSHEDS TO SHAPEFILE
-st_write(catchment, shp_file, append = TRUE)
+st_write(catchment, save_file, append = TRUE, message("Writing watersheds to specified output file"))
 }
 ```
 
 # **5 - VIEW MAP PRODUCTS (*OPTIONAL*)**
 
 ```{r}
-mapview(catchment, col.regions = "lightgreen") + mapview(flownet, color = "blue",
-  map.types = mapviewGetOption("basemaps"))
-                                                         
-#map.types = mapviewGetOption("basemaps"
+mapview(catchment, col.regions = "palegreen", layer.name = "Watershed", alpha.regions = 0.5, legend = FALSE) + 
+  mapview(flownet, color = "royalblue", layer.name = "Flow Network", legend = FALSE)
+
+mapviewOptions(basemaps = c("OpenTopoMap","Esri.WorldImagery"))
 ```
 
 # **6 - WRITE TO SHAPEFILE**

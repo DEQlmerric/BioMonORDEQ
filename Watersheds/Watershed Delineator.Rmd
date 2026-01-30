@@ -8,7 +8,7 @@ output: html_document
 
 # **WATERSHED DELINEATION TOOL**
 
-#### Purpose: Create watershed polygons upstream of a starting set of coordinates or COMIDs. Useful for evaluating human disturbances to screen sites for reference condition.
+#### Purpose: Batch create watershed polygons upstream of a starting set of coordinates or COMIDs. Useful for evaluating human disturbances to screen sites for reference condition.
 
 # **1 - ASSIGN COMIDS**
 
@@ -32,7 +32,7 @@ library(AWQMSdata)
 ## OPTION A - *ARCGIS SHAPEFILE*
 
 ```{r}
-export <- "C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/willytest.shp"
+export <- "C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/willytest5.shp"
 ```
 
 ## OPTION B - *GOOGLE EARTH KML*
@@ -63,41 +63,33 @@ import <- st_read("C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/willy.s
 
 ```{r}
 # RETURN ALL STATIONS FROM STATIONS DB
-stations <- query_stations()
-
-# NARROW TO STATIONS OF INTEREST
-import <- stations |>
-  filter(MLocID %in% c("21848-ORDEQ","10404-ORDEQ")) #<--Enter desired MLocIDs in quotes separated by commas
+import <- query_stations(mlocs = c("21848-ORDEQ","10404-ORDEQ","ODFW-10662")) #<--Enter desired MLocIDs in quotes separated by commas
 ```
 
 # **4 - CREATE COMID DATAFRAME**
 
 ```{r}
 # MAKE DATAFRAME CONTAINING ALL COMIDS FROM USER-SELECTED INPUT METHOD
-dataframe_comid <- data.frame(import$COMID) #<--Might need to change format depending on data source (e.g., COMID vs ComID)
+# DROP ROWS WITH MISSING COMIDS (e.g., STATIONS ON HIGH RESOLUTION NHD LAYER WITH NO REPRESENTATIVE COMIDS, DENOTED BY "-99999")
+dataframe_comid <- import |>
+  select(COMID, MLocID) |>
+    filter(COMID != '-99999' | !is.na(COMID))
+
+# CREATE TEMPORARY GEOPACKAGE
+subset_file <- tempfile(fileext = ".gpkg")
 ```
 
 # **5 - RUN DELINEATION FUNCTION**
 
 ```{r}
-# WRITE FUNCTION
-delin <- function(comid, ofid2, random, shp_file){
-
-# CALL SHAPEFILE WHERE DELINEATIONS WILL BE SAVED
-save_file <- export
-
-# CALL STARTING COMID
-start_comid <- dataframe_comid$import.COMID
-start_comid <- "23648048" #option for delineating a single COMID
+# RUN FUNCTION
+delin <- function(comid, MLocID, save_file){
 
 # MAKE FLOWLINES
 flowlines <- navigate_nldi(list(featureSource = "comid",
-                                featureID = start_comid),
+                                featureID = comid),
                            mode = "upstreamTributaries",
                            distance_km = 1000)
-
-# CREATE TEMPORARY GEOPACKAGE
-subset_file <- tempfile(fileext = ".gpkg")
 
 # SUBSET DATA
 subset <- subset_nhdplus(comids = as.integer(flowlines$UT$nhdplus_comid),
@@ -115,27 +107,24 @@ catchment <- sf::st_union(catchment)
 # DRAW THE FLOW NETWORK
 flownet <- subset$NHDFlowline_Network
 
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# CALCULATE WATERSHED AREA (m2)
-#catchment$area_sqm <- st_area(catchment)
-
 # REPROJECT TO NAD83 / OREGON GIC LAMBERT (ft)
 catchment2 <- st_sf(catchment)|> 
-  mutate(orig_comid = comid,
-         ofid = ofid2,
-         rand = random) |>
+  mutate(COMID = comid,
+         MLocID = MLocID) |>
   st_transform(crs = 2992)
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# CALCULATE WATERSHED AREA (m2)
+catchment2$Shape_Area <- st_area(catchment2) * 0.092903
 
 # APPEND WATERSHEDS TO SHAPEFILE
-st_write(catchment, save_file, append = TRUE, message("Writing watersheds to specified output file"))
+st_write(catchment2, save_file, append = TRUE)
 }
 ```
 
 # **5 - VIEW MAP PRODUCTS (*OPTIONAL*)**
 
 ```{r}
-mapview(catchment, col.regions = "palegreen", layer.name = "Watershed", alpha.regions = 0.5, legend = FALSE) + 
+mapview(catchment2, col.regions = "palegreen", layer.name = "Watershed", alpha.regions = 0.5, legend = FALSE) + 
   mapview(flownet, color = "royalblue", layer.name = "Flow Network", legend = FALSE)
 
 mapviewOptions(basemaps = c("OpenTopoMap","Esri.WorldImagery"))
@@ -144,15 +133,11 @@ mapviewOptions(basemaps = c("OpenTopoMap","Esri.WorldImagery"))
 # **6 - WRITE TO SHAPEFILE**
 
 ```{r}
-#OPTION A 
-purrr::pmap(as.list(dataframe_comid), ~ delin(comid = {..8}, random = {..1}, ofid2 = {..3}, shp_file = "C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/delineate_test.shp" ))
-
-#OPTION B
-purrr::map(dataframe_comid, ~ delin(.,shp_file = "C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/delineate_test.shp" ))
+purrr::pmap(dataframe_comid, ~delin(comid = {..1}, MLocID = {..2}, save_file = export))
 ```
 
 # **7 - QC AND CORRECT WATERSHEDS IN GIS**
 
-#### FOLLOW SECTION X OF <_SOP>
+#### REFER TO STATEWIDE REFERENCE SELECTION PROTOCOLS (DEQ21-LAB-0026-SOP)
 
 # **THE END**

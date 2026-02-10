@@ -17,31 +17,23 @@ output: html_document
 # **2 - LOAD PACKAGES**
 
 ```{r}
-library(nhdplusTools)
-library(sf)
 library(tidyverse)
-library(mapview)
 library(openxlsx)
-library(AWQMSdata)
+library(sf)
+library(mapview)
+library(AWQMSdata) #<https://github.com/TravisPritchardODEQ/AWQMSdata>
+library(nhdplusTools) #<https://doi-usgs.github.io/nhdplusTools/>
 ```
 
-# **3 - SPECIFY OUTPUT FILE**
+# **3 - OUTPUT SHAPEFILE**
 
-#### Choose *ONE* of the following two file types for exporting delineated watersheds. Update file path.
-
-## OPTION A - *ARCGIS SHAPEFILE*
+#### Enter the unique file path of the exported delineated watersheds. Output file must not already exist!
 
 ```{r}
-export <- "C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/willytest5.shp"
+export <- "C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/willytest.shp"
 ```
 
-## OPTION B - *GOOGLE EARTH KML*
-
-```{r}
-export <- "C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/willytest.kml"
-```
-
-# **3 - IMPORT DATA**
+# **4 - IMPORT DATA**
 
 #### Choose *ONE* of the following three methods for importing sites/COMIDs. Update file path.
 
@@ -62,11 +54,10 @@ import <- st_read("C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/willy.s
 ## OPTION C - *STATIONS DATABASE*
 
 ```{r}
-# RETURN ALL STATIONS FROM STATIONS DB
 import <- query_stations(mlocs = c("21848-ORDEQ","10404-ORDEQ","ODFW-10662")) #<--Enter desired MLocIDs in quotes separated by commas
 ```
 
-# **4 - CREATE COMID DATAFRAME**
+# **5 - CREATE COMID DATAFRAME**
 
 ```{r}
 # MAKE DATAFRAME CONTAINING ALL COMIDS FROM USER-SELECTED INPUT METHOD
@@ -79,7 +70,7 @@ dataframe_comid <- import |>
 subset_file <- tempfile(fileext = ".gpkg")
 ```
 
-# **5 - RUN DELINEATION FUNCTION**
+# **6 - RUN DELINEATION FUNCTION**
 
 ```{r}
 # RUN FUNCTION
@@ -121,22 +112,13 @@ st_write(catchment2, save_file, append = TRUE)
 }
 ```
 
-# **5 - VIEW MAP PRODUCTS (*OPTIONAL*)**
-
-```{r}
-mapview(catchment2, col.regions = "palegreen", layer.name = "Watershed", alpha.regions = 0.5, legend = FALSE) + 
-  mapview(flownet, color = "royalblue", layer.name = "Flow Network", legend = FALSE)
-
-mapviewOptions(basemaps = c("OpenTopoMap","Esri.WorldImagery"))
-```
-
-# **6 - WRITE TO SHAPEFILE**
+# **7 - WRITE TO OUTPUT SHAPEFILE**
 
 ```{r}
 purrr::pmap(dataframe_comid, ~delin(comid = {..1}, MLocID = {..2}, save_file = export))
 ```
 
-# **7 - QC AND CORRECT WATERSHEDS IN GIS**
+# **8 - QC AND CORRECT WATERSHEDS IN GIS**
 
 #### REFER TO STATEWIDE REFERENCE SELECTION PROTOCOLS (DEQ21-LAB-0026-SOP)
 

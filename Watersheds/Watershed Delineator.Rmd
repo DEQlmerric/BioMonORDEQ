@@ -27,10 +27,16 @@ library(nhdplusTools) #<https://doi-usgs.github.io/nhdplusTools/>
 
 # **3 - OUTPUT SHAPEFILE**
 
-#### Enter the unique file path of the exported delineated watersheds. Output file must not already exist!
+#### Enter the file path where delineated watersheds will be saved. Output file path must be unique for tool to run.
 
 ```{r}
-export <- "C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/willytest.shp"
+export <- "C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/willytest2.shp"
+
+if (file.exists(export)) {
+  print("❌ The file already exists. Rename output file or delete existing file.")
+} else {
+  print("✅ The file does not exist. Proceed.")
+}
 ```
 
 # **4 - IMPORT DATA**
@@ -61,7 +67,7 @@ import <- query_stations(mlocs = c("21848-ORDEQ","10404-ORDEQ","ODFW-10662")) #<
 
 ```{r}
 # MAKE DATAFRAME CONTAINING ALL COMIDS FROM USER-SELECTED INPUT METHOD
-# DROP ROWS WITH MISSING COMIDS (e.g., STATIONS ON HIGH RESOLUTION NHD LAYER WITH NO REPRESENTATIVE COMIDS, DENOTED BY "-99999")
+# DROP ROWS WITH MISSING COMIDS (e.g., stations on high resolution NHD layer with no representative COMIDs, denoted by "-99999")
 dataframe_comid <- import |>
   select(COMID, MLocID) |>
     filter(COMID != '-99999' | !is.na(COMID))
@@ -118,8 +124,8 @@ st_write(catchment2, save_file, append = TRUE)
 purrr::pmap(dataframe_comid, ~delin(comid = {..1}, MLocID = {..2}, save_file = export))
 ```
 
-# **8 - QC AND CORRECT WATERSHEDS IN GIS**
+# **8 - REVIEW WATERSHEDS IN GIS**
 
 #### REFER TO STATEWIDE REFERENCE SELECTION PROTOCOLS (DEQ21-LAB-0026-SOP)
 
-# **THE END**
+## ***THE END***

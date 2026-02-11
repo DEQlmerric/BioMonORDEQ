@@ -27,7 +27,7 @@ library(nhdplusTools) #<https://doi-usgs.github.io/nhdplusTools/>
 
 # **3 - OUTPUT SHAPEFILE**
 
-#### Enter the file path where delineated watersheds will be saved. Output file path must be unique for tool to run.
+#### Enter the file path where delineated watersheds will be saved. Output file path must be unique for tool to run and won't overwrite existing files.
 
 ```{r}
 export <- "C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/willytest2.shp"

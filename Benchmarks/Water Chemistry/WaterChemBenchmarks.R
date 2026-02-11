@@ -352,13 +352,9 @@ cal.val_chem.ref.wq <- rbind(reach_mult, reach_single)
 # one of those sites to keep in the dataset (so we don't have different water chem results for the same set of predictors.)
 # HOWEVER there are some misidentified COMIDs in the dataset, so these will need to be screened for each parameter. 
 
-# Below are some manual edits, vetted FOR TSS ONLY.  Lackeys will need to revisit this for other parameters.
-# # Delete this once Dan updates Stations.  UPDATE Dan updated these 12/9/25.  Confirm and delete this chunk.
+# Make edits below if needed:
 # cal.val_chem.ref.wq <- cal.val_chem.ref.wq %>% 
-#   mutate(COMID = ifelse(MLocID == '12868-ORDEQ', -99999, COMID)) %>% # A-3 Channel.  Still need to ask Dan to update. Changed from 23764745.
-#   filter(COMID != '-99999') %>% # Drop this new one since we don't want -99999s.
-#   mutate(COMID = ifelse(MLocID == '33518-ORDEQ', 23815014, COMID)) %>%  # Miller Creek.  Still need to ask Dan to update.  Changed from 23815386.
-#   mutate(COMID = ifelse(MLocID== '16999-ORDEQ',24515990, COMID )) # Fox Creek at FSR.  Still need to ask Dan to update. Changed from 24516234.
+#   mutate(COMID = ifelse(MLocID == '12868-ORDEQ', -99999, COMID)) %>% 
 
   # List sites that have more than one COMID.  Randomly sample 1 site to keep.
 mult.comids <- cal.val_chem.ref.wq %>% 
@@ -414,6 +410,7 @@ cal_chem.ref.wq <- cal_chem.ref.wq %>%
 
 # Combine the previous two tables.
 cal.val_chem.ref.wq <- rbind(cal_chem.ref.wq, val_chem.ref.wq)
+write_xlsx(cal.val_chem.ref.wq, path = paste0("Benchmarks//Water Chemistry//cal.val_chem.ref.wq_", Sys.Date(), ".xlsx")) 
 
 tn <- cal.val_chem.ref.wq %>%
   filter(Char_Name == 'Nitrogen') %>% 

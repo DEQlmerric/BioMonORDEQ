@@ -1,0 +1,1094 @@
+---
+title: "Conductivity Reference Benchmarks"
+author: "S. Berzins, A. Thompson"
+date: "2026-01-06"
+output: html_document
+---
+
+#### Trying the script we created in class for a different parameter (Conductivity)
+
+# **1 - LOAD PACKAGES**
+
+```{r warning=FALSE}
+library(tidyverse)
+library(StreamCatTools) 
+library(readxl)
+library(writexl)
+library(randomForest)
+library(vip)
+library(caret)
+library(ORDEQBioassessment)
+# devtools::install_github("TravisPritchardODEQ/ORDEQBioassessment", 
+#                         host = "https://api.github.com", 
+#                        dependencies = TRUE, force = TRUE, upgrade = "never")
+library(EnvStats)
+library(Metrics)
+library(randomForestSRC)
+library(leaflet)
+library(RColorBrewer)
+```
+
+# **2 - IMPORT DATA**
+
+## STATIONS - *FROM WATER CHEMISTRY BENCHMARKS SCRIPT*
+
+```{r}
+cond <- read_excel('~/BioMonORDEQ/Benchmarks/Water Chemistry/cal.val_chem.ref.wq_2026-02-10.xlsx') %>%  # Output file from ref benchmarks script 
+  filter(Char_Name == 'Conductivity') %>% 
+  select(c(MLocID, Project1, StationDes, Lat_DD, Long_DD, SampleStartDate, Result_Numeric_mod, L2Eco, L3Eco, EcoRegion4, HUC8, ReferenceSite, cal_val, COMID)) %>%
+  mutate(Conductivity = Result_Numeric_mod) %>% 
+  select(-Result_Numeric_mod)
+
+comids <- cond %>% 
+  select(COMID) # Get just the COMIDs for next step
+```
+
+## WATERSHED PREDICTOR VARIABLES - *FROM EPA STREAMCAT*
+
+#### Learn about StreamCat predictors: <https://www.epa.gov/national-aquatic-resource-surveys/streamcat-metrics-and-definitions>
+
+#### View StreamCat updates: <https://www.epa.gov/national-aquatic-resource-surveys/streamcat-updates>
+
+#### Make table of StreamCat metadata and clean up in Excel
+
+```{r}
+# METHOD 1: FIND QUERY-ABLE METRIC NAMES
+#partable <- StreamCatTools::sc_get_metric_names()
+
+# METHOD 2: FIND QUERY-ABLE METRIC NAMES (slightly different than above)
+#scpar <- StreamCatTools::sc_get_params(param = 'metric_names') 
+
+#metrics_desc <- read_excel("~/BioMonORDEQ/Benchmarks/Water Chemistry/TSS Class Project/StreamCatMetrics_new.xlsx") #final cleaned-up metrics table
+
+# FOR TESTING INDIVIDUAL METRICS/COMIDS (e.g., to ensure names match)
+#test <- StreamCatTools::sc_get_data(comid = '23910659', metric = 'precipminusevt', showAreaSqKm = FALSE, aoi='watershed')
+#test <- StreamCatTools::sc_get_data(comid = '23910659', metric = 'thalwegdepth', showAreaSqKm = FALSE, aoi='other')
+```
+
+#### Run function to query ALL StreamCat data for selected COMIDs by subcategory
+
+```{r}
+# NOTE: StreamCat doesn't pull data for 'other' areas of interest when aoi='watershed, catchment, other'. 
+# Instead, use aoi='watershed' and run separate line for aoi='other' since they don't pull unless on their own.
+# ALSO: Do not separate metric lists onto a new line by hitting the enter button, as any metric after the break will be excluded from the pull.
+
+# FUNCTION - START +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+get_streamcat <- function(comids, type = c("Agriculture","Climate","Dams","Flow","IWI","Land Cover","Lithology","Mining_Toxics","Roads",
+                                           "Urban","Wildfire","Others")){
+type <- match.arg(type)
+
+if(type == "Agriculture"){
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'canaldens,pctagdrainage,pctagslphigh2001,pctagslpmid2001,pestic1997,sw_flux,waterinput,wdrw_LD,pctcrop2001,pcthay2001,cbnf,fert,manure,nani,nsurp,agkffact',
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed')) 
+  }
+
+if(type == "Climate"){
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'precip2008,precip8110,precip9120,tmax8110,tmax9120,tmean2008,tmean8110,tmean9120,tmin8110,tmin9120,inorgnwetdep2008,nh42008,no32008,sn2008,precip_minus_evt,wetindex', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "Dams"){
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'damdens,damnidstor,damnrmstor,NABD_Dens,NABD_NIDStor,NABD_NrmStor', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "Flow"){
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'bfi,elev,runoff', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "IWI"){
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'chem,conn,habt,hyd,sed,temp', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "Land Cover"){
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pctbl2001,pctconif2001,pctdecid2001,pctgrs2001,pcthbwet2001,pctice2001,pctmxfst2001,pctow2001,pctshrb2001,pcturbhi2001,pcturblo2001,pcturbmd2001,pcturbop2001,pctwdwet2001,pctfrstloss2002', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "Lithology"){ 
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'al2o3,cao,compstrgth,fe2o3,hydrlcond,k2o,mgo,na2o,p2o5,pctalkintruvol,pctalluvcoast,pctcarbresid,pctcoastcrs,pctcolluvsed,pcteolcrs,pcteolfine,pctextruvol,pctglaclakecrs,pctglaclakefine,pctglactilclay,pctglactilcrs,pctglactilloam,pcthydric,pctnoncarbresid,pctsallake,pctsilicic,pctwater,rockn,s,sio2,clay,kffact,om,perm,Rckdep,rckdep,sand,wtdep,n',
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "Mining_Toxics"){
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'coalminedens,minedens,superfunddens,tridens', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "Roads"){ 
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'rdcrs,rdcrsslpwtd,rddens', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "Urban"){ 
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'huden2010,npdesdens,popden2010,septic,wwtpalldens,wwtpmajordens,wwtpminordens,pctimp2001,pctimpslphigh2001,pctimpslpmid2001,pctnonagintrodmanagveg', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "Wildfire"){ 
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'pctfire2002,pctburnarea2002,pcthighsev2002,pctincvegresp2002,pctlowsev2002,pctmodsev2002,pctnonprocmask2002,pctundsev2002', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='watershed'))
+  }
+
+if(type == "Others"){
+
+  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                           metric = 'bankfulldepth,bankfullwidth,ici,iwi,mast2008,msst2008,mwst2008,thalwegdepth,wettedwidth,prg_bmmi0809', 
+                                                                           showAreaSqKm = FALSE,
+                                                                           aoi='other')) 
+  }
+
+names(streamcat) <- base::toupper(names(streamcat))
+return(streamcat)
+}
+# FUNCTION - END  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+```
+
+#### Pull ALL StreamCat data by subcategory and merge
+
+```{r}
+# PULL DATA BY SUBCATEGORY/TYPE
+ag <- get_streamcat(comids = comids, type = "Agriculture")
+clim <- get_streamcat(comids = comids, type = "Climate")
+dams <- get_streamcat(comids = comids, type = "Dams")
+flow <- get_streamcat(comids = comids, type = "Flow")
+iwi <- get_streamcat(comids = comids, type = "IWI") 
+cover <- get_streamcat(comids = comids, type = "Land Cover")
+litho <- get_streamcat(comids = comids, type = "Lithology") 
+mintox <- get_streamcat(comids = comids, type = "Mining_Toxics")
+roads <- get_streamcat(comids = comids, type = "Roads")
+urb <- get_streamcat(comids = comids, type = "Urban")
+fire <- get_streamcat(comids = comids, type = "Wildfire")
+other <- get_streamcat(comids = comids, type = "Others")
+
+# MERGE INTO ONE TABLE
+sc_all <- list(ag, clim, dams, flow, iwi, cover, litho, mintox, roads, urb, fire, other)
+sc_all <- sc_all %>% reduce(full_join, by = 'COMID')
+
+rm(list=c('ag', 'clim', 'dams', 'flow','iwi', 'cover', 'litho', 'mintox', 'roads', 'urb', 'fire', 'other'))
+```
+
+#### Add predictor variables not in StreamCat (LII and III Ecoregion, Lat/Long, erodible vs. resistant geology, slope, stream power) and transform data.
+
+```{r}
+# ERODIBLE VS RESISTENT GEOLOGY (KEPT ERODIBLE, SINCE RESISTENT IS INVERSE OF ERODIBLE)
+erod_resist_strmpow <- sc_all %>%
+  mutate(PCT_EROD = PCTALLUVCOASTWS+PCTCARBRESIDWS+PCTCOASTCRSWS+PCTCOLLUVSEDWS+PCTEOLCRSWS+PCTEOLFINEWS+PCTGLACLAKECRSWS+PCTGLACLAKEFINEWS+PCTGLACTILCLAYWS+PCTGLACTILCRSWS+PCTGLACTILLOAMWS+PCTSALLAKEWS+PCTNONCARBRESIDWS)  %>% 
+  mutate(PCT_RESIST = PCTALKINTRUVOLWS+PCTEXTRUVOLWS+PCTHYDRICWS+PCTSILICICWS) 
+
+# SLOPE FROM NHD (TAKES 1-2 MIN)
+erod_resist_strmpow <- ORDEQBioassessment::get_NHD_info(erod_resist_strmpow) 
+
+# WATERSHED AREA AND STREAM POWER
+erod_resist_strmpow <- erod_resist_strmpow %>% 
+  mutate(STRMPOW_CAT = totdasqkm + PRECIP9120WS * slope) %>%  # WSAREASQKM from SC, instead pulling totdasqkm from get_NHD (they are the same)
+  select(COMID, PCT_EROD, STRMPOW_CAT, NHD_pSLOPE, SITE_TYPE) # Drop PCT_RESIST since it's the inverse of PCT_ERODE
+
+# JOIN WITH OTHER PARAMETERS NOT FROM SC
+cond_vars <- sc_all %>% 
+  inner_join(erod_resist_strmpow, by='COMID') %>% 
+  inner_join(cond, by = 'COMID')
+
+# RE-ORDER COLUMNS and TRANSFORM DATA
+cond_vars <- cond_vars %>% 
+  relocate(MLocID:Conductivity, .before = 'COMID') %>% 
+  relocate(L2Eco:L3Eco, .after = SITE_TYPE) %>% 
+  select(-c(HUC8, EcoRegion4)) %>% 
+  mutate(logCond = log(Conductivity)) %>% 
+  relocate(logCond, .before= Conductivity)
+```
+
+#### Explore co-varied metrics and select which we want to retain for modeling purposes.
+
+#### Make Spearman correlation matrix to identify co-varied parameters
+
+```{r, warning=FALSE}
+# FIND OUT WHICH COLUMNS HAVE NAs (AND WRITE CODE FOR THEM BELOW)
+sapply(cond_vars, function(x) sum(is.na(x)))
+
+# PERFORM NA ROUGHFIX FUNCTION ON METRICS WITH just a few missing values (wait to see about the ones that are missing a lot: BANKFULLDEPTH, BANKFULLWIDTH, MAST2008, THALWEGDEPTH, WETTEDWIDTH)
+cond_vars$CLAYWS  <- na.roughfix(cond_vars$CLAYWS ) # 1 NA
+cond_vars$MSST2008 <- na.roughfix(cond_vars$ MSST2008) # 1 NA
+cond_vars$MWST2008 <- na.roughfix(cond_vars$ MWST2008) # 11 NAs
+cond_vars$NANIWS <- na.roughfix(cond_vars$NANIWS) # 1 NA
+cond_vars$NSURPWS <- na.roughfix(cond_vars$NSURPWS) # 1 NA
+cond_vars$OMWS <- na.roughfix(cond_vars$OMWS) # 1 NA
+cond_vars$PCTIMPSLPHIGH2001WS <- na.roughfix(cond_vars$PCTIMPSLPHIGH2001WS) # 4 NAs
+cond_vars$PERMWS <- na.roughfix(cond_vars$PERMWS) # 1 NA
+cond_vars$RCKDEPWS <- na.roughfix(cond_vars$RCKDEPWS) # 1 NA
+cond_vars$SANDWS <- na.roughfix(cond_vars$SANDWS) # 1 NA
+cond_vars$SW_FLUXWS <- na.roughfix(cond_vars$SW_FLUXWS) # 1 NA
+cond_vars$WTDEPWS <- na.roughfix(cond_vars$WTDEPWS) # 1 NA
+
+# Subset numeric variables only
+cond_vars_num <- cond_vars %>% 
+  select(!c(SITE_TYPE:L3Eco)) %>% 
+  select(!c(MLocID:Conductivity)) %>%  
+  relocate(sort(names(.))) # sort columns alphabetically
+
+# FULL CORRELATION MATRIX
+spear <- cor(cond_vars_num, method = "spearman", use = "pairwise.complete.obs")
+spear <- as.data.frame(spear)
+spear.rows <- tibble::rownames_to_column(spear)
+
+# CONDENSED CORRELATION MATRIX (>0.8 ONLY)
+matrix <- spear.rows %>%  
+  gather(-rowname, key = "colname", value = "cor") %>% 
+  filter(abs(cor) > 0.8)
+
+#export once, then clean up in Excel
+#write_xlsx(matrix, path = "~/BioMonORDEQ/Benchmarks/Water Chemistry/Conductivity/Cond_Spearmans_Matrix.xlsx")
+
+rm(list=c('spear', 'spear.rows'))
+```
+##### Use CV, % of sites that have zero values, and KD plots for predictors to help make decisions about which correlated vars to keep/drop:
+
+```{r}
+# Look at Coefficient of Variance for predictors.
+cv <- cond_vars_num %>% 
+  summarise(across(everything(), ~ cv(.x, na.rm = TRUE))) %>% 
+  pivot_longer(1:140, names_to="Var", values_to="CV") # Change first argument to 1:# columns
+
+cv_pctzero <- cond_vars_num %>%
+  summarise(across(everything(), ~ sum(. == 0, na.rm = TRUE) / n() * 100)) %>% 
+  pivot_longer(1:140, names_to="Var", values_to="Percent Zeros") %>%  # Change  first argument to 1:# columns
+  inner_join(cv, by = "Var")
+
+#write_xlsx(cv_pctzero, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//Cond_CofV", Sys.Date(), ".xlsx"))
+
+rm(cv)
+```
+ 
+```{r}
+# Look at KD plots for predictors.
+cond_vars %>%
+    select("AGKFFACTWS","AL2O3WS","BANKFULLDEPTH","BANKFULLWIDTH","BFIWS","CAOWS","CBNFWS","CLAYWS","CONNWS","DAMDENSWS","DAMNIDSTORWS","DAMNRMSTORWS") %>%  # Edit this line to include vars that you want to look at.
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_density() +
+  geom_rug()
+
+# If warnings appear with the plot they pertain to NA values being present, ignore them.
+```
+#### Select variables based on correlation analysis. (Either select desired vars or drop undesired ones. Helps if they are in alphabetical order. Don't get rid of columns you want to keep from AWQMS at this stage.)  SH, AT, and SB did this together and recorded decisions in 'Var selection decision 1-8-26.xlsx'
+
+```{r}
+cond_vars_selected <- cond_vars %>% 
+  select(c(MLocID:COMID,BFIWS, CANALDENSWS, CAOWS, CLAYWS, COMPSTRGTHWS, DAMDENSWS, ELEVWS, FE2O3WS, HYDRLCONDWS, K2OWS, KFFACTWS, MINEDENSWS, MSST2008, NA2OWS, NHD_pSLOPE, NPDESDENSWS, NWS, OMWS, PCT_EROD, PCTAGDRAINAGEWS, PCTAGSLPMID2001WS, PCTALKINTRUVOLWS, PCTALLUVCOASTWS, PCTBL2001WS, PCTBURNAREA2002WS, PCTCOLLUVSEDWS, PCTCONIF2001WS, PCTCROP2001WS, PCTDECID2001WS, PCTEOLCRSWS, PCTEOLFINEWS, PCTEXTRUVOLWS, PCTFRSTLOSS2002WS, PCTGLACLAKECRSWS, PCTGLACLAKEFINEWS, PCTGLACTILCRSWS, PCTGRS2001WS, PCTHBWET2001WS, PCTICE2001WS, PCTIMP2001WS, PCTINCVEGRESP2002WS, PCTNONAGINTRODMANAGVEGWS, PCTOW2001WS, PCTSALLAKEWS, PCTSHRB2001WS, PCTURBHI2001WS, PCTURBLO2001WS, PCTURBOP2001WS, PCTWATERWS, PESTIC1997WS, POPDEN2010WS, PRECIP9120WS, RCKDEPWS, RDCRSSLPWTDWS, RDCRSWS, RDDENSWS, ROCKNWS, SANDWS, SEPTICWS, STRMPOW_CAT, SUPERFUNDDENSWS, SW_FLUXWS, SWS, TMAX9120WS, TRIDENSWS, WATERINPUTWS, WETINDEXWS, WETTEDWIDTH, WTDEPWS, WWTPALLDENSWS,SITE_TYPE:L3Eco)) %>% 
+  relocate(COMID, .after = cal_val) 
+```
+
+#### Perform final correlation check
+
+```{r, warning=FALSE}
+# Subset numeric variables only
+cond_vars_num_selected <- cond_vars_selected %>% 
+  select(!c(SITE_TYPE:L3Eco)) %>% 
+  select(!c(MLocID:Conductivity)) 
+
+# FULL CORRELATION MATRIX
+spear2 <- cor(cond_vars_num_selected, method = "spearman", use = "pairwise.complete.obs")
+spear2 <- as.data.frame(spear2)
+spear2.rows <- tibble::rownames_to_column(spear2)
+
+# CONDENSED CORRELATION MATRIX (>0.8 ONLY)
+matrix2 <- spear2.rows %>%  
+  gather(-rowname, key = "colname", value = "cor") %>% 
+  filter(abs(cor) > 0.8)
+
+rm(list=c('spear2', 'spear2.rows'))
+
+# ***CONTINUE ONCE NO CORRELATED VARIABLES REMAIN***
+
+rm('cond_vars_num_selected')
+```
+
+# **3 - PREPARE DATA FOR MODELS**
+
+## HANDLE NA VALUES
+
+```{r, warning=FALSE}
+# FIND OUT WHICH COLUMNS HAVE NAs (AND WRITE CODE FOR THEM BELOW)
+sapply(cond_vars_selected, function(x) sum(is.na(x)))
+
+# PERFORM NA ROUGHFIX FUNCTION ON ALL REMAINING METRICS.
+cond_vars_selected$WETTEDWIDTH <- na.roughfix(cond_vars_selected$WETTEDWIDTH) # 70 NAs
+```
+
+# **4 - EXPLORE DATA**
+
+## RESPONSE VARIABLE
+
+```{r}
+# HISTOGRAM
+hist(cond_vars_selected$Conductivity, main = "", xlab = "Conductivity") #raw data
+hist(cond_vars_selected$logCond, main = "", xlab = "log(Conductivity)" )
+
+# DENSITY PLOT
+hist(cond_vars_selected$logCond, main="", prob=T, xlab = "logCond")
+
+# BOX PLOT & STRIP CHART
+boxplot(cond_vars_selected$logCond, ylab = "logCond")
+#stripchart(tss_vars_selected$TSS, vertical = T, pch=1, col='red', add = T)
+
+```
+
+# **5 - RANDOM FOREST MODELS**
+
+```{r}
+# SUBSET DATA
+cond.src <- cond_vars_selected %>%  #subset CALibration dataset
+  select(-c(MLocID:COMID, Conductivity, SampleStartDate)) #drop conductivity in favor of logCond. Drop AWQMS columns too.
+
+# Convert character cols to factors
+cond.src[sapply(cond.src, is.character)] <- lapply(cond.src[sapply(cond.src, is.character)], as.factor)
+
+```
+
+
+```{r}
+# SUBSET DATA
+cond.cal <- cond_vars_selected %>%  #subset CALibration dataset
+  filter(cal_val == 'CAL') %>%  
+  select(-c(MLocID:COMID, Conductivity, SampleStartDate)) #drop conductivity in favor of logCond. Drop AWQMS columns too.
+
+cond.val <- cond_vars_selected %>%  #subset VALidation dataset
+  filter(cal_val == 'VAL') %>%  
+  select(-c(MLocID:COMID, Conductivity, SampleStartDate))
+
+cond.ref <- cond_vars_selected %>% #subset reference only dataset
+  filter(ReferenceSite == 'REFERENCE') %>%  
+  select(-c(MLocID:COMID, Conductivity, SampleStartDate))
+
+cond.cal_val <- rbind(cond.cal, cond.val)
+#write_xlsx(cond.cal_val, path = paste0("~/BioMonORDEQ/Benchmarks/Water Chemistry/Conductivity/Cond_cal_val", Sys.Date(), ".xlsx"))
+```
+
+## FULL MODEL - ALL PREDICTORS INCLUDED 
+
+#### Tuning the model (finding best mtry)
+
+```{r}
+# One way to find best mtry based on tuneRF.
+    # Tune mtry based on OOB error
+# best_mtry <- tuneRF(cond.cal[, -which(names(cond.cal) == "logCond")], # Predictors
+#                         cond.cal$logCond, # Response
+#                         ntreeTry = 500, # Number of trees to try for each mtry
+#                         stepFactor = 2, # Factor to multiply/divide mtry by
+#                         improve = 0.01, # Minimum improvement to continue search
+#                         trace = TRUE, # Print progress
+#                         plot = TRUE) # Plot OOB error vs. mtry
+# print(best_mtry)
+# 
+# # Another approach using Caret.  Takes >50 minutes to run, not that different from mtry approach above.
+# control <- trainControl(method="repeatedcv", number=10,repeats = 3, search="random")
+# set.seed(1)
+# mtry <- sqrt(ncol(cond.cal[ , 2:74]
+# ))
+# rf_random <- train(logCond ~., data = cond.cal, method = "rf", metric = "RMSE", tuneLength = 15, trControl=control)
+# print(rf_random)
+# plot(rf_random)
+
+```
+
+
+#### Build full model
+
+```{r}
+set.seed(24)
+
+rf.full.src <- rfsrc(logCond ~ ., data = cond.src, mtry=37, nodesize = 3, importance = TRUE)
+rf.full.src # Model output. (OOB) R squared = Percent Variance Explained.
+
+# Adjust the parameters above based on tuning:
+# tuning <- tune(logCond~., cond.src)
+# tuning$optimal
+
+# Mean squared error (untransformed)
+oob_mse <- tail(rf.full.src$err.rate,1)
+per_var <- 100 * (1 - oob_mse/ var(cond.src$logCond, na.rm = TRUE))
+print(per_var)
+
+range_cond <- max(exp(cond.src$logCond)) - min(exp(cond.src$logCond))
+
+#In-bag RMSE. 
+rmse<- rmse(exp(rf.full.src$predicted), exp(cond.src$logCond))
+rmse_scaled <- rmse/range_cond
+print(paste0('In-bag RMSE = ' , round(rmse,2), " (μS/cm)"))
+print(paste0('Scaled In-bag RMSE = ' , round(rmse_scaled*100,2), "%"))
+
+#OOB RMSE.
+oob.rmse<- rmse(exp(rf.full.src$predicted.oob), exp(cond.src$logCond))
+oob.rmse_scaled <- oob.rmse/range_cond
+print(paste0('OOB RMSE = ' , round(oob.rmse,2), " (μS/cm)"))
+print(paste0('Scaled OOB RMSE = ' , round(oob.rmse_scaled*100,2), "%"))
+
+# How many trees?
+#rf.full.src$err.rate
+
+# VIP
+plot(rf.full.src, plots.one.page=FALSE)
+#print(vimp(rf.full.src)$importance)
+
+# Make a df for plots
+predicted.oob <- data.frame(obs = cond.src$logCond, pred = rf.full.src$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
+predicted.ib <- data.frame(obs =cond.src$logCond, pred = rf.full.src$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
+plotdf <- rbind(predicted.oob, predicted.ib) %>% 
+  mutate(obs = exp(obs)) %>% 
+  mutate(pred = exp(pred)) %>% 
+  mutate(delta = obs - pred)
+
+# Plot
+ggplot(data = plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
+  geom_point(alpha = 0.75) +
+  labs(title = "Conductivity Full Model",
+       x = "Predicted values (μS/cm)",
+       y = "Observed values (μS/cm)") +
+  theme_bw() + 
+  geom_abline() + 
+  scale_x_log10() +
+  scale_y_log10() +
+  annotate("text", x = 50, y = 320, label = paste0('OOB RMSE = ' , round(oob.rmse,2), ' | scaled RMSE = ', round(oob.rmse_scaled*100,2), "%"), size = 3) +
+    annotate("text", x = 50, y = 390, label = paste0('IB RMSE = ' , round(rmse,2), ' | scaled RMSE = ', round(rmse_scaled*100,2), "%"), size = 3) +
+      annotate("text", x = 50, y = 460, label = paste0('% variance explained = ' , round(per_var,2), '%'), size = 3) 
+  
+```
+
+#### Leaflet map
+```{r}
+# CREATE DF FOR MAPPING PURPOSES
+# Need to join predictions to AWQMs columns, but there are no unique identifiers in the cond.src table. Predictions will be in the same order as the cond.src table initially.
+
+# Join predictions to cal_val table
+cond.obs_predict <- cbind(plotdf, cond.src)
+
+# Order the rows based on a StreamCat variables that has ALL unique values.
+# any(duplicated(cond.src$ELEVWS))
+# any(duplicated(cond.src$PRECIP9120WS))
+cond.obs_predict <- cond.obs_predict %>% 
+  arrange(predictions, ELEVWS)
+
+cond.awqms <- cond_vars_selected %>% 
+  arrange(ELEVWS) %>% 
+  select(MLocID:logCond)
+
+# Join cond_vars_selected with cond.obs_predict, and makes sure the conductivity results match.
+cond_map <- cbind(cond.awqms,cond.obs_predict)
+
+# Then get rid of StreamCat columns, and save file.
+cond_map <- cond_map %>% 
+  select(MLocID:delta, L2Eco, L3Eco) %>% 
+  filter(predictions=='OOB')
+
+map_function <- function(data) {
+  leaflet() %>%
+  addProviderTiles("OpenStreetMap", group = "Basic Map") %>% 
+  addProviderTiles(providers$Esri.WorldTopoMap, group = "Terrain") %>%
+  setView(lng = -120.5583, lat =44.0671, zoom =6.4) %>%
+  addCircleMarkers(data = data, group = "Observed", lng = ~data$Long_DD, 
+                     lat = ~data$Lat_DD, fillColor = pal(data$obs), stroke = TRUE,
+                   color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
+                   popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
+                                  "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
+                                  "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
+                                  "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
+                                  "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
+                                  "<strong>", "Observed Conductivity: ", "</strong>", data$obs))  %>% 
+      addCircleMarkers(data = data, group = "Predicted",lng = ~data$Long_DD, 
+                     lat = ~data$Lat_DD, fillColor = pal2(data$pred), stroke = TRUE,
+                   color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
+                   popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
+                                  "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
+                                  "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
+                                  "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
+                                  "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
+                                  "<strong>", "Predicted Conductivity: ", "</strong>", data$pred))  %>% 
+     addCircleMarkers(data = data, group = "Obs-Pred",lng = ~data$Long_DD, 
+                     lat = ~data$Lat_DD, fillColor = pal3(data$delta), stroke = TRUE,
+                   color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
+                   popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
+                                  "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
+                                  "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
+                                  "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
+                                  "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
+                                  "<strong>", "Obs - Pred Conductivity: ", "</strong>", data$delta))  %>% 
+    addLayersControl(
+      baseGroups = c("Basic Map", "Terrain"),
+      overlayGroups = c("Observed","Predicted", "Obs-Pred"),
+      options = layersControlOptions(collapsed = FALSE)) %>% 
+    addLegend(pal = pal, group = "Observed", values = data$obs[data$obs <= (quantile(data$obs, 0.75) + 1.5 * 
+      IQR(data$obs))], position = "bottomright" , title = "Observed Conductivity" ) %>% 
+    addLegend(pal = pal2,group = "Predicted",values = data$pred[data$pred <= (quantile(data$pred, 0.75) + 1.5 * 
+      IQR(data$pred))], position = "bottomright" , title = "Predicted Conductivity" ) %>% 
+        addLegend(pal = pal3, group = "Obs-Pred", values = data$delta[data$delta <= (quantile(data$delta, 0.75) + 1.5 * 
+      IQR(data$delta))], position = "bottomleft" , title = "Obs - Pred Conductivity" )
+}
+
+pal <- colorNumeric(palette = "Greens", 
+  domain = c(0, 400))
+pal2 <- colorNumeric(palette = "Greens", 
+  domain = c(0, 400))
+pal3 <- colorNumeric(palette = "PuOr", domain = c(-450,450))
+
+map_function(cond_map)
+```
+
+#### Partial Plots
+```{r}
+# Human-influenced vars
+partialplots_hi1 <- plot.variable(rf.full.src, xvar.names = c("CANALDENSWS", "DAMDENSWS", "MINEDENSWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTAGSLPMID2001WS", "PCTIMP2001WS", "PCTINCVEGRESP2002WS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS"), partial = TRUE, plots.one.page = TRUE)
+
+
+partialplots_hi2 <- plot.variable(rf.full.src, xvar.names = c("PCTCROP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "SW_FLUXWS", "TRIDENSWS", "WATERINPUTWS", "WWTPALLDENSWS"), partial = TRUE, plot.sone.page = TRUE)
+
+# Top importance vars
+partialplots_imp <- plot.variable(rf.full.src, xvar.names = c("PRECIP9120WS", "KFFACTWS", "TMAX9120WS", "OMWS", "L3ECO", "MSST2008", "ELEVWS", "SW_FLUXWS", "PCTBL2001WS", "STDEPWS", "SWS", "PCTDECID2001WS", "PCTCROP2001WS"), partial = TRUE, plot.sone.page = TRUE)
+
+partialplots_imp_cat <- plot.variable(rf.full.src, xvar.names = c("L3Eco"), partial = TRUE, plot.sone.page = TRUE)
+
+```
+
+#### Trying to reduce all human-influenced variables to 0, seeing what impact that has on the residuals
+
+```{r}
+set.seed(24)
+
+# Reduce all human-influenced vars to 0.
+cond.src.no_hi <- cond.src %>% 
+  mutate(across(all_of(c("CANALDENSWS", "DAMDENSWS", "MINEDENSWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTAGSLPMID2001WS", "PCTIMP2001WS", "PCTINCVEGRESP2002WS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS","PCTCROP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "SW_FLUXWS", "TRIDENSWS", "WATERINPUTWS", "WWTPALLDENSWS")), ~0))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#  __          _,                     
+# ( /  /o     / |     /              /
+#  /--/,     /--|  __/ __,  _ _ _   / 
+# /  /_(_  _/   |_(_/_(_/(_/ / / /_'  
+#                                 o   
+# I stopped editing here!
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+set.seed(39) # mtry = 20
+
+rf.full <- randomForest(logCond ~ ., cond.cal, importance = TRUE, mtry=20, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors. mtry=20 based on Caret grid search results.
+#print(rf.full)
+rf.full
+
+varImpPlot(rf.full, type = 1, n.var = 40, main = "Conductivity All-Sites Full Model") #variable importance plot
+```
+
+#### Tuning the model (how many trees)
+
+```{r}
+# How many trees is appropriate?
+plot(rf.full, log="x", main = '')  # 500 seems to work fine.
+```
+
+#### Model prediction errors - full model
+
+```{r}
+# Predictions
+pred.rf <- predict(rf.full, newdata = cond.cal)
+
+# Model error 
+full.rmse<- rmse(exp(pred.rf), exp(cond.cal$logCond))
+
+range_cond <- max(exp(cond.cal_val$logCond)) - min(exp(cond.cal_val$logCond))
+full.rmse_scaled <- full.rmse/range_cond
+
+# Percent variance explained
+rf.full_pct.var <- round(100 * rf.full$rsq[length(rf.full$rsq)], 2)
+
+# Plot
+plot(cond.cal$logCond ~ pred.rf, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'Full model')
+abline(a=0,b=1)
+text(4,6, paste0("RMSE = ",round(full.rmse, 2)," | scaled RMSE = ", round(full.rmse_scaled*100,2), "%"))
+text(4,5.5, paste0("Variance explained = ",rf.full_pct.var,"%"))
+```
+## REDUCED MODEL - IMPORTANT PREDICTORS ONLY
+
+#### Build reduced model with 14 predictors
+
+```{r}
+set.seed(32)
+
+rf.red_14 <- randomForest(logCond ~ PRECIP9120WS+KFFACTWS+TMAX9120WS+MSST2008+OMWS+SWS+PCT_EROD+CLAYWS+WTDEPWS+ELEVWS+ROCKNWS+WETINDEXWS+FE2O3WS+NA2OWS, data = cond.cal, importance = TRUE,  keep.forest = TRUE, mtry=14, ntree = 500) 
+
+#print(rf.red_14)
+summary(rf.red_14)
+
+varImpPlot(rf.red_14, type = 1, n.var = 14, main = "Reduced Model Top 14") #variable importance plot
+
+# Predictions
+pred.rf.red_14 <- predict(rf.red_14, newdata = cond.cal)
+
+# Model error 
+red_14.rmse<- rmse(exp(pred.rf.red_14), exp(cond.cal$logCond))
+red_14.rmse_scaled <- red_14.rmse/range_cond
+
+# Percent variance explained
+rf.red_14_pct.var <- round(100 * rf.red_14$rsq[length(rf.red_14$rsq)], 2)
+
+# Plot
+plot(cond.cal$logCond ~ pred.rf.red_14, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'Reduced Model Top 14')
+abline(a=0,b=1)
+text(4,6, paste0("RMSE = ",round(red_14.rmse, 2)," | scaled RMSE = ", round(red_14.rmse_scaled*100,2), "%"))
+text(4,5.5, paste0("Variance explained = ",rf.red_14_pct.var,"%"))
+```
+#### Build reduced model with 7 predictors
+
+```{r}
+set.seed(32)
+
+rf.red_7 <- randomForest(logCond ~ PRECIP9120WS+KFFACTWS+TMAX9120WS+MSST2008+OMWS+SWS+PCT_EROD, data = cond.cal, importance = TRUE,  keep.forest = TRUE, mtry=7, ntree = 500) 
+
+#print(rf.red_7)
+summary(rf.red_7)
+
+varImpPlot(rf.red_7, type = 1, n.var = 7, main = "Reduced Model Top 7") #variable importance plot
+
+# Predictions
+pred.rf.red_7 <- predict(rf.red_7, newdata = cond.cal)
+
+# Model error 
+red_7.rmse<- rmse(exp(pred.rf.red_7), exp(cond.cal$logCond))
+red_7.rmse_scaled <- red_7.rmse/range_cond
+
+# Percent variance explained
+rf.red_7_pct.var <- round(100 * rf.red_7$rsq[length(rf.red_7$rsq)], 2)
+
+# Plot
+plot(cond.cal$logCond ~ pred.rf.red_7, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'Reduced Model Top 7')
+abline(a=0,b=1)
+text(4,6, paste0("RMSE = ",round(red_7.rmse, 2)," | scaled RMSE = ", round(red_7.rmse_scaled*100,2), "%"))
+text(4,5.5, paste0("Variance explained = ",rf.red_7_pct.var,"%"))
+```
+
+#### Build reduced model with 3 predictors
+
+```{r}
+set.seed(32)
+
+rf.red_3 <- randomForest(logCond ~ PRECIP9120WS+KFFACTWS+TMAX9120WS, data = cond.cal, importance = TRUE,  keep.forest = TRUE, mtry=3, ntree = 500) 
+
+#print(rf.red_3)
+summary(rf.red_3)
+
+varImpPlot(rf.red_3, type = 1, n.var = 3, main = "Reduced Model Top 3") #variable importance plot
+
+# Predictions
+pred.rf.red_3 <- predict(rf.red_3, newdata = cond.cal)
+
+# Model error 
+red_3.rmse<- rmse(exp(pred.rf.red_3), exp(cond.cal$logCond))
+red_3.rmse_scaled <- red_3.rmse/range_cond
+
+# Percent variance explained
+rf.red_3_pct.var <- round(100 * rf.red_3$rsq[length(rf.red_3$rsq)], 2)
+
+# Plot
+plot(cond.cal$logCond ~ pred.rf.red_3, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'CAL Reduced Model Top 3 \n (PRECIP9120, KFFACT, TMAX9120)')
+abline(a=0,b=1)
+text(4,6, paste0("RMSE = ",round(red_3.rmse, 2)," | scaled RMSE = ", round(red_3.rmse_scaled*100,2), "%"))
+text(4,5.5, paste0("Variance explained = ",rf.red_3_pct.var,"%"))
+
+
+#Untransformed plot no log scale axes
+plot(exp(cond.cal$logCond) ~ exp(pred.rf.red_3), xlab = 'predicted Conductivity', ylab = 'observed Conductivity', main = 'CAL Reduced Model Top 3 untransformed \n (PRECIP9120, KFFACT, TMAX9120)')
+abline(a=0,b=1)
+text(150,600, paste0("RMSE = ",round(red_3.rmse, 2)," | scaled RMSE = ", round(red_3.rmse_scaled*100,2), "%"))
+text(150,500, paste0("Variance explained = ",rf.red_3_pct.var,"%"))
+
+#Untransformed plot no log scale axes
+plot(exp(cond.cal$logCond) ~ exp(pred.rf.red_3), log = 'xy', xlab = 'predicted Conductivity (μS/cm)', ylab = 'observed Conductivity (μS/cm)', main = 'CAL Reduced Model Top 3 log scale axes \n (PRECIP9120, KFFACT, TMAX9120)')
+abline(a=0,b=1)
+text(55,300, paste0("RMSE = ",round(red_3.rmse, 2)," | scaled RMSE = ", round(red_3.rmse_scaled*100,2), "%"))
+text(55,210, paste0("Variance explained = ",rf.red_3_pct.var,"%"))
+```
+#### Residual plot for red_3 model
+
+```{r}
+residuals.red_3 <- exp(cond.cal$logCond) - exp(pred.rf.red_3) # Observed minus predicted 
+plot(residuals.red_3 ~ exp(pred.rf.red_3), xlab = "Predicted Conductivity (uS/cm)", ylab = "Residuals", main="rf.red_3 residuals")
+abline(h=0, col = "red", lty = 2)
+```
+
+#### Test reduced model (red_3) with VAL data
+
+```{r}
+# Predictions
+pred.rf.red_3_val <- predict(rf.red_3, newdata = cond.val)
+
+# Model error 
+red_3_val.rmse<- rmse(exp(pred.rf.red_3_val), exp(cond.val$logCond))
+red_3_val.rmse_scaled <- red_3_val.rmse/range_cond
+
+# Plot
+plot(cond.val$logCond ~ pred.rf.red_3_val, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'VALIDATION Reduced Model Top 3')
+abline(a=0,b=1)
+text(4.3,6, paste0("RMSE = ",round(red_3_val.rmse, 2)," | scaled RMSE = ", round(red_3_val.rmse_scaled*100,2), "%"))
+
+#Untransformed plot no log scale axes
+plot(exp(cond.val$logCond) ~ exp(pred.rf.red_3_val), xlab = 'predicted Conductivity', ylab = 'observed Conductivity', main = 'VALIDATION Reduced Model Top 3')
+abline(a=0,b=1)
+text(130,600, paste0("RMSE = ",round(red_3_val.rmse, 2)," | scaled RMSE = ", round(red_3_val.rmse_scaled*100,2), "%"))
+
+#Untransformed plot no log scale axes
+plot(exp(cond.val$logCond) ~ exp(pred.rf.red_3_val), log = 'xy', xlab = 'predicted Conductivity (μS/cm)', ylab = 'observed Conductivity (μS/cm)', main = 'VALIDATION Reduced Model Top 3 log scale axes')
+abline(a=0,b=1)
+text(60,500, paste0("RMSE = ",round(red_3_val.rmse, 2)," | scaled RMSE = ", round(red_3_val.rmse_scaled*100,2), "%"))
+```
+#### Test reduced model (red_3) with VAL data
+```{r}
+# Predictions
+pred.rf.red_3_val <- predict(rf.red_3, newdata = cond.val)
+
+# Model error 
+red_3_val.rmse<- rmse(exp(pred.rf.red_3_val), exp(cond.val$logCond))
+red_3_val.rmse_scaled <- red_3_val.rmse/range_cond
+
+# Plot
+plot(cond.val$logCond ~ pred.rf.red_3_val, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'VALIDATION Reduced Model Top 3')
+abline(a=0,b=1)
+text(4.25,6, paste0("RMSE = ",round(red_3_val.rmse, 2)," | scaled RMSE = ", round(red_3_val.rmse_scaled*100,2), "%"))
+
+#Untransformed plot no log scale axes
+plot(exp(cond.val$logCond) ~ exp(pred.rf.red_3_val), xlab = 'predicted Conductivity', ylab = 'observed Conductivity', main = 'VALIDATION Reduced Model Top 9 untransformed')
+abline(a=0,b=1)
+text(150,600, paste0("RMSE = ",round(red_3_val.rmse, 2)," | scaled RMSE = ", round(red_3_val.rmse_scaled*100,2), "%"))
+
+#Untransformed plot no log scale axes
+plot(exp(cond.val$logCond) ~ exp(pred.rf.red_3_val), log = 'xy', xlab = 'predicted Conductivity', ylab = 'observed Conductivity', main = 'VALIDATION Reduced Model Top 3 untransformed log scale axes')
+abline(a=0,b=1)
+text(60,500, paste0("RMSE = ",round(red_3_val.rmse, 2)," | scaled RMSE = ", round(red_3_val.rmse_scaled*100,2), "%"))
+```
+
+#### Plot Obs vs pred CAL and VAL all sites
+
+```{r}
+# plot obs vs. predicted CAL 
+par(mfrow=c(1,2))
+par(mar=c(4.3,5,1,1))
+plot(x = exp(pred.rf.red_3), y = exp(cond.cal$logCond),
+	  xlab='Predicted Conductivity (μS/cm)', ylab='Observed Conductivity (μS/cm)', main='red_3 CAL', lwd=1.5, 
+	  cex.lab=1.5, las = 1, font = 2)
+abline(a=0, b=1, col='blue', lty=2) 
+
+# plot obs vs. predicted VAL
+par(new=TRUE)
+plot(x = exp(pred.rf.red_3_val), y = exp(cond.val$logCond),
+	  xlab='', ylab='', main='', pch=2, col='red', cex=1.3, lwd=1.5,axes=FALSE) 
+ 
+# plot residuals CAL
+par(mar=c(4.3,4.3,1,1))
+plot(x = (exp(pred.rf.red_3)-1), y = exp(cond.cal$logCond)-exp(pred.rf.red_3),
+	  xlab='Predicted Conductivity (μS/cm)', ylab='Residuals (obs-pred)', main='red_3 VAL', 
+	  lwd=1.5,cex.lab=1.5, las = 1, font = 2)
+abline(h=0, col="blue", lty = 2)
+ 
+# plot residuals VAL
+par(new=TRUE)	
+plot(x = (exp(pred.rf.red_3_val)), y = exp(cond.val$logCond)-exp(pred.rf.red_3_val),
+	  xlab='', ylab="", main="", 
+	  pch=2, col='red', 
+	  lwd=1.5,cex.lab=1.5, las = 1, font = 2, cex=1.3,
+	  axes=FALSE)
+```
+Predictions on CAL + VAL
+```{r}
+# Predictions
+pred.rf.red_3_cal_val <- predict(rf.red_3, newdata = cond.cal_val)
+
+# Plot
+plot(cond.cal_val$logCond ~ pred.rf.red_3_cal_val, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'CAL & VAL Reduced Model Top 3')
+abline(a=0,b=1)
+
+#Untransformed plot no log scale axes
+plot(exp(cond.cal_val$logCond) ~ exp(pred.rf.red_3_cal_val), xlab = 'predicted Conductivity', ylab = 'observed Conductivity', main = 'CAL & VAL Reduced Model Top 3')
+abline(a=0,b=1)
+
+#Untransformed plot no log scale axes
+plot(exp(cond.cal_val$logCond) ~ exp(pred.rf.red_3_cal_val), log = 'xy', xlab = 'predicted Conductivity', ylab = 'observed Conductivity', main = 'CAL & VAL Reduced Model Top 3 log scale axes')
+abline(a=0,b=1)
+
+# CALCULATE PROPORTIONS ABOVE 1:1 AND 2:1 LINES
+oe <- cbind(pred.rf.red_3_cal_val, cond.cal_val$logCond)
+oe <- as.data.frame(oe) %>% 
+  rename(pred_logCond = V2) %>% 
+  mutate(obs_Cond = exp(cond.cal_val$logCond)) %>% 
+  mutate(pred_Cond = exp(pred.rf.red_3_cal_val)) %>% 
+  mutate('O/E' = obs_Cond/pred_Cond)
+
+print(sum(oe$`O/E`>1)/nrow(cond.cal_val)) # prop above 1:1 line
+print(sum(oe$`O/E`>2)/nrow(cond.cal_val)) # prop above 2:1 line
+```
+Create file for mapping purposes
+```{r}
+# Need to join predictions to AWQMs columns, but there are no unique identifiers in the cond.cal_val table. Predictions will be in the same order as the cal_val table initially.
+
+# Join predictions to cal_val table
+cond.obs_predict <- cbind(pred.rf.red_3_cal_val, cond.cal_val)
+
+# Order the rows based on StreamCat variables that have ALL unique values.
+# any(duplicated(cond.obs_predict$ELEVWS))
+# any(duplicated(cond.obs_predict$MSST2008))
+# any(duplicated(cond.obs_predict$PRECIP9120WS))
+cond.obs_predict <- cond.obs_predict %>% 
+  arrange(ELEVWS, MSST2008, PRECIP9120WS)
+
+cond.awqms <- cond_vars_selected %>% 
+  arrange(ELEVWS, MSST2008, PRECIP9120WS) %>% 
+  select(MLocID:Conductivity)
+
+# Join cond_vars_selected with cond.obs_predict, and makes sure the conductivity results match.
+cond_map <- cbind(cond.awqms,cond.obs_predict)
+
+# Then get rid of StreamCat columns, and save file.
+cond_map <- cond_map %>% 
+  select(MLocID:pred.rf.red_3_cal_val, L2Eco, L3Eco, PRECIP9120WS, TMAX9120WS, KFFACTWS) %>% 
+  rename(pred_logCond = pred.rf.red_3_cal_val) %>% 
+  mutate(pred_Cond = exp(pred_logCond)) %>% 
+  rename(obs_Cond = Conductivity) %>% 
+  rename(obs_logCond = logCond) %>% 
+  relocate(L2Eco:L3Eco, .before = ReferenceSite) %>% 
+  relocate(pred_Cond, .after = pred_logCond) %>% 
+  mutate(across(obs_logCond:pred_Cond, round, 2)) %>% 
+  mutate(across(PRECIP9120WS:KFFACTWS, round, 3)) %>% 
+  mutate(delta = obs_Cond - pred_Cond) %>% 
+  relocate(delta, .before = PRECIP9120WS)
+
+#write_xlsx(cond_map, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//Cond_Map", Sys.Date(), ".xlsx"))
+```
+
+# Ref only model
+```{r}
+set.seed(39)
+
+rf.ref.full <- randomForest(logCond ~ BFIWS+ CAOWS+ CLAYWS+ COMPSTRGTHWS+ ELEVWS+ FE2O3WS+ HYDRLCONDWS+ K2OWS+ KFFACTWS+  MSST2008+ NA2OWS+ NHD_pSLOPE+  NWS+ OMWS+ PCT_EROD+ PCTALKINTRUVOLWS+ PCTALLUVCOASTWS+ PCTBL2001WS+ PCTBURNAREA2002WS+ PCTCOLLUVSEDWS+ PCTCONIF2001WS+ PCTDECID2001WS+ PCTEOLCRSWS+ PCTEOLFINEWS+ PCTEXTRUVOLWS+ PCTGLACLAKECRSWS+ PCTGLACLAKEFINEWS+ PCTGLACTILCRSWS+ PCTGRS2001WS+ PCTHBWET2001WS+ PCTICE2001WS+  PCTINCVEGRESP2002WS+  PCTOW2001WS+ PCTSALLAKEWS+ PCTSHRB2001WS+  PCTWATERWS+  PRECIP9120WS+ RCKDEPWS+ RDCRSSLPWTDWS+  ROCKNWS+ SANDWS+  STRMPOW_CAT+  SW_FLUXWS+ SWS+ TMAX9120WS+ TRIDENSWS+ WATERINPUTWS+ WETINDEXWS+ WETTEDWIDTH+ WTDEPWS+ +SITE_TYPE+ L2Eco + L3Eco, cond.ref, importance = TRUE, mtry=20, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors. mtry=20 based on Caret grid search results.
+print(rf.ref.full)
+
+varImpPlot(rf.ref.full, type = 1, n.var = 25, main = "Ref-Only Full Model") #variable importance plot
+```
+```{r}
+# Predictions
+pred.rf.ref <- predict(rf.ref.full, newdata = cond.ref)
+
+# Model error 
+full.ref.rmse<- rmse(exp(pred.rf.ref), exp(cond.ref$logCond))
+
+range_cond <- max(exp(cond.cal_val$logCond)) - min(exp(cond.cal_val$logCond))
+full.ref.rmse_scaled <- full.ref.rmse/range_cond
+
+# Percent variance explained
+rf.ref.full_pct.var <- round(100 * rf.ref.full$rsq[length(rf.ref.full$rsq)], 2)
+
+# Plot
+plot(cond.ref$logCond ~ pred.rf.ref, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'Full model reference-only')
+abline(a=0,b=1)
+text(3.5,5, paste0("RMSE = ",round(full.ref.rmse, 2)," | scaled RMSE = ", round(full.ref.rmse_scaled*100,2), "%"))
+text(3.5,4.5, paste0("Variance explained = ",rf.ref.full_pct.var,"%"))
+```
+
+## PREDICTOR VARIABLES
+
+```{r}
+# Kernel density plot function
+kd_plots <- function(data, filter_col_name, filter_value) {
+  data %>%
+    filter(.data[[filter_col_name]] == filter_value) %>% # Using .data[[]] for dynamic column names
+    select(PRECIP9120WS,KFFACTWS,TMAX9120WS,MSST2008,OMWS,SWS,PCT_EROD,CLAYWS,WTDEPWS,ELEVWS,ROCKNWS,WETINDEXWS,FE2O3WS,NA2OWS,SW_FLUXWS) %>% 
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_density() +
+  geom_rug() + ggtitle(paste0(filter_value))
+}
+
+# Top 15 variables from RF model broken out by reference status
+kd_plots(data = cond_vars_selected, "ReferenceSite", "REFERENCE")
+kd_plots(data = cond_vars_selected, "ReferenceSite", "MODERATELY DISTURBED")
+kd_plots(data = cond_vars_selected, "ReferenceSite", "MOST DISTURBED")
+
+# Top 15 variables from RF model broken out by L2 Ecoregion
+kd_plots(data = cond_vars_selected, "L2Eco", "Western Cordillera")
+kd_plots(data = cond_vars_selected, "L2Eco", "Cold Deserts")
+kd_plots(data = cond_vars_selected, "L2Eco", "Marine West Coast Forest")
+
+# Top 15 variables from RF model broken out by Conductivity category 
+# < 100
+cond_vars_selected %>%
+  filter(Conductivity<=100) %>%  
+  select(PRECIP9120WS,KFFACTWS,TMAX9120WS,MSST2008,OMWS,SWS,PCT_EROD,CLAYWS,WTDEPWS,ELEVWS,ROCKNWS,WETINDEXWS,FE2O3WS,NA2OWS,SW_FLUXWS) %>% 
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_density() +
+  geom_rug() + ggtitle("Conductivity 0-100")
+
+# 100-300
+cond_vars_selected %>%
+  filter(Conductivity > 100 | Conductivity <= 300) %>% 
+  select(PRECIP9120WS,KFFACTWS,TMAX9120WS,MSST2008,OMWS,SWS,PCT_EROD,CLAYWS,WTDEPWS,ELEVWS,ROCKNWS,WETINDEXWS,FE2O3WS,NA2OWS,SW_FLUXWS) %>% 
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_density() +
+  geom_rug() + ggtitle("Conductivity 100-300")
+
+# 300+
+cond_vars_selected %>%
+  filter(Conductivity > 300) %>% 
+  select(PRECIP9120WS,KFFACTWS,TMAX9120WS,MSST2008,OMWS,SWS,PCT_EROD,CLAYWS,WTDEPWS,ELEVWS,ROCKNWS,WETINDEXWS,FE2O3WS,NA2OWS,SW_FLUXWS) %>% 
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_density() +
+  geom_rug() + ggtitle("Conductivity >300")
+
+# All COND
+cond_vars_selected %>%
+  select(PRECIP9120WS,KFFACTWS,TMAX9120WS,MSST2008,OMWS,SWS,PCT_EROD,CLAYWS,WTDEPWS,ELEVWS,ROCKNWS,WETINDEXWS,FE2O3WS,NA2OWS,SW_FLUXWS) %>% 
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_density() +
+  geom_rug() + ggtitle("All sites")
+
+```

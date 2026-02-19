@@ -618,7 +618,7 @@ partialplots_imp <- plot.variable(rf.full.src, xvar.names = c("PRECIP9120WS", "K
 partialplots_imp_cat <- plot.variable(rf.full.src, xvar.names = c("L3Eco"), partial = TRUE, plot.sone.page = TRUE)
 ```
 
-#### Reduce all human-influenced variables to 0 ti learn impact on the residuals
+#### Reduce all human-influenced variables to 0 to learn impact on the residuals
 
 ```{r}
 set.seed(24)
@@ -627,7 +627,33 @@ set.seed(24)
 cond.src.no_hi <- cond.src %>% 
   mutate(across(all_of(c("CANALDENSWS", "DAMDENSWS", "MINEDENSWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTAGSLPMID2001WS", "PCTIMP2001WS", "PCTINCVEGRESP2002WS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS","PCTCROP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "SW_FLUXWS", "TRIDENSWS", "WATERINPUTWS", "WWTPALLDENSWS")), ~0))
 
+# Rerun model with adjusted human-influence 
+set.seed(24)
 
+rf.full.no_hi <- rfsrc(logCond ~ ., data = cond.src.no_hi, mtry = 37, nodesize = 3, importance = TRUE)
+rf.full.no_hi # Model output. (OOB) R squared = Percent Variance Explained.
+
+# VIP sans human inf
+plot(rf.full.no_hi, plots.one.page=FALSE)
+#print(vimp(rf.full.src)$importance)
+
+# Plot residuals - full model
+residuals.rf.full.src <- exp(cond.src$logCond) - exp(predicted.oob$pred) # Observed minus predicted oob
+plot(residuals.rf.full.src ~ exp(predicted.oob$pred), xlab = "Predicted Conductivity (uS/cm)", ylab = "Residuals", main = "full model residuals")
+abline(h=0, col = "red", lty = 2)
+
+# Make a df for no_hi plots
+predicted.oob.no_hi <- data.frame(obs = cond.src$logCond, pred = rf.full.no_hi$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
+predicted.ib.no_hi <- data.frame(obs =cond.src$logCond, pred = rf.full.no_hi$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
+
+# Plot residuals - full model, adjusted human-influenced vars
+residuals.rf.full.no_hi <- exp(cond.src$logCond) - exp(predicted.oob.no_hi$pred) # Observed minus predicted oob
+plot(residuals.rf.full.no_hi ~ exp(predicted.oob.no_hi$pred), xlab = "Predicted Conductivity (uS/cm)", ylab = "Residuals", main = "full model residuals, no HI")
+abline(h=0, col = "red", lty = 2)
+
+plot.variable(rf.full.no_hi, xvar.names = c("PRECIP9120WS", "KFFACTWS", "TMAX9120WS", "OMWS", "L3ECO", "MSST2008", "ELEVWS", "SW_FLUXWS", "PCTBL2001WS", "STDEPWS", "SWS", "PCTDECID2001WS", "PCTCROP2001WS"), partial = TRUE, plot.sone.page = TRUE)
+
+```
 
 
 

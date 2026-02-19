@@ -5,7 +5,7 @@ date: "2026-01-06"
 output: html_document
 ---
 
-#### Trying the script we created in class for a different parameter (Conductivity)
+# *Conductivity*
 
 # **1 - LOAD PACKAGES**
 
@@ -18,9 +18,6 @@ library(randomForest)
 library(vip)
 library(caret)
 library(ORDEQBioassessment)
-# devtools::install_github("TravisPritchardODEQ/ORDEQBioassessment", 
-#                         host = "https://api.github.com", 
-#                        dependencies = TRUE, force = TRUE, upgrade = "never")
 library(EnvStats)
 library(Metrics)
 library(randomForestSRC)
@@ -30,7 +27,7 @@ library(RColorBrewer)
 
 # **2 - IMPORT DATA**
 
-## STATIONS - *FROM WATER CHEMISTRY BENCHMARKS SCRIPT*
+## A. STATIONS - *FROM WATER CHEMISTRY BENCHMARKS SCRIPT*
 
 ```{r}
 cond <- read_excel('~/BioMonORDEQ/Benchmarks/Water Chemistry/cal.val_chem.ref.wq_2026-02-10.xlsx') %>%  # Output file from ref benchmarks script 
@@ -43,27 +40,11 @@ comids <- cond %>%
   select(COMID) # Get just the COMIDs for next step
 ```
 
-## WATERSHED PREDICTOR VARIABLES - *FROM EPA STREAMCAT*
+## B. WATERSHED PREDICTORS - *FROM EPA STREAMCAT*
 
-#### Learn about StreamCat predictors: <https://www.epa.gov/national-aquatic-resource-surveys/streamcat-metrics-and-definitions>
+##### Learn about StreamCat predictors: <https://www.epa.gov/national-aquatic-resource-surveys/streamcat-metrics-and-definitions>
 
-#### View StreamCat updates: <https://www.epa.gov/national-aquatic-resource-surveys/streamcat-updates>
-
-#### Make table of StreamCat metadata and clean up in Excel
-
-```{r}
-# METHOD 1: FIND QUERY-ABLE METRIC NAMES
-#partable <- StreamCatTools::sc_get_metric_names()
-
-# METHOD 2: FIND QUERY-ABLE METRIC NAMES (slightly different than above)
-#scpar <- StreamCatTools::sc_get_params(param = 'metric_names') 
-
-#metrics_desc <- read_excel("~/BioMonORDEQ/Benchmarks/Water Chemistry/TSS Class Project/StreamCatMetrics_new.xlsx") #final cleaned-up metrics table
-
-# FOR TESTING INDIVIDUAL METRICS/COMIDS (e.g., to ensure names match)
-#test <- StreamCatTools::sc_get_data(comid = '23910659', metric = 'precipminusevt', showAreaSqKm = FALSE, aoi='watershed')
-#test <- StreamCatTools::sc_get_data(comid = '23910659', metric = 'thalwegdepth', showAreaSqKm = FALSE, aoi='other')
-```
+##### View StreamCat updates: <https://www.epa.gov/national-aquatic-resource-surveys/streamcat-updates>
 
 #### Run function to query ALL StreamCat data for selected COMIDs by subcategory
 
@@ -203,7 +184,9 @@ sc_all <- sc_all %>% reduce(full_join, by = 'COMID')
 rm(list=c('ag', 'clim', 'dams', 'flow','iwi', 'cover', 'litho', 'mintox', 'roads', 'urb', 'fire', 'other'))
 ```
 
-#### Add predictor variables not in StreamCat (LII and III Ecoregion, Lat/Long, erodible vs. resistant geology, slope, stream power) and transform data.
+## C. OTHER PREDICTORS - *OUTSIDE OF STREAMCAT*
+
+#### Erodible geology, NHD slope, stream power
 
 ```{r}
 # ERODIBLE VS RESISTENT GEOLOGY (KEPT ERODIBLE, SINCE RESISTENT IS INVERSE OF ERODIBLE)
@@ -233,15 +216,25 @@ cond_vars <- cond_vars %>%
   relocate(logCond, .before= Conductivity)
 ```
 
-#### Explore co-varied metrics and select which we want to retain for modeling purposes.
+# **3 - PREPARE DATA FOR MODELS**
 
-#### Make Spearman correlation matrix to identify co-varied parameters
+## A. HANDLE NA VALUES
+
+#### IDENTIFY COLUMNS WITH MISSING DATA
+
+```{r}
+# FIND OUT WHICH COLUMNS HAVE NAs
+sort(sapply(cond_vars, function(x) sum(is.na(x))))
+
+# THEN WRITE CODE FOR THEM IN ROUGH FIX SECTION BELOW.
+
+# Note: Some predictors may have a large number of missing values (e.g., bankfull width, n = 64). Consider performing rough fix only for variables with ~10 or fewer missing values. This will avoid introducing error in the correlation matrix and variable selection phase.
+```
+
+#### PERFORM NA ROUGH FIX
 
 ```{r, warning=FALSE}
-# FIND OUT WHICH COLUMNS HAVE NAs (AND WRITE CODE FOR THEM BELOW)
-sapply(cond_vars, function(x) sum(is.na(x)))
-
-# PERFORM NA ROUGHFIX FUNCTION ON METRICS WITH just a few missing values (wait to see about the ones that are missing a lot: BANKFULLDEPTH, BANKFULLWIDTH, MAST2008, THALWEGDEPTH, WETTEDWIDTH)
+# PERFORM NA ROUGHFIX FUNCTION ON METRICS WITH ONLY A FEW MISSING VALUES (Leave metrics with >10 NAs [MAST2008, BMMI0809, WETTEDWITDTH, THALWEGDEPTH, BANKFULLWIDTH, BANKFULLDEPTH] until after the correlation table is built.)
 cond_vars$CLAYWS  <- na.roughfix(cond_vars$CLAYWS ) # 1 NA
 cond_vars$MSST2008 <- na.roughfix(cond_vars$ MSST2008) # 1 NA
 cond_vars$MWST2008 <- na.roughfix(cond_vars$ MWST2008) # 11 NAs
@@ -252,9 +245,15 @@ cond_vars$PCTIMPSLPHIGH2001WS <- na.roughfix(cond_vars$PCTIMPSLPHIGH2001WS) # 4 
 cond_vars$PERMWS <- na.roughfix(cond_vars$PERMWS) # 1 NA
 cond_vars$RCKDEPWS <- na.roughfix(cond_vars$RCKDEPWS) # 1 NA
 cond_vars$SANDWS <- na.roughfix(cond_vars$SANDWS) # 1 NA
-cond_vars$SW_FLUXWS <- na.roughfix(cond_vars$SW_FLUXWS) # 1 NA
+cond_vars$SW_FLUXWS <- na.roughfix(cond_vars$SW_FLUXWS) # 2 NA
 cond_vars$WTDEPWS <- na.roughfix(cond_vars$WTDEPWS) # 1 NA
+```
 
+## B. PREDICTOR VARIABLE SELECTION
+
+#### Make Spearman correlation matrix to identify co-varied predictors (>0.8)
+
+```{r}
 # Subset numeric variables only
 cond_vars_num <- cond_vars %>% 
   select(!c(SITE_TYPE:L3Eco)) %>% 
@@ -271,30 +270,34 @@ matrix <- spear.rows %>%
   gather(-rowname, key = "colname", value = "cor") %>% 
   filter(abs(cor) > 0.8)
 
-#export once, then clean up in Excel
-#write_xlsx(matrix, path = "~/BioMonORDEQ/Benchmarks/Water Chemistry/Conductivity/Cond_Spearmans_Matrix.xlsx")
-
 rm(list=c('spear', 'spear.rows'))
 ```
-##### Use CV, % of sites that have zero values, and KD plots for predictors to help make decisions about which correlated vars to keep/drop:
+
+#### Export matrix and clean up in Excel
 
 ```{r}
-# Look at Coefficient of Variance for predictors.
+#export once, then clean up in Excel
+#write_xlsx(matrix, path = "~/BioMonORDEQ/Benchmarks/Water Chemistry/Conductivity/Cond_Spearmans_Matrix.xlsx")
+```
+
+#### Calculate coefficient of variance (CV), proportion of 0s, and kernel density plots to guide variable selection decisions
+
+```{r}
+# Calculate coefficient of variance (CV) for each predictor.
 cv <- cond_vars_num %>% 
   summarise(across(everything(), ~ cv(.x, na.rm = TRUE))) %>% 
   pivot_longer(1:140, names_to="Var", values_to="CV") # Change first argument to 1:# columns
 
+# Calculate % of zeros for each predictor.
 cv_pctzero <- cond_vars_num %>%
   summarise(across(everything(), ~ sum(. == 0, na.rm = TRUE) / n() * 100)) %>% 
   pivot_longer(1:140, names_to="Var", values_to="Percent Zeros") %>%  # Change  first argument to 1:# columns
   inner_join(cv, by = "Var")
 
+# Write output to Excel for variable selection meeting.
 #write_xlsx(cv_pctzero, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//Cond_CofV", Sys.Date(), ".xlsx"))
-
 rm(cv)
-```
- 
-```{r}
+
 # Look at KD plots for predictors.
 cond_vars %>%
     select("AGKFFACTWS","AL2O3WS","BANKFULLDEPTH","BANKFULLWIDTH","BFIWS","CAOWS","CBNFWS","CLAYWS","CONNWS","DAMDENSWS","DAMNIDSTORWS","DAMNRMSTORWS") %>%  # Edit this line to include vars that you want to look at.
@@ -307,7 +310,29 @@ cond_vars %>%
 
 # If warnings appear with the plot they pertain to NA values being present, ignore them.
 ```
-#### Select variables based on correlation analysis. (Either select desired vars or drop undesired ones. Helps if they are in alphabetical order. Don't get rid of columns you want to keep from AWQMS at this stage.)  SH, AT, and SB did this together and recorded decisions in 'Var selection decision 1-8-26.xlsx'
+
+#### Hold variable selection meeting
+
+```{r}
+# 1. Make a variable selection decisions sheet in Excel based on the TEMPLATE (Benchmarks >> Water Chemistry >> TEMPLATE_Var selection deicions.xlsx) and save to model folder on GitHub.
+
+# 2. Clean up correlation matrix Excel table manually:
+  # a) Filter data and delete rows where cor = 1.
+  # b) Sort row names alphabetically.
+  # c) Remove composite indexes (CHEM, CONN, HABT, HYD, ICI, IWI, SED, and TEMP).
+  # d) Make a new matrix predictor decisions sheet based on the TEMPLATE (Benchmarks >> Water Chemistry >> TEMPLATE_Var selection correlations) and save to model folder on GitHub. 
+  #     Copy row names into template (col A) and update formulas, column names into col G, and correlations into col L. 
+  #     Add horizontal borders between groupings. 
+  #     You may want to hide columns B and H (they are just for the formulas)
+
+# 3. For each co-varied predictor(s), discuss ecological considerations and data distribution (CV, how well covers gradient, %0s).
+
+# 4. Record which predictors to keep/remove and document rationale in the decisions sheet.
+
+# 5. Remove predictors that have 100% zeros (no modeling power) and paste list of keepers below.
+```
+
+#### Update predictor list
 
 ```{r}
 cond_vars_selected <- cond_vars %>% 
@@ -315,7 +340,7 @@ cond_vars_selected <- cond_vars %>%
   relocate(COMID, .after = cal_val) 
 ```
 
-#### Perform final correlation check
+#### Perform final correlation check to ensure no co-varied predictors remain
 
 ```{r, warning=FALSE}
 # Subset numeric variables only
@@ -335,26 +360,24 @@ matrix2 <- spear2.rows %>%
 
 rm(list=c('spear2', 'spear2.rows'))
 
-# ***CONTINUE ONCE NO CORRELATED VARIABLES REMAIN***
+# ***OPEN NEWLY CREATED MATRIX AND CONTINUE ONLY IF NO CORRELATED VARIABLES REMAIN (ALL SHOULD BE 1)***
 
 rm('cond_vars_num_selected')
 ```
 
-# **3 - PREPARE DATA FOR MODELS**
+#### Perform final NA check and perform rough fix as desired
 
-## HANDLE NA VALUES
-
-```{r, warning=FALSE}
+```{r}
 # FIND OUT WHICH COLUMNS HAVE NAs (AND WRITE CODE FOR THEM BELOW)
-sapply(cond_vars_selected, function(x) sum(is.na(x)))
+sort(sapply(cond_vars_selected, function(x) sum(is.na(x))))
 
 # PERFORM NA ROUGHFIX FUNCTION ON ALL REMAINING METRICS.
-cond_vars_selected$WETTEDWIDTH <- na.roughfix(cond_vars_selected$WETTEDWIDTH) # 70 NAs
+cond_vars_selected$WETTEDWIDTH <- na.roughfix(cond_vars_selected$WETTEDWIDTH) # 68 NAs
 ```
 
 # **4 - EXPLORE DATA**
 
-## RESPONSE VARIABLE
+## A. RESPONSE VARIABLE
 
 ```{r}
 # HISTOGRAM
@@ -366,23 +389,28 @@ hist(cond_vars_selected$logCond, main="", prob=T, xlab = "logCond")
 
 # BOX PLOT & STRIP CHART
 boxplot(cond_vars_selected$logCond, ylab = "logCond")
-#stripchart(tss_vars_selected$TSS, vertical = T, pch=1, col='red', add = T)
+```
 
+## B. PREDICTOR VARIABLES - skip initially and revisit after knowing top predictors
+
+```{r}
+# ?????????????????????????? PLACEHOLDER -- WE HAD THIS IN THE TP SCRIPT - NOT SURE ABOUT WORKFLOW IN THIS NEW PACKAGE YET...
 ```
 
 # **5 - RANDOM FOREST MODELS**
 
+## A. SUBSET DATA
+
 ```{r}
 # SUBSET DATA
-cond.src <- cond_vars_selected %>%  #subset CALibration dataset
+cond.src <- cond_vars_selected %>%
   select(-c(MLocID:COMID, Conductivity, SampleStartDate)) #drop conductivity in favor of logCond. Drop AWQMS columns too.
 
-# Convert character cols to factors
+# Convert character columns to factors
 cond.src[sapply(cond.src, is.character)] <- lapply(cond.src[sapply(cond.src, is.character)], as.factor)
-
 ```
 
-
+# ?????????????????????????? DELETE THIS SECTION?
 ```{r}
 # SUBSET DATA
 cond.cal <- cond_vars_selected %>%  #subset CALibration dataset
@@ -401,21 +429,21 @@ cond.cal_val <- rbind(cond.cal, cond.val)
 #write_xlsx(cond.cal_val, path = paste0("~/BioMonORDEQ/Benchmarks/Water Chemistry/Conductivity/Cond_cal_val", Sys.Date(), ".xlsx"))
 ```
 
-## FULL MODEL - ALL PREDICTORS INCLUDED 
+## B. FULL MODEL - ALL PREDICTORS INCLUDED
 
-#### Tuning the model (finding best mtry)
+#### Tune the model: find best mtry number # ?????????????????????????? is this based on the old R package?
 
 ```{r}
 # One way to find best mtry based on tuneRF.
     # Tune mtry based on OOB error
-# best_mtry <- tuneRF(cond.cal[, -which(names(cond.cal) == "logCond")], # Predictors
-#                         cond.cal$logCond, # Response
-#                         ntreeTry = 500, # Number of trees to try for each mtry
-#                         stepFactor = 2, # Factor to multiply/divide mtry by
-#                         improve = 0.01, # Minimum improvement to continue search
-#                         trace = TRUE, # Print progress
-#                         plot = TRUE) # Plot OOB error vs. mtry
-# print(best_mtry)
+best_mtry <- tuneRF(cond.cal[, -which(names(cond.cal) == "logCond")], # Predictors
+                        cond.cal$logCond, # Response
+                        ntreeTry = 500, # Number of trees to try for each mtry
+                        stepFactor = 2, # Factor to multiply/divide mtry by
+                        improve = 0.01, # Minimum improvement to continue search
+                        trace = TRUE, # Print progress
+                        plot = TRUE) # Plot OOB error vs. mtry
+print(best_mtry)
 # 
 # # Another approach using Caret.  Takes >50 minutes to run, not that different from mtry approach above.
 # control <- trainControl(method="repeatedcv", number=10,repeats = 3, search="random")
@@ -425,19 +453,27 @@ cond.cal_val <- rbind(cond.cal, cond.val)
 # rf_random <- train(logCond ~., data = cond.cal, method = "rf", metric = "RMSE", tuneLength = 15, trControl=control)
 # print(rf_random)
 # plot(rf_random)
-
 ```
 
+#### Tune the model: find optimum number of trees
+
+```{r}
+# How many trees?
+rf.full.src$err.rate
+
+# ?????????????????????????? - IS THIS THE NEW CODE FOR THIS STEP?
+```
 
 #### Build full model
 
 ```{r}
 set.seed(24)
 
-rf.full.src <- rfsrc(logCond ~ ., data = cond.src, mtry=37, nodesize = 3, importance = TRUE)
+rf.full.src <- rfsrc(logCond ~ ., data = cond.src, mtry = 37, nodesize = 3, importance = TRUE)
 rf.full.src # Model output. (OOB) R squared = Percent Variance Explained.
 
-# Adjust the parameters above based on tuning:
+# ?????????????????????????? - CAN THIS GO ABOVE IN TUNING STEPS?
+# Adjust the parameters above based on tuning: 
 # tuning <- tune(logCond~., cond.src)
 # tuning$optimal
 
@@ -459,9 +495,6 @@ oob.rmse<- rmse(exp(rf.full.src$predicted.oob), exp(cond.src$logCond))
 oob.rmse_scaled <- oob.rmse/range_cond
 print(paste0('OOB RMSE = ' , round(oob.rmse,2), " (μS/cm)"))
 print(paste0('Scaled OOB RMSE = ' , round(oob.rmse_scaled*100,2), "%"))
-
-# How many trees?
-#rf.full.src$err.rate
 
 # VIP
 plot(rf.full.src, plots.one.page=FALSE)
@@ -488,13 +521,13 @@ ggplot(data = plotdf, aes(x = pred, y = obs, color = predictions, shape = predic
   annotate("text", x = 50, y = 320, label = paste0('OOB RMSE = ' , round(oob.rmse,2), ' | scaled RMSE = ', round(oob.rmse_scaled*100,2), "%"), size = 3) +
     annotate("text", x = 50, y = 390, label = paste0('IB RMSE = ' , round(rmse,2), ' | scaled RMSE = ', round(rmse_scaled*100,2), "%"), size = 3) +
       annotate("text", x = 50, y = 460, label = paste0('% variance explained = ' , round(per_var,2), '%'), size = 3) 
-  
 ```
 
-#### Leaflet map
+#### Leaflet map of full model
+
 ```{r}
 # CREATE DF FOR MAPPING PURPOSES
-# Need to join predictions to AWQMs columns, but there are no unique identifiers in the cond.src table. Predictions will be in the same order as the cond.src table initially.
+# Need to join predictions to AWQMS columns, but there are no unique identifiers in the cond.src table. Predictions will be in the same order as the cond.src table initially.
 
 # Join predictions to cal_val table
 cond.obs_predict <- cbind(plotdf, cond.src)
@@ -570,7 +603,8 @@ pal3 <- colorNumeric(palette = "PuOr", domain = c(-450,450))
 map_function(cond_map)
 ```
 
-#### Partial Plots
+#### Partial dependence plots for full model
+
 ```{r}
 # Human-influenced vars
 partialplots_hi1 <- plot.variable(rf.full.src, xvar.names = c("CANALDENSWS", "DAMDENSWS", "MINEDENSWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTAGSLPMID2001WS", "PCTIMP2001WS", "PCTINCVEGRESP2002WS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS"), partial = TRUE, plots.one.page = TRUE)
@@ -582,10 +616,9 @@ partialplots_hi2 <- plot.variable(rf.full.src, xvar.names = c("PCTCROP2001WS", "
 partialplots_imp <- plot.variable(rf.full.src, xvar.names = c("PRECIP9120WS", "KFFACTWS", "TMAX9120WS", "OMWS", "L3ECO", "MSST2008", "ELEVWS", "SW_FLUXWS", "PCTBL2001WS", "STDEPWS", "SWS", "PCTDECID2001WS", "PCTCROP2001WS"), partial = TRUE, plot.sone.page = TRUE)
 
 partialplots_imp_cat <- plot.variable(rf.full.src, xvar.names = c("L3Eco"), partial = TRUE, plot.sone.page = TRUE)
-
 ```
 
-#### Trying to reduce all human-influenced variables to 0, seeing what impact that has on the residuals
+#### Reduce all human-influenced variables to 0 ti learn impact on the residuals
 
 ```{r}
 set.seed(24)
@@ -642,8 +675,9 @@ cond.src.no_hi <- cond.src %>%
 
 ```
 
+## C. REDUCED MODEL(S) - IMPORTANT PREDICTORS ONLY
 
-
+#### Build reduced model with # predictors
 
 
 

@@ -30,7 +30,7 @@ library(nhdplusTools) #<https://doi-usgs.github.io/nhdplusTools/>
 #### Enter the file path where delineated watersheds will be saved. Output file path must be unique for tool to run and won't overwrite existing files.
 
 ```{r}
-export <- "H:/Personal_Working_Folders/AThompson/WatershedToolComparison2026/NewToolOutput/New_Delin_All.shp"
+export <- "H:/Personal_Working_Folders/AThompson/WatershedToolComparison2026/NewToolOutput/test2.shp"
 
 if (file.exists(export)) {
   print("❌ The file already exists. Rename output file or delete existing file.")
@@ -60,7 +60,7 @@ import <- st_read("C:/Users/athomps/OneDrive - Oregon/Desktop/New folder/willy.s
 ## OPTION C - *STATIONS DATABASE*
 
 ```{r}
-import <- query_stations(mlocs = c("103KLCMSR","103PS0281")) #<--Enter desired MLocIDs in quotes separated by commas
+import <- query_stations(mlocs = c("103KLCMSR","103PS0281","23718703","23751778","23718705")) #<--Enter desired MLocIDs in quotes separated by commas
 ```
 
 # **5 - CREATE COMID DATAFRAME**
@@ -108,7 +108,8 @@ flownet <- subset$NHDFlowline_Network
 catchment2 <- st_sf(catchment)|> 
   mutate(COMID = comid,
          MLocID = MLocID) |>
-  st_transform(crs = 2992)
+  st_transform(crs = 2992) #%>%
+  #st_cast("POLYGON")
 
 # CALCULATE WATERSHED AREA (m2)
 catchment2$Shape_Area <- st_area(catchment2) * 0.092903

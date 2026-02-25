@@ -399,10 +399,10 @@ boxplot(cond_vars_selected$logCond, ylab = "logCond")
 
 # **5 - RANDOM FOREST MODELS**
 
-## A. SUBSET DATA
+## A. PREP RESPONSE DATA
 
 ```{r}
-# SUBSET DATA
+# Select response data of interst
 cond.src <- cond_vars_selected %>%
   select(-c(MLocID:COMID, Conductivity, SampleStartDate)) #drop conductivity in favor of logCond. Drop AWQMS columns too.
 
@@ -410,58 +410,16 @@ cond.src <- cond_vars_selected %>%
 cond.src[sapply(cond.src, is.character)] <- lapply(cond.src[sapply(cond.src, is.character)], as.factor)
 ```
 
-# ?????????????????????????? DELETE THIS SECTION?
-```{r}
-# SUBSET DATA
-cond.cal <- cond_vars_selected %>%  #subset CALibration dataset
-  filter(cal_val == 'CAL') %>%  
-  select(-c(MLocID:COMID, Conductivity, SampleStartDate)) #drop conductivity in favor of logCond. Drop AWQMS columns too.
-
-cond.val <- cond_vars_selected %>%  #subset VALidation dataset
-  filter(cal_val == 'VAL') %>%  
-  select(-c(MLocID:COMID, Conductivity, SampleStartDate))
-
-cond.ref <- cond_vars_selected %>% #subset reference only dataset
-  filter(ReferenceSite == 'REFERENCE') %>%  
-  select(-c(MLocID:COMID, Conductivity, SampleStartDate))
-
-cond.cal_val <- rbind(cond.cal, cond.val)
-#write_xlsx(cond.cal_val, path = paste0("~/BioMonORDEQ/Benchmarks/Water Chemistry/Conductivity/Cond_cal_val", Sys.Date(), ".xlsx"))
-```
-
 ## B. FULL MODEL - ALL PREDICTORS INCLUDED
 
-#### Tune the model: find best mtry number # ?????????????????????????? is this based on the old R package?
+#### Model tuning - mtry and node size (number of trees happens in next step)
 
 ```{r}
-# One way to find best mtry based on tuneRF.
-    # Tune mtry based on OOB error
-best_mtry <- tuneRF(cond.cal[, -which(names(cond.cal) == "logCond")], # Predictors
-                        cond.cal$logCond, # Response
-                        ntreeTry = 500, # Number of trees to try for each mtry
-                        stepFactor = 2, # Factor to multiply/divide mtry by
-                        improve = 0.01, # Minimum improvement to continue search
-                        trace = TRUE, # Print progress
-                        plot = TRUE) # Plot OOB error vs. mtry
-print(best_mtry)
-# 
-# # Another approach using Caret.  Takes >50 minutes to run, not that different from mtry approach above.
-# control <- trainControl(method="repeatedcv", number=10,repeats = 3, search="random")
-# set.seed(1)
-# mtry <- sqrt(ncol(cond.cal[ , 2:74]
-# ))
-# rf_random <- train(logCond ~., data = cond.cal, method = "rf", metric = "RMSE", tuneLength = 15, trControl=control)
-# print(rf_random)
-# plot(rf_random)
-```
+#Adjust the parameters below based on tuning (nodesize = 2; mtry = 71)
+tuning <- tune(logCond~., cond.src)
+tuning$optimal
 
-#### Tune the model: find optimum number of trees
-
-```{r}
-# How many trees?
-rf.full.src$err.rate
-
-# ?????????????????????????? - IS THIS THE NEW CODE FOR THIS STEP?
+#*********************revisit to ensure S and A getting same results
 ```
 
 #### Build full model
@@ -472,11 +430,6 @@ set.seed(24)
 rf.full.src <- rfsrc(logCond ~ ., data = cond.src, mtry = 37, nodesize = 3, importance = TRUE)
 rf.full.src # Model output. (OOB) R squared = Percent Variance Explained.
 
-# ?????????????????????????? - CAN THIS GO ABOVE IN TUNING STEPS?
-# Adjust the parameters above based on tuning: 
-# tuning <- tune(logCond~., cond.src)
-# tuning$optimal
-
 # Mean squared error (untransformed)
 oob_mse <- tail(rf.full.src$err.rate,1)
 per_var <- 100 * (1 - oob_mse/ var(cond.src$logCond, na.rm = TRUE))
@@ -484,17 +437,20 @@ print(per_var)
 
 range_cond <- max(exp(cond.src$logCond)) - min(exp(cond.src$logCond))
 
-#In-bag RMSE. 
+#In-bag RMSE
 rmse<- rmse(exp(rf.full.src$predicted), exp(cond.src$logCond))
 rmse_scaled <- rmse/range_cond
 print(paste0('In-bag RMSE = ' , round(rmse,2), " (μS/cm)"))
 print(paste0('Scaled In-bag RMSE = ' , round(rmse_scaled*100,2), "%"))
 
-#OOB RMSE.
+#OOB RMSE
 oob.rmse<- rmse(exp(rf.full.src$predicted.oob), exp(cond.src$logCond))
 oob.rmse_scaled <- oob.rmse/range_cond
 print(paste0('OOB RMSE = ' , round(oob.rmse,2), " (μS/cm)"))
 print(paste0('Scaled OOB RMSE = ' , round(oob.rmse_scaled*100,2), "%"))
+
+# Model tuning - How many trees? (default: 500)
+rf.full.src$err.rate
 
 # VIP
 plot(rf.full.src, plots.one.page=FALSE)
@@ -609,13 +565,14 @@ map_function(cond_map)
 # Human-influenced vars
 partialplots_hi1 <- plot.variable(rf.full.src, xvar.names = c("CANALDENSWS", "DAMDENSWS", "MINEDENSWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTAGSLPMID2001WS", "PCTIMP2001WS", "PCTINCVEGRESP2002WS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS"), partial = TRUE, plots.one.page = TRUE)
 
-
 partialplots_hi2 <- plot.variable(rf.full.src, xvar.names = c("PCTCROP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "SW_FLUXWS", "TRIDENSWS", "WATERINPUTWS", "WWTPALLDENSWS"), partial = TRUE, plot.sone.page = TRUE)
 
 # Top importance vars
 partialplots_imp <- plot.variable(rf.full.src, xvar.names = c("PRECIP9120WS", "KFFACTWS", "TMAX9120WS", "OMWS", "L3ECO", "MSST2008", "ELEVWS", "SW_FLUXWS", "PCTBL2001WS", "STDEPWS", "SWS", "PCTDECID2001WS", "PCTCROP2001WS"), partial = TRUE, plot.sone.page = TRUE)
 
 partialplots_imp_cat <- plot.variable(rf.full.src, xvar.names = c("L3Eco"), partial = TRUE, plot.sone.page = TRUE)
+
+#******************consider adding code to look at individual metrics
 ```
 
 #### Reduce all human-influenced variables to 0 to learn impact on the residuals
@@ -623,7 +580,7 @@ partialplots_imp_cat <- plot.variable(rf.full.src, xvar.names = c("L3Eco"), part
 ```{r}
 set.seed(24)
 
-# Reduce all human-influenced vars to 0.
+# Reduce all human-influenced vars to 0
 cond.src.no_hi <- cond.src %>% 
   mutate(across(all_of(c("CANALDENSWS", "DAMDENSWS", "MINEDENSWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTAGSLPMID2001WS", "PCTIMP2001WS", "PCTINCVEGRESP2002WS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS","PCTCROP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "SW_FLUXWS", "TRIDENSWS", "WATERINPUTWS", "WWTPALLDENSWS")), ~0))
 
@@ -652,9 +609,87 @@ plot(residuals.rf.full.no_hi ~ exp(predicted.oob.no_hi$pred), xlab = "Predicted 
 abline(h=0, col = "red", lty = 2)
 
 plot.variable(rf.full.no_hi, xvar.names = c("PRECIP9120WS", "KFFACTWS", "TMAX9120WS", "OMWS", "L3ECO", "MSST2008", "ELEVWS", "SW_FLUXWS", "PCTBL2001WS", "STDEPWS", "SWS", "PCTDECID2001WS", "PCTCROP2001WS"), partial = TRUE, plot.sone.page = TRUE)
-
 ```
 
+#### Temporary code to explore map after adjusting human vbls to 0
+
+```{r}
+# CREATE DF FOR MAPPING PURPOSES to explore how residuals changed on the map after scaling all HI to zero
+# Need to join predictions to AWQMS columns, but there are no unique identifiers in the cond.src table. Predictions will be in the same order as the cond.src table initially.
+
+# Join predictions to cal_val table
+cond.obs_predict <- cbind(plotdf, cond.src.no_hi)
+
+# Order the rows based on a StreamCat variables that has ALL unique values.
+# any(duplicated(cond.src$ELEVWS))
+# any(duplicated(cond.src$PRECIP9120WS))
+cond.obs_predict <- cond.obs_predict %>% 
+  arrange(predictions, ELEVWS)
+
+cond.awqms <- cond_vars_selected %>% 
+  arrange(ELEVWS) %>% 
+  select(MLocID:logCond)
+
+# Join cond_vars_selected with cond.obs_predict, and makes sure the conductivity results match.
+cond_map <- cbind(cond.awqms,cond.obs_predict)
+
+# Then get rid of StreamCat columns, and save file.
+cond_map <- cond_map %>% 
+  select(MLocID:delta, L2Eco, L3Eco) %>% 
+  filter(predictions=='OOB')
+
+map_function <- function(data) {
+  leaflet() %>%
+  addProviderTiles("OpenStreetMap", group = "Basic Map") %>% 
+  addProviderTiles(providers$Esri.WorldTopoMap, group = "Terrain") %>%
+  setView(lng = -120.5583, lat =44.0671, zoom =6.4) %>%
+  addCircleMarkers(data = data, group = "Observed", lng = ~data$Long_DD, 
+                     lat = ~data$Lat_DD, fillColor = pal(data$obs), stroke = TRUE,
+                   color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
+                   popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
+                                  "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
+                                  "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
+                                  "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
+                                  "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
+                                  "<strong>", "Observed Conductivity: ", "</strong>", data$obs))  %>% 
+      addCircleMarkers(data = data, group = "Predicted",lng = ~data$Long_DD, 
+                     lat = ~data$Lat_DD, fillColor = pal2(data$pred), stroke = TRUE,
+                   color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
+                   popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
+                                  "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
+                                  "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
+                                  "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
+                                  "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
+                                  "<strong>", "Predicted Conductivity: ", "</strong>", data$pred))  %>% 
+     addCircleMarkers(data = data, group = "Obs-Pred",lng = ~data$Long_DD, 
+                     lat = ~data$Lat_DD, fillColor = pal3(data$delta), stroke = TRUE,
+                   color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
+                   popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
+                                  "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
+                                  "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
+                                  "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
+                                  "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
+                                  "<strong>", "Obs - Pred Conductivity: ", "</strong>", data$delta))  %>% 
+    addLayersControl(
+      baseGroups = c("Basic Map", "Terrain"),
+      overlayGroups = c("Observed","Predicted", "Obs-Pred"),
+      options = layersControlOptions(collapsed = FALSE)) %>% 
+    addLegend(pal = pal, group = "Observed", values = data$obs[data$obs <= (quantile(data$obs, 0.75) + 1.5 * 
+      IQR(data$obs))], position = "bottomright" , title = "Observed Conductivity" ) %>% 
+    addLegend(pal = pal2,group = "Predicted",values = data$pred[data$pred <= (quantile(data$pred, 0.75) + 1.5 * 
+      IQR(data$pred))], position = "bottomright" , title = "Predicted Conductivity" ) %>% 
+        addLegend(pal = pal3, group = "Obs-Pred", values = data$delta[data$delta <= (quantile(data$delta, 0.75) + 1.5 * 
+      IQR(data$delta))], position = "bottomleft" , title = "Obs - Pred Conductivity" )
+}
+
+pal <- colorNumeric(palette = "Greens", 
+  domain = c(0, 400))
+pal2 <- colorNumeric(palette = "Greens", 
+  domain = c(0, 400))
+pal3 <- colorNumeric(palette = "PuOr", domain = c(-450,450))
+
+map_function(cond_map)
+```
 
 
 

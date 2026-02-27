@@ -14,9 +14,9 @@ library(tidyverse)
 library(StreamCatTools) 
 library(readxl)
 library(writexl)
-library(randomForest)
-library(vip)
-library(caret)
+# library(randomForest)
+# library(vip)
+# library(caret)
 library(ORDEQBioassessment)
 library(EnvStats)
 library(Metrics)
@@ -390,12 +390,6 @@ hist(cond_vars_selected$logCond, main = "", xlab = "log(Conductivity)" )
 boxplot(cond_vars_selected$logCond, ylab = "logCond")
 ```
 
-## B. PREDICTOR VARIABLES - skip initially and revisit after knowing top predictors
-
-```{r}
-# ?????????????????????????? PLACEHOLDER -- WE HAD THIS IN THE TP SCRIPT - NOT SURE ABOUT WORKFLOW IN THIS NEW PACKAGE YET...
-```
-
 # **5 - RANDOM FOREST MODELS**
 
 ## A. PREP RESPONSE DATA
@@ -428,7 +422,7 @@ tuning$optimal
 ```{r}
 set.seed(24)
 
-rf.full.src <- rfsrc(logCond ~ ., data = cond.src, mtry = 57, nodesize = 2, importance = TRUE)
+rf.full.src <- rfsrc(logCond ~ ., data = cond.src, mtry = 57, nodesize = 2, importance = "TRUE")
 rf.full.src # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (untransformed)
@@ -455,6 +449,10 @@ rf.full.src$err.rate
 
 # VIP
 plot(rf.full.src, plots.one.page=FALSE)
+top_vimp <- sort(rf.full.src$importance, decreasing = TRUE)[1:20]
+par(mar=c(5,9,4,1)+.1)
+barplot(top_vimp, horiz = TRUE, las = 1, main = "Full model VIMP")
+
 #print(vimp(rf.full.src)$importance)
 
 # Make a df for plots
@@ -596,566 +594,89 @@ cond_map_num <- cond_map %>%
   select(!c(MLocID:StationDes, SampleStartDate, ReferenceSite:COMID, predictions,SITE_TYPE:L3Eco))
 correlations <- apply(cond_map_num, 2, cor, x = cond_map_num$delta)
 
-m <- as.data.frame(correlations)
-
-# Resids of higher urban pop only 
-cond_map_urb <- cond_map %>%
-  filter(PCTURBLO2001WS > 1)
-
-ggplot(data=cond_map_urb, aes(x = Long_DD, y = delta)) + geom_point() + geom_smooth(method = "lm", se = FALSE) +
-  labs(x = "Longitude", y = "Obs - Pred")
-
-map_function(cond_map_urb)
+resid_cor <- as.data.frame(correlations)
 
 ```
-
 
 #### Reduce all human-influenced variables to 0 to learn impact on the residuals
 
 ```{r}
-set.seed(24)
-
 # Reduce all human-influenced vars to all 0s.
-cond.src.no_hi <- cond.src %>% 
+cond.src_no.hi <- cond.src %>% 
   mutate(across(all_of(c("CANALDENSWS", "DAMDENSWS", "MINEDENSWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTAGSLPMID2001WS", "PCTIMP2001WS", "PCTINCVEGRESP2002WS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS","PCTCROP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "SW_FLUXWS", "TRIDENSWS", "WATERINPUTWS", "WWTPALLDENSWS")), ~0))
 
 # Rerun model with adjusted human-influence 
 set.seed(24)
 
-rf.full.no_hi <- rfsrc(logCond ~ ., data = cond.src.no_hi, mtry = 57, nodesize = 2, importance = TRUE)
-rf.full.no_hi # Model output. (OOB) R squared = Percent Variance Explained.
+rf.full_no.hi <- rfsrc(logCond ~ ., data = cond.src_no.hi, mtry = 57, nodesize = 2, importance = TRUE)
+rf.full_no.hi # Model output. (OOB) R squared = Percent Variance Explained.
 
 # VIP sans human inf
-plot(rf.full.no_hi, plots.one.page=FALSE)
+plot(rf.full_no.hi, plots.one.page=FALSE)
 #print(vimp(rf.full.src)$importance)
 
 # Make a df for no_hi plots
-predicted.oob.no_hi <- data.frame(obs = cond.src.no_hi$logCond, pred = rf.full.no_hi$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
-predicted.ib.no_hi <- data.frame(obs =cond.src.no_hi$logCond, pred = rf.full.no_hi$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
+predicted.oob_no.hi <- data.frame(obs = cond.src_no.hi$logCond, pred = rf.full_no.hi$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
+predicted.ib_no.hi <- data.frame(obs =cond.src_no.hi$logCond, pred = rf.full_no.hi$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
 
+# Mean squared error (untransformed)
+oob.mse_no.hi <- tail(rf.full_no.hi$err.rate,1)
+per.var_no.hi <- 100 * (1 - oob.mse_no.hi/ var(cond.src_no.hi$logCond, na.rm = TRUE))
+print(per.var_no.hi)
 
-# Plot residuals - full model, adjusted human-influenced vars
-residuals.rf.full.no_hi <- exp(cond.src.no_hi$logCond) - exp(predicted.oob.no_hi$pred) # Observed minus predicted oob
-plot(residuals.rf.full.no_hi ~ exp(predicted.oob.no_hi$pred), xlab = "Predicted Conductivity (uS/cm)", ylab = "Residuals", main = "full model residuals, no HI")
+#In-bag RMSE
+rmse_no.hi<- rmse(exp(rf.full_no.hi$predicted), exp(cond.src_no.hi$logCond))
+rmse.scaled_no.hi <- rmse_no.hi/range_cond
+print(paste0('In-bag RMSE = ' , round(rmse_no.hi,2), " (μS/cm)"))
+print(paste0('Scaled In-bag RMSE = ' , round(rmse.scaled_no.hi*100,2), "%"))
+
+#OOB RMSE
+oob.rmse_no.hi<- rmse(exp(rf.full_no.hi$predicted.oob), exp(cond.src_no.hi$logCond))
+oob.rmse.scaled_no.hi <- oob.rmse_no.hi/range_cond
+print(paste0('OOB RMSE = ' , round(oob.rmse_no.hi,2), " (μS/cm)"))
+print(paste0('Scaled OOB RMSE = ' , round(oob.rmse.scaled_no.hi*100,2), "%"))
+
+# VIP
+plot(rf.full_no.hi, plots.one.page=FALSE)
+#print(vimp(rf.full_no.hi)$importance)
+
+# Make a df for plots
+predicted.oob_no.hi <- data.frame(obs = cond.src_no.hi$logCond, pred = rf.full_no.hi$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
+predicted.ib_no.hi <- data.frame(obs =cond.src_no.hi$logCond, pred = rf.full_no.hi$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
+plotdf_no.hi <- rbind(predicted.oob_no.hi, predicted.ib_no.hi) %>% 
+  mutate(obs = exp(obs)) %>% 
+  mutate(pred = exp(pred)) %>% 
+  mutate(delta = obs - pred)
+
+# Plot
+ggplot(data = plotdf_no.hi, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
+  geom_point(alpha = 0.75) +
+  labs(title = "Conductivity Full Model without human influenced vars",
+       x = "Predicted values (μS/cm)",
+       y = "Observed values (μS/cm)") +
+  theme_bw() + 
+  geom_abline() + 
+  scale_x_log10() +
+  scale_y_log10() +
+  annotate("text", x = 50, y = 320, label = paste0('OOB RMSE = ' , round(oob.rmse_no.hi,2), ' | scaled RMSE = ', round(oob.rmse.scaled_no.hi*100,2), "%"), size = 3) +
+    annotate("text", x = 50, y = 390, label = paste0('IB RMSE = ' , round(rmse_no.hi,2), ' | scaled RMSE = ', round(rmse.scaled_no.hi*100,2), "%"), size = 3) +
+      annotate("text", x = 50, y = 460, label = paste0('% variance explained = ' , round(per.var_no.hi,2), '%'), size = 3) 
+# Plot residuals - full model, adjusted human-influenced vars to 0
+residuals.rf.full_no.hi <- exp(cond.src_no.hi$logCond) - exp(predicted.oob_no.hi$pred) # Observed minus predicted oob
+plot(residuals.rf.full_no.hi ~ exp(predicted.oob_no.hi$pred), xlab = "Predicted Conductivity (uS/cm)", ylab = "Residuals", main = "full model residuals, no HI vars")
 abline(h=0, col = "red", lty = 2)
 
 # Partial Dependence for top vars
-plot.variable(rf.full.no_hi, xvar.names = c("PRECIP9120WS", "KFFACTWS", "TMAX9120WS", "OMWS", "L3ECO", "PCTBL2001WS", "ELEVWS", "WTDEPWS", "PCTDECID2001WS", "SWS", "PCTOW2001WS", "PCT_EROD"), partial = TRUE, plot.sone.page = TRUE)
+plot.variable(rf.full_no.hi, xvar.names = c("PRECIP9120WS", "KFFACTWS", "TMAX9120WS", "OMWS", "L3ECO", "PCTBL2001WS", "ELEVWS", "WTDEPWS", "PCTDECID2001WS", "SWS", "PCTOW2001WS", "PCT_EROD"), partial = TRUE, plot.sone.page = TRUE)
 ```
-
-#### Temporary code to explore map after adjusting human vbls to 0
-
-```{r}
-# CREATE DF FOR MAPPING PURPOSES to explore how residuals changed on the map after scaling all HI to zero
-# Need to join predictions to AWQMS columns, but there are no unique identifiers in the cond.src table. Predictions will be in the same order as the cond.src table initially.
-
-# Join predictions to cal_val table
-cond.obs_predict <- cbind(plotdf, cond.src.no_hi)
-
-# Order the rows based on a StreamCat variables that has ALL unique values.
-# any(duplicated(cond.src$ELEVWS))
-# any(duplicated(cond.src$PRECIP9120WS))
-cond.obs_predict <- cond.obs_predict %>% 
-  arrange(predictions, ELEVWS)
-
-cond.awqms <- cond_vars_selected %>% 
-  arrange(ELEVWS) %>% 
-  select(MLocID:logCond)
-
-# Join cond_vars_selected with cond.obs_predict, and makes sure the conductivity results match.
-cond_map <- cbind(cond.awqms,cond.obs_predict)
-
-# Then get rid of StreamCat columns, and save file.
-cond_map <- cond_map %>% 
-  select(MLocID:delta, L2Eco, L3Eco) %>% 
-  filter(predictions=='OOB')
-
-map_function <- function(data) {
-  leaflet() %>%
-  addProviderTiles("OpenStreetMap", group = "Basic Map") %>% 
-  addProviderTiles(providers$Esri.WorldTopoMap, group = "Terrain") %>%
-  setView(lng = -120.5583, lat =44.0671, zoom =6.4) %>%
-  addCircleMarkers(data = data, group = "Observed", lng = ~data$Long_DD, 
-                     lat = ~data$Lat_DD, fillColor = pal(data$obs), stroke = TRUE,
-                   color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
-                   popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
-                                  "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
-                                  "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
-                                  "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
-                                  "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
-                                  "<strong>", "Observed Conductivity: ", "</strong>", data$obs))  %>% 
-      addCircleMarkers(data = data, group = "Predicted",lng = ~data$Long_DD, 
-                     lat = ~data$Lat_DD, fillColor = pal2(data$pred), stroke = TRUE,
-                   color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
-                   popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
-                                  "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
-                                  "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
-                                  "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
-                                  "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
-                                  "<strong>", "Predicted Conductivity: ", "</strong>", data$pred))  %>% 
-     addCircleMarkers(data = data, group = "Obs-Pred",lng = ~data$Long_DD, 
-                     lat = ~data$Lat_DD, fillColor = pal3(data$delta), stroke = TRUE,
-                   color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
-                   popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
-                                  "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
-                                  "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
-                                  "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
-                                  "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
-                                  "<strong>", "Obs - Pred Conductivity: ", "</strong>", data$delta))  %>% 
-    addLayersControl(
-      baseGroups = c("Basic Map", "Terrain"),
-      overlayGroups = c("Observed","Predicted", "Obs-Pred"),
-      options = layersControlOptions(collapsed = FALSE)) %>% 
-    addLegend(pal = pal, group = "Observed", values = data$obs[data$obs <= (quantile(data$obs, 0.75) + 1.5 * 
-      IQR(data$obs))], position = "bottomright" , title = "Observed Conductivity" ) %>% 
-    addLegend(pal = pal2,group = "Predicted",values = data$pred[data$pred <= (quantile(data$pred, 0.75) + 1.5 * 
-      IQR(data$pred))], position = "bottomright" , title = "Predicted Conductivity" ) %>% 
-        addLegend(pal = pal3, group = "Obs-Pred", values = data$delta[data$delta <= (quantile(data$delta, 0.75) + 1.5 * 
-      IQR(data$delta))], position = "bottomleft" , title = "Obs - Pred Conductivity" )
-}
-
-pal <- colorNumeric(palette = "Greens", 
-  domain = c(0, 400))
-pal2 <- colorNumeric(palette = "Greens", 
-  domain = c(0, 400))
-pal3 <- colorNumeric(palette = "PuOr", domain = c(-450,450))
-
-map_function(cond_map)
-```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#  __          _,                     
-# ( /  /o     / |     /              /
-#  /--/,     /--|  __/ __,  _ _ _   / 
-# /  /_(_  _/   |_(_/_(_/(_/ / / /_'  
-#                                 o   
-# I stopped editing here!
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-```
-
-## C. REDUCED MODEL(S) - IMPORTANT PREDICTORS ONLY
-
-#### Build reduced model with # predictors
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-```{r}
-set.seed(39) # mtry = 20
-
-rf.full <- randomForest(logCond ~ ., cond.cal, importance = TRUE, mtry=20, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors. mtry=20 based on Caret grid search results.
-#print(rf.full)
-rf.full
-
-varImpPlot(rf.full, type = 1, n.var = 40, main = "Conductivity All-Sites Full Model") #variable importance plot
-```
-
-#### Tuning the model (how many trees)
-
-```{r}
-# How many trees is appropriate?
-plot(rf.full, log="x", main = '')  # 500 seems to work fine.
-```
-
-#### Model prediction errors - full model
-
-```{r}
-# Predictions
-pred.rf <- predict(rf.full, newdata = cond.cal)
-
-# Model error 
-full.rmse<- rmse(exp(pred.rf), exp(cond.cal$logCond))
-
-range_cond <- max(exp(cond.cal_val$logCond)) - min(exp(cond.cal_val$logCond))
-full.rmse_scaled <- full.rmse/range_cond
-
-# Percent variance explained
-rf.full_pct.var <- round(100 * rf.full$rsq[length(rf.full$rsq)], 2)
-
-# Plot
-plot(cond.cal$logCond ~ pred.rf, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'Full model')
-abline(a=0,b=1)
-text(4,6, paste0("RMSE = ",round(full.rmse, 2)," | scaled RMSE = ", round(full.rmse_scaled*100,2), "%"))
-text(4,5.5, paste0("Variance explained = ",rf.full_pct.var,"%"))
-```
-## REDUCED MODEL - IMPORTANT PREDICTORS ONLY
-
-#### Build reduced model with 14 predictors
-
-```{r}
-set.seed(32)
-
-rf.red_14 <- randomForest(logCond ~ PRECIP9120WS+KFFACTWS+TMAX9120WS+MSST2008+OMWS+SWS+PCT_EROD+CLAYWS+WTDEPWS+ELEVWS+ROCKNWS+WETINDEXWS+FE2O3WS+NA2OWS, data = cond.cal, importance = TRUE,  keep.forest = TRUE, mtry=14, ntree = 500) 
-
-#print(rf.red_14)
-summary(rf.red_14)
-
-varImpPlot(rf.red_14, type = 1, n.var = 14, main = "Reduced Model Top 14") #variable importance plot
-
-# Predictions
-pred.rf.red_14 <- predict(rf.red_14, newdata = cond.cal)
-
-# Model error 
-red_14.rmse<- rmse(exp(pred.rf.red_14), exp(cond.cal$logCond))
-red_14.rmse_scaled <- red_14.rmse/range_cond
-
-# Percent variance explained
-rf.red_14_pct.var <- round(100 * rf.red_14$rsq[length(rf.red_14$rsq)], 2)
-
-# Plot
-plot(cond.cal$logCond ~ pred.rf.red_14, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'Reduced Model Top 14')
-abline(a=0,b=1)
-text(4,6, paste0("RMSE = ",round(red_14.rmse, 2)," | scaled RMSE = ", round(red_14.rmse_scaled*100,2), "%"))
-text(4,5.5, paste0("Variance explained = ",rf.red_14_pct.var,"%"))
-```
-#### Build reduced model with 7 predictors
-
-```{r}
-set.seed(32)
-
-rf.red_7 <- randomForest(logCond ~ PRECIP9120WS+KFFACTWS+TMAX9120WS+MSST2008+OMWS+SWS+PCT_EROD, data = cond.cal, importance = TRUE,  keep.forest = TRUE, mtry=7, ntree = 500) 
-
-#print(rf.red_7)
-summary(rf.red_7)
-
-varImpPlot(rf.red_7, type = 1, n.var = 7, main = "Reduced Model Top 7") #variable importance plot
-
-# Predictions
-pred.rf.red_7 <- predict(rf.red_7, newdata = cond.cal)
-
-# Model error 
-red_7.rmse<- rmse(exp(pred.rf.red_7), exp(cond.cal$logCond))
-red_7.rmse_scaled <- red_7.rmse/range_cond
-
-# Percent variance explained
-rf.red_7_pct.var <- round(100 * rf.red_7$rsq[length(rf.red_7$rsq)], 2)
-
-# Plot
-plot(cond.cal$logCond ~ pred.rf.red_7, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'Reduced Model Top 7')
-abline(a=0,b=1)
-text(4,6, paste0("RMSE = ",round(red_7.rmse, 2)," | scaled RMSE = ", round(red_7.rmse_scaled*100,2), "%"))
-text(4,5.5, paste0("Variance explained = ",rf.red_7_pct.var,"%"))
-```
-
-#### Build reduced model with 3 predictors
-
-```{r}
-set.seed(32)
-
-rf.red_3 <- randomForest(logCond ~ PRECIP9120WS+KFFACTWS+TMAX9120WS, data = cond.cal, importance = TRUE,  keep.forest = TRUE, mtry=3, ntree = 500) 
-
-#print(rf.red_3)
-summary(rf.red_3)
-
-varImpPlot(rf.red_3, type = 1, n.var = 3, main = "Reduced Model Top 3") #variable importance plot
-
-# Predictions
-pred.rf.red_3 <- predict(rf.red_3, newdata = cond.cal)
-
-# Model error 
-red_3.rmse<- rmse(exp(pred.rf.red_3), exp(cond.cal$logCond))
-red_3.rmse_scaled <- red_3.rmse/range_cond
-
-# Percent variance explained
-rf.red_3_pct.var <- round(100 * rf.red_3$rsq[length(rf.red_3$rsq)], 2)
-
-# Plot
-plot(cond.cal$logCond ~ pred.rf.red_3, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'CAL Reduced Model Top 3 \n (PRECIP9120, KFFACT, TMAX9120)')
-abline(a=0,b=1)
-text(4,6, paste0("RMSE = ",round(red_3.rmse, 2)," | scaled RMSE = ", round(red_3.rmse_scaled*100,2), "%"))
-text(4,5.5, paste0("Variance explained = ",rf.red_3_pct.var,"%"))
-
-
-#Untransformed plot no log scale axes
-plot(exp(cond.cal$logCond) ~ exp(pred.rf.red_3), xlab = 'predicted Conductivity', ylab = 'observed Conductivity', main = 'CAL Reduced Model Top 3 untransformed \n (PRECIP9120, KFFACT, TMAX9120)')
-abline(a=0,b=1)
-text(150,600, paste0("RMSE = ",round(red_3.rmse, 2)," | scaled RMSE = ", round(red_3.rmse_scaled*100,2), "%"))
-text(150,500, paste0("Variance explained = ",rf.red_3_pct.var,"%"))
-
-#Untransformed plot no log scale axes
-plot(exp(cond.cal$logCond) ~ exp(pred.rf.red_3), log = 'xy', xlab = 'predicted Conductivity (μS/cm)', ylab = 'observed Conductivity (μS/cm)', main = 'CAL Reduced Model Top 3 log scale axes \n (PRECIP9120, KFFACT, TMAX9120)')
-abline(a=0,b=1)
-text(55,300, paste0("RMSE = ",round(red_3.rmse, 2)," | scaled RMSE = ", round(red_3.rmse_scaled*100,2), "%"))
-text(55,210, paste0("Variance explained = ",rf.red_3_pct.var,"%"))
-```
-#### Residual plot for red_3 model
-
-```{r}
-residuals.red_3 <- exp(cond.cal$logCond) - exp(pred.rf.red_3) # Observed minus predicted 
-plot(residuals.red_3 ~ exp(pred.rf.red_3), xlab = "Predicted Conductivity (uS/cm)", ylab = "Residuals", main="rf.red_3 residuals")
-abline(h=0, col = "red", lty = 2)
-```
-
-#### Test reduced model (red_3) with VAL data
-
-```{r}
-# Predictions
-pred.rf.red_3_val <- predict(rf.red_3, newdata = cond.val)
-
-# Model error 
-red_3_val.rmse<- rmse(exp(pred.rf.red_3_val), exp(cond.val$logCond))
-red_3_val.rmse_scaled <- red_3_val.rmse/range_cond
-
-# Plot
-plot(cond.val$logCond ~ pred.rf.red_3_val, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'VALIDATION Reduced Model Top 3')
-abline(a=0,b=1)
-text(4.3,6, paste0("RMSE = ",round(red_3_val.rmse, 2)," | scaled RMSE = ", round(red_3_val.rmse_scaled*100,2), "%"))
-
-#Untransformed plot no log scale axes
-plot(exp(cond.val$logCond) ~ exp(pred.rf.red_3_val), xlab = 'predicted Conductivity', ylab = 'observed Conductivity', main = 'VALIDATION Reduced Model Top 3')
-abline(a=0,b=1)
-text(130,600, paste0("RMSE = ",round(red_3_val.rmse, 2)," | scaled RMSE = ", round(red_3_val.rmse_scaled*100,2), "%"))
-
-#Untransformed plot no log scale axes
-plot(exp(cond.val$logCond) ~ exp(pred.rf.red_3_val), log = 'xy', xlab = 'predicted Conductivity (μS/cm)', ylab = 'observed Conductivity (μS/cm)', main = 'VALIDATION Reduced Model Top 3 log scale axes')
-abline(a=0,b=1)
-text(60,500, paste0("RMSE = ",round(red_3_val.rmse, 2)," | scaled RMSE = ", round(red_3_val.rmse_scaled*100,2), "%"))
-```
-#### Test reduced model (red_3) with VAL data
-```{r}
-# Predictions
-pred.rf.red_3_val <- predict(rf.red_3, newdata = cond.val)
-
-# Model error 
-red_3_val.rmse<- rmse(exp(pred.rf.red_3_val), exp(cond.val$logCond))
-red_3_val.rmse_scaled <- red_3_val.rmse/range_cond
-
-# Plot
-plot(cond.val$logCond ~ pred.rf.red_3_val, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'VALIDATION Reduced Model Top 3')
-abline(a=0,b=1)
-text(4.25,6, paste0("RMSE = ",round(red_3_val.rmse, 2)," | scaled RMSE = ", round(red_3_val.rmse_scaled*100,2), "%"))
-
-#Untransformed plot no log scale axes
-plot(exp(cond.val$logCond) ~ exp(pred.rf.red_3_val), xlab = 'predicted Conductivity', ylab = 'observed Conductivity', main = 'VALIDATION Reduced Model Top 9 untransformed')
-abline(a=0,b=1)
-text(150,600, paste0("RMSE = ",round(red_3_val.rmse, 2)," | scaled RMSE = ", round(red_3_val.rmse_scaled*100,2), "%"))
-
-#Untransformed plot no log scale axes
-plot(exp(cond.val$logCond) ~ exp(pred.rf.red_3_val), log = 'xy', xlab = 'predicted Conductivity', ylab = 'observed Conductivity', main = 'VALIDATION Reduced Model Top 3 untransformed log scale axes')
-abline(a=0,b=1)
-text(60,500, paste0("RMSE = ",round(red_3_val.rmse, 2)," | scaled RMSE = ", round(red_3_val.rmse_scaled*100,2), "%"))
-```
-
-#### Plot Obs vs pred CAL and VAL all sites
-
-```{r}
-# plot obs vs. predicted CAL 
-par(mfrow=c(1,2))
-par(mar=c(4.3,5,1,1))
-plot(x = exp(pred.rf.red_3), y = exp(cond.cal$logCond),
-	  xlab='Predicted Conductivity (μS/cm)', ylab='Observed Conductivity (μS/cm)', main='red_3 CAL', lwd=1.5, 
-	  cex.lab=1.5, las = 1, font = 2)
-abline(a=0, b=1, col='blue', lty=2) 
-
-# plot obs vs. predicted VAL
-par(new=TRUE)
-plot(x = exp(pred.rf.red_3_val), y = exp(cond.val$logCond),
-	  xlab='', ylab='', main='', pch=2, col='red', cex=1.3, lwd=1.5,axes=FALSE) 
- 
-# plot residuals CAL
-par(mar=c(4.3,4.3,1,1))
-plot(x = (exp(pred.rf.red_3)-1), y = exp(cond.cal$logCond)-exp(pred.rf.red_3),
-	  xlab='Predicted Conductivity (μS/cm)', ylab='Residuals (obs-pred)', main='red_3 VAL', 
-	  lwd=1.5,cex.lab=1.5, las = 1, font = 2)
-abline(h=0, col="blue", lty = 2)
- 
-# plot residuals VAL
-par(new=TRUE)	
-plot(x = (exp(pred.rf.red_3_val)), y = exp(cond.val$logCond)-exp(pred.rf.red_3_val),
-	  xlab='', ylab="", main="", 
-	  pch=2, col='red', 
-	  lwd=1.5,cex.lab=1.5, las = 1, font = 2, cex=1.3,
-	  axes=FALSE)
-```
-Predictions on CAL + VAL
-```{r}
-# Predictions
-pred.rf.red_3_cal_val <- predict(rf.red_3, newdata = cond.cal_val)
-
-# Plot
-plot(cond.cal_val$logCond ~ pred.rf.red_3_cal_val, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'CAL & VAL Reduced Model Top 3')
-abline(a=0,b=1)
-
-#Untransformed plot no log scale axes
-plot(exp(cond.cal_val$logCond) ~ exp(pred.rf.red_3_cal_val), xlab = 'predicted Conductivity', ylab = 'observed Conductivity', main = 'CAL & VAL Reduced Model Top 3')
-abline(a=0,b=1)
-
-#Untransformed plot no log scale axes
-plot(exp(cond.cal_val$logCond) ~ exp(pred.rf.red_3_cal_val), log = 'xy', xlab = 'predicted Conductivity', ylab = 'observed Conductivity', main = 'CAL & VAL Reduced Model Top 3 log scale axes')
-abline(a=0,b=1)
-
-# CALCULATE PROPORTIONS ABOVE 1:1 AND 2:1 LINES
-oe <- cbind(pred.rf.red_3_cal_val, cond.cal_val$logCond)
-oe <- as.data.frame(oe) %>% 
-  rename(pred_logCond = V2) %>% 
-  mutate(obs_Cond = exp(cond.cal_val$logCond)) %>% 
-  mutate(pred_Cond = exp(pred.rf.red_3_cal_val)) %>% 
-  mutate('O/E' = obs_Cond/pred_Cond)
-
-print(sum(oe$`O/E`>1)/nrow(cond.cal_val)) # prop above 1:1 line
-print(sum(oe$`O/E`>2)/nrow(cond.cal_val)) # prop above 2:1 line
-```
-Create file for mapping purposes
-```{r}
-# Need to join predictions to AWQMs columns, but there are no unique identifiers in the cond.cal_val table. Predictions will be in the same order as the cal_val table initially.
-
-# Join predictions to cal_val table
-cond.obs_predict <- cbind(pred.rf.red_3_cal_val, cond.cal_val)
-
-# Order the rows based on StreamCat variables that have ALL unique values.
-# any(duplicated(cond.obs_predict$ELEVWS))
-# any(duplicated(cond.obs_predict$MSST2008))
-# any(duplicated(cond.obs_predict$PRECIP9120WS))
-cond.obs_predict <- cond.obs_predict %>% 
-  arrange(ELEVWS, MSST2008, PRECIP9120WS)
-
-cond.awqms <- cond_vars_selected %>% 
-  arrange(ELEVWS, MSST2008, PRECIP9120WS) %>% 
-  select(MLocID:Conductivity)
-
-# Join cond_vars_selected with cond.obs_predict, and makes sure the conductivity results match.
-cond_map <- cbind(cond.awqms,cond.obs_predict)
-
-# Then get rid of StreamCat columns, and save file.
-cond_map <- cond_map %>% 
-  select(MLocID:pred.rf.red_3_cal_val, L2Eco, L3Eco, PRECIP9120WS, TMAX9120WS, KFFACTWS) %>% 
-  rename(pred_logCond = pred.rf.red_3_cal_val) %>% 
-  mutate(pred_Cond = exp(pred_logCond)) %>% 
-  rename(obs_Cond = Conductivity) %>% 
-  rename(obs_logCond = logCond) %>% 
-  relocate(L2Eco:L3Eco, .before = ReferenceSite) %>% 
-  relocate(pred_Cond, .after = pred_logCond) %>% 
-  mutate(across(obs_logCond:pred_Cond, round, 2)) %>% 
-  mutate(across(PRECIP9120WS:KFFACTWS, round, 3)) %>% 
-  mutate(delta = obs_Cond - pred_Cond) %>% 
-  relocate(delta, .before = PRECIP9120WS)
-
-#write_xlsx(cond_map, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//Cond_Map", Sys.Date(), ".xlsx"))
-```
-
-# Ref only model
-```{r}
-set.seed(39)
-
-rf.ref.full <- randomForest(logCond ~ BFIWS+ CAOWS+ CLAYWS+ COMPSTRGTHWS+ ELEVWS+ FE2O3WS+ HYDRLCONDWS+ K2OWS+ KFFACTWS+  MSST2008+ NA2OWS+ NHD_pSLOPE+  NWS+ OMWS+ PCT_EROD+ PCTALKINTRUVOLWS+ PCTALLUVCOASTWS+ PCTBL2001WS+ PCTBURNAREA2002WS+ PCTCOLLUVSEDWS+ PCTCONIF2001WS+ PCTDECID2001WS+ PCTEOLCRSWS+ PCTEOLFINEWS+ PCTEXTRUVOLWS+ PCTGLACLAKECRSWS+ PCTGLACLAKEFINEWS+ PCTGLACTILCRSWS+ PCTGRS2001WS+ PCTHBWET2001WS+ PCTICE2001WS+  PCTINCVEGRESP2002WS+  PCTOW2001WS+ PCTSALLAKEWS+ PCTSHRB2001WS+  PCTWATERWS+  PRECIP9120WS+ RCKDEPWS+ RDCRSSLPWTDWS+  ROCKNWS+ SANDWS+  STRMPOW_CAT+  SW_FLUXWS+ SWS+ TMAX9120WS+ TRIDENSWS+ WATERINPUTWS+ WETINDEXWS+ WETTEDWIDTH+ WTDEPWS+ +SITE_TYPE+ L2Eco + L3Eco, cond.ref, importance = TRUE, mtry=20, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors. mtry=20 based on Caret grid search results.
-print(rf.ref.full)
-
-varImpPlot(rf.ref.full, type = 1, n.var = 25, main = "Ref-Only Full Model") #variable importance plot
-```
-```{r}
-# Predictions
-pred.rf.ref <- predict(rf.ref.full, newdata = cond.ref)
-
-# Model error 
-full.ref.rmse<- rmse(exp(pred.rf.ref), exp(cond.ref$logCond))
-
-range_cond <- max(exp(cond.cal_val$logCond)) - min(exp(cond.cal_val$logCond))
-full.ref.rmse_scaled <- full.ref.rmse/range_cond
-
-# Percent variance explained
-rf.ref.full_pct.var <- round(100 * rf.ref.full$rsq[length(rf.ref.full$rsq)], 2)
-
-# Plot
-plot(cond.ref$logCond ~ pred.rf.ref, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'Full model reference-only')
-abline(a=0,b=1)
-text(3.5,5, paste0("RMSE = ",round(full.ref.rmse, 2)," | scaled RMSE = ", round(full.ref.rmse_scaled*100,2), "%"))
-text(3.5,4.5, paste0("Variance explained = ",rf.ref.full_pct.var,"%"))
-```
-
-## PREDICTOR VARIABLES
+#### Kernel density plots for top predictors
 
 ```{r}
 # Kernel density plot function
 kd_plots <- function(data, filter_col_name, filter_value) {
   data %>%
     filter(.data[[filter_col_name]] == filter_value) %>% # Using .data[[]] for dynamic column names
-    select(PRECIP9120WS,KFFACTWS,TMAX9120WS,MSST2008,OMWS,SWS,PCT_EROD,CLAYWS,WTDEPWS,ELEVWS,ROCKNWS,WETINDEXWS,FE2O3WS,NA2OWS,SW_FLUXWS) %>% 
+    select(PRECIP9120WS, KFFACTWS, TMAX9120WS, OMWS, PCTBL2001WS, ELEVWS, WTDEPWS, PCTDECID2001WS, PCT_EROD, PCTOW2001WS, SWS) %>% 
   keep(is.numeric) %>% 
   gather() %>% 
   ggplot(aes(value)) +
@@ -1164,58 +685,103 @@ kd_plots <- function(data, filter_col_name, filter_value) {
   geom_rug() + ggtitle(paste0(filter_value))
 }
 
-# Top 15 variables from RF model broken out by reference status
+# Top 20 variables from RF model broken out by reference status
 kd_plots(data = cond_vars_selected, "ReferenceSite", "REFERENCE")
 kd_plots(data = cond_vars_selected, "ReferenceSite", "MODERATELY DISTURBED")
 kd_plots(data = cond_vars_selected, "ReferenceSite", "MOST DISTURBED")
 
-# Top 15 variables from RF model broken out by L2 Ecoregion
+# Top 20 variables from RF model broken out by L2 Ecoregion
 kd_plots(data = cond_vars_selected, "L2Eco", "Western Cordillera")
 kd_plots(data = cond_vars_selected, "L2Eco", "Cold Deserts")
 kd_plots(data = cond_vars_selected, "L2Eco", "Marine West Coast Forest")
 
-# Top 15 variables from RF model broken out by Conductivity category 
-# < 100
+# Top 8 variables from RF model broken out by Conductivity category 
+# <20
 cond_vars_selected %>%
-  filter(Conductivity<=100) %>%  
-  select(PRECIP9120WS,KFFACTWS,TMAX9120WS,MSST2008,OMWS,SWS,PCT_EROD,CLAYWS,WTDEPWS,ELEVWS,ROCKNWS,WETINDEXWS,FE2O3WS,NA2OWS,SW_FLUXWS) %>% 
+  filter(Conductivity < 20) %>%  
+  select(PRECIP9120WS, KFFACTWS, TMAX9120WS, OMWS, PCTBL2001WS, ELEVWS, WTDEPWS, PCTDECID2001WS, PCT_EROD, PCTOW2001WS, SWS) %>% 
   keep(is.numeric) %>% 
   gather() %>% 
   ggplot(aes(value)) +
   facet_wrap(~ key, scales = "free") +
   geom_density() +
-  geom_rug() + ggtitle("Conductivity 0-100")
+  geom_rug() + ggtitle("Cond <20")
 
-# 100-300
+# 20 - 200
 cond_vars_selected %>%
-  filter(Conductivity > 100 | Conductivity <= 300) %>% 
-  select(PRECIP9120WS,KFFACTWS,TMAX9120WS,MSST2008,OMWS,SWS,PCT_EROD,CLAYWS,WTDEPWS,ELEVWS,ROCKNWS,WETINDEXWS,FE2O3WS,NA2OWS,SW_FLUXWS) %>% 
+  filter(Conductivity > 20 | Conductivity <= 200) %>% 
+  select(PRECIP9120WS, KFFACTWS, TMAX9120WS, OMWS, PCTBL2001WS, ELEVWS, WTDEPWS, PCTDECID2001WS, PCT_EROD, PCTOW2001WS, SWS) %>% 
   keep(is.numeric) %>% 
   gather() %>% 
   ggplot(aes(value)) +
   facet_wrap(~ key, scales = "free") +
   geom_density() +
-  geom_rug() + ggtitle("Conductivity 100-300")
+  geom_rug() + ggtitle("Cond 20 - 200")
 
-# 300+
+# >200
 cond_vars_selected %>%
-  filter(Conductivity > 300) %>% 
-  select(PRECIP9120WS,KFFACTWS,TMAX9120WS,MSST2008,OMWS,SWS,PCT_EROD,CLAYWS,WTDEPWS,ELEVWS,ROCKNWS,WETINDEXWS,FE2O3WS,NA2OWS,SW_FLUXWS) %>% 
+  filter(Conductivity > 200) %>% 
+  select(PRECIP9120WS, KFFACTWS, TMAX9120WS, OMWS, PCTBL2001WS, ELEVWS, WTDEPWS, PCTDECID2001WS, PCT_EROD, PCTOW2001WS, SWS) %>% 
   keep(is.numeric) %>% 
   gather() %>% 
   ggplot(aes(value)) +
   facet_wrap(~ key, scales = "free") +
   geom_density() +
-  geom_rug() + ggtitle("Conductivity >300")
+  geom_rug() + ggtitle("Cond > 200")
 
-# All COND
+# All TP
 cond_vars_selected %>%
-  select(PRECIP9120WS,KFFACTWS,TMAX9120WS,MSST2008,OMWS,SWS,PCT_EROD,CLAYWS,WTDEPWS,ELEVWS,ROCKNWS,WETINDEXWS,FE2O3WS,NA2OWS,SW_FLUXWS) %>% 
+  select(PRECIP9120WS, KFFACTWS, TMAX9120WS, OMWS, PCTBL2001WS, ELEVWS, WTDEPWS, PCTDECID2001WS, PCT_EROD, PCTOW2001WS, SWS) %>% 
   keep(is.numeric) %>% 
   gather() %>% 
   ggplot(aes(value)) +
   facet_wrap(~ key, scales = "free") +
   geom_density() +
   geom_rug() + ggtitle("All sites")
+```
 
+#### Look at map after adjusting human vbls to 0
+
+```{r}
+# CREATE DF FOR MAPPING PURPOSES to explore how residuals changed on the map after scaling all HI to zero
+# Need to join predictions to AWQMS columns, but there are no unique identifiers in the cond.src table. Predictions will be in the same order as the cond.src table initially.
+
+# Join predictions to cal_val table
+cond.obs_predict_no.hi <- cbind(plotdf_no.hi, cond.src.no_hi)
+
+# Order the rows based on a StreamCat variables that has ALL unique values.
+# any(duplicated(cond.src$ELEVWS))
+# any(duplicated(cond.src$PRECIP9120WS))
+cond.obs_predict_no.hi <- cond.obs_predict_no.hi %>% 
+  arrange(predictions, ELEVWS)
+
+# Join cond_vars_selected with cond.obs_predict, and makes sure the conductivity results match.
+cond_map_no.hi <- cbind(cond.awqms,cond.obs_predict_no.hi)
+
+# Then get rid of StreamCat columns.
+cond_map_no.hi <- cond_map_no.hi %>% 
+  select(MLocID:delta, L2Eco, L3Eco) %>% 
+  filter(predictions=='OOB')
+
+pal <- colorNumeric(palette = "Greens", 
+  domain = c(0, 400))
+pal2 <- colorNumeric(palette = "Greens", 
+  domain = c(0, 400))
+pal3 <- colorNumeric(palette = "PuOr", domain = c(-450,450))
+
+map_function(cond_map_no.hi)
+```
+#### Residual plots
+```{r}
+# Plot residuals 
+residuals.rf.full_no.hi <- exp(cond.src_no.hi$logCond) - exp(predicted.oob_no.hi$pred) # Observed minus predicted oob
+plot(residuals.rf.full_no.hi ~ exp(predicted.oob_no.hi$pred), xlab = "Predicted Conductivity (uS/cm)", ylab = "Residuals", main = "full model residuals no hi vars")
+abline(h=0, col = "red", lty = 2)
+
+# Resids by lat and long
+ggplot(data=cond_map_no.hi, aes(x = Lat_DD, y = delta)) + geom_point() + geom_smooth(method = "lm", se = FALSE) +
+  labs(x = "Latitude", y = "Obs - Pred")
+
+ggplot(data=cond_map_no.hi, aes(x = Long_DD, y = delta)) + geom_point() + geom_smooth(method = "lm", se = FALSE) +
+  labs(x = "Longitude", y = "Obs - Pred") 
 ```

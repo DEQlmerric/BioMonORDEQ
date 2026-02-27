@@ -14,12 +14,15 @@ library(tidyverse)
 library(StreamCatTools) 
 library(readxl)
 library(writexl)
-library(randomForest)
-library(vip)
-library(caret)
+# library(randomForest)
+# library(vip)
+# library(caret)
 library(ORDEQBioassessment)
 library(EnvStats)
 library(Metrics)
+library(randomForestSRC)
+library(leaflet)
+library(RColorBrewer)
 ```
 
 # **2 - IMPORT DATA**
@@ -27,10 +30,17 @@ library(Metrics)
 ## A. STATIONS - *FROM WATER CHEMISTRY BENCHMARKS SCRIPT*
 
 ```{r}
-tp <- read_excel("~/BioMonORDEQ/Benchmarks/Water Chemistry/Total Phosphorus/totalP2026_01-21.xlsx") #output file from ref benchmarks script
+tp <- read_excel('~/BioMonORDEQ/Benchmarks/Water Chemistry/cal.val_chem.ref.wq_2026-02-10.xlsx') %>%  # Output file from ref benchmarks script 
+  filter(Char_Name == 'Total Phosphorus, mixed forms') %>% 
+  select(c(MLocID, Project1, StationDes, Lat_DD, Long_DD, SampleStartDate, Result_Numeric_mod, L2Eco, L3Eco, EcoRegion4, HUC8, ReferenceSite, cal_val, COMID)) %>%
+  mutate(Total_phosphorus = Result_Numeric_mod) %>% 
+  select(-Result_Numeric_mod)
 
-# Also grab COMIDs from TN to make the correlation table.
-tn <- read_excel("~/BioMonORDEQ/Benchmarks/Water Chemistry/Total Nitrogen/totalN2026-01-21.xlsx")
+comids <- tp %>% 
+  select(COMID) # Get just the COMIDs for next step
+
+tn <- read_excel('~/BioMonORDEQ/Benchmarks/Water Chemistry/cal.val_chem.ref.wq_2026-02-10.xlsx') %>%  # Output file from ref benchmarks script 
+  filter(Char_Name == 'Nitrogen') 
 
 comids <- bind_rows(tp, tn) %>% select(COMID) %>% distinct() # Get just the COMIDs for the next step (TN and TP combined)
 
@@ -206,7 +216,7 @@ tp_tn_vars <- sc_all %>%
 
 # RE-ORDER COLUMNS 
 tp_tn_vars <- tp_tn_vars %>% 
-  relocate(MLocID:TP, .before = 'COMID') %>% 
+  relocate(MLocID:Total_phosphorus, .before = 'COMID') %>% 
   relocate(L2Eco:L3Eco, .after = SITE_TYPE) %>% 
   select(-c(HUC8, EcoRegion4)) 
 ```
@@ -219,7 +229,7 @@ tp_tn_vars <- tp_tn_vars %>%
 
 ```{r}
 # FIND OUT WHICH COLUMNS HAVE NAs
-sapply(tp_tn_vars, function(x) sum(is.na(x)))
+sort(sapply(tp_tn_vars, function(x) sum(is.na(x))))
 
 # THEN WRITE CODE FOR THEM IN ROUGH FIX SECTION BELOW.
 
@@ -246,7 +256,7 @@ tp_tn_vars$MWST2008  <- na.roughfix(tp_tn_vars$MWST2008) # 9 NA
 # Subset numeric variables only
 tp_tn_vars_num <- tp_tn_vars %>% 
   select(!c(SITE_TYPE:L3Eco)) %>% 
-  select(!c(MLocID:TP)) %>%  
+  select(!c(MLocID:Total_phosphorus)) %>%  
   relocate(sort(names(.))) # sort columns alphabetically
 
 # FULL CORRELATION MATRIX
@@ -329,8 +339,8 @@ tp_vars <- semi_join(tp_tn_vars, tp, by = "COMID")
 tp_vars_selected <- tp_vars %>% 
   select(c(MLocID:COMID, BFIWS, CANALDENSWS, CLAYWS, COMPSTRGTHWS, DAMNRMSTORWS, ELEVWS, FE2O3WS, FERTWS, HYDRLCONDWS, K2OWS, KFFACTWS, MINEDENSWS, MSST2008, NANIWS, NHD_pSLOPE, NPDESDENSWS, NWS, OMWS, P2O5WS, PCT_EROD, PCTAGDRAINAGEWS, PCTALKINTRUVOLWS, PCTALLUVCOASTWS, PCTBL2001WS, PCTBURNAREA2002WS, PCTCARBRESIDWS, PCTCOLLUVSEDWS, PCTCONIF2001WS, PCTCROP2001WS, PCTDECID2001WS, PCTEOLFINEWS, PCTEXTRUVOLWS, PCTFRSTLOSS2002WS, PCTGLACLAKECRSWS, PCTGLACLAKEFINEWS, PCTGLACTILCRSWS, PCTGRS2001WS, PCTHAY2001WS, PCTHBWET2001WS, PCTICE2001WS, PCTIMP2001WS, PCTINCVEGRESP2002WS, PCTNONAGINTRODMANAGVEGWS, PCTOW2001WS, PCTSALLAKEWS, PCTSHRB2001WS, PCTURBHI2001WS, PCTURBLO2001WS, PCTURBOP2001WS, PCTWATERWS, PCTWDWET2001WS, PESTIC1997WS, POPDEN2010WS, PRECIP_MINUS_EVTWS, RCKDEPWS, RDCRSSLPWTDWS, RDCRSWS, RDDENSWS, ROCKNWS, SANDWS, SEPTICWS, STRMPOW_CAT, SUPERFUNDDENSWS, SW_FLUXWS, SWS, TMAX9120WS, TRIDENSWS, WETINDEXWS, WTDEPWS, WWTPALLDENSWS, WWTPMAJORDENSWS, SITE_TYPE:L3Eco)) %>% 
   relocate(COMID, .after = cal_val) %>% 
-  mutate(logTP = log(TP+1)) %>% 
-  relocate(logTP, .before= TP)
+  mutate(logTP = log(Total_phosphorus)) %>% 
+  relocate(logTP, .before= Total_phosphorus)
 ```
 
 #### Perform final correlation check to ensure no co-varied predictors remain
@@ -339,7 +349,7 @@ tp_vars_selected <- tp_vars %>%
 # Subset numeric variables only
 tp_tn_vars_num_selected <- tp_vars_selected %>% 
   select(!c(SITE_TYPE:L3Eco)) %>% 
-  select(!c(MLocID:TP)) 
+  select(!c(MLocID:Total_phosphorus)) 
 
 # FULL CORRELATION MATRIX
 spear2 <- cor(tp_tn_vars_num_selected, method = "spearman", use = "pairwise.complete.obs")
@@ -373,90 +383,36 @@ sapply(tp_vars_selected, function(x) sum(is.na(x)))
 
 ```{r}
 # HISTOGRAM
-hist(tp_vars_selected$TP, main = "", xlab = "Total Phosphorus (mg/L)") #raw data
+hist(tp_vars_selected$Total_phosphorus, main = "", xlab = "Total Phosphorus (mg/L)") #raw data
 hist(tp_vars_selected$logTP, main = "", xlab = "log+1(TP)")
 
-# DENSITY PLOT
-hist(tp_vars_selected$logTP, main="", prob=T, xlab = "log+1(TP)")
-d <- density(tp_vars_selected$logTP) #Estimate probability density and save it into **d**
-lines(d, col='red',lwd=2) #Superimpose the probability density as a curve on the previous probability density histogram
-
-# BOX PLOT
-boxplot(tp_vars_selected$TP, ylab = "TP")
-boxplot(tp_vars_selected$logTP, ylab = "log+1(TP)")
+# BOX PLOTS
+boxplot(tp_vars_selected$Total_phosphorus, ylab = "TP")
+boxplot(tp_vars_selected$logTP, ylab = "log(TP)")
 ```
 
-## B. PREDICTOR VARIABLES - skip initially and revisit after knowing top predictors
 
-```{r}
-# Kernel density plot function
-kd_plots <- function(data, filter_col_name, filter_value) {
-  data %>%
-    filter(.data[[filter_col_name]] == filter_value) %>% # Using .data[[]] for dynamic column names
-    select(PCTCONIF2001WS, PRECIP_MINUS_EVTWS, OMWS, ROCKNWS, PCTAGDRAINAGEWS, PCTNONAGINTRODMANAGVEGWS, STRMPOW_CAT, PCTCROP2001WS) %>% 
-  keep(is.numeric) %>% 
-  gather() %>% 
-  ggplot(aes(value)) +
-  facet_wrap(~ key, scales = "free") +
-  geom_density() +
-  geom_rug() + ggtitle(paste0(filter_value))
-}
 
-# Top 20 variables from RF model broken out by reference status
-kd_plots(data = tp_vars_selected, "ReferenceSite", "REFERENCE")
-kd_plots(data = tp_vars_selected, "ReferenceSite", "MODERATELY DISTURBED")
-kd_plots(data = tp_vars_selected, "ReferenceSite", "MOST DISTURBED")
 
-# Top 20 variables from RF model broken out by L2 Ecoregion
-kd_plots(data = tp_vars_selected, "L2Eco", "Western Cordillera")
-kd_plots(data = tp_vars_selected, "L2Eco", "Cold Deserts")
-kd_plots(data = tp_vars_selected, "L2Eco", "Marine West Coast Forest")
 
-# Top 8 variables from RF model broken out by TP category 
-# <0.1
-tp_vars_selected %>%
-  filter(TP <= 0.1) %>%  
-  select(PCTCONIF2001WS, PRECIP_MINUS_EVTWS, OMWS, ROCKNWS, PCTAGDRAINAGEWS, PCTNONAGINTRODMANAGVEGWS, STRMPOW_CAT, PCTCROP2001WS) %>% 
-  keep(is.numeric) %>% 
-  gather() %>% 
-  ggplot(aes(value)) +
-  facet_wrap(~ key, scales = "free") +
-  geom_density() +
-  geom_rug() + ggtitle("TP <0.1")
 
-# 0.1 - 0.2
-tp_vars_selected %>%
-  filter(TP > 0.1 | TP <= 0.2) %>% 
-  select(PCTCONIF2001WS, PRECIP_MINUS_EVTWS, OMWS, ROCKNWS, PCTAGDRAINAGEWS, PCTNONAGINTRODMANAGVEGWS, STRMPOW_CAT, PCTCROP2001WS) %>% 
-  keep(is.numeric) %>% 
-  gather() %>% 
-  ggplot(aes(value)) +
-  facet_wrap(~ key, scales = "free") +
-  geom_density() +
-  geom_rug() + ggtitle("TP 0.1 - 0.2")
 
-# >0.2
-tp_vars_selected %>%
-  filter(TP > 0.2) %>% 
-  select(PCTCONIF2001WS, PRECIP_MINUS_EVTWS, OMWS, ROCKNWS, PCTAGDRAINAGEWS, PCTNONAGINTRODMANAGVEGWS, STRMPOW_CAT, PCTCROP2001WS) %>% 
-  keep(is.numeric) %>% 
-  gather() %>% 
-  ggplot(aes(value)) +
-  facet_wrap(~ key, scales = "free") +
-  geom_density() +
-  geom_rug() + ggtitle("TP >0.2")
 
-# All TP
-tp_vars_selected %>%
-  select(PCTCONIF2001WS, PRECIP_MINUS_EVTWS, OMWS, ROCKNWS, PCTAGDRAINAGEWS, PCTNONAGINTRODMANAGVEGWS, STRMPOW_CAT, PCTCROP2001WS) %>% 
-  keep(is.numeric) %>% 
-  gather() %>% 
-  ggplot(aes(value)) +
-  facet_wrap(~ key, scales = "free") +
-  geom_density() +
-  geom_rug() + ggtitle("All sites")
 
-```
+
+# SYB start here Monday
+
+
+
+
+
+
+
+
+
+
+
+
 
 # **5 - RANDOM FOREST MODELS**
 
@@ -550,6 +506,79 @@ plot(tp.cal$TP ~ pred.rf, xlab = 'predicted TP', ylab = 'observed TP', main = 'F
 abline(a=0,b=1)
 text(0.15,0.6, paste0("RMSE = ",round(full.rmse, 2)," | scaled RMSE = ", round(full.rmse_scaled*100,2), "%"))
 text(0.15,0.5, paste0("Variance explained = ",rf.full_pct.var,"%"))
+```
+
+
+## B. PREDICTOR VARIABLES - skip initially and revisit after knowing top predictors
+
+```{r}
+# Kernel density plot function
+kd_plots <- function(data, filter_col_name, filter_value) {
+  data %>%
+    filter(.data[[filter_col_name]] == filter_value) %>% # Using .data[[]] for dynamic column names
+    select(PCTCONIF2001WS, PRECIP_MINUS_EVTWS, OMWS, ROCKNWS, PCTAGDRAINAGEWS, PCTNONAGINTRODMANAGVEGWS, STRMPOW_CAT, PCTCROP2001WS) %>% 
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_density() +
+  geom_rug() + ggtitle(paste0(filter_value))
+}
+
+# Top 20 variables from RF model broken out by reference status
+kd_plots(data = tp_vars_selected, "ReferenceSite", "REFERENCE")
+kd_plots(data = tp_vars_selected, "ReferenceSite", "MODERATELY DISTURBED")
+kd_plots(data = tp_vars_selected, "ReferenceSite", "MOST DISTURBED")
+
+# Top 20 variables from RF model broken out by L2 Ecoregion
+kd_plots(data = tp_vars_selected, "L2Eco", "Western Cordillera")
+kd_plots(data = tp_vars_selected, "L2Eco", "Cold Deserts")
+kd_plots(data = tp_vars_selected, "L2Eco", "Marine West Coast Forest")
+
+# Top 8 variables from RF model broken out by TP category 
+# <0.1
+tp_vars_selected %>%
+  filter(TP <= 0.1) %>%  
+  select(PCTCONIF2001WS, PRECIP_MINUS_EVTWS, OMWS, ROCKNWS, PCTAGDRAINAGEWS, PCTNONAGINTRODMANAGVEGWS, STRMPOW_CAT, PCTCROP2001WS) %>% 
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_density() +
+  geom_rug() + ggtitle("TP <0.1")
+
+# 0.1 - 0.2
+tp_vars_selected %>%
+  filter(TP > 0.1 | TP <= 0.2) %>% 
+  select(PCTCONIF2001WS, PRECIP_MINUS_EVTWS, OMWS, ROCKNWS, PCTAGDRAINAGEWS, PCTNONAGINTRODMANAGVEGWS, STRMPOW_CAT, PCTCROP2001WS) %>% 
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_density() +
+  geom_rug() + ggtitle("TP 0.1 - 0.2")
+
+# >0.2
+tp_vars_selected %>%
+  filter(TP > 0.2) %>% 
+  select(PCTCONIF2001WS, PRECIP_MINUS_EVTWS, OMWS, ROCKNWS, PCTAGDRAINAGEWS, PCTNONAGINTRODMANAGVEGWS, STRMPOW_CAT, PCTCROP2001WS) %>% 
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_density() +
+  geom_rug() + ggtitle("TP >0.2")
+
+# All TP
+tp_vars_selected %>%
+  select(PCTCONIF2001WS, PRECIP_MINUS_EVTWS, OMWS, ROCKNWS, PCTAGDRAINAGEWS, PCTNONAGINTRODMANAGVEGWS, STRMPOW_CAT, PCTCROP2001WS) %>% 
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_density() +
+  geom_rug() + ggtitle("All sites")
+
 ```
 
 ## C. REDUCED MODEL(S) - IMPORTANT PREDICTORS ONLY

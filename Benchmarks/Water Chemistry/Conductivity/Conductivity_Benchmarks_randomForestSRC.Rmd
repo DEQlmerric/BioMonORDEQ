@@ -277,7 +277,9 @@ rm(list=c('spear', 'spear.rows'))
 
 ```{r}
 #export once, then clean up in Excel
-#write_xlsx(matrix, path = "~/BioMonORDEQ/Benchmarks/Water Chemistry/Conductivity/Cond_Spearmans_Matrix.xlsx")
+#write_xlsx(matrix, path = paste0("~/BioMonORDEQ/Benchmarks/Water Chemistry/Conductivity/Cond_Spearmans_Matrix_", Sys.Date(), ".xlsx"))
+
+rm('matrix')
 ```
 
 #### Calculate coefficient of variance (CV), proportion of 0s, and kernel density plots to guide variable selection decisions
@@ -314,7 +316,7 @@ cond_vars %>%
 #### Hold variable selection meeting
 
 ```{r}
-# 1. Make a variable selection decisions sheet in Excel based on the TEMPLATE (Benchmarks >> Water Chemistry >> TEMPLATE_Var selection deicions.xlsx) and save to model folder on GitHub.
+# 1. Make a variable selection decisions sheet in Excel based on the TEMPLATE (Benchmarks >> Water Chemistry >> TEMPLATE_Var selection decisions.xlsx) and save to model folder on GitHub.
 
 # 2. Clean up correlation matrix Excel table manually:
   # a) Filter data and delete rows where cor = 1.
@@ -325,11 +327,11 @@ cond_vars %>%
   #     Add horizontal borders between groupings. 
   #     You may want to hide columns B and H (they are just for the formulas)
 
-# 3. For each co-varied predictor(s), discuss ecological considerations and data distribution (CV, how well covers gradient, %0s).
+# 3. For each co-varied predictor(s), discuss ecological considerations and data distribution (CV, how well covers gradient looking at KD plots above, %0s).
 
 # 4. Record which predictors to keep/remove and document rationale in the decisions sheet.
 
-# 5. Remove predictors that have 100% zeros (no modeling power) and paste list of keepers below.
+# 5. Remove predictors that have 100% zeros (no modeling power) and paste comma-separated list of keepers below.
 ```
 
 #### Update predictor list
@@ -358,7 +360,7 @@ matrix2 <- spear2.rows %>%
   gather(-rowname, key = "colname", value = "cor") %>% 
   filter(abs(cor) > 0.8)
 
-rm(list=c('spear2', 'spear2.rows'))
+rm(list=c('spear2', 'spear2.rows', 'matrix2'))
 
 # ***OPEN NEWLY CREATED MATRIX AND CONTINUE ONLY IF NO CORRELATED VARIABLES REMAIN (ALL SHOULD BE 1)***
 
@@ -383,9 +385,6 @@ cond_vars_selected$WETTEDWIDTH <- na.roughfix(cond_vars_selected$WETTEDWIDTH) # 
 # HISTOGRAM
 hist(cond_vars_selected$Conductivity, main = "", xlab = "Conductivity") #raw data
 hist(cond_vars_selected$logCond, main = "", xlab = "log(Conductivity)" )
-
-# DENSITY PLOT
-hist(cond_vars_selected$logCond, main="", prob=T, xlab = "logCond")
 
 # BOX PLOT & STRIP CHART
 boxplot(cond_vars_selected$logCond, ylab = "logCond")
@@ -415,7 +414,9 @@ cond.src[sapply(cond.src, is.character)] <- lapply(cond.src[sapply(cond.src, is.
 #### Model tuning - mtry and node size (number of trees happens in next step)
 
 ```{r}
-#Adjust the parameters below based on tuning (nodesize = 2; mtry = 71)
+set.seed(2) # need to set seed to make tuning reproducible.
+
+#Adjust the parameters below based on tuning (nodesize = 2; mtry = 57)
 tuning <- tune(logCond~., cond.src)
 tuning$optimal
 
@@ -427,7 +428,7 @@ tuning$optimal
 ```{r}
 set.seed(24)
 
-rf.full.src <- rfsrc(logCond ~ ., data = cond.src, mtry = 37, nodesize = 3, importance = TRUE)
+rf.full.src <- rfsrc(logCond ~ ., data = cond.src, mtry = 57, nodesize = 2, importance = TRUE)
 rf.full.src # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (untransformed)
@@ -501,15 +502,16 @@ cond.awqms <- cond_vars_selected %>%
 # Join cond_vars_selected with cond.obs_predict, and makes sure the conductivity results match.
 cond_map <- cbind(cond.awqms,cond.obs_predict)
 
-# Then get rid of StreamCat columns, and save file.
+# Then filter to include only OOB predictions.
 cond_map <- cond_map %>% 
-  select(MLocID:delta, L2Eco, L3Eco) %>% 
+  select(MLocID:delta, BFIWS:L3Eco) %>% 
   filter(predictions=='OOB')
 
 map_function <- function(data) {
   leaflet() %>%
   addProviderTiles("OpenStreetMap", group = "Basic Map") %>% 
   addProviderTiles(providers$Esri.WorldTopoMap, group = "Terrain") %>%
+  addProviderTiles(providers$Esri.WorldImagery, group = "Satellite") %>%
   setView(lng = -120.5583, lat =44.0671, zoom =6.4) %>%
   addCircleMarkers(data = data, group = "Observed", lng = ~data$Long_DD, 
                      lat = ~data$Lat_DD, fillColor = pal(data$obs), stroke = TRUE,
@@ -539,7 +541,7 @@ map_function <- function(data) {
                                   "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
                                   "<strong>", "Obs - Pred Conductivity: ", "</strong>", data$delta))  %>% 
     addLayersControl(
-      baseGroups = c("Basic Map", "Terrain"),
+      baseGroups = c("Basic Map", "Terrain", "Satellite"),
       overlayGroups = c("Observed","Predicted", "Obs-Pred"),
       options = layersControlOptions(collapsed = FALSE)) %>% 
     addLegend(pal = pal, group = "Observed", values = data$obs[data$obs <= (quantile(data$obs, 0.75) + 1.5 * 
@@ -575,40 +577,70 @@ partialplots_imp_cat <- plot.variable(rf.full.src, xvar.names = c("L3Eco"), part
 #******************consider adding code to look at individual metrics
 ```
 
+#### Residual plots
+```{r}
+# Plot residuals 
+residuals.rf.full <- exp(cond.src$logCond) - exp(predicted.oob$pred) # Observed minus predicted oob
+plot(residuals.rf.full ~ exp(predicted.oob$pred), xlab = "Predicted Conductivity (uS/cm)", ylab = "Residuals", main = "full model residuals")
+abline(h=0, col = "red", lty = 2)
+
+# Resids by lat and long
+ggplot(data=cond_map, aes(x = Lat_DD, y = delta)) + geom_point() + geom_smooth(method = "lm", se = FALSE) +
+  labs(x = "Latitude", y = "Obs - Pred")
+
+ggplot(data=cond_map, aes(x = Long_DD, y = delta)) + geom_point() + geom_smooth(method = "lm", se = FALSE) +
+  labs(x = "Longitude", y = "Obs - Pred") 
+
+# Which StreamCat column is most correlated with residuals?
+cond_map_num <- cond_map %>% 
+  select(!c(MLocID:StationDes, SampleStartDate, ReferenceSite:COMID, predictions,SITE_TYPE:L3Eco))
+correlations <- apply(cond_map_num, 2, cor, x = cond_map_num$delta)
+
+m <- as.data.frame(correlations)
+
+# Resids of higher urban pop only 
+cond_map_urb <- cond_map %>%
+  filter(PCTURBLO2001WS > 1)
+
+ggplot(data=cond_map_urb, aes(x = Long_DD, y = delta)) + geom_point() + geom_smooth(method = "lm", se = FALSE) +
+  labs(x = "Longitude", y = "Obs - Pred")
+
+map_function(cond_map_urb)
+
+```
+
+
 #### Reduce all human-influenced variables to 0 to learn impact on the residuals
 
 ```{r}
 set.seed(24)
 
-# Reduce all human-influenced vars to 0
+# Reduce all human-influenced vars to all 0s.
 cond.src.no_hi <- cond.src %>% 
   mutate(across(all_of(c("CANALDENSWS", "DAMDENSWS", "MINEDENSWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTAGSLPMID2001WS", "PCTIMP2001WS", "PCTINCVEGRESP2002WS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS","PCTCROP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "SW_FLUXWS", "TRIDENSWS", "WATERINPUTWS", "WWTPALLDENSWS")), ~0))
 
 # Rerun model with adjusted human-influence 
 set.seed(24)
 
-rf.full.no_hi <- rfsrc(logCond ~ ., data = cond.src.no_hi, mtry = 37, nodesize = 3, importance = TRUE)
+rf.full.no_hi <- rfsrc(logCond ~ ., data = cond.src.no_hi, mtry = 57, nodesize = 2, importance = TRUE)
 rf.full.no_hi # Model output. (OOB) R squared = Percent Variance Explained.
 
 # VIP sans human inf
 plot(rf.full.no_hi, plots.one.page=FALSE)
 #print(vimp(rf.full.src)$importance)
 
-# Plot residuals - full model
-residuals.rf.full.src <- exp(cond.src$logCond) - exp(predicted.oob$pred) # Observed minus predicted oob
-plot(residuals.rf.full.src ~ exp(predicted.oob$pred), xlab = "Predicted Conductivity (uS/cm)", ylab = "Residuals", main = "full model residuals")
-abline(h=0, col = "red", lty = 2)
-
 # Make a df for no_hi plots
-predicted.oob.no_hi <- data.frame(obs = cond.src$logCond, pred = rf.full.no_hi$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
-predicted.ib.no_hi <- data.frame(obs =cond.src$logCond, pred = rf.full.no_hi$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
+predicted.oob.no_hi <- data.frame(obs = cond.src.no_hi$logCond, pred = rf.full.no_hi$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
+predicted.ib.no_hi <- data.frame(obs =cond.src.no_hi$logCond, pred = rf.full.no_hi$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
+
 
 # Plot residuals - full model, adjusted human-influenced vars
-residuals.rf.full.no_hi <- exp(cond.src$logCond) - exp(predicted.oob.no_hi$pred) # Observed minus predicted oob
+residuals.rf.full.no_hi <- exp(cond.src.no_hi$logCond) - exp(predicted.oob.no_hi$pred) # Observed minus predicted oob
 plot(residuals.rf.full.no_hi ~ exp(predicted.oob.no_hi$pred), xlab = "Predicted Conductivity (uS/cm)", ylab = "Residuals", main = "full model residuals, no HI")
 abline(h=0, col = "red", lty = 2)
 
-plot.variable(rf.full.no_hi, xvar.names = c("PRECIP9120WS", "KFFACTWS", "TMAX9120WS", "OMWS", "L3ECO", "MSST2008", "ELEVWS", "SW_FLUXWS", "PCTBL2001WS", "STDEPWS", "SWS", "PCTDECID2001WS", "PCTCROP2001WS"), partial = TRUE, plot.sone.page = TRUE)
+# Partial Dependence for top vars
+plot.variable(rf.full.no_hi, xvar.names = c("PRECIP9120WS", "KFFACTWS", "TMAX9120WS", "OMWS", "L3ECO", "PCTBL2001WS", "ELEVWS", "WTDEPWS", "PCTDECID2001WS", "SWS", "PCTOW2001WS", "PCT_EROD"), partial = TRUE, plot.sone.page = TRUE)
 ```
 
 #### Temporary code to explore map after adjusting human vbls to 0

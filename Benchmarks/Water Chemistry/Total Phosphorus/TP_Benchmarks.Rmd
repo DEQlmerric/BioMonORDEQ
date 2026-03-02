@@ -14,7 +14,7 @@ library(tidyverse)
 library(StreamCatTools) 
 library(readxl)
 library(writexl)
-# library(randomForest)
+library(randomForest)
 # library(vip)
 # library(caret)
 library(ORDEQBioassessment)
@@ -30,6 +30,8 @@ library(RColorBrewer)
 ## A. STATIONS - *FROM WATER CHEMISTRY BENCHMARKS SCRIPT*
 
 ```{r}
+# Get both TP and TN as we're using the same variable selection for both chars.
+
 tp <- read_excel('~/BioMonORDEQ/Benchmarks/Water Chemistry/cal.val_chem.ref.wq_2026-02-10.xlsx') %>%  # Output file from ref benchmarks script 
   filter(Char_Name == 'Total Phosphorus, mixed forms') %>% 
   select(c(MLocID, Project1, StationDes, Lat_DD, Long_DD, SampleStartDate, Result_Numeric_mod, L2Eco, L3Eco, EcoRegion4, HUC8, ReferenceSite, cal_val, COMID)) %>%
@@ -311,7 +313,7 @@ tp_tn_vars %>%
 #### Hold variable selection meeting
 
 ```{r}
-# 1. Make a variable selection decisions sheet in Excel based on the TEMPLATE (Benchmarks >> Water Chemistry >> TEMPLATE_Var selection deicions.xlsx) and save to model folder on GitHub.
+# 1. Make a variable selection decisions sheet in Excel based on the TEMPLATE (Benchmarks >> Water Chemistry >> TEMPLATE_Var selection decisions.xlsx) and save to model folder on GitHub.
 
 # 2. Clean up correlation matrix Excel table manually:
   # a) Filter data and delete rows where cor = 1.
@@ -332,10 +334,10 @@ tp_tn_vars %>%
 #### Update predictor list
 
 ```{r}
-# UNIQUE FOR THIS SCRIPT - Select only COMIDs with TP samples (drop TN only rows). Also at this point we lose bad COMID for Twentymile Cr 12266-ORDEQ.
+# UNIQUE FOR THIS SCRIPT - Select only COMIDs with TP samples (drop TN only rows).
 tp_vars <- semi_join(tp_tn_vars, tp, by = "COMID") 
 
-# Use Excel formula (=TEXTJOIN(", ", TRUE, range:range)) to compile list and paste below.
+# Use Excel formula (=TEXTJOIN(", ", TRUE, range:range)) to compile list from decisions sheet and paste below.
 tp_vars_selected <- tp_vars %>% 
   select(c(MLocID:COMID, BFIWS, CANALDENSWS, CLAYWS, COMPSTRGTHWS, DAMNRMSTORWS, ELEVWS, FE2O3WS, FERTWS, HYDRLCONDWS, K2OWS, KFFACTWS, MINEDENSWS, MSST2008, NANIWS, NHD_pSLOPE, NPDESDENSWS, NWS, OMWS, P2O5WS, PCT_EROD, PCTAGDRAINAGEWS, PCTALKINTRUVOLWS, PCTALLUVCOASTWS, PCTBL2001WS, PCTBURNAREA2002WS, PCTCARBRESIDWS, PCTCOLLUVSEDWS, PCTCONIF2001WS, PCTCROP2001WS, PCTDECID2001WS, PCTEOLFINEWS, PCTEXTRUVOLWS, PCTFRSTLOSS2002WS, PCTGLACLAKECRSWS, PCTGLACLAKEFINEWS, PCTGLACTILCRSWS, PCTGRS2001WS, PCTHAY2001WS, PCTHBWET2001WS, PCTICE2001WS, PCTIMP2001WS, PCTINCVEGRESP2002WS, PCTNONAGINTRODMANAGVEGWS, PCTOW2001WS, PCTSALLAKEWS, PCTSHRB2001WS, PCTURBHI2001WS, PCTURBLO2001WS, PCTURBOP2001WS, PCTWATERWS, PCTWDWET2001WS, PESTIC1997WS, POPDEN2010WS, PRECIP_MINUS_EVTWS, RCKDEPWS, RDCRSSLPWTDWS, RDCRSWS, RDDENSWS, ROCKNWS, SANDWS, SEPTICWS, STRMPOW_CAT, SUPERFUNDDENSWS, SW_FLUXWS, SWS, TMAX9120WS, TRIDENSWS, WETINDEXWS, WTDEPWS, WWTPALLDENSWS, WWTPMAJORDENSWS, SITE_TYPE:L3Eco)) %>% 
   relocate(COMID, .after = cal_val) %>% 
@@ -364,8 +366,11 @@ matrix2 <- spear2.rows %>%
 rm(list=c('spear2', 'spear2.rows', 'tp_vars_num_selected'))
 
 # ***OPEN NEWLY CREATED MATRIX AND CONTINUE ONLY IF NO CORRELATED VARIABLES REMAIN (ALL SHOULD BE 1)***
+```
 
-rm('tp_vars_num_selected')
+#### Clear out the environment
+```{r}
+rm(list=c('cv_pctzero', 'erod_resist_strmpow', 'matrix', 'matrix2', 'comids', 'tp_tn_vars_num'))
 ```
 
 #### Perform final NA check and perform rough fix as desired
@@ -384,444 +389,191 @@ sapply(tp_vars_selected, function(x) sum(is.na(x)))
 ```{r}
 # HISTOGRAM
 hist(tp_vars_selected$Total_phosphorus, main = "", xlab = "Total Phosphorus (mg/L)") #raw data
-hist(tp_vars_selected$logTP, main = "", xlab = "log+1(TP)")
+hist(tp_vars_selected$logTP, main = "", xlab = "log(TP)", breaks = 15)
 
 # BOX PLOTS
 boxplot(tp_vars_selected$Total_phosphorus, ylab = "TP")
 boxplot(tp_vars_selected$logTP, ylab = "log(TP)")
 ```
 
-
-
-
-
-
-
-
-
-
-# SYB start here Monday
-
-
-
-
-
-
-
-
-
-
-
-
-
 # **5 - RANDOM FOREST MODELS**
 
-## A. SUBSET DATA
+## A. PREP RESPONSE DATA
 
 ```{r}
-# Subset CALibration dataset.
-tp.cal <- tp_vars_selected %>%  
-  filter(cal_val == 'CAL') %>%  
-  select(-c(MLocID:COMID, logTP, SampleStartDate)) #drop logTP in favor of TP. Drop AWQMS columns too.
+# Select response data of interst
+TP <- tp_vars_selected %>%
+  select(-c(MLocID:COMID, Total_phosphorus, SampleStartDate)) #drop tp in favor of logTP. Drop AWQMS columns too.
 
-# Subset VALidation dataset.
-tp.val <- tp_vars_selected %>%  
-  filter(cal_val == 'VAL') %>%  
-  select(-c(MLocID:COMID, logTP, SampleStartDate))
-
-# Subset reference only dataset.
-tp.ref <- tp_vars_selected %>% 
-  filter(ReferenceSite == 'REFERENCE') %>%  
-  select(-c(MLocID:COMID, logTP, SampleStartDate))
-
-# Join CAL & VAL.
-tp.cal_val <- rbind(tp.cal, tp.val)
-
-# Write to Excel.
-#write_xlsx(tp.cal_val, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//TP-Cal-val_New", Sys.Date(), ".xlsx"))
+# Convert character columns to factors
+TP[sapply(TP, is.character)] <- lapply(TP[sapply(TP, is.character)], as.factor)
 ```
 
 ## B. FULL MODEL - ALL PREDICTORS INCLUDED
 
-#### Tune the model: find best mtry number
+#### Model tuning - mtry and node size (number of trees happens in next step)
 
 ```{r}
-# OPTION A: QUICKEST BUT HAS LARGE GAPS
-    # Tune mtry based on OOB error
-best_mtry <- tuneRF(tp.cal[, -which(names(tp.cal) == "TP")], # Predictors
-                        tp.cal$TP, # Response
-                        ntreeTry = 500, # Number of trees to try for each mtry
-                        stepFactor = 2, # Factor to multiply/divide mtry by
-                        improve = 0.01, # Minimum improvement to continue search
-                        trace = TRUE, # Print progress
-                        plot = TRUE) # Plot OOB error vs. mtry
-print(best_mtry)
+set.seed(2) # need to set seed to make tuning reproducible.
 
+#Adjust the parameters below based on tuning (nodesize = 2; mtry = 74)
+tuning <- tune(logTP~., TP)
+tuning$optimal
 
-# OPTION B: SLOWEST (~30 MIN) BUT HAS BETTER RESOLUTION. Based on Caret.
-# control <- trainControl(method="repeatedcv", number=10, repeats = 3, search="random")
-# set.seed(1)
-# mtry <- sqrt(ncol(tp.cal[ , 2:75]
-# ))
-# rf_random <- train(TP ~., data = tp.cal, method = "rf", metric = "RMSE", tuneLength = 15, trControl=control)
-# 
-# plot(rf_random)
 ```
-
-#### Tune the model: find optimum number of trees
-
-```{r}
-# How many trees is appropriate?
-plot(rf.full, log="x", main = '')  # 500 seems to work fine.
-```
-
 #### Build full model
 
 ```{r}
-set.seed(39)
+set.seed(24)
 
-rf.full <- randomForest(TP ~ ., tp.cal, importance = TRUE, mtry = 37, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors. mtry=37 based on Caret grid search results.
-print(rf.full)
+rf.full <- rfsrc(logTP ~ ., data = TP, mtry = 74, nodesize = 2, importance = "TRUE")
+rf.full # Model output. (OOB) R squared = Percent Variance Explained.
 
-varImpPlot(rf.full, type = 1, n.var = 25, main = "All-Sites Model") #variable importance plot
-```
+# Mean squared error (untransformed)
+oob_mse <- tail(rf.full$err.rate,1)
+per_var <- 100 * (1 - oob_mse/ var(TP$logTP, na.rm = TRUE))
+print(per_var)
 
-#### Model prediction errors - full model
+range_tp <- max(exp(TP$logTP)) - min(exp(TP$logTP))
 
-```{r}
-# Predictions
-pred.rf <- predict(rf.full, newdata = tp.cal)
+#In-bag RMSE
+rmse<- rmse(exp(rf.full$predicted), exp(TP$logTP))
+rmse_scaled <- rmse/range_tp
+print(paste0('In-bag RMSE = ' , round(rmse,2), " (μS/cm)"))
+print(paste0('Scaled In-bag RMSE = ' , round(rmse_scaled*100,2), "%"))
 
-# Model error 
-full.rmse<- rmse((pred.rf), tp.cal$TP)
+#OOB RMSE
+oob.rmse<- rmse(exp(rf.full$predicted.oob), exp(TP$logTP))
+oob.rmse_scaled <- oob.rmse/range_tp
+print(paste0('OOB RMSE = ' , round(oob.rmse,2), " (μS/cm)"))
+print(paste0('Scaled OOB RMSE = ' , round(oob.rmse_scaled*100,2), "%"))
 
-range_tp <- max(tp.cal_val$TP) - min(tp.cal_val$TP)
-full.rmse_scaled <- full.rmse/range_tp
+# Model tuning - How many trees? (default: 500)
+rf.full$err.rate
 
-# Percent variance explained
-rf.full_pct.var <- round(100 * rf.full$rsq[length(rf.full$rsq)], 2)
+# VIP
+plot(rf.full, plots.one.page=FALSE)
+top_vimp <- sort(rf.full$importance, decreasing = TRUE)[1:20]
+par(mar=c(5,9,4,1)+.1)
+barplot(top_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = "Full model VIMP")
 
-# Plot
-plot(tp.cal$TP ~ pred.rf, xlab = 'predicted TP', ylab = 'observed TP', main = 'Full model')
-abline(a=0,b=1)
-text(0.15,0.6, paste0("RMSE = ",round(full.rmse, 2)," | scaled RMSE = ", round(full.rmse_scaled*100,2), "%"))
-text(0.15,0.5, paste0("Variance explained = ",rf.full_pct.var,"%"))
-```
+#print(vimp(rf.full)$importance)
 
-
-## B. PREDICTOR VARIABLES - skip initially and revisit after knowing top predictors
-
-```{r}
-# Kernel density plot function
-kd_plots <- function(data, filter_col_name, filter_value) {
-  data %>%
-    filter(.data[[filter_col_name]] == filter_value) %>% # Using .data[[]] for dynamic column names
-    select(PCTCONIF2001WS, PRECIP_MINUS_EVTWS, OMWS, ROCKNWS, PCTAGDRAINAGEWS, PCTNONAGINTRODMANAGVEGWS, STRMPOW_CAT, PCTCROP2001WS) %>% 
-  keep(is.numeric) %>% 
-  gather() %>% 
-  ggplot(aes(value)) +
-  facet_wrap(~ key, scales = "free") +
-  geom_density() +
-  geom_rug() + ggtitle(paste0(filter_value))
-}
-
-# Top 20 variables from RF model broken out by reference status
-kd_plots(data = tp_vars_selected, "ReferenceSite", "REFERENCE")
-kd_plots(data = tp_vars_selected, "ReferenceSite", "MODERATELY DISTURBED")
-kd_plots(data = tp_vars_selected, "ReferenceSite", "MOST DISTURBED")
-
-# Top 20 variables from RF model broken out by L2 Ecoregion
-kd_plots(data = tp_vars_selected, "L2Eco", "Western Cordillera")
-kd_plots(data = tp_vars_selected, "L2Eco", "Cold Deserts")
-kd_plots(data = tp_vars_selected, "L2Eco", "Marine West Coast Forest")
-
-# Top 8 variables from RF model broken out by TP category 
-# <0.1
-tp_vars_selected %>%
-  filter(TP <= 0.1) %>%  
-  select(PCTCONIF2001WS, PRECIP_MINUS_EVTWS, OMWS, ROCKNWS, PCTAGDRAINAGEWS, PCTNONAGINTRODMANAGVEGWS, STRMPOW_CAT, PCTCROP2001WS) %>% 
-  keep(is.numeric) %>% 
-  gather() %>% 
-  ggplot(aes(value)) +
-  facet_wrap(~ key, scales = "free") +
-  geom_density() +
-  geom_rug() + ggtitle("TP <0.1")
-
-# 0.1 - 0.2
-tp_vars_selected %>%
-  filter(TP > 0.1 | TP <= 0.2) %>% 
-  select(PCTCONIF2001WS, PRECIP_MINUS_EVTWS, OMWS, ROCKNWS, PCTAGDRAINAGEWS, PCTNONAGINTRODMANAGVEGWS, STRMPOW_CAT, PCTCROP2001WS) %>% 
-  keep(is.numeric) %>% 
-  gather() %>% 
-  ggplot(aes(value)) +
-  facet_wrap(~ key, scales = "free") +
-  geom_density() +
-  geom_rug() + ggtitle("TP 0.1 - 0.2")
-
-# >0.2
-tp_vars_selected %>%
-  filter(TP > 0.2) %>% 
-  select(PCTCONIF2001WS, PRECIP_MINUS_EVTWS, OMWS, ROCKNWS, PCTAGDRAINAGEWS, PCTNONAGINTRODMANAGVEGWS, STRMPOW_CAT, PCTCROP2001WS) %>% 
-  keep(is.numeric) %>% 
-  gather() %>% 
-  ggplot(aes(value)) +
-  facet_wrap(~ key, scales = "free") +
-  geom_density() +
-  geom_rug() + ggtitle("TP >0.2")
-
-# All TP
-tp_vars_selected %>%
-  select(PCTCONIF2001WS, PRECIP_MINUS_EVTWS, OMWS, ROCKNWS, PCTAGDRAINAGEWS, PCTNONAGINTRODMANAGVEGWS, STRMPOW_CAT, PCTCROP2001WS) %>% 
-  keep(is.numeric) %>% 
-  gather() %>% 
-  ggplot(aes(value)) +
-  facet_wrap(~ key, scales = "free") +
-  geom_density() +
-  geom_rug() + ggtitle("All sites")
-
-```
-
-## C. REDUCED MODEL(S) - IMPORTANT PREDICTORS ONLY
-
-#### Build reduced model with 8 predictors
-
-```{r}
-set.seed(32)
-
-rf.red_8 <- randomForest(TP ~ PCTCONIF2001WS + PRECIP_MINUS_EVTWS + OMWS + ROCKNWS + PCTAGDRAINAGEWS + PCTNONAGINTRODMANAGVEGWS + STRMPOW_CAT + PCTCROP2001WS, data = tp.cal, importance = TRUE,  keep.forest = TRUE, mtry = 37, ntree = 500) 
-
-print(rf.red_8)
-summary(rf.red_8)
-
-varImpPlot(rf.red_8, type = 1, n.var = 8, main = "Reduced Model Top 8") #variable importance plot
-
-# Predictions
-pred.rf.red_8 <- predict(rf.red_8, newdata = tp.cal)
-
-# Model error 
-red_8.rmse<- rmse(pred.rf.red_8, tp.cal$TP)
-red_8.rmse_scaled <- red_8.rmse/range_tp
-
-# Percent variance explained
-rf.red_8_pct.var <- round(100 * rf.red_8$rsq[length(rf.red_8$rsq)], 2)
+# Make a df for plots
+predicted.oob <- data.frame(obs = TP$logTP, pred = rf.full$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
+predicted.ib <- data.frame(obs =TP$logTP, pred = rf.full$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
+plotdf <- rbind(predicted.oob, predicted.ib) %>% 
+  mutate(obs = exp(obs)) %>% 
+  mutate(pred = exp(pred)) %>% 
+  mutate(delta = obs - pred)
 
 # Plot
-plot(tp.cal$TP ~ pred.rf.red_8, xlab = 'predicted TP', ylab = 'observed TP', main = 'Reduced Model Top 8')
-abline(a=0,b=1)
-text(0.15,0.6, paste0("RMSE = ",round(red_8.rmse, 2)," | scaled RMSE = ", round(red_8.rmse_scaled*100,2), "%"))
-text(0.15,0.5, paste0("Variance explained = ",rf.red_8_pct.var,"%"))
+ggplot(data = plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
+  geom_point(alpha = 0.75) +
+  labs(title = "Total Phosphorus Full Model",
+       x = "Predicted values (mg/L)",
+       y = "Observed values (mg/L)") +
+  theme_bw() + 
+  geom_abline() + 
+  scale_x_log10() +
+  scale_y_log10() +
+  annotate("text", x = 0.02, y = 0.3, label = paste0('OOB RMSE = ' , round(oob.rmse,2), ' | scaled RMSE = ', round(oob.rmse_scaled*100,2), "%"), size = 3) +
+    annotate("text", x = 0.02, y = 0.39, label = paste0('IB RMSE = ' , round(rmse,2), ' | scaled RMSE = ', round(rmse_scaled*100,2), "%"), size = 3) +
+      annotate("text", x = 0.02, y = 0.5, label = paste0('% variance explained = ' , round(per_var,2), '%'), size = 3) 
 ```
 
-#### Build reduced model with 2 predictors
+#### Leaflet map of full model
 
 ```{r}
-set.seed(32)
-
-rf.red_2 <- randomForest(TP ~ PCTCONIF2001WS + PRECIP_MINUS_EVTWS, data = tp.cal, importance = TRUE,  keep.forest = TRUE, mtry = 37, ntree = 500) 
-
-print(rf.red_2)
-summary(rf.red_2)
-
-varImpPlot(rf.red_2, type = 1, n.var = 2, main = "Reduced Model Top 2") #variable importance plot
-
-# Predictions
-pred.rf.red_2 <- predict(rf.red_2, newdata = tp.cal)
-
-# Model error 
-red_2.rmse<- rmse(pred.rf.red_2, tp.cal$TP)
-red_2.rmse_scaled <- red_2.rmse/range_tp
-
-# Percent variance explained
-rf.red_2_pct.var <- round(100 * rf.red_2$rsq[length(rf.red_2$rsq)], 2)
-
-# Plot
-plot(tp.cal$TP ~ pred.rf.red_2, xlab = 'predicted TP', ylab = 'observed TP', main = 'Reduced Model Top 2')
-abline(a=0,b=1)
-text(0.15,0.6, paste0("RMSE = ",round(red_2.rmse, 2)," | scaled RMSE = ", round(red_2.rmse_scaled*100,2), "%"))
-text(0.15,0.5, paste0("Variance explained = ",rf.red_2_pct.var,"%"))
-```
-
-#### Residual plot for red_2 model
-
-```{r}
-residuals.red_2 <- tp.cal$TP - pred.rf.red_2 # Observed minus predicted 
-plot(residuals.red_2 ~ pred.rf.red_2, xlab = "Predicted Total Phosphorus (mg/L)", ylab = "Residuals", main = "rf.red_2 residuals")
-abline(h=0, col = "red", lty = 2)
-```
-
-## D. APPLY REDUCED MODEL TO VALIDATION DATA
-
-#### Reduced 2
-
-```{r}
-# Predictions
-pred.rf.red_2_val <- predict(rf.red_2, newdata = tp.val)
-
-# Model error 
-red_2_val.rmse<- rmse(pred.rf.red_2_val, tp.val$TP)
-red_2_val.rmse_scaled <- red_2_val.rmse/range_tp
-
-# Plot
-plot(tp.val$TP ~ pred.rf.red_2_val, xlab = 'predicted Total Phosphorus (mg/L)', ylab = 'observed Total Phosphorus (mg/L)', main = 'VALIDATION Reduced Model Top 2')
-abline(a=0,b=1)
-text(0.1,0.5, paste0("RMSE = ",round(red_2_val.rmse, 2)," | scaled RMSE = ", round(red_2_val.rmse_scaled*100,2), "%"))
-```
-
-#### Reduced 8
-
-```{r}
-# Predictions
-pred.rf.red_8_val <- predict(rf.red_8, newdata = tp.val)
-
-# Model error 
-red_8_val.rmse<- rmse(pred.rf.red_8_val, tp.val$TP)
-red_8_val.rmse_scaled <- red_8_val.rmse/range_tp
-
-# Plot
-plot(tp.val$TP ~ pred.rf.red_8_val, xlab = 'predicted Total Phosphorus (mg/L)', ylab = 'observed Total Phosphorus (mg/L)', main = 'VALIDATION Reduced Model Top 8')
-abline(a=0,b=1)
-text(0.1,0.5, paste0("RMSE = ",round(red_8_val.rmse, 2)," | scaled RMSE = ", round(red_8_val.rmse_scaled*100,2), "%"))
-```
-
-## E. REFERENCE ONLY MODEL
-
-#### Build model using reference sites and natural predictors
-
-```{r}
-set.seed(39)
-
-# Run reference only model only for natural predictors
-rf.ref.full <- randomForest(TP ~ BFIWS+CLAYWS+COMPSTRGTHWS+ELEVWS+FE2O3WS+HYDRLCONDWS+K2OWS+KFFACTWS+MSST2008+NHD_pSLOPE+NWS+OMWS+P2O5WS+PCT_EROD+PCTALKINTRUVOLWS+
-                              PCTALLUVCOASTWS+PCTBL2001WS+PCTBURNAREA2002WS+PCTCARBRESIDWS+PCTCOLLUVSEDWS+PCTCONIF2001WS+PCTDECID2001WS+PCTEOLFINEWS+
-                              PCTEXTRUVOLWS+PCTGLACLAKECRSWS+PCTGLACLAKEFINEWS+PCTGLACTILCRSWS+PCTGRS2001WS+PCTHBWET2001WS+PCTICE2001WS+PCTINCVEGRESP2002WS+
-                              PCTOW2001WS+PCTSALLAKEWS+PCTSHRB2001WS+PCTWATERWS+PCTWDWET2001WS+PRECIP_MINUS_EVTWS+RCKDEPWS+ROCKNWS+SANDWS+STRMPOW_CAT+
-                              SWS+TMAX9120WS+WETINDEXWS+WTDEPWS+SITE_TYPE+L2Eco+L3Eco, data = tp.ref, importance = TRUE, mtry = 37, keep.forest = TRUE, ntree = 500) #run random forest model on all predictors. mtry=37 based on Caret grid search results.
-print(rf.ref.full)
-
-varImpPlot(rf.ref.full, type = 1, n.var = 25, main = "Ref-Only Full Model") #variable importance plot
-```
-
-#### Model prediction errors - reference only model
-
-```{r}
-# Predictions
-pred.rf.ref <- predict(rf.ref.full, newdata = tp.ref)
-
-# Model error 
-full.ref.rmse<- rmse(pred.rf.ref, tp.ref$TP)
-
-range_tp <- max(tp.cal_val$TP) - min(tp.cal_val$TP)
-full.ref.rmse_scaled <- full.ref.rmse/range_tp
-
-# Percent variance explained
-rf.ref.full_pct.var <- round(100 * rf.ref.full$rsq[length(rf.ref.full$rsq)], 2)
-
-# Plot
-plot(tp.ref$TP ~ pred.rf.ref, xlab = 'predicted Total Phosphorus (mg/L)', ylab = 'observed Total Phosphorus (mg/L)', main = 'Full model reference-only')
-abline(a=0,b=1)
-text(0.03,0.08, paste0("RMSE = ",round(full.ref.rmse, 2)," | scaled RMSE = ", round(full.ref.rmse_scaled*100,2), "%"))
-text(0.03,0.07, paste0("Variance explained = ",rf.ref.full_pct.var,"%"))
-```
-
-# DID NOT MAKE EDITS BELOW THIS POINT....
-
-#### Plot Obs vs pred CAL and VAL all sites
-
-```{r}
-# plot obs vs. predicted CAL 
-par(mfrow=c(1,2))
-par(mar=c(4.3,5,1,1))
-plot(x = exp(pred.rf.red_3), y = exp(cond.cal$logCond),
-	  xlab='Predicted Conductivity (μS/cm)', ylab='Observed Conductivity (μS/cm)', main='red_3 CAL', lwd=1.5, 
-	  cex.lab=1.5, las = 1, font = 2)
-abline(a=0, b=1, col='blue', lty=2) 
-
-# plot obs vs. predicted VAL
-par(new=TRUE)
-plot(x = exp(pred.rf.red_3_val), y = exp(cond.val$logCond),
-	  xlab='', ylab='', main='', pch=2, col='red', cex=1.3, lwd=1.5,axes=FALSE) 
- 
-# plot residuals CAL
-par(mar=c(4.3,4.3,1,1))
-plot(x = (exp(pred.rf.red_3)-1), y = exp(cond.cal$logCond)-exp(pred.rf.red_3),
-	  xlab='Predicted Conductivity (μS/cm)', ylab='Residuals (obs-pred)', main='red_3 VAL', 
-	  lwd=1.5,cex.lab=1.5, las = 1, font = 2)
-abline(h=0, col="blue", lty = 2)
- 
-# plot residuals VAL
-par(new=TRUE)	
-plot(x = (exp(pred.rf.red_3_val)), y = exp(cond.val$logCond)-exp(pred.rf.red_3_val),
-	  xlab='', ylab="", main="", 
-	  pch=2, col='red', 
-	  lwd=1.5,cex.lab=1.5, las = 1, font = 2, cex=1.3,
-	  axes=FALSE)
-```
-
-Predictions on CAL + VAL
-
-```{r}
-# Predictions
-pred.rf.red_3_cal_val <- predict(rf.red_3, newdata = cond.cal_val)
-
-# Plot
-plot(cond.cal_val$logCond ~ pred.rf.red_3_cal_val, xlab = 'predicted logCond', ylab = 'observed logCond', main = 'CAL & VAL Reduced Model Top 3')
-abline(a=0,b=1)
-
-#Untransformed plot no log scale axes
-plot(exp(cond.cal_val$logCond) ~ exp(pred.rf.red_3_cal_val), xlab = 'predicted Conductivity', ylab = 'observed Conductivity', main = 'CAL & VAL Reduced Model Top 3 untransformed')
-abline(a=0,b=1)
-
-#Untransformed plot no log scale axes
-plot(exp(cond.cal_val$logCond) ~ exp(pred.rf.red_3_cal_val), log = 'xy', xlab = 'predicted Conductivity', ylab = 'observed Conductivity', main = 'CAL & VAL Reduced Model Top 3 untransformed log scale axes')
-abline(a=0,b=1)
-
-# CALCULATE PROPORTIONS ABOVE 1:1 AND 2:1 LINES
-oe <- cbind(pred.rf.red_3_cal_val, cond.cal_val$logCond)
-oe <- as.data.frame(oe) %>% 
-  rename(pred_logCond = V2) %>% 
-  mutate(obs_Cond = exp(cond.cal_val$logCond)) %>% 
-  mutate(pred_Cond = exp(pred.rf.red_3_cal_val)) %>% 
-  mutate('O/E' = obs_Cond/pred_Cond)
-
-print(sum(oe$`O/E`>1)/nrow(cond.cal_val)) # prop above 1:1 line
-print(sum(oe$`O/E`>2)/nrow(cond.cal_val)) # prop above 2:1 line
-```
-
-Create file for mapping purposes
-
-```{r}
-# Need to join predictions to AWQMs columns, but there are no unique identifiers in the cond.cal_val table. Predictions will be in the same order as the cal_val table initially.
+# CREATE DF FOR MAPPING PURPOSES
+# Need to join predictions to AWQMS columns, but there are no unique identifiers in the TP table. Predictions will be in the same order as the TP table initially.
 
 # Join predictions to cal_val table
-cond.obs_predict <- cbind(pred.rf.red_3_cal_val, cond.cal_val)
+TP.obs_predict <- cbind(plotdf, TP)
 
-# Order the rows based on StreamCat variables that have ALL unique values.
-# any(duplicated(cond.obs_predict$ELEVWS))
-# any(duplicated(cond.obs_predict$MSST2008))
-# any(duplicated(cond.obs_predict$PRECIP9120WS))
-cond.obs_predict <- cond.obs_predict %>% 
-  arrange(ELEVWS, MSST2008, PRECIP9120WS)
+# Order the rows based on a StreamCat variables that has ALL unique values.
+# any(duplicated(TP$ELEVWS))
+# any(duplicated(TP$PRECIP9120WS))
+TP.obs_predict <- TP.obs_predict %>% 
+  arrange(predictions, ELEVWS)
 
-cond.awqms <- cond_vars_selected %>% 
-  arrange(ELEVWS, MSST2008, PRECIP9120WS) %>% 
-  select(MLocID:Conductivity)
+TP.awqms <- tp_vars_selected %>% 
+  arrange(ELEVWS) %>% 
+  select(MLocID:logTP)
 
 # Join cond_vars_selected with cond.obs_predict, and makes sure the conductivity results match.
-cond_map <- cbind(cond.awqms,cond.obs_predict)
+TP_map <- cbind(TP.awqms,TP.obs_predict)
 
-# Then get rid of StreamCat columns, and save file.
-cond_map <- cond_map %>% 
-  select(MLocID:pred.rf.red_3_cal_val, L2Eco, L3Eco, PRECIP9120WS, TMAX9120WS, KFFACTWS) %>% 
-  rename(pred_logCond = pred.rf.red_3_cal_val) %>% 
-  mutate(pred_Cond = exp(pred_logCond)) %>% 
-  rename(obs_Cond = Conductivity) %>% 
-  rename(obs_logCond = logCond) %>% 
-  relocate(L2Eco:L3Eco, .before = ReferenceSite) %>% 
-  relocate(pred_Cond, .after = pred_logCond) %>% 
-  mutate(across(obs_logCond:pred_Cond, round, 2)) %>% 
-  mutate(across(PRECIP9120WS:KFFACTWS, round, 3)) %>% 
-  mutate(delta = obs_Cond - pred_Cond) %>% 
-  relocate(delta, .before = PRECIP9120WS)
+# Then filter to include only OOB predictions.
+TP_map <- TP_map %>% 
+  select(MLocID:delta, BFIWS:L3Eco) %>% 
+  filter(predictions=='OOB')
 
-#write_xlsx(cond_map, path = paste0("C://Users//sberzin//OneDrive - Oregon//Desktop//Cond_Map", Sys.Date(), ".xlsx"))
+map_function <- function(data) {
+  leaflet() %>%
+  addProviderTiles("OpenStreetMap", group = "Basic Map") %>% 
+  addProviderTiles(providers$Esri.WorldTopoMap, group = "Terrain") %>%
+  addProviderTiles(providers$Esri.WorldImagery, group = "Satellite") %>%
+  setView(lng = -120.5583, lat =44.0671, zoom =6.4) %>%
+  addCircleMarkers(data = data, group = "Observed", lng = ~data$Long_DD, 
+                     lat = ~data$Lat_DD, fillColor = pal(data$obs), stroke = TRUE,
+                   color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
+                   popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
+                                  "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
+                                  "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
+                                  "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
+                                  "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
+                                  "<strong>", "Observed Total Phosphorus: ", "</strong>", data$obs))  %>% 
+      addCircleMarkers(data = data, group = "Predicted",lng = ~data$Long_DD, 
+                     lat = ~data$Lat_DD, fillColor = pal2(data$pred), stroke = TRUE,
+                   color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
+                   popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
+                                  "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
+                                  "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
+                                  "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
+                                  "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
+                                  "<strong>", "Predicted Total Phosphorus: ", "</strong>", data$pred))  %>% 
+     addCircleMarkers(data = data, group = "Obs-Pred",lng = ~data$Long_DD, 
+                     lat = ~data$Lat_DD, fillColor = pal3(data$delta), stroke = TRUE,
+                   color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
+                   popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
+                                  "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
+                                  "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
+                                  "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
+                                  "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
+                                  "<strong>", "Obs - Pred Total Phosphorus: ", "</strong>", data$delta))  %>% 
+    addLayersControl(
+      baseGroups = c("Basic Map", "Terrain", "Satellite"),
+      overlayGroups = c("Observed","Predicted", "Obs-Pred"),
+      options = layersControlOptions(collapsed = FALSE)) %>% 
+    addLegend(pal = pal, group = "Observed", values = data$obs, position = "bottomright" , title = "Observed Total Phos" ) %>% 
+    addLegend(pal = pal2,group = "Predicted",values = data$obs, position = "bottomright" , title = "Predicted Total Phos" ) %>%  # Keep values=data$obs here (instead of data$pred) to keep the legend colors scales the same between obs and pred.
+        addLegend(pal = pal3, group = "Obs-Pred", values = data$delta, position = "bottomleft" , title = "Obs - Pred Total Phos" )
+}
+
+pal <- colorNumeric(palette = "Purples", 
+  domain = c(0, 0.7))
+pal2 <- colorNumeric(palette = "Purples", 
+  domain = c(0, 0.7))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-0.5,0.5))
+
+map_function(TP_map)
 ```
+
+#### Partial dependence plots for full model
+
+```{r}
+# Top importance vars
+partialplots_imp <- plot.variable(rf.full, xvar.names = c("PRECIP_MINUS_EVTWS", "PCTCONIF2001WS", "PESTIC1997WS", "PCTBL2001", "ROCKNWS", "RDDENSWS", "WTDEPWS", "RCKDEPWS", "SEPTICWS"), partial = TRUE, plot.sone.page = TRUE)
+
+partialplots_imp2 <- plot.variable(rf.full, xvar.names = c("KFFACTWS", "TMAX9120WS", "ELEVWS", "WETINDEXWS", "SWS", "OMWS", "HYDRLCONDWS", "PCTCROP", "RDCRSWS"), partial = TRUE, plot.sone.page = TRUE)
+
+# Human-influenced vars
+partialplots_hi <- plot.variable(rf.full, xvar.names = c("PESTIC1997WS", "RDDENSWS", "SEPTICWS", "PCTCROP2001WS", "RDCRSWS"), partial = TRUE, plots.one.page = TRUE)
+
+#******************consider adding code to look at individual metrics
+```
+
+
+
+

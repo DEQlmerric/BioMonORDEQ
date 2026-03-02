@@ -14,7 +14,7 @@ library(tidyverse)
 library(StreamCatTools) 
 library(readxl)
 library(writexl)
-# library(randomForest)
+library(randomForest)
 # library(vip)
 # library(caret)
 library(ORDEQBioassessment)
@@ -414,7 +414,6 @@ set.seed(2) # need to set seed to make tuning reproducible.
 tuning <- tune(logCond~., cond.src)
 tuning$optimal
 
-#*********************revisit to ensure S and A getting same results
 ```
 
 #### Build full model
@@ -542,19 +541,16 @@ map_function <- function(data) {
       baseGroups = c("Basic Map", "Terrain", "Satellite"),
       overlayGroups = c("Observed","Predicted", "Obs-Pred"),
       options = layersControlOptions(collapsed = FALSE)) %>% 
-    addLegend(pal = pal, group = "Observed", values = data$obs[data$obs <= (quantile(data$obs, 0.75) + 1.5 * 
-      IQR(data$obs))], position = "bottomright" , title = "Observed Conductivity" ) %>% 
-    addLegend(pal = pal2,group = "Predicted",values = data$pred[data$pred <= (quantile(data$pred, 0.75) + 1.5 * 
-      IQR(data$pred))], position = "bottomright" , title = "Predicted Conductivity" ) %>% 
-        addLegend(pal = pal3, group = "Obs-Pred", values = data$delta[data$delta <= (quantile(data$delta, 0.75) + 1.5 * 
-      IQR(data$delta))], position = "bottomleft" , title = "Obs - Pred Conductivity" )
+    addLegend(pal = pal, group = "Observed", values = data$obs, position = "bottomright" , title = "Observed Conductivity" ) %>% 
+    addLegend(pal = pal2,group = "Predicted",values = data$obs, position = "bottomright" , title = "Predicted Conductivity" ) %>% 
+        addLegend(pal = pal3, group = "Obs-Pred", values = data$delta, position = "bottomleft" , title = "Obs - Pred Conductivity" )
 }
 
 pal <- colorNumeric(palette = "Greens", 
-  domain = c(0, 400))
+  domain = c(0, 800))
 pal2 <- colorNumeric(palette = "Greens", 
-  domain = c(0, 400))
-pal3 <- colorNumeric(palette = "PuOr", domain = c(-450,450))
+  domain = c(0, 800))
+pal3 <- colorNumeric(palette = "PuOr", domain = c(-631,631))
 
 map_function(cond_map)
 ```

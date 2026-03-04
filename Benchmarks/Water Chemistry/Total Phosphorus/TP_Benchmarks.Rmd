@@ -707,6 +707,7 @@ abline(0,1)
 ## C. Model Reduction
 
 #### Top 10 predictors
+
 ```{r}
 set.seed(24)
 
@@ -763,6 +764,7 @@ ggplot(data = plotdf.red10, aes(x = pred, y = obs, color = predictions, shape = 
     annotate("text", x = 0.02, y = 0.39, label = paste0('IB RMSE = ' , round(rmse.red10,2), ' | scaled RMSE = ', round(rmse_scaled.red10*100,2), "%"), size = 3) +
       annotate("text", x = 0.02, y = 0.5, label = paste0('% variance explained = ' , round(per_var.red10,2), '%'), size = 3) 
 ```
+
 #### Top 3 predictors
 
 ```{r}
@@ -824,13 +826,133 @@ ggplot(data = plotdf.red3, aes(x = pred, y = obs, color = predictions, shape = p
 
 ## D. Adjust human-influenced vars down in Red10 model
 
-```{r}
+#### Subset the data
 
+```{r}
+TP.ref <- tp_vars_selected %>% 
+  filter(ReferenceSite=="REFERENCE") %>% 
+  select(-c(MLocID:COMID, Total_phosphorus, SampleStartDate)) # Remove AWQMS columns
+
+# Convert character columns to factors
+TP.ref[sapply(TP.ref, is.character)] <- lapply(TP.ref[sapply(TP.ref, is.character)], as.factor)
+```
+
+#### Distributions for Human-influenced vars at all reference sites
+
+```{r}
+# Select only the 4 human influenced predictors from the reduced model.
+TP.ref.hi <- TP.ref %>% 
+  #filter(cal_val == 'CAL') %>% 
+  select(c(RDDENSWS, PESTIC1997WS, SEPTICWS))
+
+# Mean pesticide use kg/sq km
+# Want to scale back to 0 (50th percentile = 0)
+par(mfrow=c(1,2))
+plot.variable(rf.red10, xvar.names = c("PESTIC1997WS"), partial = TRUE, plots.one.page = TRUE)
+abline(v=quantile(TP.ref.hi$PESTIC1997WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
+hist(TP.ref.hi$PESTIC1997WS, main = '')
+quantile(TP.ref.hi$PESTIC1997WS, probs = seq(.1, .9, by = .1))
+
+# Developed, Low Intensity Land Use Percentage
+# Scale back to 0 (50th percentile = 0)
+par(mfrow=c(1,2))
+plot.variable(rf.red10, xvar.names = c("RDDENSWS"), partial = TRUE, plots.one.page = TRUE)
+abline(v=quantile(TP.ref.hi$RDDENSWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
+hist(TP.ref.hi$RDDENSWS, main = '')
+quantile(TP.ref.hi$RDDENSWS, probs = seq(.1, .9, by = .1))
+
+# Water Input (km2/cm): Ratio of the total area of irrigated land to precipitation within AOI
+# Scale back to 0 (50th percentile = 0)
+par(mfrow=c(1,2))
+plot.variable(rf.red10, xvar.names = c("SEPTICWS"), partial = TRUE, plots.one.page = TRUE)
+abline(v=quantile(TP.ref.hi$SEPTICWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
+hist(TP.ref.hi$SEPTICWS, main = '')
+quantile(TP.ref.hi$SEPTICWS, probs = seq(.1, .9, by = .1))
+
+```
+
+#### Adjust human-influenced variables to ref levels
+
+```{r}
+TP_ref.adj <- TP %>% 
+  select(c(logTP, PRECIP_MINUS_EVTWS, PCTCONIF2001WS, PESTIC1997WS, PCTBL2001WS, ROCKNWS, WTDEPWS, RDDENSWS, RCKDEPWS, KFFACTWS, SEPTICWS)) %>% 
+  
+    mutate(PESTIC1997WS = case_when(
+    PESTIC1997WS > 0 ~ 0, 
+    TRUE ~ PESTIC1997WS)) %>% 
+  
+    mutate(RDDENSWS = case_when(
+    RDDENSWS > 0 ~ 0, 
+    TRUE ~ RDDENSWS)) %>% 
+  
+    mutate(SEPTICWS = case_when(
+    SEPTICWS > 0 ~ 0, 
+    TRUE ~ SEPTICWS)) 
+```
+
+#### Top 10 predictors *ref adjusted*
+
+```{r}
+set.seed(24)
+
+rf.red10adj <- rfsrc(logTP ~ ., data = TP_ref.adj, mtry = 74, nodesize = 2, importance = "TRUE")
+rf.red10adj # Model output. (OOB) R squared = Percent Variance Explained.
+
+# Mean squared error (untransformed)
+oob_mse.red10adj <- tail(rf.red10adj$err.rate,1)
+per_var.red10adj <- 100 * (1 - oob_mse.red10/ var(TP$logTP, na.rm = TRUE))
+print(per_var.red10adj)
+
+#In-bag RMSE
+rmse.red10adj<- rmse(exp(rf.red10adj$predicted), exp(TP$logTP))
+rmse_scaled.red10adj <- rmse.red10adj/range_tp
+print(paste0('In-bag RMSE = ' , round(rmse.red10adj,2), " (μS/cm)"))
+print(paste0('Scaled In-bag RMSE = ' , round(rmse_scaled.red10adj*100,2), "%"))
+
+#OOB RMSE
+oob.rmse.red10adj<- rmse(exp(rf.red10adj$predicted.oob), exp(TP$logTP))
+oob.rmse_scaled.red10adj <- oob.rmse.red10adj/range_tp
+print(paste0('OOB RMSE = ' , round(oob.rmse.red10adj,2), " (μS/cm)"))
+print(paste0('Scaled OOB RMSE = ' , round(oob.rmse_scaled.red10adj*100,2), "%"))
+
+# Model tuning - How many trees? (default: 500)
+rf.red10adj$err.rate
+
+# VIP
+plot(rf.red10adj, plots.one.page=FALSE)
+top_vimp.red10adj <- sort(rf.red10adj$importance, decreasing = TRUE)[1:20]
+par(mar=c(5,7,4,1)+.1)
+barplot(top_vimp.red10adj, horiz = TRUE, cex.names = 0.5, las = 1, main = "Reduced (10 variables) model VIMP")
+
+#print(vimp(rf.red10)$importance)
+
+# Make a df for plots
+predicted.oob.red10adj <- data.frame(obs = TP$logTP, pred = rf.red10adj$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
+predicted.ib.red10adj <- data.frame(obs =TP$logTP, pred = rf.red10adj$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
+plotdf.red10adj <- rbind(predicted.oob.red10adj, predicted.ib.red10adj) %>% 
+  mutate(obs = exp(obs)) %>% 
+  mutate(pred = exp(pred)) %>% 
+  mutate(delta = obs - pred)
+
+# Plot
+ggplot(data = plotdf.red10adj, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
+  geom_point(alpha = 0.75) +
+  labs(title = "Total Phosphorus Red10 Model with adjusted human-influenced vars",
+       x = "Predicted values (mg/L)",
+       y = "Observed values (mg/L)") +
+  theme_bw() + 
+  geom_abline() + 
+  scale_x_log10() +
+  scale_y_log10() +
+  annotate("text", x = 0.02, y = 0.3, label = paste0('OOB RMSE = ' , round(oob.rmse.red10adj,2), ' | scaled RMSE = ', round(oob.rmse_scaled.red10adj*100,2), "%"), size = 3) +
+    annotate("text", x = 0.02, y = 0.39, label = paste0('IB RMSE = ' , round(rmse.red10adj,2), ' | scaled RMSE = ', round(rmse_scaled.red10adj*100,2), "%"), size = 3) +
+      annotate("text", x = 0.02, y = 0.5, label = paste0('% variance explained = ' , round(per_var.red10adj,2), '%'), size = 3) 
 ```
 
 ## E. Reference-Only Model
 
-#### Subset the data 
+#### Subset the data
+
 ```{r}
 TP.ref <- tp_vars_selected %>% 
   filter(ReferenceSite=="REFERENCE") %>% 

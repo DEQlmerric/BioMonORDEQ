@@ -21,6 +21,7 @@ library(Metrics)
 library(randomForestSRC)
 library(leaflet)
 library(RColorBrewer)
+library(htmlwidgets)
 ```
 
 # **2 - IMPORT DATA**
@@ -299,7 +300,7 @@ rm(cv)
 
 # Make kernel density plots for predictors of interest to compare distributions.
 tp_tn_vars %>%
-    select("AGKFFACTWS","AL2O3WS","BANKFULLDEPTH","BANKFULLWIDTH","BFIWS","CAOWS","CBNFWS","CLAYWS","CONNWS","DAMDENSWS","DAMNIDSTORWS","DAMNRMSTORWS") %>%  # Edit this line to include vars that you want to look at.
+    select("PRECIP_MINUS_EVTWS", "PCTCONIF2001WS", "PESTIC1997WS", "PCTBL2001WS", "ROCKNWS", "WTDEPWS", "RDDENSWS", "RCKDEPWS", "KFFACTWS", "SEPTICWS") %>%  # Edit this line to include vars that you want to look at.
   keep(is.numeric) %>% 
   gather() %>% 
   ggplot(aes(value)) +
@@ -400,7 +401,7 @@ boxplot(tp_vars_selected$logTP, ylab = "log(TP)")
 ## A. PREP RESPONSE DATA
 
 ```{r}
-# Select response data of interst
+# Select response data of interest
 TP <- tp_vars_selected %>%
   select(-c(MLocID:COMID, Total_phosphorus, SampleStartDate)) #drop tp in favor of logTP. Drop AWQMS columns too.
 
@@ -449,7 +450,7 @@ print(paste0('OOB RMSE = ' , round(oob.rmse,2), " (μS/cm)"))
 print(paste0('Scaled OOB RMSE = ' , round(oob.rmse_scaled*100,2), "%"))
 
 # Model tuning - How many trees? (default: 500)
-rf.full$err.rate
+#rf.full$err.rate
 
 # VIP
 plot(rf.full, plots.one.page=FALSE)
@@ -475,6 +476,7 @@ ggplot(data = plotdf, aes(x = pred, y = obs, color = predictions, shape = predic
        y = "Observed values (mg/L)") +
   theme_bw() + 
   geom_abline() + 
+  geom_smooth(method = "lm", se = FALSE) +
   scale_x_log10() +
   scale_y_log10() +
   annotate("text", x = 0.02, y = 0.3, label = paste0('OOB RMSE = ' , round(oob.rmse,2), ' | scaled RMSE = ', round(oob.rmse_scaled*100,2), "%"), size = 3) +
@@ -558,15 +560,20 @@ pal2 <- colorNumeric(palette = "Purples",
 pal3 <- colorNumeric(palette = "RdBu", domain = c(-0.5,0.5))
 
 map_function(TP.map)
+
+# Save map as html
+# full_model_map <- map_function(TP.map)
+# saveWidget(full_model_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//TP//full_model_map.html", selfcontained = TRUE, title = "Full model")
+
 ```
 
 #### Partial dependence plots for full model
 
 ```{r}
 # Top importance vars
-partialplots_imp <- plot.variable(rf.full, xvar.names = c("PRECIP_MINUS_EVTWS", "PCTCONIF2001WS", "PESTIC1997WS", "PCTBL2001", "ROCKNWS", "RDDENSWS", "WTDEPWS", "RCKDEPWS", "SEPTICWS"), partial = TRUE, plot.sone.page = TRUE)
+partialplots_imp <- plot.variable(rf.full, xvar.names = c("PRECIP_MINUS_EVTWS", "PCTCONIF2001WS", "PESTIC1997WS", "PCTBL2001WS", "ROCKNWS", "RDDENSWS", "WTDEPWS", "RCKDEPWS"), partial = TRUE, plot.sone.page = TRUE)
 
-partialplots_imp2 <- plot.variable(rf.full, xvar.names = c("KFFACTWS", "TMAX9120WS", "ELEVWS", "WETINDEXWS", "SWS", "OMWS", "HYDRLCONDWS", "PCTCROP", "RDCRSWS"), partial = TRUE, plot.sone.page = TRUE)
+partialplots_imp2 <- plot.variable(rf.full, xvar.names = c("SEPTICWS", "KFFACTWS", "TMAX9120WS", "ELEVWS", "WETINDEXWS", "SWS", "OMWS", "HYDRLCONDWS", "PCTCROP2001WS", "RDCRSWS"), partial = TRUE, plot.sone.page = TRUE)
 
 # Human-influenced vars
 partialplots_hi <- plot.variable(rf.full, xvar.names = c("PESTIC1997WS", "RDDENSWS", "SEPTICWS", "PCTCROP2001WS", "RDCRSWS"), partial = TRUE, plots.one.page = TRUE)
@@ -574,8 +581,112 @@ partialplots_hi <- plot.variable(rf.full, xvar.names = c("PESTIC1997WS", "RDDENS
 #******************consider adding code to look at individual metrics
 ```
 
-#### Residual plots
+#### Another way to do partial plots (slower but more customizable)
+```{r}
+partial.obj <- partial(rf.full, partial.xvar = "PRECIP_MINUS_EVTWS", partial.values = rf.full$xvar$PRECIP_MINUS_EVTWS)
+pdta <- get.partial.plot.data(partial.obj)
+plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "PRECIP_MINUS_EVT", ylab = "ŷ")
 
+partial.obj <- partial(rf.full, partial.xvar = "PCTCONIF2001WS", partial.values = rf.full$xvar$PCTCONIF2001WS)
+pdta <- get.partial.plot.data(partial.obj)
+plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "PCTCONIF2001WS", ylab = "ŷ")
+
+partial.obj <- partial(rf.full, partial.xvar = "PESTIC1997WS", partial.values = rf.full$xvar$PESTIC1997WS)
+pdta <- get.partial.plot.data(partial.obj)
+plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "PESTIC1997WS", ylab = "ŷ")
+
+partial.obj <- partial(rf.full, partial.xvar = "PCTBL2001WS", partial.values = rf.full$xvar$PCTBL2001WS)
+pdta <- get.partial.plot.data(partial.obj)
+plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "PCTBL2001WS", ylab = "ŷ")
+
+```
+
+#### Leaflet map of predictors
+```{r}
+map_predictors <- function(data) {
+  leaflet() %>%
+  addProviderTiles("OpenStreetMap", group = "Basic Map") %>% 
+  addProviderTiles(providers$Esri.WorldTopoMap, group = "Terrain") %>%
+  addProviderTiles(providers$Esri.WorldImagery, group = "Satellite") %>%
+  setView(lng = -120.5583, lat =44.0671, zoom =6.4) %>%
+  addCircleMarkers(data = data, group = "PRECIP_MINUS_EVTWS", lng = ~data$Long_DD, 
+                     lat = ~data$Lat_DD, fillColor = pal(data$PRECIP_MINUS_EVTWS), stroke = TRUE,
+                   color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
+                   popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
+                                  "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
+                                  "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
+                                  "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
+                                  "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
+                                  "<strong>", "PRECIP_MINUS_EVTWS: ", "</strong>", data$PRECIP_MINUS_EVTWS))  %>% 
+      addCircleMarkers(data = data, group = "PCTCONIF2001WS",lng = ~data$Long_DD, 
+                     lat = ~data$Lat_DD, fillColor = pal2(data$PCTCONIF2001WS), stroke = TRUE,
+                   color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
+                   popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
+                                  "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
+                                  "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
+                                  "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
+                                  "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
+                                  "<strong>", "PCTCONIF2001WS: ", "</strong>", data$PCTCONIF2001WS))  %>% 
+     addCircleMarkers(data = data, group = "PESTIC1997WS",lng = ~data$Long_DD, 
+                     lat = ~data$Lat_DD, fillColor = pal3(data$PESTIC1997WS), stroke = TRUE,
+                   color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
+                   popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
+                                  "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
+                                  "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
+                                  "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
+                                  "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
+                                  "<strong>", "PESTIC1997WS: ", "</strong>", data$PESTIC1997WS))  %>% 
+     addCircleMarkers(data = data, group = "PCTBL2001WS",lng = ~data$Long_DD, 
+                     lat = ~data$Lat_DD, fillColor = pal4(data$PCTBL2001WS), stroke = TRUE,
+                   color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
+                   popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
+                                  "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
+                                  "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
+                                  "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
+                                  "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
+                                  "<strong>", "PCTBL2001WS: ", "</strong>", data$PCTBL2001WS))  %>% 
+     addCircleMarkers(data = data, group = "ROCKNWS",lng = ~data$Long_DD, 
+                     lat = ~data$Lat_DD, fillColor = pal5(data$ROCKNWS), stroke = TRUE,
+                   color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
+                   popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
+                                  "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
+                                  "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
+                                  "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
+                                  "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
+                                  "<strong>", "ROCKNWS: ", "</strong>", data$ROCKNWS))  %>% 
+    hideGroup(c("PCTCONIF2001WS","PESTIC1997WS", "PCTBL2001WS", "ROCKNWS")) %>%  # Don't check all layers by default
+    addLayersControl(
+      baseGroups = c("Basic Map", "Terrain", "Satellite"),
+      overlayGroups = c("PRECIP_MINUS_EVTWS", "PCTCONIF2001WS","PESTIC1997WS", "PCTBL2001WS", "ROCKNWS"),
+      options = layersControlOptions(collapsed = FALSE)) %>% 
+    addLegend(pal = pal, group = "PRECIP_MINUS_EVTWS", values = data$PRECIP_MINUS_EVTWS, position = "bottomright" , title = "PRECIP_MINUS_EVTWS" ) %>% 
+    addLegend(pal = pal2,group = "PCTCONIF2001WS",values = data$PCTCONIF2001WS, position = "bottomright" , title = "PCTCONIF2001WS" ) %>%  
+    addLegend(pal = pal3, group = "PESTIC1997WS", values = data$PESTIC1997WS, position = "bottomleft" , title = "PESTIC1997WS" ) %>% 
+    addLegend(pal = pal4, group = "PCTBL2001WS", values = data$PCTBL2001WS, position = "bottomleft" , title = "PCTBL2001WS" ) %>% 
+    addLegend(pal = pal5, group = "ROCKNWS", values = data$ROCKNWS, position = "bottomleft" , title = "ROCKNWS" )
+}
+
+pal <- colorNumeric(palette = "RdBu", 
+  domain = c(-310,310))
+pal2 <- colorNumeric(palette = "Greens", 
+  domain = c(0, 100))
+pal3 <- colorNumeric(palette = "Reds", 
+                     domain = c(0,4300))
+pal4 <- colorNumeric(palette = "Greys", 
+  domain = c(0, 100))
+pal5 <- colorNumeric(palette = "Oranges", 
+  domain = c(6, 630))
+
+map_predictors(TP.map)
+
+# Save map as html
+# predictors_map <- map_predictors(TP.map)
+# saveWidget(predictors_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//TP//predictors_map.html", selfcontained = TRUE, title = "Predictors map")
+```
+
+
+
+#### Residual plots
 ```{r}
 # Plot residuals 
 residuals.rf.full <- exp(TP$logTP) - exp(predicted.oob$pred) # Observed minus predicted oob
@@ -588,6 +699,12 @@ ggplot(data=TP.map, aes(x = Lat_DD, y = delta)) + geom_point() + geom_smooth(met
 
 ggplot(data=TP.map, aes(x = Long_DD, y = delta)) + geom_point() + geom_smooth(method = "lm", se = FALSE) +
   labs(x = "Longitude", y = "Obs - Pred") 
+
+# MSE by lat and long
+mse <- (exp(TP$logTP) - exp(predicted.oob$pred))^2
+plot(mse ~ TP.map$Lat_DD, xlab = "Latitude", ylab = "MSE")
+mse <- (exp(TP$logTP) - exp(predicted.oob$pred))^2
+plot(mse ~ TP.map$Long_DD, xlab = "Longitude", ylab = "MSE")
 
 # Which StreamCat column is most correlated with residuals?
 TP.map_num <- TP.map %>% 
@@ -700,9 +817,19 @@ pal3 <- colorNumeric(palette = "RdBu", domain = c(-0.5,0.5))
 
 map_function(TP.map_no.hi)
 
-plot(TP.map$pred, TP.map_no.hi$pred, xlab = "full model predictions with HI", ylab = "full model no HI")
-abline(0,1)
+# Save map as html
+# TP.map_obj_no.hi <- map_function(TP.map_no.hi)
+# saveWidget(TP.map_obj_no.hi, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//TP//full_model_no_hi.html", selfcontained = TRUE, title = "Full model Adjusted (no human-influenced vars)")
+
 ```
+
+#### How do residuals compare between full model predictions and adjusted model?
+```{r}
+par(mar=c(5,6,4,1)+.1)
+plot(TP.map$pred, TP.map$pred - TP.map_no.hi$pred , xlab = "full model predictions with HI", ylab = "full model minus \n full model with no human influenced vars")
+abline(h=0)
+```
+
 
 ## C. Model Reduction
 
@@ -757,13 +884,50 @@ ggplot(data = plotdf.red10, aes(x = pred, y = obs, color = predictions, shape = 
        x = "Predicted values (mg/L)",
        y = "Observed values (mg/L)") +
   theme_bw() + 
-  geom_abline() + 
+  geom_abline() +
+  geom_smooth(method = "lm", se = FALSE) +
   scale_x_log10() +
   scale_y_log10() +
   annotate("text", x = 0.02, y = 0.3, label = paste0('OOB RMSE = ' , round(oob.rmse.red10,2), ' | scaled RMSE = ', round(oob.rmse_scaled.red10*100,2), "%"), size = 3) +
     annotate("text", x = 0.02, y = 0.39, label = paste0('IB RMSE = ' , round(rmse.red10,2), ' | scaled RMSE = ', round(rmse_scaled.red10*100,2), "%"), size = 3) +
       annotate("text", x = 0.02, y = 0.5, label = paste0('% variance explained = ' , round(per_var.red10,2), '%'), size = 3) 
 ```
+#### Look at map after adjusting human vbls to 0 for reduced model
+
+```{r}
+# CREATE DF FOR MAPPING PURPOSES to explore how residuals changed on the map after scaling all HI to zero
+# Need to join predictions to AWQMS columns, but there are no unique identifiers in the cond.src table. Predictions will be in the same order as the cond.src table initially.
+
+# Join predictions to cal_val table
+TP.obs_predict_red10 <- cbind(plotdf.red10, TP)
+
+# Order the rows based on a StreamCat variables that has ALL unique values.
+# any(duplicated(cond.src$ELEVWS))
+# any(duplicated(cond.src$PRECIP9120WS))
+TP.obs_predict_red10 <- TP.obs_predict_red10 %>% 
+  arrange(predictions, ELEVWS)
+
+# Join TP.obs_predict_red10_no.hi with TP.awqms, and makes sure the conductivity results match.
+TP.map_red10 <- cbind(TP.awqms,TP.obs_predict_red10)
+
+# Then get rid of StreamCat columns.
+TP.map_red10 <- TP.map_red10 %>% 
+  select(MLocID:delta, L2Eco, L3Eco) %>% 
+  filter(predictions=='OOB')
+
+pal <- colorNumeric(palette = "Purples", 
+  domain = c(0, 0.7))
+pal2 <- colorNumeric(palette = "Purples", 
+  domain = c(0, 0.7))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-0.5,0.5))
+
+map_function(TP.map_red10)
+
+# Save map as html
+# red10_model_map <- map_function(TP.map_red10)
+# saveWidget(red10_model_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//TP//reduced_map.html", selfcontained = TRUE, title = "Reduced10")
+```
+
 
 #### Top 3 predictors
 
@@ -816,7 +980,8 @@ ggplot(data = plotdf.red3, aes(x = pred, y = obs, color = predictions, shape = p
        x = "Predicted values (mg/L)",
        y = "Observed values (mg/L)") +
   theme_bw() + 
-  geom_abline() + 
+  geom_abline() +
+  geom_smooth(method = "lm", se = FALSE) +
   scale_x_log10() +
   scale_y_log10() +
   annotate("text", x = 0.02, y = 0.3, label = paste0('OOB RMSE = ' , round(oob.rmse.red3,2), ' | scaled RMSE = ', round(oob.rmse_scaled.red3*100,2), "%"), size = 3) +
@@ -841,7 +1006,7 @@ TP.ref[sapply(TP.ref, is.character)] <- lapply(TP.ref[sapply(TP.ref, is.characte
 
 ```{r}
 # Select only the 4 human influenced predictors from the reduced model.
-TP.ref.hi <- TP.ref %>% 
+TP.ref_hi <- TP.ref %>% 
   #filter(cal_val == 'CAL') %>% 
   select(c(RDDENSWS, PESTIC1997WS, SEPTICWS))
 
@@ -849,32 +1014,32 @@ TP.ref.hi <- TP.ref %>%
 # Want to scale back to 0 (50th percentile = 0)
 par(mfrow=c(1,2))
 plot.variable(rf.red10, xvar.names = c("PESTIC1997WS"), partial = TRUE, plots.one.page = TRUE)
-abline(v=quantile(TP.ref.hi$PESTIC1997WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
-hist(TP.ref.hi$PESTIC1997WS, main = '')
-quantile(TP.ref.hi$PESTIC1997WS, probs = seq(.1, .9, by = .1))
+abline(v=quantile(TP.ref_hi$PESTIC1997WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
+hist(TP.ref_hi$PESTIC1997WS, main = '')
+quantile(TP.ref_hi$PESTIC1997WS, probs = seq(.1, .9, by = .1))
 
 # Developed, Low Intensity Land Use Percentage
 # Scale back to 0 (50th percentile = 0)
 par(mfrow=c(1,2))
 plot.variable(rf.red10, xvar.names = c("RDDENSWS"), partial = TRUE, plots.one.page = TRUE)
-abline(v=quantile(TP.ref.hi$RDDENSWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
-hist(TP.ref.hi$RDDENSWS, main = '')
-quantile(TP.ref.hi$RDDENSWS, probs = seq(.1, .9, by = .1))
+abline(v=quantile(TP.ref_hi$RDDENSWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
+hist(TP.ref_hi$RDDENSWS, main = '')
+quantile(TP.ref_hi$RDDENSWS, probs = seq(.1, .9, by = .1))
 
 # Water Input (km2/cm): Ratio of the total area of irrigated land to precipitation within AOI
 # Scale back to 0 (50th percentile = 0)
 par(mfrow=c(1,2))
 plot.variable(rf.red10, xvar.names = c("SEPTICWS"), partial = TRUE, plots.one.page = TRUE)
-abline(v=quantile(TP.ref.hi$SEPTICWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
-hist(TP.ref.hi$SEPTICWS, main = '')
-quantile(TP.ref.hi$SEPTICWS, probs = seq(.1, .9, by = .1))
+abline(v=quantile(TP.ref_hi$SEPTICWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
+hist(TP.ref_hi$SEPTICWS, main = '')
+quantile(TP.ref_hi$SEPTICWS, probs = seq(.1, .9, by = .1))
 
 ```
 
 #### Adjust human-influenced variables to ref levels
 
 ```{r}
-TP_ref.adj <- TP %>% 
+TP_adj <- TP %>% 
   select(c(logTP, PRECIP_MINUS_EVTWS, PCTCONIF2001WS, PESTIC1997WS, PCTBL2001WS, ROCKNWS, WTDEPWS, RDDENSWS, RCKDEPWS, KFFACTWS, SEPTICWS)) %>% 
   
     mutate(PESTIC1997WS = case_when(
@@ -895,7 +1060,7 @@ TP_ref.adj <- TP %>%
 ```{r}
 set.seed(24)
 
-rf.red10adj <- rfsrc(logTP ~ ., data = TP_ref.adj, mtry = 74, nodesize = 2, importance = "TRUE")
+rf.red10adj <- rfsrc(logTP ~ ., data = TP_adj, mtry = 74, nodesize = 2, importance = "TRUE")
 rf.red10adj # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (untransformed)
@@ -942,11 +1107,56 @@ ggplot(data = plotdf.red10adj, aes(x = pred, y = obs, color = predictions, shape
        y = "Observed values (mg/L)") +
   theme_bw() + 
   geom_abline() + 
+  geom_smooth(method = "lm", se = FALSE) +
   scale_x_log10() +
   scale_y_log10() +
   annotate("text", x = 0.02, y = 0.3, label = paste0('OOB RMSE = ' , round(oob.rmse.red10adj,2), ' | scaled RMSE = ', round(oob.rmse_scaled.red10adj*100,2), "%"), size = 3) +
     annotate("text", x = 0.02, y = 0.39, label = paste0('IB RMSE = ' , round(rmse.red10adj,2), ' | scaled RMSE = ', round(rmse_scaled.red10adj*100,2), "%"), size = 3) +
       annotate("text", x = 0.02, y = 0.5, label = paste0('% variance explained = ' , round(per_var.red10adj,2), '%'), size = 3) 
+```
+
+#### Compare predictions after adjusting human-influenced vars to zero
+```{r}
+par(mar=c(5,5,4,1)+.1)
+plot(exp(predicted.oob.red10$pred), exp(predicted.oob.red10$pred) - exp(predicted.oob.red10adj$pred), xlab = "Reduced model OOB predictions", ylab = "Reduced model predictions minus \nAdjusted reduced model predictions")
+abline(h=0)
+
+```
+
+#### Look at map after adjusting human vbls to 0 for reduced model
+
+```{r}
+# CREATE DF FOR MAPPING PURPOSES to explore how residuals changed on the map after scaling all HI to zero
+# Need to join predictions to AWQMS columns, but there are no unique identifiers in the cond.src table. Predictions will be in the same order as the cond.src table initially.
+
+# Join predictions to cal_val table
+TP.obs_predict_red10_no.hi <- cbind(plotdf.red10adj, TP_no.hi)
+
+# Order the rows based on a StreamCat variables that has ALL unique values.
+# any(duplicated(cond.src$ELEVWS))
+# any(duplicated(cond.src$PRECIP9120WS))
+TP.obs_predict_red10_no.hi <- TP.obs_predict_red10_no.hi %>% 
+  arrange(predictions, ELEVWS)
+
+# Join TP.obs_predict_red10_no.hi with TP.awqms, and makes sure the conductivity results match.
+TP.map_red10_no.hi <- cbind(TP.awqms,TP.obs_predict_red10_no.hi)
+
+# Then get rid of StreamCat columns.
+TP.map_red10_no.hi <- TP.map_red10_no.hi %>% 
+  select(MLocID:delta, L2Eco, L3Eco) %>% 
+  filter(predictions=='OOB')
+
+pal <- colorNumeric(palette = "Purples", 
+  domain = c(0, 0.7))
+pal2 <- colorNumeric(palette = "Purples", 
+  domain = c(0, 0.7))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-0.5,0.5002))
+
+map_function(TP.map_red10_no.hi)
+
+# Save map as html
+# red10_adj_model_map <- map_function(TP.map_red10_no.hi)
+# saveWidget(red10_adj_model_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//TP//reduced_adjusted_map.html", selfcontained = TRUE, title = "Reduced10 Adjusted (no human-influenced vars)")
 ```
 
 ## E. Reference-Only Model
@@ -1035,3 +1245,17 @@ ggplot(data = plotdf.ref, aes(x = pred, y = obs, color = predictions, shape = pr
     annotate("text", x = 0.009, y = 0.10, label = paste0('IB RMSE = ' , round(rmse.ref,2), ' | scaled RMSE = ', round(rmse_scaled.ref*100,2), "%"), size = 3) +
       annotate("text", x = 0.009, y = 0.11, label = paste0('% variance explained = ' , round(per_var,2), '%'), size = 3) 
 ```
+
+## F. Make comparisons of predictions
+#### Compare reduced model (adjusted and unadjusted) by ecoregion
+```{r}
+# Construct a dataframe of predictions to compare
+boxplot_df <- data.frame(MLocID = TP.map_red10$MLocID, StationDes = TP.map_red10$StationDes, Obs = TP.map_red10$obs, Pred_unadj = TP.map_red10$pred, L3Eco = as.character(TP.map_red10$L3Eco),Pred_adj = TP.map_red10_no.hi$pred)
+
+boxplot_df_long <- gather(boxplot_df, key = "Model", value = "Prediction", Pred_unadj, Pred_adj)
+
+ggplot(boxplot_df_long, aes(x = L3Eco, y = Prediction, fill = Model)) + geom_boxplot() +
+  guides(x = guide_axis(angle = 45))
+
+```
+

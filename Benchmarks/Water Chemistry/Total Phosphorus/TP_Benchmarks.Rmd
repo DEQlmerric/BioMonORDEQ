@@ -796,8 +796,8 @@ plot.variable(rf.full_no.hi, xvar.names = c("PCTCONIF2001WS", "PRECIP_MINUS_EVTW
 TP.obs_predict_no.hi <- cbind(plotdf_no.hi, TP_no.hi)
 
 # Order the rows based on a StreamCat variables that has ALL unique values.
-# any(duplicated(cond.src$ELEVWS))
-# any(duplicated(cond.src$PRECIP9120WS))
+# any(duplicated(TP.obs_predict_no.hi$ELEVWS))
+# any(duplicated(TP.obs_predict_no.hi$PRECIP9120WS))
 TP.obs_predict_no.hi <- TP.obs_predict_no.hi %>% 
   arrange(predictions, ELEVWS)
 

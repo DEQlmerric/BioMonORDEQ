@@ -354,7 +354,7 @@ tn_vars_selected <- tn_vars %>%
 
 ```{r, warning=FALSE}
 # Subset numeric variables only
-tp_tn_vars_num_selected <- tp_vars_selected %>% 
+tp_tn_vars_num_selected <- tn_vars_selected %>% 
   select(!c(SITE_TYPE:L3Eco)) %>% 
   select(!c(MLocID:Total_nitrogen)) 
 
@@ -420,10 +420,8 @@ TN[sapply(TN, is.character)] <- lapply(TN[sapply(TN, is.character)], as.factor)
 #### Model tuning - mtry and node size (number of trees happens in next step)
 
 ```{r}
-set.seed(2) # need to set seed to make tuning reproducible.
-
-#Adjust the parameters below based on tuning (nodesize = 2; mtry = 74)
-tuning <- tune(logTN~., TN)
+#Adjust the parameters below based on tuning (nodesize = 7; mtry = 58)
+tuning <- tune(logTN~., TN, seed = 1234)
 tuning$optimal
 
 ```
@@ -431,51 +429,49 @@ tuning$optimal
 #### Build full model
 
 ```{r}
-set.seed(24)
+full <- rfsrc(logTN ~ ., data = TN, mtry = 58, nodesize = 7, importance = "TRUE", seed = 24)
+full # Model output. (OOB) R squared = Percent Variance Explained.
 
-rf.full <- rfsrc(logTN ~ ., data = TN, mtry = 25, nodesize = 2, importance = "TRUE")
-rf.full # Model output. (OOB) R squared = Percent Variance Explained.
-
-# Mean squared error (untransformed)
-oob_mse <- tail(rf.full$err.rate,1)
-per_var <- 100 * (1 - oob_mse/ var(TN$logTN, na.rm = TRUE))
-print(per_var)
+# Mean squared error (transformed)
+full_oob.mse <- tail(full$err.rate,1)
+full_per.var <- 100 * (1 - full_oob.mse/ var(TN$logTN, na.rm = TRUE))
+print(full_per.var)
 
 range_TN <- max(exp(TN$logTN)) - min(exp(TN$logTN))
 
 #In-bag RMSE
-rmse<- rmse(exp(rf.full$predicted), exp(TN$logTN))
-rmse_scaled <- rmse/range_TN
-print(paste0('In-bag RMSE = ' , round(rmse,2), " (μS/cm)"))
-print(paste0('Scaled In-bag RMSE = ' , round(rmse_scaled*100,2), "%"))
+full_rmse<- rmse(exp(full$predicted), exp(TN$logTN))
+full_rmse.scaled <- full_rmse/range_TN
+print(paste0('In-bag RMSE = ' , round(full_rmse,2), " (μS/cm)"))
+print(paste0('Scaled In-bag RMSE = ' , round(full_rmse.scaled*100,2), "%"))
 
 #OOB RMSE
-oob.rmse<- rmse(exp(rf.full$predicted.oob), exp(TN$logTN))
-oob.rmse_scaled <- oob.rmse/range_TN
-print(paste0('OOB RMSE = ' , round(oob.rmse,2), " (μS/cm)"))
-print(paste0('Scaled OOB RMSE = ' , round(oob.rmse_scaled*100,2), "%"))
+full_oob.rmse<- rmse(exp(full$predicted.oob), exp(TN$logTN))
+full_oob.rmse.scaled <- full_oob.rmse/range_TN
+print(paste0('OOB RMSE = ' , round(full_oob.rmse,2), " (μS/cm)"))
+print(paste0('Scaled OOB RMSE = ' , round(full_oob.rmse.scaled*100,2), "%"))
 
 # Model tuning - How many trees? (default: 500)
-#rf.full$err.rate
+#full$err.rate
 
 # VIP
-plot(rf.full, plots.one.page=FALSE)
-top_vimp <- sort(rf.full$importance, decreasing = TRUE)[1:20]
+plot(full, plots.one.page=FALSE)
+full_vimp <- sort(full$importance, decreasing = TRUE)[1:20]
 par(mar=c(5,8.5,4,1)+.1)
-barplot(top_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = "Full model VIMP")
+barplot(full_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = "Full model VIMP")
 
-#print(vimp(rf.full)$importance)
+#print(vimp(full)$importance)
 
 # Make a df for plots
-predicted.oob <- data.frame(obs = TN$logTN, pred = rf.full$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
-predicted.ib <- data.frame(obs =TN$logTN, pred = rf.full$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
-plotdf <- rbind(predicted.oob, predicted.ib) %>% 
+full_pred.oob <- data.frame(obs = TN$logTN, pred = full$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
+full_pred.ib <- data.frame(obs =TN$logTN, pred = full$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
+full_plotdf <- rbind(full_pred.oob, full_pred.ib) %>% 
   mutate(obs = exp(obs)) %>% 
   mutate(pred = exp(pred)) %>% 
   mutate(delta = obs - pred)
 
 # Plot
-ggplot(data = plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
+ggplot(data = full_plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
   geom_point(alpha = 0.75) +
   labs(title = "Total Nitrogen Full Model",
        x = "Predicted values (mg/L)",
@@ -485,9 +481,9 @@ ggplot(data = plotdf, aes(x = pred, y = obs, color = predictions, shape = predic
   geom_smooth(method = "lm", se = FALSE) +
   scale_x_log10() +
   scale_y_log10() +
-  annotate("text", x = 0.12, y = 2, label = paste0('OOB RMSE = ' , round(oob.rmse,2), ' | scaled RMSE = ', round(oob.rmse_scaled*100,2), "%"), size = 3) +
-    annotate("text", x = 0.12, y = 2.5, label = paste0('IB RMSE = ' , round(rmse,2), ' | scaled RMSE = ', round(rmse_scaled*100,2), "%"), size = 3) +
-      annotate("text", x = 0.12, y = 3, label = paste0('% variance explained = ' , round(per_var,2), '%'), size = 3) 
+  annotate("text", x = 0.12, y = 2, label = paste0('OOB RMSE = ' , round(full_oob.rmse,2), ' | scaled RMSE = ', round(full_oob.rmse.scaled*100,2), "%"), size = 3) +
+    annotate("text", x = 0.12, y = 2.5, label = paste0('IB RMSE = ' , round(full_rmse,2), ' | scaled RMSE = ', round(full_rmse.scaled*100,2), "%"), size = 3) +
+      annotate("text", x = 0.12, y = 3, label = paste0('% variance explained = ' , round(full_per.var,2), '%'), size = 3) 
 ```
 
 #### Leaflet map of full model
@@ -496,26 +492,26 @@ ggplot(data = plotdf, aes(x = pred, y = obs, color = predictions, shape = predic
 # CREATE DF FOR MAPPING PURPOSES
 # Need to join predictions to AWQMS columns, but there are no unique identifiers in the TN table. Predictions will be in the same order as the TN table initially.
 
-# Join predictions to cal_val table
-TN.obs_predict <- cbind(plotdf, TN)
-
-# Order the rows based on a StreamCat variables that has ALL unique values.
-# any(duplicated(TN$ELEVWS))
+# Find a StreamCat row that has ALL unique values
+# any(duplicated(TN$ELEVWS))  # Elevation works.
 # any(duplicated(TN$PRECIP9120WS))
-TN.obs_predict <- TN.obs_predict %>% 
-  arrange(predictions, ELEVWS)
 
-TN.awqms <- tn_vars_selected %>% 
-  arrange(ELEVWS) %>% 
-  select(MLocID:logTN)
+# Join predictions to StreamCat table
+full_obs.predict <- cbind(full_plotdf, TN) %>% 
+  filter(predictions == "OOB") %>% 
+  arrange(ELEVWS) # Order by unique col
 
-# Join cond_vars_selected with TN.obs_predict, and makes sure the TN results match.
-TN.map <- cbind(TN.awqms,TN.obs_predict)
+full_awqms <- tn_vars_selected %>% 
+  arrange(ELEVWS) %>% # Order by unique col
+  select(MLocID:logTN) 
 
-# Then filter to include only OOB predictions.
-TN.map <- TN.map %>% 
-  select(MLocID:delta, BFIWS:L3Eco) %>% 
-  filter(predictions=='OOB')
+# Join cond_vars_selected with TN.obs_predict, and makes sure the TN results match (Make sure logTN column is the same as logTN.1)
+full_map <- cbind(full_obs.predict,full_awqms)
+
+# Then select to remove duplicate logTN column and reorder.
+full_map <- full_map %>% 
+  select(obs:COMID) %>% 
+  relocate(MLocID:COMID, .before = obs)
 
 map_function <- function(data) {
   leaflet() %>%
@@ -565,10 +561,10 @@ pal2 <- colorNumeric(palette = "Greens",
   domain = c(0, 6))
 pal3 <- colorNumeric(palette = "RdBu", domain = c(-5,5))
 
-map_function(TN.map)
+map_function(full_map)
 
 # Save map as html
-# full_model_map <- map_function(TN.map)
+# full_model_map <- map_function(full_map)
 # saveWidget(full_model_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//TN//full_model_map.html", selfcontained = TRUE, title = "Full model")
 
 ```
@@ -577,41 +573,41 @@ map_function(TN.map)
 
 ```{r}
 # Top importance vars
-partialplots <- plot.variable(rf.full, xvar.names = c("PCTCONIF2001WS","ELEVWS", "PCTDECID2001WS", "WETINDEXWS", "TMAX9120WS", "OMWS"), partial = TRUE, plots.one.page = TRUE)
+partialplots <- plot.variable(full, xvar.names = c("PCTCONIF2001WS","ELEVWS", "WETINDEXWS", "TMAX9120WS", "PCTDECID2001WS", "WTDEPWS", "OMWS"), partial = TRUE, plots.one.page = TRUE)
 
 par(mar = c(10, 5, 2, 2))
-partialplots2 <- plot.variable(rf.full, xvar.names = c("L2Eco", "L3Eco"), partial = TRUE, las = 2, cex.axis = 0.5, plots.one.page = TRUE)
+partialplots2 <- plot.variable(full, xvar.names = c("L2Eco", "L3Eco"), partial = TRUE, las = 2, cex.axis = 0.7, plots.one.page = TRUE)
 
 # Human-influenced vars
-partialplots_hi <- plot.variable(rf.full, xvar.names = c("FERTWS", "PCTCROP2001WS", "PCTIMP2001WS", "POPDEN2010WS", "PCTRURBLO2001WS", "PCTAGDRAINAGEWS", "PESTIC1997WS", "PCTURBHI2001WS"), partial = TRUE, plots.one.page = TRUE)
+partialplots_hi <- plot.variable(full, xvar.names = c("FERTWS", "RDDENSWS", "POPDEN2010WS", "CANALDENSWS", "PCTCROP2001WS", "PESTIC1997WS"), partial = TRUE, plots.one.page = TRUE)
 
 # Human-influenced vars
-partialplots_hi2 <- plot.variable(rf.full, xvar.names = c("PCTAGDRAINAGEWS", "PESTIC1997WS", "CANALDENSWS","RDDENSWS", "PCTHAY2001WS", "PCTNONAGINTRODMANAGVEGWS"), partial = TRUE, plots.one.page = TRUE)
+partialplots_hi2 <- plot.variable(full, xvar.names = c("PCTURBHI2001WS", "PCTAGDRAINAGEWS", "PCTURBLO2001WS", "SW_FLUXWS", "PCTIMP2001WS"), partial = TRUE, plots.one.page = TRUE)
 
 #******************consider adding code to look at individual metrics
 ```
 
 #### Another way to do partial plots (slower but more customizable)
 ```{r}
-partial.obj <- partial(rf.full, partial.xvar = "PRECIP_MINUS_EVTWS", partial.values = rf.full$xvar$PRECIP_MINUS_EVTWS)
-pdta <- get.partial.plot.data(partial.obj)
-plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "PRECIP_MINUS_EVT", ylab = "ŷ")
-
-partial.obj <- partial(rf.full, partial.xvar = "PCTCONIF2001WS", partial.values = rf.full$xvar$PCTCONIF2001WS)
+partial.obj <- partial(full, partial.xvar = "PCTCONIF2001WS", partial.values = full$xvar$PCTCONIF2001WS)
 pdta <- get.partial.plot.data(partial.obj)
 plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "PCTCONIF2001WS", ylab = "ŷ")
 
-partial.obj <- partial(rf.full, partial.xvar = "PESTIC1997WS", partial.values = rf.full$xvar$PESTIC1997WS)
+partial.obj <- partial(full, partial.xvar = "FERTWS", partial.values = full$xvar$FERTWS)
 pdta <- get.partial.plot.data(partial.obj)
-plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "PESTIC1997WS", ylab = "ŷ")
+plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "FERTWS", ylab = "ŷ")
 
-partial.obj <- partial(rf.full, partial.xvar = "PCTBL2001WS", partial.values = rf.full$xvar$PCTBL2001WS)
+partial.obj <- partial(full, partial.xvar = "ELEVWS", partial.values = full$xvar$ELEVWS)
 pdta <- get.partial.plot.data(partial.obj)
-plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "PCTBL2001WS", ylab = "ŷ")
+plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "ELEVWS", ylab = "ŷ")
+
+partial.obj <- partial(full, partial.xvar = "RDDENSWS", partial.values = full$xvar$RDDENSWS)
+pdta <- get.partial.plot.data(partial.obj)
+plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "RDDENSWS", ylab = "ŷ")
 
 ```
 
-#### Leaflet map of predictors
+#### Leaflet map of predictors  
 ```{r}
 map_predictors <- function(data) {
   leaflet() %>%
@@ -619,17 +615,8 @@ map_predictors <- function(data) {
   addProviderTiles(providers$Esri.WorldTopoMap, group = "Terrain") %>%
   addProviderTiles(providers$Esri.WorldImagery, group = "Satellite") %>%
   setView(lng = -120.5583, lat =44.0671, zoom =6.4) %>%
-  addCircleMarkers(data = data, group = "PRECIP_MINUS_EVTWS", lng = ~data$Long_DD, 
-                     lat = ~data$Lat_DD, fillColor = pal(data$PRECIP_MINUS_EVTWS), stroke = TRUE,
-                   color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
-                   popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
-                                  "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
-                                  "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
-                                  "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
-                                  "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
-                                  "<strong>", "PRECIP_MINUS_EVTWS: ", "</strong>", data$PRECIP_MINUS_EVTWS))  %>% 
-      addCircleMarkers(data = data, group = "PCTCONIF2001WS",lng = ~data$Long_DD, 
-                     lat = ~data$Lat_DD, fillColor = pal2(data$PCTCONIF2001WS), stroke = TRUE,
+  addCircleMarkers(data = data, group = "PCTCONIF2001WS", lng = ~data$Long_DD, 
+                     lat = ~data$Lat_DD, fillColor = pal(data$PCTCONIF2001WS), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
                    popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
                                   "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
@@ -637,208 +624,192 @@ map_predictors <- function(data) {
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
                                   "<strong>", "PCTCONIF2001WS: ", "</strong>", data$PCTCONIF2001WS))  %>% 
-     addCircleMarkers(data = data, group = "PESTIC1997WS",lng = ~data$Long_DD, 
-                     lat = ~data$Lat_DD, fillColor = pal3(data$PESTIC1997WS), stroke = TRUE,
+      addCircleMarkers(data = data, group = "FERTWS",lng = ~data$Long_DD, 
+                     lat = ~data$Lat_DD, fillColor = pal2(data$FERTWS), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
                    popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
                                   "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
                                   "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
-                                  "<strong>", "PESTIC1997WS: ", "</strong>", data$PESTIC1997WS))  %>% 
-     addCircleMarkers(data = data, group = "PCTBL2001WS",lng = ~data$Long_DD, 
-                     lat = ~data$Lat_DD, fillColor = pal4(data$PCTBL2001WS), stroke = TRUE,
+                                  "<strong>", "FERTWS: ", "</strong>", data$FERTWS))  %>% 
+     addCircleMarkers(data = data, group = "ELEVWS",lng = ~data$Long_DD, 
+                     lat = ~data$Lat_DD, fillColor = pal3(data$ELEVWS), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
                    popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
                                   "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
                                   "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
-                                  "<strong>", "PCTBL2001WS: ", "</strong>", data$PCTBL2001WS))  %>% 
-     addCircleMarkers(data = data, group = "ROCKNWS",lng = ~data$Long_DD, 
-                     lat = ~data$Lat_DD, fillColor = pal5(data$ROCKNWS), stroke = TRUE,
+                                  "<strong>", "ELEVWS: ", "</strong>", data$ELEVWS))  %>% 
+     addCircleMarkers(data = data, group = "RDDENSWS",lng = ~data$Long_DD, 
+                     lat = ~data$Lat_DD, fillColor = pal4(data$RDDENSWS), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
                    popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
                                   "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
                                   "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
-                                  "<strong>", "ROCKNWS: ", "</strong>", data$ROCKNWS))  %>% 
-    hideGroup(c("PCTCONIF2001WS","PESTIC1997WS", "PCTBL2001WS", "ROCKNWS")) %>%  # Don't check all layers by default
+                                  "<strong>", "RDDENSWS: ", "</strong>", data$RDDENSWS))  %>% 
+     addCircleMarkers(data = data, group = "WETINDEXWS",lng = ~data$Long_DD, 
+                     lat = ~data$Lat_DD, fillColor = pal5(data$WETINDEXWS), stroke = TRUE,
+                   color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
+                   popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
+                                  "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
+                                  "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
+                                  "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
+                                  "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
+                                  "<strong>", "WETINDEXWS: ", "</strong>", data$WETINDEXWS))  %>% 
+    hideGroup(c("FERTWS","ELEVWS", "RDDENSWS", "WETINDEXWS")) %>%  # Don't check all layers by default
     addLayersControl(
       baseGroups = c("Basic Map", "Terrain", "Satellite"),
-      overlayGroups = c("PRECIP_MINUS_EVTWS", "PCTCONIF2001WS","PESTIC1997WS", "PCTBL2001WS", "ROCKNWS"),
+      overlayGroups = c("PCTCONIF2001WS", "FERTWS","ELEVWS", "RDDENSWS", "WETINDEXWS"),
       options = layersControlOptions(collapsed = FALSE)) %>% 
-    addLegend(pal = pal, group = "PRECIP_MINUS_EVTWS", values = data$PRECIP_MINUS_EVTWS, position = "bottomright" , title = "PRECIP_MINUS_EVTWS" ) %>% 
-    addLegend(pal = pal2,group = "PCTCONIF2001WS",values = data$PCTCONIF2001WS, position = "bottomright" , title = "PCTCONIF2001WS" ) %>%  
-    addLegend(pal = pal3, group = "PESTIC1997WS", values = data$PESTIC1997WS, position = "bottomleft" , title = "PESTIC1997WS" ) %>% 
-    addLegend(pal = pal4, group = "PCTBL2001WS", values = data$PCTBL2001WS, position = "bottomleft" , title = "PCTBL2001WS" ) %>% 
-    addLegend(pal = pal5, group = "ROCKNWS", values = data$ROCKNWS, position = "bottomleft" , title = "ROCKNWS" )
+    addLegend(pal = pal, group = "PCTCONIF2001WS", values = data$PCTCONIF2001WS, position = "bottomright" , title = "PCTCONIF2001WS" ) %>% 
+    addLegend(pal = pal2,group = "FERTWS",values = data$FERTWS, position = "bottomright" , title = "FERTWS" ) %>%  
+    addLegend(pal = pal3, group = "ELEVWS", values = data$ELEVWS, position = "bottomleft" , title = "ELEVWS" ) %>% 
+    addLegend(pal = pal4, group = "RDDENSWS", values = data$RDDENSWS, position = "bottomleft" , title = "RDDENSWS" ) %>% 
+    addLegend(pal = pal5, group = "WETINDEXWS", values = data$WETINDEXWS, position = "bottomleft" , title = "WETINDEXWS" )
 }
 
-pal <- colorNumeric(palette = "RdBu", 
-  domain = c(-310,310))
-pal2 <- colorNumeric(palette = "Greens", 
-  domain = c(0, 100))
-pal3 <- colorNumeric(palette = "Reds", 
-                     domain = c(0,4300))
+pal <- colorNumeric(palette = "Greens", 
+  domain = c(0,100))
+pal2 <- colorNumeric(palette = "Oranges", 
+  domain = c(0, 200))
+pal3 <- colorNumeric(palette = "YlOrBr", 
+                     domain = c(0,2300))
 pal4 <- colorNumeric(palette = "Greys", 
-  domain = c(0, 100))
-pal5 <- colorNumeric(palette = "Oranges", 
-  domain = c(6, 630))
+  domain = c(0, 15))
+pal5 <- colorNumeric(palette = "Blues", 
+  domain = c(500,1020))
 
-map_predictors(TP.map)
+map_predictors(full_map)
 
 # Save map as html
-# predictors_map <- map_predictors(TP.map)
-# saveWidget(predictors_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//TP//predictors_map.html", selfcontained = TRUE, title = "Predictors map")
+# predictors_map <- map_predictors(full_map)
+# saveWidget(predictors_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//TN//predictors_map.html", selfcontained = TRUE, title = "Predictors map")
 ```
-
-
 
 #### Residual plots
 ```{r}
 # Plot residuals 
-residuals.rf.full <- exp(TP$logTP) - exp(predicted.oob$pred) # Observed minus predicted oob
-plot(residuals.rf.full ~ exp(predicted.oob$pred), xlab = "Predicted Total Phosphorus (mg/L)", ylab = "Residuals", main = "full model residuals")
+full_resid <- exp(TN$logTN) - exp(full_pred.oob$pred) # Observed minus predicted oob
+plot(full_resid ~ exp(full_pred.oob$pred), xlab = "Predicted Total Nitrogen (mg/L)", ylab = "Residuals", main = "Full Model residuals")
 abline(h=0, col = "red", lty = 2)
 
 # Resids by lat and long
-ggplot(data=TP.map, aes(x = Lat_DD, y = delta)) + geom_point() + geom_smooth(method = "lm", se = FALSE) +
+ggplot(data=full_map, aes(x = Lat_DD, y = delta)) + geom_point() + geom_smooth(method = "lm", se = FALSE) +
   labs(x = "Latitude", y = "Obs - Pred")
 
-ggplot(data=TP.map, aes(x = Long_DD, y = delta)) + geom_point() + geom_smooth(method = "lm", se = FALSE) +
+ggplot(data=full_map, aes(x = Long_DD, y = delta)) + geom_point() + geom_smooth(method = "lm", se = FALSE) +
   labs(x = "Longitude", y = "Obs - Pred") 
 
 # MSE by lat and long
-mse <- (exp(TP$logTP) - exp(predicted.oob$pred))^2
-plot(mse ~ TP.map$Lat_DD, xlab = "Latitude", ylab = "MSE")
-mse <- (exp(TP$logTP) - exp(predicted.oob$pred))^2
-plot(mse ~ TP.map$Long_DD, xlab = "Longitude", ylab = "MSE")
-
-# Which StreamCat column is most correlated with residuals?
-TP.map_num <- TP.map %>% 
-  select(!c(MLocID:StationDes, SampleStartDate, ReferenceSite:COMID, predictions,SITE_TYPE:L3Eco))
-correlations <- apply(TP.map_num, 2, cor, x = TP.map_num$delta)
-
-resid_cor <- as.data.frame(correlations)
-
+mse <- (exp(TN$logTN) - exp(full_pred.oob$pred))^2
+plot(mse ~ full_map$Lat_DD, xlab = "Latitude", ylab = "MSE")
+plot(mse ~ full_map$Long_DD, xlab = "Longitude", ylab = "MSE")
 ```
 
 #### Reduce all human-influenced variables to 0 to learn impact on the residuals
 
 ```{r}
 # Reduce all human-influenced vars to all 0s.
-TP_no.hi <- TP %>% 
-  mutate(across(all_of(c("CANALDENSWS", "DAMNRMSTORWS", "FERTWS", "MINEDENSWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTCROP2001WS", "PCTHAY2001WS", 
-"PCTIMP2001WS", "PCTFRSTLOSS2002WS", "PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "SW_FLUXWS", "TRIDENSWS", "WWTPMAJORDENSWS", "WWTPALLDENSWS")), ~0))
+TN_no.hi <- TN %>% 
+  mutate(across(all_of(c("CANALDENSWS", "DAMNRMSTORWS", "FERTWS", "MINEDENSWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTCROP2001WS", "PCTHAY2001WS","PCTIMP2001WS", "PCTFRSTLOSS2002WS", "PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "SW_FLUXWS", "TRIDENSWS", "WWTPMAJORDENSWS", "WWTPALLDENSWS")), ~0))
 
-# Rerun model with adjusted human-influence 
-set.seed(24)
-
-rf.full_no.hi <- rfsrc(logTP ~ ., data = TP_no.hi, mtry = 57, nodesize = 2, importance = TRUE)
-rf.full_no.hi # Model output. (OOB) R squared = Percent Variance Explained.
-
-# Make a df for no_hi plots
-predicted.oob_no.hi <- data.frame(obs = TP_no.hi$logTP, pred = rf.full_no.hi$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
-predicted.ib_no.hi <- data.frame(obs =TP_no.hi$logTP, pred = rf.full_no.hi$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
+# Make predictions with adjusted human-influence to 0 
+PRED_full_no.hi <- predict(full, newdata= TN_no.hi, seed = 24)
 
 # Mean squared error (untransformed)
-oob.mse_no.hi <- tail(rf.full_no.hi$err.rate,1)
-per.var_no.hi <- 100 * (1 - oob.mse_no.hi/ var(TP_no.hi$logTP, na.rm = TRUE))
+PRED_full_mse_no.hi <- tail(PRED_full_no.hi$err.rate,1)
+PRED_full_per.var_no.hi <- 100 * (1 - PRED_full_mse_no.hi/ var(TN_no.hi$logTN, na.rm = TRUE))
 
-#In-bag RMSE
-rmse_no.hi<- rmse(exp(rf.full_no.hi$predicted), exp(TP_no.hi$logTP))
-rmse.scaled_no.hi <- rmse_no.hi/range_tp
-print(paste0('In-bag RMSE = ' , round(rmse_no.hi,2), " (μS/cm)"))
-print(paste0('Scaled In-bag RMSE = ' , round(rmse.scaled_no.hi*100,2), "%"))
-
-#OOB RMSE
-oob.rmse_no.hi<- rmse(exp(rf.full_no.hi$predicted.oob), exp(TP_no.hi$logTP))
-oob.rmse.scaled_no.hi <- oob.rmse_no.hi/range_tp
-print(paste0('OOB RMSE = ' , round(oob.rmse_no.hi,2), " (μS/cm)"))
-print(paste0('Scaled OOB RMSE = ' , round(oob.rmse.scaled_no.hi*100,2), "%"))
-
-# VIP
-#plot(rf.full_no.hi, plots.one.page=FALSE)
-top.vip_no.hi <- sort(rf.full_no.hi$importance, decreasing = TRUE)[1:20]
-par(mar=c(5,7,4,1)+.1)
-barplot(top.vip_no.hi, horiz = TRUE, cex.names = 0.5, las = 1, main = "Full model VIMP")
+# RMSE
+PRED_full_rmse_no.hi<- rmse(exp(PRED_full_no.hi$predicted), exp(TN_no.hi$logTN))
+PRED_full_rmse.scaled_no.hi <- PRED_full_rmse_no.hi/range_TN
+print(paste0('OOB RMSE = ' , round(PRED_full_rmse_no.hi,2), " (μS/cm)"))
+print(paste0('Scaled OOB RMSE = ' , round(PRED_full_rmse.scaled_no.hi*100,2), "%"))
 
 # Make a df for plots
-predicted.oob_no.hi <- data.frame(obs = TP_no.hi$logTP, pred = rf.full_no.hi$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
-predicted.ib_no.hi <- data.frame(obs =TP_no.hi$logTP, pred = rf.full_no.hi$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
-plotdf_no.hi <- rbind(predicted.oob_no.hi, predicted.ib_no.hi) %>% 
+full_plotdf_no.hi <- data.frame(obs = TN_no.hi$logTN, pred = PRED_full_no.hi$predicted) %>% 
   mutate(obs = exp(obs)) %>% 
   mutate(pred = exp(pred)) %>% 
   mutate(delta = obs - pred)
 
 # Plot
-ggplot(data = plotdf_no.hi, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
+ggplot(data = full_plotdf_no.hi, aes(x = pred, y = obs)) +
   geom_point(alpha = 0.75) +
-  labs(title = "TP Full Model without human influenced vars",
+  labs(title = "TN Full Model predictions without human influenced vars",
        x = "Predicted values (mg/L)",
        y = "Observed values (mg/L)") +
   theme_bw() + 
   geom_abline() + 
   scale_x_log10() +
   scale_y_log10() +
-  annotate("text", x = 0.02, y = 0.3, label = paste0('OOB RMSE = ' , round(oob.rmse_no.hi,2), ' | scaled RMSE = ', round(oob.rmse.scaled_no.hi*100,2), "%"), size = 3) +
-    annotate("text", x = 0.02, y = 0.39, label = paste0('IB RMSE = ' , round(rmse_no.hi,2), ' | scaled RMSE = ', round(rmse.scaled_no.hi*100,2), "%"), size = 3) +
-      annotate("text", x = 0.02, y = 0.5, label = paste0('% variance explained = ' , round(per.var_no.hi,2), '%'), size = 3) 
+  annotate("text", x = 0.1, y = 2, label = paste0('OOB RMSE = ' , round(PRED_full_rmse_no.hi,2), ' | scaled RMSE = ', round(PRED_full_rmse.scaled_no.hi*100,2), "%"), size = 3)
 
 # Plot residuals - full model, adjusted human-influenced vars to 0
-residuals.rf.full_no.hi <- exp(TP_no.hi$logTP) - exp(predicted.oob_no.hi$pred) # Observed minus predicted oob
-plot(residuals.rf.full_no.hi ~ exp(predicted.oob_no.hi$pred), xlab = "Predicted TP (mg/L)", ylab = "Residuals", main = "full model residuals, no HI vars")
+full_resid_no.hi <- exp(TN_no.hi$logTN) - exp(PRED_full_no.hi$predicted) # Observed minus predicted oob
+plot(full_resid_no.hi ~ exp(PRED_full_no.hi$predicted), xlab = "Predicted TN (mg/L)", ylab = "Residuals", main = "full model residuals, no HI vars")
 abline(h=0, col = "red", lty = 2)
-
-# Partial Dependence for top vars
-plot.variable(rf.full_no.hi, xvar.names = c("PCTCONIF2001WS", "PRECIP_MINUS_EVTWS", "WTDEPWS", "PCTBL2001WS", "ROCKNWS", "TMAX9120WS", "WETINDEXWS", "ELEVWS", "RCKDEPWS"), partial = TRUE, plots.one.page = TRUE)
 ```
 
 #### Look at map after adjusting human vbls to 0
 
 ```{r}
 # CREATE DF FOR MAPPING PURPOSES to explore how residuals changed on the map after scaling all HI to zero
-# Need to join predictions to AWQMS columns, but there are no unique identifiers in the cond.src table. Predictions will be in the same order as the cond.src table initially.
+# Need to join predictions to AWQMS columns, but there are no unique identifiers in the TN table. Predictions will be in the same order as the TN table initially.
 
 # Join predictions to cal_val table
-TP.obs_predict_no.hi <- cbind(plotdf_no.hi, TP_no.hi)
+full_obs.predict_no.hi <- cbind(full_plotdf_no.hi, TN_no.hi) %>% 
+  arrange(ELEVWS) # Use unique col
 
-# Order the rows based on a StreamCat variables that has ALL unique values.
-# any(duplicated(cond.src$ELEVWS))
-# any(duplicated(cond.src$PRECIP9120WS))
-TP.obs_predict_no.hi <- TP.obs_predict_no.hi %>% 
-  arrange(predictions, ELEVWS)
+# Join TN.obs_predict_no.hi with TN.awqms, and makes sure the results match.
+full_map_no.hi <- cbind(full_awqms,full_obs.predict_no.hi)
 
-# Join TP.obs_predict_no.hi with TP.awqms, and makes sure the conductivity results match.
-TP.map_no.hi <- cbind(TP.awqms,TP.obs_predict_no.hi)
-
-# Then get rid of StreamCat columns.
-TP.map_no.hi <- TP.map_no.hi %>% 
-  select(MLocID:delta, L2Eco, L3Eco) %>% 
-  filter(predictions=='OOB')
+# Then select to remove duplicate logTN column and reorder.
+full_map_no.hi <- full_map_no.hi %>% 
+  select(MLocID:delta, BFIWS:L3Eco)
 
 pal <- colorNumeric(palette = "Purples", 
-  domain = c(0, 0.7))
+  domain = c(0, 6))
 pal2 <- colorNumeric(palette = "Purples", 
-  domain = c(0, 0.7))
-pal3 <- colorNumeric(palette = "RdBu", domain = c(-0.5,0.5))
+  domain = c(0, 6))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-5.5,5.5))
 
-map_function(TP.map_no.hi)
+map_function(full_map_no.hi)
 
 # Save map as html
-# TP.map_obj_no.hi <- map_function(TP.map_no.hi)
-# saveWidget(TP.map_obj_no.hi, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//TP//full_model_no_hi.html", selfcontained = TRUE, title = "Full model Adjusted (no human-influenced vars)")
+TN.map_obj_no.hi <- map_function(full_map_no.hi)
+# saveWidget(TN.map_obj_no.hi, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//TN//full_model_no_hi.html", selfcontained = TRUE, title = "Full model Adjusted (no human-influenced vars)")
 
 ```
 
 #### How do residuals compare between full model predictions and adjusted model?
 ```{r}
 par(mar=c(5,6,4,1)+.1)
-plot(TP.map$pred, TP.map$pred - TP.map_no.hi$pred , xlab = "full model predictions with HI", ylab = "full model minus \n full model with no human influenced vars")
+plot(full_map$pred, (full_map$obs - full_map$pred) - (full_map_no.hi$obs - full_map_no.hi$pred) , xlab = "Full model predictions with HI", ylab = "Full model resid minus \n full model with no human influenced vars resid")
 abline(h=0)
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+# Start here Thursday :)
+
+
+
+
+
+
 
 
 ## C. Model Reduction
@@ -1200,42 +1171,42 @@ tuning$optimal
 ```{r}
 set.seed(24)
 
-rf.full.ref <- rfsrc(logTP ~ ., data = TP.ref, mtry = 47, nodesize = 2, importance = "TRUE")
-rf.full.ref # Model output. (OOB) R squared = Percent Variance Explained.
+full.ref <- rfsrc(logTP ~ ., data = TP.ref, mtry = 47, nodesize = 2, importance = "TRUE")
+full.ref # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (untransformed)
-oob_mse.ref <- tail(rf.full.ref$err.rate,1)
+oob_mse.ref <- tail(full.ref$err.rate,1)
 per_var.ref <- 100 * (1 - oob_mse.ref/ var(TP.ref$logTP, na.rm = TRUE))
 print(per_var.ref)
 
 range_tp_ref <- max(exp(TP.ref$logTP)) - min(exp(TP.ref$logTP))
 
 #In-bag RMSE
-rmse.ref<- rmse(exp(rf.full.ref$predicted), exp(TP.ref$logTP))
+rmse.ref<- rmse(exp(full.ref$predicted), exp(TP.ref$logTP))
 rmse_scaled.ref <- rmse.ref/range_tp_ref
 print(paste0('In-bag RMSE = ' , round(rmse.ref,2), " (μS/cm)"))
 print(paste0('Scaled In-bag RMSE = ' , round(rmse_scaled.ref*100,2), "%"))
 
 #OOB RMSE
-oob.rmse.ref<- rmse(exp(rf.full.ref$predicted.oob), exp(TP.ref$logTP))
+oob.rmse.ref<- rmse(exp(full.ref$predicted.oob), exp(TP.ref$logTP))
 oob.rmse_scaled.ref <- oob.rmse.ref/range_tp_ref
 print(paste0('OOB RMSE = ' , round(oob.rmse.ref,2), " (μS/cm)"))
 print(paste0('Scaled OOB RMSE = ' , round(oob.rmse_scaled.ref*100,2), "%"))
 
 # Model tuning - How many trees? (default: 500)
-rf.full.ref$err.rate
+full.ref$err.rate
 
 # VIP
-plot(rf.full.ref, plots.one.page=FALSE)
-top_vimp.ref <- sort(rf.full.ref$importance, decreasing = TRUE)[1:20]
+plot(full.ref, plots.one.page=FALSE)
+top_vimp.ref <- sort(full.ref$importance, decreasing = TRUE)[1:20]
 par(mar=c(5,7,4,1)+.1)
 barplot(top_vimp.ref, horiz = TRUE, cex.names = 0.5, las = 1, main = "Full Reference-Only Model VIMP")
 
-#print(vimp(rf.full.ref)$importance)
+#print(vimp(full.ref)$importance)
 
 # Make a df for plots
-predicted.oob.ref <- data.frame(obs = TP.ref$logTP, pred = rf.full.ref$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
-predicted.ib.ref <- data.frame(obs =TP.ref$logTP, pred = rf.full.ref$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
+predicted.oob.ref <- data.frame(obs = TP.ref$logTP, pred = full.ref$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
+predicted.ib.ref <- data.frame(obs =TP.ref$logTP, pred = full.ref$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
 plotdf.ref<- rbind(predicted.oob.ref, predicted.ib.ref) %>% 
   mutate(obs = exp(obs)) %>% 
   mutate(pred = exp(pred)) %>% 

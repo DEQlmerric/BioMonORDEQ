@@ -303,7 +303,7 @@ rm(cv)
 
 # Make kernel density plots for predictors of interest to compare distributions.
 tp_tn_vars %>%
-    select("PRECIP_MINUS_EVTWS", "PCTCONIF2001WS", "PESTIC1997WS", "PCTBL2001WS", "ROCKNWS", "WTDEPWS", "RDDENSWS", "RCKDEPWS", "KFFACTWS", "SEPTICWS") %>%  # Edit this line to include vars that you want to look at.
+    select("PCTCONIF2001WS", "FERTWS", "ELEVWS", "RDDENSWS", "WETINDEXWS", "TMAX9120WS", "PCTDECID2001WS", "POPDEN2010WS", "CANALDENSWS") %>%  # Edit this line to include vars that you want to look at.
   keep(is.numeric) %>% 
   gather() %>% 
   ggplot(aes(value)) +
@@ -369,10 +369,10 @@ matrix2 <- spear2.rows %>%
 
 rm(list=c('spear2', 'spear2.rows', 'tp_vars_num_selected'))
 
-# ***OPEN NEWLY CREATED MATRIX AND CONTINUE ONLY IF NO CORRELATED VARIABLES REMAIN (ALL SHOULD BE 1)***
+# ***OPEN NEWLY CREATED MATRIX2 AND CONTINUE ONLY IF NO CORRELATED VARIABLES REMAIN (ALL SHOULD BE 1)***
 ```
 
-#### Clear out the environment
+#### Clean up the environment
 
 ```{r}
 rm(list=c('cv_pctzero', 'erod_resist_strmpow', 'matrix', 'matrix2', 'comids', 'tp_tn_vars', 'tp_tn_vars_num','tp_tn_vars_num_selected', 'tp','tn_tp'))
@@ -504,7 +504,7 @@ full_awqms <- tn_vars_selected %>%
   arrange(ELEVWS) %>% # Order by unique col
   select(MLocID:logTN) 
 
-# Join cond_vars_selected with TN.obs_predict, and makes sure the TN results match (Make sure logTN column is the same as logTN.1)
+# Join predictions and awqms tables, and makes sure the TN results match (Make sure logTN column is the same as logTN.1)
 full_map <- cbind(full_obs.predict,full_awqms)
 
 # Then select to remove duplicate logTN column and reorder.
@@ -586,6 +586,7 @@ partialplots_hi2 <- plot.variable(full, xvar.names = c("PCTURBHI2001WS", "PCTAGD
 ```
 
 #### Another way to do partial plots (slower but more customizable)
+
 ```{r}
 partial.obj <- partial(full, partial.xvar = "PCTCONIF2001WS", partial.values = full$xvar$PCTCONIF2001WS)
 pdta <- get.partial.plot.data(partial.obj)
@@ -605,7 +606,8 @@ plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "RDDENSWS", ylab = "ŷ
 
 ```
 
-#### Leaflet map of predictors  
+#### Leaflet map of predictors
+
 ```{r}
 map_predictors <- function(data) {
   leaflet() %>%
@@ -689,6 +691,7 @@ map_predictors(full_map)
 ```
 
 #### Residual plots
+
 ```{r}
 # Plot residuals 
 full_resid <- exp(TN$logTN) - exp(full_pred.oob$pred) # Observed minus predicted oob
@@ -784,6 +787,7 @@ map_function(full_map_no.hi)
 ```
 
 #### How do residuals compare between full model predictions and adjusted model?
+
 ```{r}
 par(mar=c(5,6,4,1)+.1)
 plot(full_map_no.hi$pred, (full_map$obs - full_map$pred) - (full_map_no.hi$obs - full_map_no.hi$pred) , xlab = "Full model TN predictions with no HI", ylab = "Full model resid minus \n full model with no human influenced vars resid")
@@ -849,6 +853,7 @@ ggplot(data = red10_plotdf, aes(x = pred, y = obs, color = predictions, shape = 
     annotate("text", x = 0.2, y = 2.7, label = paste0('IB RMSE = ' , round(red10_rmse,2), ' | scaled RMSE = ', round(red10_rmse.scaled*100,2), "%"), size = 3) +
       annotate("text", x = 0.2, y = 3.2, label = paste0('% variance explained = ' , round(red10_per.var,2), '%'), size = 3) 
 ```
+
 #### Leaflet map of Red10 model
 
 ```{r}
@@ -868,7 +873,7 @@ red10_awqms <- tn_vars_selected %>%
   arrange(ELEVWS) %>% # Order by unique col
   select(MLocID:logTN) 
 
-# Join cond_vars_selected with TN.obs_predict, and makes sure the TN results match (Make sure logTN column is the same as logTN.1)
+# Join pred with awqms table, and makes sure the TN results match (Make sure logTN column is the same as logTN.1)
 red10_map <- cbind(red10_obs.predict,red10_awqms)
 
 # Then select to remove duplicate logTN column and reorder.
@@ -919,8 +924,9 @@ hist(TN_ref_hi$POPDEN2010WS, main = '')
 quantile(TN_ref_hi$POPDEN2010WS, probs = seq(.1, .9, by = .1))
 ```
 
-#### Reduce all human-influenced variables [to 0]* and make predictions using reduced model.
-##### * We may decide to adjust to a non-zero percentile based on reference quantiles in the chunk above.
+#### Reduce all human-influenced variables [to 0]\* and make predictions using reduced model.
+
+##### \* We may decide to adjust to a non-zero value based on reference quantiles in the chunk above.
 
 ```{r}
 # Make predictions with adjusted human-influence to 0 
@@ -959,6 +965,7 @@ red10_resid_no.hi <- exp(TN_no.hi$logTN) - exp(red10_no.hi$predicted) # Observed
 plot(red10_resid_no.hi ~ exp(red10_no.hi$predicted), xlab = "Predicted TN (mg/L)", ylab = "Residuals (obs - pred)", main = "Red10 model residuals, no HI vars")
 abline(h=0, col = "red", lty = 2)
 ```
+
 #### Leaflet map after adjusting human vbls for reduced10 model
 
 ```{r}
@@ -990,11 +997,13 @@ map_function(red10_map_no.hi)
 ```
 
 #### How do residuals compare between reduced predictions and reduced adjusted model?
+
 ```{r}
 par(mar=c(5,6,4,1)+.1)
 plot(red10_map_no.hi$pred, (red10_map$obs - red10_map$pred) - (red10_map_no.hi$obs - red10_map_no.hi$pred) , xlab = "TN Red10 model predictions with no HI", ylab = "Red10 model resid minus \n red10 model with no human influenced vars resid")
 abline(h=0)
 ```
+
 #### Top 3 predictors (not using this one)
 
 ```{r}
@@ -1052,6 +1061,7 @@ ggplot(data = red3_plotdf, aes(x = pred, y = obs, color = predictions, shape = p
     annotate("text", x = 0.2, y = 2.7, label = paste0('IB RMSE = ' , round(red3_rmse,2), ' | scaled RMSE = ', round(red3_rmse.scaled*100,2), "%"), size = 3) +
       annotate("text", x = 0.2, y = 3.2, label = paste0('% variance explained = ' , round(red3_per.var,2), '%'), size = 3) 
 ```
+
 ## E. Reference-Only Model
 
 #### Subset the data
@@ -1139,6 +1149,7 @@ ref_resid <- exp(TN.ref$logTN) - exp(ref$predicted) # Observed minus predicted o
 plot(ref_resid ~ exp(ref$predicted), xlab = "Predicted TN (mg/L)", ylab = "Residuals (obs - pred)", main = "Ref only model residuals")
 abline(h=0, col = "red", lty = 2)
 ```
+
 #### Leaflet map of Ref-Only model
 
 ```{r}
@@ -1159,7 +1170,7 @@ ref_awqms <- tn_vars_selected %>%
   filter(ReferenceSite=='REFERENCE') %>% 
   select(MLocID:logTN) 
 
-# Join cond_vars_selected with TN.obs_predict, and makes sure the TN results match (Make sure logTN column is the same as logTN.1)
+# Join pred with awqms table, and makes sure the TN results match (Make sure logTN column is the same as logTN.1)
 ref_map <- cbind(ref_obs.predict, ref_awqms)
 
 # Then select to remove duplicate logTN column and reorder.
@@ -1181,7 +1192,9 @@ map_function(ref_map)
 ```
 
 ## F. Make comparisons of predictions
+
 #### Compare reduced model (adjusted and unadjusted) by ecoregion
+
 ```{r}
 # Construct a dataframe of predictions to compare
 boxplot_preds <- data.frame(MLocID = red10_map$MLocID, StationDes = red10_map$StationDes, Obs = red10_map$obs, Pred_unadj = red10_map$pred, L3Eco = as.character(red10_map$L3Eco),Pred_adj = red10_map_no.hi$pred, Ref = red10_map$ReferenceSite)

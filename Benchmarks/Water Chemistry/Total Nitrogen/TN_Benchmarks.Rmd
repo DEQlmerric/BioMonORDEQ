@@ -408,7 +408,7 @@ boxplot(tn_vars_selected$logTN, ylab = "log(TN)")
 ```{r}
 # Select response data of interest
 TN <- tn_vars_selected %>%
-  select(-c(MLocID:COMID, Total_nitrogen, SampleStartDate)) #drop tp in favor of logTP. Drop AWQMS columns too.
+  select(-c(MLocID:COMID, Total_nitrogen, SampleStartDate)) #drop tn in favor of logTN. Drop AWQMS columns too.
 
 # Convert character columns to factors
 TN[sapply(TN, is.character)] <- lapply(TN[sapply(TN, is.character)], as.factor)
@@ -1025,7 +1025,7 @@ red3$err.rate
 plot(red3, plots.one.page=FALSE)
 red3_vimp <- sort(red3$importance, decreasing = TRUE)[1:20]
 par(mar=c(5,7,4,1)+.1)
-barplot(red3_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = "TN Reduced (10 variables) model VIMP")
+barplot(red3_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = "TN Reduced (3 variables) model VIMP")
 
 #print(vimp(red3)$importance)
 

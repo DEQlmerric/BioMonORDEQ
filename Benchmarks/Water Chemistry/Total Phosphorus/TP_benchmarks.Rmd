@@ -238,7 +238,7 @@ sort(sapply(tp_tn_vars, function(x) sum(is.na(x))))
 # THEN WRITE CODE FOR THEM IN ROUGH FIX SECTION BELOW.
 
 # Note: Some predictors may have a large number of missing values (e.g., bankfull width, n = 64). Consider performing rough fix only for variables with ~10 or fewer missing values. This will avoid introducing error in the correlation matrix and variable selection phase.
-# Note:  Ignore columns with missing data from AWQMS (those are COMIDs that only have samples for TP and not TN; those will go away when we select only TP for analysis after we finish variable selection.)
+# Note:  Ignore columns with ~15 missing data from AWQMS (those are COMIDs that only have samples for TN and not TP; those will go away when we select only TP for analysis after we finish variable selection.)
 ```
 
 #### PERFORM NA ROUGH FIX
@@ -338,7 +338,7 @@ tp_tn_vars %>%
 #### Update predictor list
 
 ```{r}
-# UNIQUE FOR THIS SCRIPT - Select only COMIDs with TN samples (drop TP only rows).
+# UNIQUE FOR THIS SCRIPT - Select only COMIDs with TP samples (drop TN only rows).
 tp_vars <- semi_join(tp_tn_vars, tp, by = "COMID") 
 
 # Use Excel formula (=TEXTJOIN(", ", TRUE, range:range)) to compile list from decisions sheet and paste below.
@@ -503,7 +503,7 @@ full_awqms <- tp_vars_selected %>%
   arrange(ELEVWS) %>% # Order by unique col
   select(MLocID:logTP) 
 
-# Join cond_vars_selected with TP.obs_predict, and makes sure the TP results match (Make sure logTP column is the same as logTP.1)
+# Join pred with awqms table, and makes sure the TP results match (Make sure logTP column is the same as logTP.1)
 full_map <- cbind(full_obs.predict,full_awqms)
 
 # Then select to remove duplicate logTP column and reorder.
@@ -778,6 +778,7 @@ map_function(full_map_no.hi)
 ```
 
 #### How do residuals compare between full model predictions and adjusted model?
+
 ```{r}
 par(mar=c(5,6,4,1)+.1)
 plot(full_map_no.hi$pred, (full_map$obs - full_map$pred) - (full_map_no.hi$obs - full_map_no.hi$pred) , xlab = "Full model TP predictions with no HI", ylab = "Full model resid minus \n full model with no human influenced vars resid")
@@ -788,6 +789,7 @@ abline(h=0)
 ## C. Model Reduction
 
 #### Build model with Top 12 predictors
+
 ```{r}
 red12 <- rfsrc(logTP ~ PRECIP_MINUS_EVTWS + PCTCONIF2001WS + PESTIC1997WS + WTDEPWS + ROCKNWS + RCKDEPWS + RDDENSWS + PCTBL2001WS + KFFACTWS + SEPTICWS + WETINDEXWS +OMWS, data = TP, mtry = 74, nodesize = 1, importance = "TRUE", seed = 24)
 red12 # Model output. (OOB) R squared = Percent Variance Explained.
@@ -845,9 +847,10 @@ ggplot(data = red12_plotdf, aes(x = pred, y = obs, color = predictions, shape = 
 ```
 
 #### Leaflet map of Red12 model
+
 ```{r}
 # CREATE DF FOR MAPPING PURPOSES
-# Need to join predictions to AWQMS columns, but there are no unique identifiers in the TN table. Predictions will be in the same order as the TN table initially.
+# Need to join predictions to AWQMS columns, but there are no unique identifiers in the TP table. Predictions will be in the same order as the TP table initially.
 
 # Find a StreamCat row that has ALL unique values
 # any(duplicated(TP$ELEVWS))  # Elevation works.
@@ -862,10 +865,10 @@ red12_awqms <- tp_vars_selected %>%
   arrange(ELEVWS) %>% # Order by unique col
   select(MLocID:logTP) 
 
-# Join cond_vars_selected with TN.obs_predict, and makes sure the TN results match (Make sure logTN column is the same as logTN.1)
+# Join obs.pred with awqms table, and makes sure the TP results match (Make sure logTP column is the same as logTP.1)
 red12_map <- cbind(red12_obs.predict,red12_awqms)
 
-# Then select to remove duplicate logTN column and reorder.
+# Then select to remove duplicate logTP column and reorder.
 red12_map <- red12_map %>% 
   select(obs:COMID) %>% 
   relocate(MLocID:COMID, .before = obs)
@@ -954,6 +957,7 @@ red12_resid_no.hi <- exp(TP_no.hi$logTP) - exp(red12_no.hi$predicted) # Observed
 plot(red12_resid_no.hi ~ exp(red12_no.hi$predicted), xlab = "Predicted TP (mg/L)", ylab = "Residuals (obs - pred)", main = "Red10 model residuals, no HI vars")
 abline(h=0, col = "red", lty = 2)
 ```
+
 #### Leaflet map after adjusting human vbls for reduced10 model
 
 ```{r}
@@ -985,11 +989,13 @@ map_function(red12_map_no.hi)
 ```
 
 #### How do residuals compare between reduced predictions and reduced adjusted model?
+
 ```{r}
 par(mar=c(5,6,4,1)+.1)
 plot(red12_map_no.hi$pred, (red12_map$obs - red12_map$pred) - (red12_map_no.hi$obs - red12_map_no.hi$pred) , xlab = "TP Red10 model predictions with no HI", ylab = "Red10 model resid minus \n red12 model with no human influenced vars resid")
 abline(h=0)
 ```
+
 #### Top 3 predictors (not using this one)
 
 ```{r}
@@ -1047,6 +1053,7 @@ ggplot(data = red3_plotdf, aes(x = pred, y = obs, color = predictions, shape = p
     annotate("text", x = 0.015, y = 0.2, label = paste0('IB RMSE = ' , round(red3_rmse,2), ' | scaled RMSE = ', round(red3_rmse.scaled*100,2), "%"), size = 3) +
       annotate("text", x = 0.015, y = 0.25, label = paste0('% variance explained = ' , round(red3_per.var,2), '%'), size = 3) 
 ```
+
 ## E. Reference-Only Model
 
 #### Subset the data
@@ -1134,6 +1141,7 @@ ref_resid <- exp(TP.ref$logTP) - exp(ref$predicted) # Observed minus predicted o
 plot(ref_resid ~ exp(ref$predicted), xlab = "Predicted TP (mg/L)", ylab = "Residuals (obs - pred)", main = "Ref only model residuals")
 abline(h=0, col = "red", lty = 2)
 ```
+
 #### Leaflet map of Ref-Only model
 
 ```{r}
@@ -1154,7 +1162,7 @@ ref_awqms <- tp_vars_selected %>%
   filter(ReferenceSite=='REFERENCE') %>% 
   select(MLocID:logTP) 
 
-# Join cond_vars_selected with TP.obs_predict, and makes sure the TP results match (Make sure logTP column is the same as logTP.1)
+# Join obs.predict and awqms tables, and makes sure the TP results match (Make sure logTP column is the same as logTP.1)
 ref_map <- cbind(ref_obs.predict, ref_awqms)
 
 # Then select to remove duplicate logTP column and reorder.
@@ -1177,6 +1185,7 @@ map_function(ref_map)
 
 ## F. Make comparisons of predictions
 #### Compare reduced model (adjusted and unadjusted) by ecoregion
+
 ```{r}
 # Construct a dataframe of predictions to compare
 boxplot_preds <- data.frame(MLocID = red12_map$MLocID, StationDes = red12_map$StationDes, Obs = red12_map$obs, Pred_unadj = red12_map$pred, L3Eco = as.character(red12_map$L3Eco),Pred_adj = red12_map_no.hi$pred, Ref = red12_map$ReferenceSite)

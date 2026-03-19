@@ -1066,7 +1066,7 @@ ggplot(data = red3_plotdf, aes(x = pred, y = obs, color = predictions, shape = p
 TP.ref <- tp_vars_selected %>% 
   filter(ReferenceSite=="REFERENCE") %>% 
   select(-c(MLocID:COMID, Total_phosphorus, SampleStartDate))  %>%  # Remove AWQMS columns
-  select(-c("CANALDENSWS", "DAMNRMSTORWS", "FERTWS", "MINEDENSWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTCROP2001WS", "PCTHAY2001WS", "PCTIMP2001WS", "PCTFRSTLOSS2002WS", "PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "SW_FLUXWS", "TRIDENSWS", "WWTPMAJORDENSWS", "WWTPALLDENSWS")) # Remove anthropogenic StreamCat vars
+  select(-c("CANALDENSWS", "DAMNRMSTORWS", "FERTWS", "MINEDENSWS", "NANIWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTCROP2001WS", "PCTFRSTLOSS2002WS","PCTHAY2001WS", "PCTIMP2001WS",  "PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "SW_FLUXWS", "TRIDENSWS", "WWTPMAJORDENSWS", "WWTPALLDENSWS")) # Remove anthropogenic StreamCat vars
 
 # Convert character columns to factors
 TP.ref[sapply(TP.ref, is.character)] <- lapply(TP.ref[sapply(TP.ref, is.character)], as.factor)
@@ -1146,6 +1146,17 @@ plot(ref_resid ~ exp(ref$predicted), xlab = "Predicted TP (mg/L)", ylab = "Resid
 abline(h=0, col = "red", lty = 2)
 ```
 
+#### Partial dependence plots for full ref-only model
+
+```{r}
+# Top importance vars
+partialplots <- plot.variable(ref, xvar.names = c("PCTBURNAREA2002WS", "PCTBL2001WS", "SANDWS", "ROCKNWS", "ELEVWS", "PRECIP_MINUS_EVTWS", "OMWS", "K2OWS"), partial = TRUE, plots.one.page = TRUE)
+
+partialplots2 <- plot.variable(ref, xvar.names = c("PCTCONIF2001WS", "PCTWDWET2001WS", "STRMPOW_CAT", "PCTSHRB2001WS", "PCTDECID2001WS", "CLAYWS", "NHD_pSLOPE", "HYDRLCONDWS"  ), partial = TRUE, plots.one.page = TRUE)
+
+#******************consider adding code to look at individual metrics
+```
+
 #### Leaflet map of Ref-Only model
 
 ```{r}
@@ -1209,7 +1220,86 @@ rm=(c("boxplot_preds", "boxplot_ref", "boxplot_combo"))
 ggplot(boxplot_df, aes(x = L3Eco, y = Prediction, fill = Model)) + geom_boxplot() +
   guides(x = guide_axis(angle = 45)) +
   scale_y_log10() +
-  theme_bw() + ylab("TP (mg/L)")
+  theme_bw(base_size=14) + ylab("TP (mg/L)")
 
 # Ignore warning for 624 rows removed - these are NAs in the Pred_ref column. (112 reference sites of 729 total observations.)
 ```
+
+## G. Combined Leaflet map of predictions
+#### Data wrangling
+
+```{r}
+leaflet_df <- left_join(boxplot_df, tp %>%  select(MLocID, Project1, Lat_DD, Long_DD), by = "MLocID") %>% 
+  pivot_wider(names_from = Model, values_from = Prediction) %>% 
+  relocate(Obs, .before= Pred_unadj)
+```
+
+#### Map function
+
+```{r}
+map_all <- function(data) {
+  leaflet() %>%
+  addProviderTiles("OpenStreetMap", group = "Basic Map") %>% 
+  addProviderTiles(providers$Esri.WorldTopoMap, group = "Terrain") %>%
+  addProviderTiles(providers$Esri.WorldImagery, group = "Satellite") %>%
+  setView(lng = -120.5583, lat =44.0671, zoom =6.4) %>%
+  addCircleMarkers(data = data, group = "Observed", lng = ~data$Long_DD, 
+                     lat = ~data$Lat_DD, fillColor = pal(data$Obs), stroke = TRUE,
+                   color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
+                   popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
+                                  "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
+                                  "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
+                                  "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
+                                  "<strong>", "Reference Status: ", "</strong>", data$Ref, "<br>",
+                                  "<strong>", "Observed Total Phosphorus: ", "</strong>", data$Obs))  %>% 
+      addCircleMarkers(data = data, group = "Pred_unadj",lng = ~data$Long_DD, 
+                     lat = ~data$Lat_DD, fillColor = pal2(data$Pred_unadj), stroke = TRUE,
+                   color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
+                   popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
+                                  "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
+                                  "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
+                                  "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
+                                  "<strong>", "Reference Status: ", "</strong>", data$Ref, "<br>",
+                                  "<strong>", "Predicted Total Phosphorus UNADJUSTED (reduced model): ", "</strong>", data$Pred_unadj))  %>% 
+     addCircleMarkers(data = data, group = "Pred_adj",lng = ~data$Long_DD, 
+                     lat = ~data$Lat_DD, fillColor = pal3(data$Pred_adj), stroke = TRUE,
+                   color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
+                   popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
+                                  "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
+                                  "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
+                                  "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
+                                  "<strong>", "Reference Status: ", "</strong>", data$Ref, "<br>",
+                                  "<strong>", "Predicted Total Phos ADJUSTED: ", "</strong>", data$Pred_adj))  %>% 
+     addCircleMarkers(data = data, group = "Pred_ref",lng = ~data$Long_DD, 
+                     lat = ~data$Lat_DD, fillColor = pal4(data$Pred_ref), stroke = TRUE,
+                   color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
+                   popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
+                                  "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
+                                  "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
+                                  "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
+                                  "<strong>", "Reference Status: ", "</strong>", data$Ref, "<br>",
+                                  "<strong>", "Predicted Total Phos REF ONLY: ", "</strong>", data$Pred_ref))  %>% 
+    addLayersControl(
+      baseGroups = c("Basic Map", "Terrain", "Satellite"),
+      overlayGroups = c("Observed","Pred_unadj", "Pred_adj", "Pred_ref"),
+      options = layersControlOptions(collapsed = FALSE)) %>% 
+    addLegend(pal = pal, group = "Observed", values = data$Obs, position = "bottomright" , title = "Observed Total Phosphorus" ) %>% 
+    addLegend(pal = pal2,group = "Pred_unadj",values = data$Obs, position = "bottomright" , title = "Predicted Total Phosphorus (UNADJUSTED)" ) %>%  # Keep values=data$Obs here (instead of data$pred) to keep the legend colors scales the same between obs and pred.
+        addLegend(pal = pal3, group = "Pred_adj", values = data$Pred_adj, position = "bottomleft" , title = "Predicted Total Phosphorus (ADJUSTED)" ) %>% 
+        addLegend(pal = pal4, group = "Pred_ref", values = data$Pred_adj, position = "bottomleft" , title = "Predicted Total Phosphorus (REF ONLY)" )    # Keep values=data$Pred_adj here (instead of data$Ref) to keep the legend colors scales the same between ref expectations.
+}
+
+pal <- colorNumeric(palette = "Greens", 
+  domain = c(0, 0.7))
+pal2 <- colorNumeric(palette = "Greens", 
+  domain = c(0, 0.7))
+pal3 <- colorNumeric(palette = "Oranges", c(0, 0.10))
+pal4 <- colorNumeric(palette = "Oranges", domain = c(0, 0.10), na.color = "transparent") 
+
+map_all(leaflet_df)
+
+# Save map as html
+# map_all <- map_function(leaflet_df)
+# saveWidget(map_all, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//TP//map_all.html", selfcontained = TRUE, title = "Map_All")
+```
+ 

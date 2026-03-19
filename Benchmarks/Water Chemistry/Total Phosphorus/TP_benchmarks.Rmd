@@ -412,6 +412,10 @@ TP <- tp_vars_selected %>%
 
 # Convert character columns to factors
 TP[sapply(TP, is.character)] <- lapply(TP[sapply(TP, is.character)], as.factor)
+
+# Order factors
+TP$L2Eco <- factor(TP$L2Eco, levels = c("Marine West Coast Forest", "Western Cordillera", "Cold Deserts"))
+TP$L3Eco <- factor(TP$L3Eco, levels = c("Coast Range", "Willamette Valley", "Klamath Mountains", "Cascades", "Eastern Cascades Slopes and Foothills", "Columbia Plateau","Blue Mountains", "Northern Basin and Range", "Snake River Plain"))
 ```
 
 ## B. FULL MODEL - ALL PREDICTORS INCLUDED
@@ -1197,6 +1201,7 @@ boxplot_combo <- left_join(boxplot_preds, boxplot_ref, by="MLocID")
 
 boxplot_df <- gather(boxplot_combo, key = "Model", value = "Prediction", Pred_unadj, Pred_adj, Pred_ref, Obs)
 boxplot_df$Model <- factor(boxplot_df$Model, levels = c("Pred_ref", "Pred_adj","Pred_unadj", "Obs"))
+boxplot_df$L3Eco <- factor(boxplot_df$L3Eco, levels = c("Coast Range", "Willamette Valley", "Klamath Mountains", "Cascades", "Eastern Cascades Slopes and Foothills", "Columbia Plateau","Blue Mountains", "Northern Basin and Range", "Snake River Plain"))
 
 # Clean out environment
 rm=(c("boxplot_preds", "boxplot_ref", "boxplot_combo"))

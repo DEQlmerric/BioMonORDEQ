@@ -42,10 +42,17 @@ comids <- tn %>%
 
 tp <- read_excel('~/BioMonORDEQ/Benchmarks/Water Chemistry/cal.val_chem.ref.wq_2026-02-10.xlsx') %>%  # Output file from ref benchmarks script 
   filter(Char_Name == 'Total Phosphorus, mixed forms') %>% 
-  select(c(COMID)) 
+  select(c(COMID, Result_Numeric_mod)) 
 
 comids <-  bind_rows(tp, tn) %>% select(COMID) %>% distinct() # Get just the COMIDs for the next step (TN and TP combined)
 
+```
+
+#### Plot TN vs TP
+
+```{r}
+df <- inner_join(tp, tn, by = "COMID")
+plot(df$Result_Numeric_mod, df$Total_nitrogen, xlab = "Total Phosphorus", ylab = "Total Nitrogen", main = "Observations")
 ```
 
 ## B. WATERSHED PREDICTORS - *FROM EPA STREAMCAT*
@@ -412,6 +419,10 @@ TN <- tn_vars_selected %>%
 
 # Convert character columns to factors
 TN[sapply(TN, is.character)] <- lapply(TN[sapply(TN, is.character)], as.factor)
+
+# Order factors
+TN$L2Eco <- factor(TN$L2Eco, levels = c("Marine West Coast Forest", "Western Cordillera", "Cold Deserts"))
+TN$L3Eco <- factor(TN$L3Eco, levels = c("Coast Range", "Willamette Valley", "Klamath Mountains", "Cascades", "Eastern Cascades Slopes and Foothills", "Columbia Plateau","Blue Mountains", "Northern Basin and Range", "Snake River Plain"))
 ```
 
 ## B. FULL MODEL - ALL PREDICTORS INCLUDED
@@ -675,7 +686,7 @@ map_predictors <- function(data) {
 pal <- colorNumeric(palette = "Greens", 
   domain = c(0,100))
 pal2 <- colorNumeric(palette = "Oranges", 
-  domain = c(0, 200))
+  domain = c(0, 15))
 pal3 <- colorNumeric(palette = "YlOrBr", 
                      domain = c(0,2300))
 pal4 <- colorNumeric(palette = "Greys", 
@@ -1206,6 +1217,7 @@ boxplot_combo <- left_join(boxplot_preds, boxplot_ref, by="MLocID")
 
 boxplot_df <- gather(boxplot_combo, key = "Model", value = "Prediction", Pred_unadj, Pred_adj, Pred_ref, Obs)
 boxplot_df$Model <- factor(boxplot_df$Model, levels = c("Pred_ref", "Pred_adj","Pred_unadj", "Obs"))
+boxplot_df$L3Eco <- factor(boxplot_df$L3Eco, levels = c("Coast Range", "Willamette Valley", "Klamath Mountains", "Cascades", "Eastern Cascades Slopes and Foothills", "Columbia Plateau","Blue Mountains", "Northern Basin and Range", "Snake River Plain"))
 
 # Clean out environment
 rm=(c("boxplot_preds", "boxplot_ref", "boxplot_combo"))
@@ -1217,3 +1229,83 @@ ggplot(boxplot_df, aes(x = L3Eco, y = Prediction, fill = Model)) + geom_boxplot(
 
 # Ignore warning for 617 rows removed - these are NAs in the Pred_ref column. (112 reference sites of 729 total observations.)
 ```
+
+## G. What happens if PRECIP_MINUS_EVT is included in the full model (like the TP model)?
+#### Re-select variables
+
+```{r}
+tn_vars_selected2 <- tn_vars %>% 
+  select(c(MLocID:COMID, BFIWS, CANALDENSWS, CLAYWS, COMPSTRGTHWS, DAMNRMSTORWS, ELEVWS, FE2O3WS, FERTWS, HYDRLCONDWS, INORGNWETDEP2008WS, K2OWS, KFFACTWS, MINEDENSWS, MSST2008, NANIWS, NHD_pSLOPE, NPDESDENSWS, NWS, OMWS, P2O5WS, PCT_EROD, PCTAGDRAINAGEWS, PCTALKINTRUVOLWS, PCTALLUVCOASTWS, PCTBL2001WS, PCTBURNAREA2002WS, PCTCARBRESIDWS, PCTCOLLUVSEDWS, PCTCONIF2001WS, PCTCROP2001WS, PCTDECID2001WS, PCTEOLFINEWS, PCTEXTRUVOLWS, PCTFRSTLOSS2002WS, PCTGLACLAKECRSWS, PCTGLACLAKEFINEWS, PCTGLACTILCRSWS, PCTGRS2001WS, PCTHAY2001WS, PCTHBWET2001WS, PCTICE2001WS, PCTIMP2001WS, PCTINCVEGRESP2002WS, PCTNONAGINTRODMANAGVEGWS, PCTOW2001WS, PCTSALLAKEWS, PCTSHRB2001WS, PCTURBHI2001WS, PCTURBLO2001WS, PCTURBOP2001WS, PCTWATERWS, PCTWDWET2001WS, PESTIC1997WS, PRECIP_MINUS_EVTWS, POPDEN2010WS, RCKDEPWS, RDCRSSLPWTDWS, RDCRSWS, RDDENSWS, ROCKNWS, SANDWS, SEPTICWS, STRMPOW_CAT, SUPERFUNDDENSWS, SW_FLUXWS, SWS, TMAX9120WS, TRIDENSWS, WETINDEXWS, WTDEPWS, WWTPALLDENSWS, WWTPMAJORDENSWS,SITE_TYPE:L3Eco)) %>% 
+  relocate(COMID, .after = cal_val) %>% 
+  mutate(logTN = log(Total_nitrogen)) %>% 
+  relocate(logTN, .before= Total_nitrogen)
+
+# Select response data of interest
+TN2 <- tn_vars_selected2 %>%
+  select(-c(MLocID:COMID, Total_nitrogen, SampleStartDate)) #drop tn in favor of logTN. Drop AWQMS columns too.
+
+# Convert character columns to factors
+TN2[sapply(TN2, is.character)] <- lapply(TN2[sapply(TN2, is.character)], as.factor)
+```
+
+#### Full model 
+
+```{r}
+full2 <- rfsrc(logTN ~ ., data = TN2, mtry = 58, nodesize = 7, importance = "TRUE", seed = 24)
+full2 # Model output. (OOB) R squared = Percent Variance Explained.
+
+# Mean squared error (transformed)
+full2_oob.mse <- tail(full2$err.rate,1)
+full2_per.var <- 100 * (1 - full2_oob.mse/ var(TN2$logTN, na.rm = TRUE))
+print(full2_per.var)
+
+range_TN2 <- max(exp(TN2$logTN)) - min(exp(TN2$logTN))
+
+#In-bag RMSE
+full2_rmse<- rmse(exp(full2$predicted), exp(TN2$logTN))
+full2_rmse.scaled <- full2_rmse/range_TN2
+print(paste0('In-bag RMSE = ' , round(full2_rmse,2), " (μS/cm)"))
+print(paste0('Scaled In-bag RMSE = ' , round(full2_rmse.scaled*100,2), "%"))
+
+#OOB RMSE
+full2_oob.rmse<- rmse(exp(full2$predicted.oob), exp(TN2$logTN))
+full2_oob.rmse.scaled <- full2_oob.rmse/range_TN2
+print(paste0('OOB RMSE = ' , round(full2_oob.rmse,2), " (μS/cm)"))
+print(paste0('Scaled OOB RMSE = ' , round(full2_oob.rmse.scaled*100,2), "%"))
+
+# Model tuning - How many trees? (default: 500)
+#full2$err.rate
+
+# VIP
+plot(full2, plots.one.page=FALSE)
+full2_vimp <- sort(full2$importance, decreasing = TRUE)[1:20]
+par(mar=c(5,8.5,4,1)+.1)
+barplot(full2_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = "TN2 Full model VIMP")
+
+#print(vimp(full2)$importance)
+
+# Make a df for plots
+full2_pred.oob <- data.frame(obs = TN2$logTN, pred = full2$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
+full2_pred.ib <- data.frame(obs =TN2$logTN, pred = full2$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
+full2_plotdf <- rbind(full2_pred.oob, full2_pred.ib) %>% 
+  mutate(obs = exp(obs)) %>% 
+  mutate(pred = exp(pred)) %>% 
+  mutate(delta = obs - pred)
+
+# Plot
+ggplot(data = full2_plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
+  geom_point(alpha = 0.75) +
+  labs(title = "Total Nitrogen Full Model",
+       x = "Predicted values (mg/L)",
+       y = "Observed values (mg/L)") +
+  theme_bw() + 
+  geom_abline() + 
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_x_log10() +
+  scale_y_log10() +
+  annotate("text", x = 0.12, y = 2, label = paste0('OOB RMSE = ' , round(full2_oob.rmse,2), ' | scaled RMSE = ', round(full2_oob.rmse.scaled*100,2), "%"), size = 3) +
+    annotate("text", x = 0.12, y = 2.5, label = paste0('IB RMSE = ' , round(full2_rmse,2), ' | scaled RMSE = ', round(full2_rmse.scaled*100,2), "%"), size = 3) +
+      annotate("text", x = 0.12, y = 3, label = paste0('% variance explained = ' , round(full2_per.var,2), '%'), size = 3) 
+```
+```
+

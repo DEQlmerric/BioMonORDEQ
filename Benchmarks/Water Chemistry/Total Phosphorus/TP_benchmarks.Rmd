@@ -781,15 +781,6 @@ map_function(full_map_no.hi)
 # saveWidget(full_model_map_no_hi, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//TP//full_model_map_no_hi.html", selfcontained = TRUE, title = "Full model Adjusted (no human-influenced vars)")
 ```
 
-#### How do residuals compare between full model predictions and adjusted model?
-
-```{r}
-par(mar=c(5,6,4,1)+.1)
-plot(full_map_no.hi$pred, (full_map$obs - full_map$pred) - (full_map_no.hi$obs - full_map_no.hi$pred) , xlab = "Full model TP predictions with no HI", ylab = "Full model resid minus \n full model with no human influenced vars resid")
-abline(h=0)
-
-```
-
 ## C. Model Reduction
 
 #### Build model with Top 12 predictors
@@ -888,6 +879,27 @@ map_function(red12_map)
 # Save map as html
 # red12_model_map <- map_function(red12_map)
 # saveWidget(red12_model_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//TP//red12_model_map.html", selfcontained = TRUE, title = "Red10 model")
+```
+
+#### Overlay reduced and full models
+
+```{r}
+full_red_map <- left_join(full_map, red12_map %>% select(MLocID, pred), by = "MLocID") %>% 
+  mutate(full_pred = pred.x) %>% 
+  mutate(red12_pred = pred.y) %>% 
+  select(-c(pred.x,pred.y)) %>% 
+  relocate(red12_pred, .after = obs) %>% 
+  relocate(full_pred, .after = obs) %>% 
+  select(MLocID:predictions) %>% 
+  gather(key = "Model", value = "Prediction", full_pred, red12_pred)
+
+ggplot(full_red_map, aes(x = Prediction, y = obs, color = Model)) +
+  geom_point(size = 1.5, alpha = 0.5) + theme_bw(base_size = 15) +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(
+    x = "Predicted TP (mg/L)",
+    y = "Observed TP (mg/L)") + scale_x_log10() + scale_y_log10() +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed")
 ```
 
 #### Distributions for Human-influenced vars at all reference sites
@@ -990,14 +1002,6 @@ map_function(red12_map_no.hi)
 # Save map as html
 # red12_model_map_no.hi <- map_function(red12_map_no.hi)
 # saveWidget(red12_model_map_no.hi, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//TP//red12_model_map_no.hi.html", selfcontained = TRUE, title = "Full model Adjusted (no human-influenced vars)")
-```
-
-#### How do residuals compare between reduced predictions and reduced adjusted model?
-
-```{r}
-par(mar=c(5,6,4,1)+.1)
-plot(red12_map_no.hi$pred, (red12_map$obs - red12_map$pred) - (red12_map_no.hi$obs - red12_map_no.hi$pred) , xlab = "TP Red10 model predictions with no HI", ylab = "Red10 model resid minus \n red12 model with no human influenced vars resid")
-abline(h=0)
 ```
 
 #### Top 3 predictors (not using this one)
@@ -1199,6 +1203,7 @@ map_function(ref_map)
 ```
 
 ## F. Make comparisons of predictions
+
 #### Compare reduced model (adjusted and unadjusted) by ecoregion
 
 ```{r}
@@ -1219,24 +1224,20 @@ rm=(c("boxplot_preds", "boxplot_ref", "boxplot_combo"))
 
 ggplot(boxplot_df, aes(x = L3Eco, y = Prediction, fill = Model)) + geom_boxplot() +
   guides(x = guide_axis(angle = 45)) +
-  scale_y_log10() +
+ 
+  # scale_y_log10() +
   theme_bw(base_size=14) + ylab("TP (mg/L)")
 
 # Ignore warning for 624 rows removed - these are NAs in the Pred_ref column. (112 reference sites of 729 total observations.)
 ```
 
-## G. Combined Leaflet map of predictions
-#### Data wrangling
+#### Combined Leaflet map of predictions
 
 ```{r}
 leaflet_df <- left_join(boxplot_df, tp %>%  select(MLocID, Project1, Lat_DD, Long_DD), by = "MLocID") %>% 
   pivot_wider(names_from = Model, values_from = Prediction) %>% 
   relocate(Obs, .before= Pred_unadj)
-```
 
-#### Map function
-
-```{r}
 map_all <- function(data) {
   leaflet() %>%
   addProviderTiles("OpenStreetMap", group = "Basic Map") %>% 
@@ -1303,3 +1304,16 @@ map_all(leaflet_df)
 # saveWidget(map_all, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//TP//map_all.html", selfcontained = TRUE, title = "Map_All")
 ```
  
+#### Unadjusted predictions vs. adjusted human inflence 
+
+```{r}
+leaflet_df$Ref <- factor(leaflet_df$Ref, levels = c("REFERENCE", "MODERATELY DISTURBED", "MOST DISTURBED"))
+
+ggplot(leaflet_df, aes(x = Pred_unadj, y = Pred_adj, color = Ref, shape = Ref)) +
+  geom_point(size = 1.5) + theme_bw(base_size = 15) +
+  labs(
+    x = "Reduced model predicted TP (mg/L)",
+    y = "Predicted TP (mg/L) adjusted\n for no human disturbance predictions",
+    color = "Reference Status", shape = "Reference Status") + 
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed")
+```

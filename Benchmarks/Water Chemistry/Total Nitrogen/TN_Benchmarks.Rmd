@@ -909,14 +909,14 @@ full_red_map <- left_join(full_map, red10_map %>% select(MLocID, pred), by = "ML
   select(MLocID:predictions) %>% 
   gather(key = "Model", value = "Prediction", full_pred, red10_pred)
 
-ggplot(full_red_map, aes(x = obs, y = Prediction, color = Model)) +
-  geom_point(size = 1.5) + theme_bw(base_size = 15) +
+ggplot(full_red_map, aes(x = Prediction, y = obs, color = Model)) +
+  geom_point(size = 1.5, alpha = 0.5) + theme_bw(base_size = 15) +
   labs(
-    x = "Observed TN (mg/L)",
-    y = "Predicted TN (mg/L)") + scale_x_log10() + scale_y_log10() +
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed")
+    x = "Predicted TN (mg/L)",
+    y = "Observed TN (mg/L)") + scale_x_log10() + scale_y_log10() +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed") +
+  geom_smooth(method = "lm", se = FALSE) 
 ```
-
 
 #### Distributions for Human-influenced vars at all reference sites
 

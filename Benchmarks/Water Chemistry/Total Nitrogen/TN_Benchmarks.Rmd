@@ -797,14 +797,6 @@ map_function(full_map_no.hi)
 
 ```
 
-#### How do residuals compare between full model predictions and adjusted model?
-
-```{r}
-par(mar=c(5,6,4,1)+.1)
-plot(full_map_no.hi$pred, (full_map$obs - full_map$pred) - (full_map_no.hi$obs - full_map_no.hi$pred) , xlab = "Full model TN predictions with no HI", ylab = "Full model resid minus \n full model with no human influenced vars resid")
-abline(h=0)
-```
-
 ## C. Model Reduction
 
 #### Build model with Top 10 predictors
@@ -904,6 +896,27 @@ map_function(red10_map)
 # red10_model_map <- map_function(red10_map)
 # saveWidget(red10_model_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//TN//red10_model_map.html", selfcontained = TRUE, title = "Red10 model")
 ```
+
+#### Overlay reduced and full models
+
+```{r}
+full_red_map <- left_join(full_map, red10_map %>% select(MLocID, pred), by = "MLocID") %>% 
+  mutate(full_pred = pred.x) %>% 
+  mutate(red10_pred = pred.y) %>% 
+  select(-c(pred.x,pred.y)) %>% 
+  relocate(red10_pred, .after = obs) %>% 
+  relocate(full_pred, .after = obs) %>% 
+  select(MLocID:predictions) %>% 
+  gather(key = "Model", value = "Prediction", full_pred, red10_pred)
+
+ggplot(full_red_map, aes(x = obs, y = Prediction, color = Model)) +
+  geom_point(size = 1.5) + theme_bw(base_size = 15) +
+  labs(
+    x = "Observed TN (mg/L)",
+    y = "Predicted TN (mg/L)") + scale_x_log10() + scale_y_log10() +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed")
+```
+
 
 #### Distributions for Human-influenced vars at all reference sites
 
@@ -1240,18 +1253,14 @@ ggplot(boxplot_df, aes(x = L3Eco, y = Prediction, fill = Model)) + geom_boxplot(
 
 # Ignore warning for 617 rows removed - these are NAs in the Pred_ref column. (112 reference sites of 729 total observations.)
 ```
-## G. Combined Leaflet map of predictions
-#### Data wrangling
+
+#### Combined Leaflet map of predictions
 
 ```{r}
-leaflet_df <- left_join(boxplot_df, tn %>%  select(MLocID, Project1, Lat_DD, Long_DD), by = "MLocID") %>% 
+leaflet_df <- left_join(boxplot_df, tn %>% select(MLocID, Project1, Lat_DD, Long_DD), by = "MLocID") %>% 
   pivot_wider(names_from = Model, values_from = Prediction) %>% 
   relocate(Obs, .before= Pred_unadj)
-```
 
-#### Map function
-
-```{r}
 map_all <- function(data) {
   leaflet() %>%
   addProviderTiles("OpenStreetMap", group = "Basic Map") %>% 
@@ -1318,6 +1327,19 @@ map_all(leaflet_df)
 # saveWidget(map_all, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//TN//map_all.html", selfcontained = TRUE, title = "Map_All")
 ```
 
+#### Unadjusted predictions vs. adjusted human inflence 
+
+```{r}
+leaflet_df$Ref <- factor(leaflet_df$Ref, levels = c("REFERENCE", "MODERATELY DISTURBED", "MOST DISTURBED"))
+
+ggplot(leaflet_df, aes(x = Pred_unadj, y = Pred_adj, color = Ref, shape = Ref)) +
+  geom_point(size = 1.5) + theme_bw(base_size = 15) +
+  labs(
+    x = "Reduced model predicted TN (mg/L)",
+    y = "Predicted TN (mg/L) adjusted\n for no human disturbance predictions",
+    color = "Reference Status", shape = "Reference Status") + 
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed")
+```
 
 ## H. What happens if PRECIP_MINUS_EVT is included in the full model (like the TP model)?
 #### Re-select variables

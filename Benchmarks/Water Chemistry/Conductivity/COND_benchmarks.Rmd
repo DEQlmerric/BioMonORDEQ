@@ -936,7 +936,7 @@ ggplot(boxplot_df, aes(x = L3Eco, y = Prediction, fill = Model)) + geom_boxplot(
 #### Combined Leaflet map of predictions
 
 ```{r}
-leaflet_df <- left_join(boxplot_df, tp %>%  select(MLocID, Project1, Lat_DD, Long_DD), by = "MLocID") %>% 
+leaflet_df <- left_join(boxplot_df, cond %>%  select(MLocID, Project1, Lat_DD, Long_DD), by = "MLocID") %>% 
   pivot_wider(names_from = Model, values_from = Prediction) %>% 
   relocate(Obs, .before= Pred_unadj)
 
@@ -954,7 +954,7 @@ map_all <- function(data) {
                                   "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$Ref, "<br>",
-                                  "<strong>", "Observed Total Phosphorus: ", "</strong>", data$Obs))  %>% 
+                                  "<strong>", "Observed Conductivity: ", "</strong>", data$Obs))  %>% 
       addCircleMarkers(data = data, group = "Pred_unadj",lng = ~data$Long_DD, 
                      lat = ~data$Lat_DD, fillColor = pal2(data$Pred_unadj), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
@@ -963,7 +963,7 @@ map_all <- function(data) {
                                   "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$Ref, "<br>",
-                                  "<strong>", "Predicted Total Phosphorus UNADJUSTED (reduced model): ", "</strong>", data$Pred_unadj))  %>% 
+                                  "<strong>", "Predicted Conductivity UNADJUSTED (full model): ", "</strong>", data$Pred_unadj))  %>% 
      addCircleMarkers(data = data, group = "Pred_adj",lng = ~data$Long_DD, 
                      lat = ~data$Lat_DD, fillColor = pal3(data$Pred_adj), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
@@ -972,7 +972,7 @@ map_all <- function(data) {
                                   "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$Ref, "<br>",
-                                  "<strong>", "Predicted Total Phos ADJUSTED: ", "</strong>", data$Pred_adj))  %>% 
+                                  "<strong>", "Predicted Conductivity ADJUSTED: ", "</strong>", data$Pred_adj))  %>% 
      addCircleMarkers(data = data, group = "Pred_ref",lng = ~data$Long_DD, 
                      lat = ~data$Lat_DD, fillColor = pal4(data$Pred_ref), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
@@ -981,28 +981,28 @@ map_all <- function(data) {
                                   "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$Ref, "<br>",
-                                  "<strong>", "Predicted Total Phos REF ONLY: ", "</strong>", data$Pred_ref))  %>% 
+                                  "<strong>", "Predicted Conductivity REF ONLY: ", "</strong>", data$Pred_ref))  %>% 
     addLayersControl(
       baseGroups = c("Basic Map", "Terrain", "Satellite"),
       overlayGroups = c("Observed","Pred_unadj", "Pred_adj", "Pred_ref"),
       options = layersControlOptions(collapsed = FALSE)) %>% 
-    addLegend(pal = pal, group = "Observed", values = data$Obs, position = "bottomright" , title = "Observed Total Phosphorus" ) %>% 
-    addLegend(pal = pal2,group = "Pred_unadj",values = data$Obs, position = "bottomright" , title = "Predicted Total Phosphorus (UNADJUSTED)" ) %>%  # Keep values=data$Obs here (instead of data$pred) to keep the legend colors scales the same between obs and pred.
-        addLegend(pal = pal3, group = "Pred_adj", values = data$Pred_adj, position = "bottomleft" , title = "Predicted Total Phosphorus (ADJUSTED)" ) %>% 
-        addLegend(pal = pal4, group = "Pred_ref", values = data$Pred_adj, position = "bottomleft" , title = "Predicted Total Phosphorus (REF ONLY)" )    # Keep values=data$Pred_adj here (instead of data$Ref) to keep the legend colors scales the same between ref expectations.
+    addLegend(pal = pal, group = "Observed", values = data$Obs, position = "bottomright" , title = "Observed Conductivity" ) %>% 
+    addLegend(pal = pal2,group = "Pred_unadj",values = data$Obs, position = "bottomright" , title = "Predicted Conductivity (UNADJUSTED)" ) %>%  # Keep values=data$Obs here (instead of data$pred) to keep the legend colors scales the same between obs and pred.
+        addLegend(pal = pal3, group = "Pred_adj", values = data$Pred_adj, position = "bottomleft" , title = "Predicted Conductivity (ADJUSTED)" ) %>% 
+        addLegend(pal = pal4, group = "Pred_ref", values = data$Pred_adj, position = "bottomleft" , title = "Predicted Conductivity (REF ONLY)" )    # Keep values=data$Pred_adj here (instead of data$Ref) to keep the legend colors scales the same between ref expectations.
 }
 
 pal <- colorNumeric(palette = "Greens", 
-  domain = c(0, 0.7))
+  domain = c(0, 800))
 pal2 <- colorNumeric(palette = "Greens", 
-  domain = c(0, 0.7))
-pal3 <- colorNumeric(palette = "Oranges", c(0, 0.10))
-pal4 <- colorNumeric(palette = "Oranges", domain = c(0, 0.10), na.color = "transparent") 
+  domain = c(0, 800))
+pal3 <- colorNumeric(palette = "Oranges", c(0, 500))
+pal4 <- colorNumeric(palette = "Oranges", domain = c(0, 500), na.color = "transparent") 
 
 map_all(leaflet_df)
 
 # Save map as html
-# map_all <- map_function(leaflet_df)
+# map_all <- map_all(leaflet_df)
 # saveWidget(map_all, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//COND//map_all.html", selfcontained = TRUE, title = "Map_All")
 ```
  

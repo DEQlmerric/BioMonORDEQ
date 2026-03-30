@@ -268,7 +268,7 @@ rm(list=c('spear', 'spear.rows'))
 
 ```{r}
 # Export once, then clean up in Excel.
-#write_xlsx(matrix, path = paste0("~/BioMonORDEQ/Benchmarks/Water Chemistry/TSS v2/SO4_Spearmans_Matrix", Sys.Date(), ".xlsx"))
+#write_xlsx(matrix, path = paste0("~/BioMonORDEQ/Benchmarks/Water Chemistry/Sulfate/SO4_Spearmans_Matrix", Sys.Date(), ".xlsx"))
 ```
 
 #### Calculate coefficient of variance (CV), proportion of 0s, and kernel density plots to guide variable selection decisions
@@ -291,7 +291,7 @@ rm(cv)
 
 # Make kernel density plots for predictors of interest to compare distributions.
 so4_vars %>%
-    select("PRECIP_MINUS_EVTWS", "PCTCONIF2001WS", "PESTIC1997WS", "PCTBL2001WS", "ROCKNWS", "WTDEPWS", "RDDENSWS", "RCKDEPWS", "KFFACTWS", "SEPTICWS") %>%  # Edit this line to include vars that you want to look at.
+    select("FE2O3WS", "CAOWS", "SIO2WS") %>%  # Edit this line to include vars that you want to look at.
   keep(is.numeric) %>% 
   gather() %>% 
   ggplot(aes(value)) +

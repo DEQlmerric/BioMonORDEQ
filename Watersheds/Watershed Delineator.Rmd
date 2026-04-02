@@ -78,6 +78,57 @@ subset_file <- tempfile(fileext = ".gpkg")
 
 # **6 - RUN DELINEATION FUNCTION**
 
+## Option 1 Sabine's code chunk - run to view delineations in R Viewer. Doesn't currently write to shpfile.
+```{r}
+# RUN FUNCTION
+delin <- function(comid, MLocID, long, lat){
+
+print(MLocID)
+# MAKE FLOWLINES
+flowlines <- navigate_nldi(list(featureSource = "comid",
+                                featureID = comid),
+                           mode = "upstreamTributaries",
+                           distance_km = 1000)
+
+station <- st_sfc(st_point(c(long,lat)), crs = 4269) # NAD1983
+station <- st_transform(station, 2992) # Oregon Albers
+
+# SUBSET DATA
+subset <- subset_nhdplus(comids = as.integer(flowlines$UT$nhdplus_comid),
+                         output_file = subset_file,
+                         nhdplus_data = "download",
+                         flowline_only = FALSE,
+                         return_data = TRUE, overwrite = TRUE)
+
+# CREATE CATCHMENT POLYGONS
+catchment <- sf::read_sf(subset_file, "CatchmentSP")
+
+# UNIFY INTO SINGLE POLYGON
+catchment <- sf::st_union(catchment)
+
+# DRAW THE FLOW NETWORK
+flownet <- subset$NHDFlowline_Network
+
+# REPROJECT TO NAD83 / OREGON GIC LAMBERT (ft)
+catchment2 <- st_sf(catchment)|> 
+  mutate(COMID = comid,
+         MLocID = MLocID) |>
+  st_transform(crs = 2992) 
+
+# CALCULATE WATERSHED AREA (m2)
+catchment2$Shape_Area <- st_area(catchment2) * 0.092903 # Square ft (Oregon Lambert) to square meters
+
+# # APPEND WATERSHEDS TO SHAPEFILE
+# st_write(catchment2, save_file, append = TRUE)
+
+mapview(flowlines) + mapview(catchment2) + mapview(station, cex=4)
+}
+
+purrr::pmap(dataframe_comid, ~delin(comid = {..1}, MLocID = {..2}, long = {..5}, lat = {..4}))
+
+```
+
+# Option 2 Adam's code chunk - write delineations to shapefile without viewing in R
 ```{r}
 # RUN FUNCTION
 delin <- function(comid, MLocID, save_file){
@@ -118,6 +169,7 @@ catchment2$Shape_Area <- st_area(catchment2) * 0.092903
 st_write(catchment2, save_file, append = TRUE)
 }
 ```
+
 
 # **7 - WRITE TO OUTPUT SHAPEFILE**
 

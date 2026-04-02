@@ -286,12 +286,12 @@ cv_pctzero <- so4_vars_num %>%
   inner_join(cv, by = "Var")
 
 # Write output to Excel for variable selection meeting.
-#write_xlsx(cv_pctzero, path = "~/BioMonORDEQ/Benchmarks/Water Chemistry/TSS v2/ TSS_CV.xlsx")
+#write_xlsx(cv_pctzero, path = "~/BioMonORDEQ/Benchmarks/Water Chemistry/Sulfate/Sulfate_CV.xlsx")
 rm(cv)
 
 # Make kernel density plots for predictors of interest to compare distributions.
 so4_vars %>%
-    select("FE2O3WS", "CAOWS", "SIO2WS") %>%  # Edit this line to include vars that you want to look at.
+    select("RUNOFFWS" , "SW_FLUXWS") %>%  # Edit this line to include vars that you want to look at.
   keep(is.numeric) %>% 
   gather() %>% 
   ggplot(aes(value)) +
@@ -303,6 +303,8 @@ so4_vars %>%
 #### Hold variable selection meeting
 
 ```{r}
+# For Sulfate we did this as a group 4/1/2026.
+
 # 1. Make a variable selection decisions sheet in Excel based on the TEMPLATE (Benchmarks >> Water Chemistry >> TEMPLATE_Var selection decisions.xlsx) and save to model folder on GitHub.
 
 # 2. Clean up correlation matrix Excel table manually:
@@ -323,16 +325,10 @@ so4_vars %>%
 
 #### Update predictor list
 
-
-## SYB start here next time :) 
-
-
-
-
 ```{r}
 # Use Excel formula (=TEXTJOIN(", ", TRUE, range:range)) to compile list from decisions sheet and paste below.
 so4_vars_selected <- so4_vars %>% 
-  select(c(MLocID:COMID,BFIWS, CANALDENSWS, CAOWS, CLAYWS, COMPSTRGTHWS, DAMDENSWS, ELEVWS, FE2O3WS, HYDRLCONDWS, KFFACTWS, MINEDENSWS, MSST2008, NHD_pSLOPE, NPDESDENSWS, NWS, OMWS, PCT_EROD, PCTAGDRAINAGEWS, PCTAGSLPMID2001WS, PCTALKINTRUVOLWS, PCTALLUVCOASTWS, PCTBL2001WS, PCTBURNAREA2002WS, PCTCARBRESIDWS, PCTCOLLUVSEDWS, PCTCONIF2001WS, PCTCROP2001WS, PCTDECID2001WS, PCTEOLFINEWS, PCTEXTRUVOLWS, PCTFRSTLOSS2002WS, PCTGLACLAKECRSWS, PCTGLACLAKEFINEWS, PCTGLACTILCRSWS, PCTGRS2001WS, PCTHBWET2001WS, PCTICE2001WS, PCTIMP2001WS, PCTINCVEGRESP2002WS, PCTNONAGINTRODMANAGVEGWS, PCTOW2001WS, PCTSALLAKEWS, PCTSHRB2001WS, PCTURBHI2001WS, PCTURBLO2001WS, PCTURBOP2001WS, PCTWATERWS, PCTWDWET2001WS, PESTIC1997WS, POPDEN2010WS, PRECIP_MINUS_EVTWS, RCKDEPWS, RDCRSSLPWTDWS, RDCRSWS, RDDENSWS, ROCKNWS, SANDWS, SEPTICWS, STRMPOW_CAT, SUPERFUNDDENSWS, SW_FLUXWS, SWS, TMAX9120WS, TRIDENSWS, WATERINPUTWS, WETINDEXWS, WETTEDWIDTH, WTDEPWS, WWTPALLDENSWS, WWTPMAJORDENSWS, SITE_TYPE:L3Eco)) %>% 
+  select(c(MLocID:COMID,BFIWS, CANALDENSWS, CAOWS, CLAYWS, COMPSTRGTHWS, DAMDENSWS, ELEVWS, FERTWS, HYDRLCONDWS, KFFACTWS, MINEDENSWS, MSST2008, NA2OWS, NANIWS, NHD_pSLOPE, NPDESDENSWS, NWS, OMWS, PCT_EROD, PCTAGDRAINAGEWS, PCTAGSLPMID2001WS, PCTALKINTRUVOLWS, PCTALLUVCOASTWS, PCTBL2001WS, PCTBURNAREA2002WS, PCTCOLLUVSEDWS, PCTCONIF2001WS, PCTCROP2001WS, PCTDECID2001WS, PCTEOLCRSWS, PCTEOLFINEWS, PCTEXTRUVOLWS, PCTFRSTLOSS2002WS, PCTGLACLAKECRSWS, PCTGLACLAKEFINEWS, PCTGLACTILCRSWS, PCTGRS2001WS, PCTHBWET2001WS, PCTICE2001WS, PCTIMP2001WS, PCTINCVEGRESP2002WS, PCTMXFST2001WS, PCTNONAGINTRODMANAGVEGWS, PCTOW2001WS, PCTSALLAKEWS, PCTSHRB2001WS, PCTURBHI2001WS, PCTURBLO2001WS, PCTURBOP2001WS, PCTWATERWS, PCTWDWET2001WS, PESTIC1997WS, POPDEN2010WS, RCKDEPWS, RDCRSSLPWTDWS, RDCRSWS, RDDENSWS, ROCKNWS, RUNOFFWS, SANDWS, SEPTICWS, SN2008WS, STRMPOW_CAT, SUPERFUNDDENSWS, SWS, TMAX9120WS, TRIDENSWS, WETINDEXWS, WTDEPWS, WWTPALLDENSWS, WWTPMAJORDENSWS, SITE_TYPE:L3Eco)) %>% 
   relocate(COMID, .after = cal_val) %>% 
   mutate(logSO4 = log(Sulfate)) %>% 
   relocate(logSO4, .before= Sulfate)
@@ -373,8 +369,8 @@ rm(list=c('cv_pctzero', 'erod_resist_strmpow', 'matrix', 'matrix2', 'comids', 's
 # FIND OUT WHICH COLUMNS HAVE NAs
 sapply(so4_vars_selected, function(x) sum(is.na(x)))
 
-# DO ANY LAST NA ROUGH FIXES AS DESIRED (write code for specific predictors) 
-so4_vars_selected$WETTEDWIDTH  <- na.roughfix(so4_vars_selected$WETTEDWIDTH) 
+# DO ANY LAST NA ROUGH FIXES AS DESIRED 
+# none for sulfate :)
 ```
 
 # **4 - EXPLORE DATA**
@@ -397,15 +393,15 @@ boxplot(so4_vars_selected$logSO4, ylab = "log(Sulfate)")
 
 ```{r}
 # Select response data of interest
-TSS <- tss_vars_selected %>%
-  select(-c(MLocID:COMID, TSS, SampleStartDate)) #drop tp in favor of logTSS. Drop AWQMS columns too.
+SO4 <- so4_vars_selected %>%
+  select(-c(MLocID:COMID, Sulfate, SampleStartDate)) #drop tp in favor of logSO4. Drop AWQMS columns too.
 
 # Convert character columns to factors
-TSS[sapply(TSS, is.character)] <- lapply(TSS[sapply(TSS, is.character)], as.factor)
+SO4[sapply(SO4, is.character)] <- lapply(SO4[sapply(SO4, is.character)], as.factor)
 
 # Order factors
-TSS$L2Eco <- factor(TSS$L2Eco, levels = c("Marine West Coast Forest", "Western Cordillera", "Cold Deserts"))
-TSS$L3Eco <- factor(TSS$L3Eco, levels = c("Coast Range", "Willamette Valley", "Klamath Mountains", "Cascades", "Eastern Cascades Slopes and Foothills", "Columbia Plateau","Blue Mountains", "Northern Basin and Range", "Snake River Plain"))
+SO4$L2Eco <- factor(SO4$L2Eco, levels = c("Marine West Coast Forest", "Western Cordillera", "Cold Deserts"))
+SO4$L3Eco <- factor(SO4$L3Eco, levels = c("Coast Range", "Willamette Valley", "Klamath Mountains", "Cascades", "Eastern Cascades Slopes and Foothills", "Columbia Plateau","Blue Mountains", "Northern Basin and Range", "Snake River Plain"))
 ```
 
 ## B. FULL MODEL - ALL PREDICTORS INCLUDED
@@ -413,33 +409,33 @@ TSS$L3Eco <- factor(TSS$L3Eco, levels = c("Coast Range", "Willamette Valley", "K
 #### Model tuning - mtry and node size (number of trees happens in next step)
 
 ```{r}
-#Adjust the parameters below based on tuning (nodesize = 1; mtry = 30)
-tuning <- tune(logTSS~., TSS, seed = 1234)
+#Adjust the parameters below based on tuning (nodesize = 6; mtry = 72)
+tuning <- tune(logSO4~., SO4, seed = 1234)
 tuning$optimal
 ```
 
 #### Build full model
 
 ```{r}
-full <- rfsrc(logTSS ~ ., data = TSS, mtry = 30, nodesize = 1, importance = "TRUE", seed = 24)
+full <- rfsrc(logSO4 ~ ., data = SO4, mtry = 72, nodesize = 6, importance = "TRUE", seed = 24)
 full # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (transformed)
 full_oob.mse <- tail(full$err.rate,1)
-full_per.var <- 100 * (1 - full_oob.mse/ var(TSS$logTSS, na.rm = TRUE))
+full_per.var <- 100 * (1 - full_oob.mse/ var(SO4$logSO4, na.rm = TRUE))
 print(full_per.var)
 
-range_TSS <- max(exp(TSS$logTSS)) - min(exp(TSS$logTSS))
+range_SO4 <- max(exp(SO4$logSO4)) - min(exp(SO4$logSO4))
 
 #In-bag RMSE
-full_rmse<- rmse(exp(full$predicted), exp(TSS$logTSS))
-full_rmse.scaled <- full_rmse/range_TSS
+full_rmse<- rmse(exp(full$predicted), exp(SO4$logSO4))
+full_rmse.scaled <- full_rmse/range_SO4
 print(paste0('In-bag RMSE = ' , round(full_rmse,2), " (μS/cm)"))
 print(paste0('Scaled In-bag RMSE = ' , round(full_rmse.scaled*100,2), "%"))
 
 #OOB RMSE
-full_oob.rmse<- rmse(exp(full$predicted.oob), exp(TSS$logTSS))
-full_oob.rmse.scaled <- full_oob.rmse/range_TSS
+full_oob.rmse<- rmse(exp(full$predicted.oob), exp(SO4$logSO4))
+full_oob.rmse.scaled <- full_oob.rmse/range_SO4
 print(paste0('OOB RMSE = ' , round(full_oob.rmse,2), " (μS/cm)"))
 print(paste0('Scaled OOB RMSE = ' , round(full_oob.rmse.scaled*100,2), "%"))
 
@@ -450,13 +446,13 @@ print(paste0('Scaled OOB RMSE = ' , round(full_oob.rmse.scaled*100,2), "%"))
 plot(full, plots.one.page=FALSE)
 full_vimp <- sort(full$importance, decreasing = TRUE)[1:20]
 par(mar=c(5,8.5,4,1)+.1)
-barplot(full_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = "TSS Full model VIMP")
+barplot(full_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = "SO4 Full model VIMP")
 
 #print(vimp(full)$importance)
 
 # Make a df for plots
-full_pred.oob <- data.frame(obs = TSS$logTSS, pred = full$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
-full_pred.ib <- data.frame(obs =TSS$logTSS, pred = full$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
+full_pred.oob <- data.frame(obs = SO4$logSO4, pred = full$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
+full_pred.ib <- data.frame(obs =SO4$logSO4, pred = full$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
 full_plotdf <- rbind(full_pred.oob, full_pred.ib) %>% 
   mutate(obs = exp(obs)) %>% 
   mutate(pred = exp(pred)) %>% 
@@ -465,7 +461,7 @@ full_plotdf <- rbind(full_pred.oob, full_pred.ib) %>%
 # Plot
 ggplot(data = full_plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
   geom_point(alpha = 0.75) +
-  labs(title = "TSS Full Model",
+  labs(title = "SO4 Full Model",
        x = "Predicted values (mg/L)",
        y = "Observed values (mg/L)") +
   theme_bw() + 
@@ -473,34 +469,34 @@ ggplot(data = full_plotdf, aes(x = pred, y = obs, color = predictions, shape = p
   geom_smooth(method = "lm", se = FALSE) +
   scale_x_log10() +
   scale_y_log10() +
-  annotate("text", x = 0.8, y = 80, label = paste0('OOB RMSE = ' , round(full_oob.rmse,2), ' | scaled RMSE = ', round(full_oob.rmse.scaled*100,2), "%"), size = 3) +
-    annotate("text", x = 0.8, y = 100, label = paste0('IB RMSE = ' , round(full_rmse,2), ' | scaled RMSE = ', round(full_rmse.scaled*100,2), "%"), size = 3) +
-      annotate("text", x = 0.8, y = 125, label = paste0('% variance explained = ' , round(full_per.var,2), '%'), size = 3) 
+  annotate("text", x = 0.6, y = 75, label = paste0('OOB RMSE = ' , round(full_oob.rmse,2), ' | scaled RMSE = ', round(full_oob.rmse.scaled*100,2), "%"), size = 3) +
+    annotate("text", x = 0.6, y = 100, label = paste0('IB RMSE = ' , round(full_rmse,2), ' | scaled RMSE = ', round(full_rmse.scaled*100,2), "%"), size = 3) +
+      annotate("text", x = 0.6, y = 130, label = paste0('% variance explained = ' , round(full_per.var,2), '%'), size = 3) 
 ```
 
 #### Leaflet map of full model
 
 ```{r}
 # CREATE DF FOR MAPPING PURPOSES
-# Need to join predictions to AWQMS columns, but there are no unique identifiers in the TSS table. Predictions will be in the same order as the TSS table initially.
+# Need to join predictions to AWQMS columns, but there are no unique identifiers in the SO4 table. Predictions will be in the same order as the SO4 table initially.
 
 # Find a StreamCat row that has ALL unique values
-# any(duplicated(TSS$ELEVWS))  # Elevation works.
-# any(duplicated(TSS$PRECIP9120WS))
+# any(duplicated(SO4$ELEVWS))  # Elevation works.
+# any(duplicated(SO4$PRECIP9120WS))
 
 # Join predictions to StreamCat table
-full_obs.predict <- cbind(full_plotdf, TSS) %>% 
+full_obs.predict <- cbind(full_plotdf, SO4) %>% 
   filter(predictions == "OOB") %>% 
   arrange(ELEVWS) # Order by unique col
 
-full_awqms <- tss_vars_selected %>% 
+full_awqms <- so4_vars_selected %>% 
   arrange(ELEVWS) %>% # Order by unique col
-  select(MLocID:logTSS) 
+  select(MLocID:logSO4) 
 
-# Join pred with awqms table, and makes sure the TSS results match (Make sure logTSS column is the same as logTSS.1)
+# Join pred with awqms table, and makes sure the SO4 results match (Make sure logSO4 column is the same as logSO4.1)
 full_map <- cbind(full_obs.predict,full_awqms)
 
-# Then select to remove duplicate logTSS column and reorder.
+# Then select to remove duplicate logSO4 column and reorder.
 full_map <- full_map %>% 
   select(obs:COMID) %>% 
   relocate(MLocID:COMID, .before = obs)
@@ -519,7 +515,7 @@ map_function <- function(data) {
                                   "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
-                                  "<strong>", "Observed TSS: ", "</strong>", data$obs))  %>% 
+                                  "<strong>", "Observed SO4: ", "</strong>", data$obs))  %>% 
       addCircleMarkers(data = data, group = "Predicted",lng = ~data$Long_DD, 
                      lat = ~data$Lat_DD, fillColor = pal2(data$pred), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
@@ -528,7 +524,7 @@ map_function <- function(data) {
                                   "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
-                                  "<strong>", "Predicted TSS: ", "</strong>", data$pred))  %>% 
+                                  "<strong>", "Predicted SO4: ", "</strong>", data$pred))  %>% 
      addCircleMarkers(data = data, group = "Obs-Pred",lng = ~data$Long_DD, 
                      lat = ~data$Lat_DD, fillColor = pal3(data$delta), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
@@ -537,60 +533,63 @@ map_function <- function(data) {
                                   "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
-                                  "<strong>", "Obs - Pred TSS: ", "</strong>", data$delta))  %>% 
+                                  "<strong>", "Obs - Pred SO4: ", "</strong>", data$delta))  %>% 
     addLayersControl(
       baseGroups = c("Basic Map", "Terrain", "Satellite"),
       overlayGroups = c("Observed","Predicted", "Obs-Pred"),
       options = layersControlOptions(collapsed = FALSE)) %>% 
-    addLegend(pal = pal, group = "Observed", values = data$obs, position = "bottomright" , title = "Observed TSS" ) %>% 
-    addLegend(pal = pal2,group = "Predicted",values = data$obs, position = "bottomright" , title = "Predicted TSS" ) %>%  # Keep values=data$obs here (instead of data$pred) to keep the legend colors scales the same between obs and pred.
-        addLegend(pal = pal3, group = "Obs-Pred", values = data$delta, position = "bottomleft" , title = "Obs - Pred TSS" )
+    addLegend(pal = pal, group = "Observed", values = data$obs, position = "bottomright" , title = "Observed SO4" ) %>% 
+    addLegend(pal = pal2,group = "Predicted",values = data$obs, position = "bottomright" , title = "Predicted SO4" ) %>%  # Keep values=data$obs here (instead of data$pred) to keep the legend colors scales the same between obs and pred.
+        addLegend(pal = pal3, group = "Obs-Pred", values = data$delta, position = "bottomleft" , title = "Obs - Pred SO4" )
 }
 
 pal <- colorNumeric(palette = "Greens", 
-  domain = c(0, 170))
+  domain = c(0, 71))
 pal2 <- colorNumeric(palette = "Greens", 
-  domain = c(0, 170))
-pal3 <- colorNumeric(palette = "RdBu", domain = c(-165,165))
+  domain = c(0, 71))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-60,60))
 
 map_function(full_map)
 
 # Save map as html
 # full_model_map <- map_function(full_map)
-# saveWidget(full_model_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//TSS//full_model_map.html", selfcontained = TRUE, title = "Full model")
+# saveWidget(full_model_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//Sulfate//full_model_map.html", selfcontained = TRUE, title = "Full model")
 ```
 
 #### Partial dependence plots for full model
 
 ```{r}
 # Top importance vars
-partialplots <- plot.variable(full, xvar.names = c("PESTIC1997WS", "PCTICE2001WS", "PCTCONIF2001WS", "DAMDENSWS", "PCTBL2001WS", "CLAYWS", "PCTGLACLAKECRSWS", "WETTEDWIDTH"), partial = TRUE, plots.one.page = TRUE)
+par(mar = c(10, 5, 2, 2))
+partialplot_eco <- plot.variable(full, xvar.names = c("L3Eco"), partial = TRUE, las = 2, cex.axis = 0.7, plots.one.page = TRUE)
 
-partialplots2 <- plot.variable(full, xvar.names = c("PCTCROP2001WS", "BFIWS", "WATERINPUTWS", "PCTAGSLPMID2001WS", "PCTEXTRUVOLWS", "NHD_pSLOPE", "RDCRSWS", "STRMPOW_CAT"), partial = TRUE, plots.one.page = TRUE)
+partialplots <- plot.variable(full, xvar.names = c("WETINDEXWS", "PCTCONIF2001WS", "SWS", "PCTCROP2001WS", "PCTEXTRUVOLWS", "CLAYWS", "TMAX9120WS", "NWS"), partial = TRUE, plots.one.page = TRUE)
+
+partialplots2 <- plot.variable(full, xvar.names = c("ROCKNWS", "OMWS", "PCTNONAGINTRODMANAGVEGWS", "MSST2008", "KFFACTWS", "RUNOFFWS", "NANIWS", "BFIWS"), partial = TRUE, plots.one.page = TRUE)
 
 # Human-influenced vars
-partialplots_hi <- plot.variable(full, xvar.names = c("PESTIC1997WS", "DAMDENSWS","PCTCROP2001WS","WATERINPUTWS", "PCTAGSLPMID2001WS","RDCRSWS"), partial = TRUE, plots.one.page = TRUE)
+partialplots_hi <- plot.variable(full, xvar.names = c("PCTCROP2001WS", "PCTNONAGINTRODMANAGVEGWS", "NANIWS"), partial = TRUE, plots.one.page = TRUE)
 
 #******************consider adding code to look at individual metrics
 ```
 
 #### Another way to do partial plots (slower but more customizable)
 ```{r}
-partial.obj <- partial(full, partial.xvar = "PESTIC1997WS", partial.values = full$xvar$PESTIC1997WS)
+partial.obj <- partial(full, partial.xvar = "WETINDEXWS", partial.values = full$xvar$WETINDEXWS)
 pdta <- get.partial.plot.data(partial.obj)
-plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "PESTIC1997WS", ylab = "ŷ")
-
-partial.obj <- partial(full, partial.xvar = "PCTICE2001WS", partial.values = full$xvar$PCTICE2001WS)
-pdta <- get.partial.plot.data(partial.obj)
-plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "PCTICE2001WS", ylab = "ŷ")
+plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "WETINDEXWS", ylab = "ŷ")
 
 partial.obj <- partial(full, partial.xvar = "PCTCONIF2001WS", partial.values = full$xvar$PCTCONIF2001WS)
 pdta <- get.partial.plot.data(partial.obj)
 plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "PCTCONIF2001WS", ylab = "ŷ")
 
-partial.obj <- partial(full, partial.xvar = "DAMDENSWS", partial.values = full$xvar$DAMDENSWS)
+partial.obj <- partial(full, partial.xvar = "SWS", partial.values = full$xvar$SWS)
 pdta <- get.partial.plot.data(partial.obj)
-plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "DAMDENSWS", ylab = "ŷ")
+plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "SWS", ylab = "ŷ")
+
+partial.obj <- partial(full, partial.xvar = "PCTCROP2001WS", partial.values = full$xvar$PCTCROP2001WS)
+pdta <- get.partial.plot.data(partial.obj)
+plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "PCTCROP2001WS", ylab = "ŷ")
 
 ```
 
@@ -602,15 +601,15 @@ map_predictors <- function(data) {
   addProviderTiles(providers$Esri.WorldTopoMap, group = "Terrain") %>%
   addProviderTiles(providers$Esri.WorldImagery, group = "Satellite") %>%
   setView(lng = -120.5583, lat =44.0671, zoom =6.4) %>%
-  addCircleMarkers(data = data, group = "PCTICE2001WS", lng = ~data$Long_DD, 
-                     lat = ~data$Lat_DD, fillColor = pal(data$PCTICE2001WS), stroke = TRUE,
+  addCircleMarkers(data = data, group = "WETINDEXWS", lng = ~data$Long_DD, 
+                     lat = ~data$Lat_DD, fillColor = pal(data$WETINDEXWS), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
                    popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
                                   "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
                                   "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
-                                  "<strong>", "PCTICE2001WS: ", "</strong>", data$PCTICE2001WS))  %>% 
+                                  "<strong>", "WETINDEXWS: ", "</strong>", data$WETINDEXWS))  %>% 
       addCircleMarkers(data = data, group = "PCTCONIF2001WS",lng = ~data$Long_DD, 
                      lat = ~data$Lat_DD, fillColor = pal2(data$PCTCONIF2001WS), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
@@ -620,68 +619,68 @@ map_predictors <- function(data) {
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
                                   "<strong>", "PCTCONIF2001WS: ", "</strong>", data$PCTCONIF2001WS))  %>% 
-     addCircleMarkers(data = data, group = "PESTIC1997WS",lng = ~data$Long_DD, 
-                     lat = ~data$Lat_DD, fillColor = pal3(data$PESTIC1997WS), stroke = TRUE,
+     addCircleMarkers(data = data, group = "SWS",lng = ~data$Long_DD, 
+                     lat = ~data$Lat_DD, fillColor = pal3(data$SWS), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
                    popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
                                   "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
                                   "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
-                                  "<strong>", "PESTIC1997WS: ", "</strong>", data$PESTIC1997WS))  %>% 
-     addCircleMarkers(data = data, group = "DAMDENSWS",lng = ~data$Long_DD, 
-                     lat = ~data$Lat_DD, fillColor = pal4(data$DAMDENSWS), stroke = TRUE,
+                                  "<strong>", "SWS: ", "</strong>", data$SWS))  %>% 
+     addCircleMarkers(data = data, group = "PCTCROP2001WS",lng = ~data$Long_DD, 
+                     lat = ~data$Lat_DD, fillColor = pal4(data$PCTCROP2001WS), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
                    popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
                                   "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
                                   "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
-                                  "<strong>", "DAMDENSWS: ", "</strong>", data$DAMDENSWS))  %>% 
-     addCircleMarkers(data = data, group = "PCTBL2001WS",lng = ~data$Long_DD, 
-                     lat = ~data$Lat_DD, fillColor = pal5(data$PCTBL2001WS), stroke = TRUE,
+                                  "<strong>", "PCTCROP2001WS: ", "</strong>", data$PCTCROP2001WS))  %>% 
+     addCircleMarkers(data = data, group = "PCTEXTRUVOLWS",lng = ~data$Long_DD, 
+                     lat = ~data$Lat_DD, fillColor = pal5(data$PCTEXTRUVOLWS), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
                    popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
                                   "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
                                   "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
-                                  "<strong>", "PCTBL2001WS: ", "</strong>", data$PCTBL2001WS))  %>% 
-    hideGroup(c("PCTCONIF2001WS","PESTIC1997WS", "DAMDENSWS", "PCTBL2001WS")) %>%  # Don't check all layers by default
+                                  "<strong>", "PCTEXTRUVOLWS: ", "</strong>", data$PCTEXTRUVOLWS))  %>% 
+    hideGroup(c("PCTCONIF2001WS","SWS", "PCTCROP2001WS", "PCTEXTRUVOLWS")) %>%  # Don't check all layers by default
     addLayersControl(
       baseGroups = c("Basic Map", "Terrain", "Satellite"),
-      overlayGroups = c("PCTICE2001WS", "PCTCONIF2001WS","PESTIC1997WS", "DAMDENSWS", "PCTBL2001WS"),
+      overlayGroups = c("WETINDEXWS", "PCTCONIF2001WS","SWS", "PCTCROP2001WS", "PCTEXTRUVOLWS"),
       options = layersControlOptions(collapsed = FALSE)) %>% 
-    addLegend(pal = pal, group = "PCTICE2001WS", values = data$PCTICE2001WS, position = "bottomright" , title = "PCTICE2001WS" ) %>% 
+    addLegend(pal = pal, group = "WETINDEXWS", values = data$WETINDEXWS, position = "bottomright" , title = "WETINDEXWS" ) %>% 
     addLegend(pal = pal2,group = "PCTCONIF2001WS",values = data$PCTCONIF2001WS, position = "bottomright" , title = "PCTCONIF2001WS" ) %>%  
-    addLegend(pal = pal3, group = "PESTIC1997WS", values = data$PESTIC1997WS, position = "bottomleft" , title = "PESTIC1997WS" ) %>% 
-    addLegend(pal = pal4, group = "DAMDENSWS", values = data$DAMDENSWS, position = "bottomleft" , title = "DAMDENSWS" ) %>% 
-    addLegend(pal = pal5, group = "PCTBL2001WS", values = data$PCTBL2001WS, position = "bottomleft" , title = "PCTBL2001WS" )
+    addLegend(pal = pal3, group = "SWS", values = data$SWS, position = "bottomleft" , title = "SWS" ) %>% 
+    addLegend(pal = pal4, group = "PCTCROP2001WS", values = data$PCTCROP2001WS, position = "bottomleft" , title = "PCTCROP2001WS" ) %>% 
+    addLegend(pal = pal5, group = "PCTEXTRUVOLWS", values = data$PCTEXTRUVOLWS, position = "bottomleft" , title = "PCTEXTRUVOLWS" )
 }
 
 pal <- colorNumeric(palette = "Blues", 
-  domain = c(0,14))
+  domain = c(525,1020))
 pal2 <- colorNumeric(palette = "Greens", 
   domain = c(0, 100))
 pal3 <- colorNumeric(palette = "Reds", 
-                     domain = c(0,4300))
+                     domain = c(0,0.7))
 pal4 <- colorNumeric(palette = "Oranges", 
-  domain = c(0,0.6))
+  domain = c(0,75))
 pal5 <- colorNumeric(palette = "Greys", 
-  domain = c(0,68))
+  domain = c(0,100))
 
 map_predictors(full_map)
 
 # Save map as html
 # predictors_map <- map_predictors(full_map)
-# saveWidget(predictors_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//TSS//predictors_map.html", selfcontained = TRUE, title = "Predictors map")
+# saveWidget(predictors_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//Sulfate//predictors_map.html", selfcontained = TRUE, title = "Predictors map")
 ```
 
 #### Residual plots
 ```{r}
 # Plot residuals 
-full_resid <- exp(TSS$logTSS) - exp(full_pred.oob$pred) # Observed minus predicted oob
-plot(full_resid ~ exp(full_pred.oob$pred), xlab = "Predicted TSS (mg/L)", ylab = "Residuals", main = "Full Model residuals")
+full_resid <- exp(SO4$logSO4) - exp(full_pred.oob$pred) # Observed minus predicted oob
+plot(full_resid ~ exp(full_pred.oob$pred), xlab = "Predicted SO4 (mg/L)", ylab = "Residuals", main = "Full Model residuals")
 abline(h=0, col = "red", lty = 2)
 
 # Resids by lat and long
@@ -692,7 +691,7 @@ ggplot(data=full_map, aes(x = Long_DD, y = delta)) + geom_point() + geom_smooth(
   labs(x = "Longitude", y = "Obs - Pred") 
 
 # MSE by lat and long
-mse <- (exp(TSS$logTSS) - exp(full_pred.oob$pred))^2
+mse <- (exp(SO4$logSO4) - exp(full_pred.oob$pred))^2
 plot(mse ~ full_map$Lat_DD, xlab = "Latitude", ylab = "MSE")
 plot(mse ~ full_map$Long_DD, xlab = "Longitude", ylab = "MSE")
 ```
@@ -701,24 +700,24 @@ plot(mse ~ full_map$Long_DD, xlab = "Longitude", ylab = "MSE")
 
 ```{r}
 # Reduce all human-influenced vars to all 0s.
-TSS_no.hi <- TSS %>% 
-  mutate(across(all_of(c("CANALDENSWS", "DAMDENSWS", "MINEDENSWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTAGSLPMID2001WS", "PCTCROP2001WS", "PCTIMP2001WS", "PCTFRSTLOSS2002WS", "PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "SW_FLUXWS", "TRIDENSWS", "WATERINPUTWS", "WWTPMAJORDENSWS", "WWTPALLDENSWS")), ~0))
+SO4_no.hi <- SO4 %>% 
+  mutate(across(all_of(c("CANALDENSWS", "DAMDENSWS", "FERTWS", "MINEDENSWS", "NANIWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTAGSLPMID2001WS", "PCTCROP2001WS", "PCTIMP2001WS", "PCTFRSTLOSS2002WS", "PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "TRIDENSWS", "WWTPMAJORDENSWS", "WWTPALLDENSWS")), ~0))
 
 # Make predictions with adjusted human-influence to 0 
-full_no.hi <- predict(full, newdata= TSS_no.hi, seed = 24)
+full_no.hi <- predict(full, newdata= SO4_no.hi, seed = 24)
 
 # Mean squared error (untransformed)
 full_mse_no.hi <- tail(full_no.hi$err.rate,1)
-full_per.var_no.hi <- 100 * (1 - full_mse_no.hi/ var(TSS_no.hi$logTSS, na.rm = TRUE))
+full_per.var_no.hi <- 100 * (1 - full_mse_no.hi/ var(SO4_no.hi$logSO4, na.rm = TRUE))
 
 # RMSE
-full_rmse_no.hi<- rmse(exp(full_no.hi$predicted), exp(TSS_no.hi$logTSS))
-full_rmse.scaled_no.hi <- full_rmse_no.hi/range_TSS
+full_rmse_no.hi<- rmse(exp(full_no.hi$predicted), exp(SO4_no.hi$logSO4))
+full_rmse.scaled_no.hi <- full_rmse_no.hi/range_SO4
 print(paste0('OOB RMSE = ' , round(full_rmse_no.hi,2), " (μS/cm)"))
 print(paste0('Scaled OOB RMSE = ' , round(full_rmse.scaled_no.hi*100,2), "%"))
 
 # Make a df for plots
-full_plotdf_no.hi <- data.frame(obs = TSS_no.hi$logTSS, pred = full_no.hi$predicted) %>% 
+full_plotdf_no.hi <- data.frame(obs = SO4_no.hi$logSO4, pred = full_no.hi$predicted) %>% 
   mutate(obs = exp(obs)) %>% 
   mutate(pred = exp(pred)) %>% 
   mutate(delta = obs - pred)
@@ -726,18 +725,18 @@ full_plotdf_no.hi <- data.frame(obs = TSS_no.hi$logTSS, pred = full_no.hi$predic
 # Plot
 ggplot(data = full_plotdf_no.hi, aes(x = pred, y = obs)) +
   geom_point(alpha = 0.75) +
-  labs(title = "TSS Full Model predictions without human influenced vars",
+  labs(title = "SO4 Full Model predictions without human influenced vars",
        x = "Predicted values (mg/L)",
        y = "Observed values (mg/L)") +
   theme_bw() + 
   geom_abline() + 
   scale_x_log10() +
   scale_y_log10() +
-  annotate("text", x =0.9, y = 100, label = paste0('OOB RMSE = ' , round(full_rmse_no.hi,2), ' | scaled RMSE = ', round(full_rmse.scaled_no.hi*100,2), "%"), size = 3)
+  annotate("text", x =0.6, y = 40, label = paste0('OOB RMSE = ' , round(full_rmse_no.hi,2), ' | scaled RMSE = ', round(full_rmse.scaled_no.hi*100,2), "%"), size = 3)
 
 # Plot residuals - full model, adjusted human-influenced vars to 0
-full_resid_no.hi <- exp(TSS_no.hi$logTSS) - exp(full_no.hi$predicted) # Observed minus predicted oob
-plot(full_resid_no.hi ~ exp(full_no.hi$predicted), xlab = "Predicted TSS (mg/L)", ylab = "Residuals (obs - pred)", main = "full model residuals, no HI vars")
+full_resid_no.hi <- exp(SO4_no.hi$logSO4) - exp(full_no.hi$predicted) # Observed minus predicted oob
+plot(full_resid_no.hi ~ exp(full_no.hi$predicted), xlab = "Predicted SO4 (mg/L)", ylab = "Residuals (obs - pred)", main = "full model residuals, no HI vars")
 abline(h=0, col = "red", lty = 2)
 ```
 
@@ -745,80 +744,88 @@ abline(h=0, col = "red", lty = 2)
 
 ```{r}
 # CREATE DF FOR MAPPING PURPOSES to explore how residuals changed on the map after scaling all HI to zero
-# Need to join predictions to AWQMS columns, but there are no unique identifiers in the TSS table. Predictions will be in the same order as the TSS table initially.
+# Need to join predictions to AWQMS columns, but there are no unique identifiers in the SO4 table. Predictions will be in the same order as the SO4 table initially.
 
 # Join predictions to cal_val table
-full_obs.predict_no.hi <- cbind(full_plotdf_no.hi, TSS_no.hi) %>% 
+full_obs.predict_no.hi <- cbind(full_plotdf_no.hi, SO4_no.hi) %>% 
   arrange(ELEVWS) # Use unique col
 
-# Join TSS.obs_predict_no.hi with TSS.awqms, and makes sure the results match.
+# Join SO4.obs_predict_no.hi with SO4.awqms, and makes sure the results match.
 full_map_no.hi <- cbind(full_awqms,full_obs.predict_no.hi)
 
-# Then select to remove duplicate logTSS column and reorder.
+# Then select to remove duplicate logSO4 column and reorder.
 full_map_no.hi <- full_map_no.hi %>% 
   select(MLocID:delta, BFIWS:L3Eco)
 
 pal <- colorNumeric(palette = "Purples", 
-  domain = c(0, 175))
+  domain = c(0, 75))
 pal2 <- colorNumeric(palette = "Purples", 
-  domain = c(0, 175))
-pal3 <- colorNumeric(palette = "RdBu", domain = c(-170,170))
+  domain = c(0, 75))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-65,65))
 
 map_function(full_map_no.hi)
 
 # Save map as html
 # full_model_map_no_hi <- map_function(full_map_no.hi)
-# saveWidget(full_model_map_no_hi, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//TSS//full_model_map_no_hi.html", selfcontained = TRUE, title = "Full model Adjusted (no human-influenced vars)")
+# saveWidget(full_model_map_no_hi, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//Sulfate//full_model_map_no_hi.html", selfcontained = TRUE, title = "Full model Adjusted (no human-influenced vars)")
 ```
 
 ## C. Model Reduction
 
-#### Build model with Top 11 predictors
+#### Model tuning - mtry and node size (number of trees happens in next step)
 
 ```{r}
-red11 <- rfsrc(logTSS ~ PESTIC1997WS + PCTICE2001WS + PCTCONIF2001WS + PCTBL2001WS + DAMDENSWS + CLAYWS + PCTGLACLAKECRSWS + PCTCROP2001WS + WATERINPUTWS + WETTEDWIDTH + PCTAGSLPMID2001WS, data = TSS, mtry = 30, nodesize = 1, importance = "TRUE", seed = 24)
-red11 # Model output. (OOB) R squared = Percent Variance Explained.
+#Adjust the parameters below based on tuning (nodesize = 2; mtry = 7)
+tuning_red12 <- tune(logSO4~L3Eco + WETINDEXWS + PCTCONIF2001WS + SWS + PCTCROP2001WS + PCTEXTRUVOLWS + CLAYWS + TMAX9120WS + NWS + ROCKNWS + OMWS + PCTNONAGINTRODMANAGVEGWS, SO4, seed = 1234)
+tuning_red12$optimal
+```
+
+#### Build model with Top 12 predictors
+
+```{r}
+red12 <- rfsrc(logSO4 ~ L3Eco + WETINDEXWS + PCTCONIF2001WS + SWS + PCTCROP2001WS + PCTEXTRUVOLWS + CLAYWS + TMAX9120WS + NWS + ROCKNWS + OMWS + PCTNONAGINTRODMANAGVEGWS, data = SO4, mtry = 7, nodesize = 2, importance = "TRUE", seed = 24)
+red12 # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (untransformed)
-red11_oob.mse <- tail(red11$err.rate,1)
-red11_per.var <- 100 * (1 - red11_oob.mse/ var(TSS$logTSS, na.rm = TRUE))
-print(red11_per.var)
+red12_oob.mse <- tail(red12$err.rate,1)
+red12_per.var <- 100 * (1 - red12_oob.mse/ var(SO4$logSO4, na.rm = TRUE))
+print(red12_per.var)
 
 #In-bag RMSE
-red11_rmse<- rmse(exp(red11$predicted), exp(TSS$logTSS))
-red11_rmse.scaled <- red11_rmse/range_TSS
-print(paste0('In-bag RMSE = ' , round(red11_rmse,2), " (μS/cm)"))
-print(paste0('Scaled In-bag RMSE = ' , round(red11_rmse.scaled*100,2), "%"))
+red12_rmse<- rmse(exp(red12$predicted), exp(SO4$logSO4))
+red12_rmse.scaled <- red12_rmse/range_SO4
+print(paste0('In-bag RMSE = ' , round(red12_rmse,2), " (μS/cm)"))
+print(paste0('Scaled In-bag RMSE = ' , round(red12_rmse.scaled*100,2), "%"))
 
 #OOB RMSE
-red11_oob.rmse<- rmse(exp(red11$predicted.oob), exp(TSS$logTSS))
-red11_oob.rmse.scaled <- red11_oob.rmse/range_TSS
-print(paste0('OOB RMSE = ' , round(red11_oob.rmse,2), " (μS/cm)"))
-print(paste0('Scaled OOB RMSE = ' , round(red11_oob.rmse.scaled*100,2), "%"))
+red12_oob.rmse<- rmse(exp(red12$predicted.oob), exp(SO4$logSO4))
+red12_oob.rmse.scaled <- red12_oob.rmse/range_SO4
+print(paste0('OOB RMSE = ' , round(red12_oob.rmse,2), " (μS/cm)"))
+print(paste0('Scaled OOB RMSE = ' , round(red12_oob.rmse.scaled*100,2), "%"))
 
 # Model tuning - How many trees? (default: 500)
-red11$err.rate
+red12$err.rate
 
 # VIP
-plot(red11, plots.one.page=FALSE)
-red11_vimp <- sort(red11$importance, decreasing = TRUE)[1:20]
+plot(red12, plots.one.page=FALSE)
+red12_vimp <- sort(red12$importance, decreasing = TRUE)[1:20]
 par(mar=c(5,7,4,1)+.1)
-barplot(red11_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = "TSS Reduced (11 variables) model VIMP")
+barplot(red12_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = "SO4 Reduced (12 variables) model VIMP")
 
-#print(vimp(red11)$importance)
+#print(vimp(red12)$importance)
 
 # Make a df for plots
-red11_pred.oob <- data.frame(obs = TSS$logTSS, pred = red11$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
-red11_pred.ib <- data.frame(obs =TSS$logTSS, pred = red11$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
-red11_plotdf <- rbind(red11_pred.oob, red11_pred.ib) %>% 
+red12_pred.oob <- data.frame(obs = SO4$logSO4, pred = red12$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
+red12_pred.ib <- data.frame(obs =SO4$logSO4, pred = red12$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
+red12_plotdf <- rbind(red12_pred.oob, red12_pred.ib) %>% 
   mutate(obs = exp(obs)) %>% 
   mutate(pred = exp(pred)) %>% 
   mutate(delta = obs - pred)
 
 # Plot
-ggplot(data = red11_plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
+ggplot(data = red12_plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
   geom_point(alpha = 0.75) +
-  labs(title = "TSS Red10 Model",
+  labs(title = "SO4 Red12 Model",
        x = "Predicted values (mg/L)",
        y = "Observed values (mg/L)") +
   theme_bw() + 
@@ -826,69 +833,69 @@ ggplot(data = red11_plotdf, aes(x = pred, y = obs, color = predictions, shape = 
   geom_smooth(method = "lm", se = FALSE) +
   scale_x_log10() +
   scale_y_log10() +
-  annotate("text", x = 0.75, y = 100, label = paste0('OOB RMSE = ' , round(red11_oob.rmse,2), ' | scaled RMSE = ', round(red11_oob.rmse.scaled*100,2), "%"), size = 3) +
-    annotate("text", x = 0.75, y = 120, label = paste0('IB RMSE = ' , round(red11_rmse,2), ' | scaled RMSE = ', round(red11_rmse.scaled*100,2), "%"), size = 3) +
-      annotate("text", x = 0.75, y = 145, label = paste0('% variance explained = ' , round(red11_per.var,2), '%'), size = 3) 
+  annotate("text", x = 0.6, y = 100, label = paste0('OOB RMSE = ' , round(red12_oob.rmse,2), ' | scaled RMSE = ', round(red12_oob.rmse.scaled*100,2), "%"), size = 3) +
+    annotate("text", x = 0.6, y = 130, label = paste0('IB RMSE = ' , round(red12_rmse,2), ' | scaled RMSE = ', round(red12_rmse.scaled*100,2), "%"), size = 3) +
+      annotate("text", x = 0.6, y = 180, label = paste0('% variance explained = ' , round(red12_per.var,2), '%'), size = 3) 
 ```
 
-#### Leaflet map of red11 model
+#### Leaflet map of red12 model
 
 ```{r}
 # CREATE DF FOR MAPPING PURPOSES
-# Need to join predictions to AWQMS columns, but there are no unique identifiers in the TSS table. Predictions will be in the same order as the TSS table initially.
+# Need to join predictions to AWQMS columns, but there are no unique identifiers in the SO4 table. Predictions will be in the same order as the SO4 table initially.
 
 # Find a StreamCat row that has ALL unique values
-# any(duplicated(TSS$ELEVWS))  # Elevation works.
-# any(duplicated(TSS$PRECIP9120WS))
+# any(duplicated(SO4$ELEVWS))  # Elevation works.
+# any(duplicated(SO4$PRECIP9120WS))
 
 # Join predictions to StreamCat table
-red11_obs.predict <- cbind(red11_plotdf, TSS) %>% 
+red12_obs.predict <- cbind(red12_plotdf, SO4) %>% 
   filter(predictions == "OOB") %>% 
   arrange(ELEVWS) # Order by unique col
 
-red11_awqms <- tss_vars_selected %>% 
+red12_awqms <- so4_vars_selected %>% 
   arrange(ELEVWS) %>% # Order by unique col
-  select(MLocID:logTSS) 
+  select(MLocID:logSO4) 
 
-# Join obs.pred with awqms table, and makes sure the TSS results match (Make sure logTSS column is the same as logTSS.1)
-red11_map <- cbind(red11_obs.predict,red11_awqms)
+# Join obs.pred with awqms table, and makes sure the SO4 results match (Make sure logSO4 column is the same as logSO4.1)
+red12_map <- cbind(red12_obs.predict,red12_awqms)
 
-# Then select to remove duplicate logTSS column and reorder.
-red11_map <- red11_map %>% 
+# Then select to remove duplicate logSO4 column and reorder.
+red12_map <- red12_map %>% 
   select(obs:COMID) %>% 
   relocate(MLocID:COMID, .before = obs)
 
 pal <- colorNumeric(palette = "Greens", 
-  domain = c(0, 175))
+  domain = c(0, 75))
 pal2 <- colorNumeric(palette = "Greens", 
-  domain = c(0, 175))
-pal3 <- colorNumeric(palette = "RdBu", domain = c(-165,165))
+  domain = c(0, 075))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-60,60))
 
-map_function(red11_map)
+map_function(red12_map)
 
 # Save map as html
-# red11_model_map <- map_function(red11_map)
-# saveWidget(red11_model_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//TSS//red11_model_map.html", selfcontained = TRUE, title = "red11 model")
+# red12_model_map <- map_function(red12_map)
+# saveWidget(red12_model_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures///Sulfate//red12_model_map.html", selfcontained = TRUE, title = "red12 model")
 ```
 
 #### Overlay reduced and full models
 
 ```{r}
-full_red_map <- left_join(full_map, red11_map %>% select(MLocID, pred), by = "MLocID") %>% 
+full_red_map <- left_join(full_map, red12_map %>% select(MLocID, pred), by = "MLocID") %>% 
   mutate(full_pred = pred.x) %>% 
-  mutate(red11_pred = pred.y) %>% 
+  mutate(red12_pred = pred.y) %>% 
   select(-c(pred.x,pred.y)) %>% 
-  relocate(red11_pred, .after = obs) %>% 
+  relocate(red12_pred, .after = obs) %>% 
   relocate(full_pred, .after = obs) %>% 
   select(MLocID:predictions) %>% 
-  gather(key = "Model", value = "Prediction", full_pred, red11_pred)
+  gather(key = "Model", value = "Prediction", full_pred, red12_pred)
 
 ggplot(full_red_map, aes(x = Prediction, y = obs, color = Model)) +
   geom_point(size = 1.5, alpha = 0.5) + theme_bw(base_size = 15) +
   geom_smooth(method = "lm", se = FALSE) +
   labs(
-    x = "Predicted TSS (mg/L)",
-    y = "Observed TSS (mg/L)") + scale_x_log10() + scale_y_log10() +
+    x = "Predicted SO4 (mg/L)",
+    y = "Observed SO4 (mg/L)") + scale_x_log10() + scale_y_log10() +
   geom_abline(intercept = 0, slope = 1, linetype = "dashed")
 ```
 
@@ -896,44 +903,30 @@ ggplot(full_red_map, aes(x = Prediction, y = obs, color = Model)) +
 
 ```{r}
 # Select only the human influenced predictors at reference sites from the reduced model.
-TSS_ref_hi <- full_map %>% 
+SO4_ref_hi <- full_map %>% 
   filter(ReferenceSite == "REFERENCE") %>% 
-  select(c(MLocID:logTSS, PESTIC1997WS, DAMDENSWS, PCTAGSLPMID2001WS, WATERINPUTWS, PCTCROP2001WS))
+  select(c(MLocID:logSO4, NANIWS, PCTNONAGINTRODMANAGVEGWS, PCTCROP2001WS))
 
-# DAMDENSWS
+# NANIWS
 par(mfrow=c(1,2))
-plot.variable(red11, xvar.names = c("DAMDENSWS"), partial = TRUE, plots.one.page = TRUE)
-abline(v=quantile(TSS_ref_hi$DAMDENSWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
-hist(TSS_ref_hi$DAMDENSWS, main = '')
-quantile(TSS_ref_hi$DAMDENSWS, probs = seq(.1, .9, by = .1))
+plot.variable(full, xvar.names = c("NANIWS"), partial = TRUE, plots.one.page = TRUE)
+abline(v=quantile(SO4_ref_hi$NANIWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
+hist(SO4_ref_hi$NANIWS, main = '')
+quantile(SO4_ref_hi$NANIWS, probs = seq(.1, .9, by = .1))
 
-# PESTIC1997WS: Mean pesticide use (kg/km2) in yr. 1997
+# PCTNONAGINTRODMANAGVEGWS
 par(mfrow=c(1,2))
-plot.variable(red11, xvar.names = c("PESTIC1997WS"), partial = TRUE, plots.one.page = TRUE)
-abline(v=quantile(TSS_ref_hi$PESTIC1997WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
-hist(TSS_ref_hi$PESTIC1997WS, main = '')
-quantile(TSS_ref_hi$PESTIC1997WS, probs = seq(.1, .9, by = .1))
-
-# PCTAGSLPMID2001WS
-par(mfrow=c(1,2))
-plot.variable(red11, xvar.names = c("PCTAGSLPMID2001WS"), partial = TRUE, plots.one.page = TRUE)
-abline(v=quantile(TSS_ref_hi$PCTAGSLPMID2001WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
-hist(TSS_ref_hi$PCTAGSLPMID2001WS, main = '')
-quantile(TSS_ref_hi$PCTAGSLPMID2001WS, probs = seq(.1, .9, by = .1))
-
-# WATERINPUTWS
-par(mfrow=c(1,2))
-plot.variable(red11, xvar.names = c("WATERINPUTWS"), partial = TRUE, plots.one.page = TRUE)
-abline(v=quantile(TSS_ref_hi$WATERINPUTWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
-hist(TSS_ref_hi$WATERINPUTWS, main = '')
-quantile(TSS_ref_hi$WATERINPUTWS, probs = seq(.1, .9, by = .1))
+plot.variable(red12, xvar.names = c("PCTNONAGINTRODMANAGVEGWS"), partial = TRUE, plots.one.page = TRUE)
+abline(v=quantile(SO4_ref_hi$PCTNONAGINTRODMANAGVEGWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
+hist(SO4_ref_hi$PCTNONAGINTRODMANAGVEGWS, main = '')
+quantile(SO4_ref_hi$PCTNONAGINTRODMANAGVEGWS, probs = seq(.1, .9, by = .1))
 
 # PCTCROP2001WS
 par(mfrow=c(1,2))
-plot.variable(red11, xvar.names = c("PCTCROP2001WS"), partial = TRUE, plots.one.page = TRUE)
-abline(v=quantile(TSS_ref_hi$PCTCROP2001WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
-hist(TSS_ref_hi$PCTCROP2001WS, main = '')
-quantile(TSS_ref_hi$PCTCROP2001WS, probs = seq(.1, .9, by = .1))
+plot.variable(red12, xvar.names = c("PCTCROP2001WS"), partial = TRUE, plots.one.page = TRUE)
+abline(v=quantile(SO4_ref_hi$PCTCROP2001WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
+hist(SO4_ref_hi$PCTCROP2001WS, main = '')
+quantile(SO4_ref_hi$PCTCROP2001WS, probs = seq(.1, .9, by = .1))
 ```
 
 #### Reduce all human-influenced variables [to 0]* and make predictions using reduced model.
@@ -941,39 +934,39 @@ quantile(TSS_ref_hi$PCTCROP2001WS, probs = seq(.1, .9, by = .1))
 
 ```{r}
 # Make predictions with adjusted human-influence to 0 
-red11_no.hi <- predict(red11, newdata= TSS_no.hi, seed = 24)
+red12_no.hi <- predict(red12, newdata= SO4_no.hi, seed = 24)
 
 # Mean squared error (untransformed)
-red11_mse_no.hi <- tail(red11_no.hi$err.rate,1)
-red11_per.var_no.hi <- 100 * (1 - red11_mse_no.hi/ var(TSS_no.hi$logTSS, na.rm = TRUE))
+red12_mse_no.hi <- tail(red12_no.hi$err.rate,1)
+red12_per.var_no.hi <- 100 * (1 - red12_mse_no.hi/ var(SO4_no.hi$logSO4, na.rm = TRUE))
 
 # RMSE
-red11_rmse_no.hi<- rmse(exp(red11_no.hi$predicted), exp(TSS_no.hi$logTSS))
-red11_rmse.scaled_no.hi <- red11_rmse_no.hi/range_TSS
-print(paste0('OOB RMSE = ' , round(red11_rmse_no.hi,2), " (μS/cm)"))
-print(paste0('Scaled OOB RMSE = ' , round(red11_rmse.scaled_no.hi*100,2), "%"))
+red12_rmse_no.hi<- rmse(exp(red12_no.hi$predicted), exp(SO4_no.hi$logSO4))
+red12_rmse.scaled_no.hi <- red12_rmse_no.hi/range_SO4
+print(paste0('OOB RMSE = ' , round(red12_rmse_no.hi,2), " (μS/cm)"))
+print(paste0('Scaled OOB RMSE = ' , round(red12_rmse.scaled_no.hi*100,2), "%"))
 
 # Make a df for plots
-red11_plotdf_no.hi <- data.frame(obs = TSS_no.hi$logTSS, pred = red11_no.hi$predicted) %>% 
+red12_plotdf_no.hi <- data.frame(obs = SO4_no.hi$logSO4, pred = red12_no.hi$predicted) %>% 
   mutate(obs = exp(obs)) %>% 
   mutate(pred = exp(pred)) %>% 
   mutate(delta = obs - pred)
 
 # Plot
-ggplot(data = red11_plotdf_no.hi, aes(x = pred, y = obs)) +
+ggplot(data = red12_plotdf_no.hi, aes(x = pred, y = obs)) +
   geom_point(alpha = 0.75) +
-  labs(title = "TSS Red11 Model predictions without human influenced vars",
+  labs(title = "SO4 Red12 Model predictions without human influenced vars",
        x = "Predicted values (mg/L)",
        y = "Observed values (mg/L)") +
   theme_bw() + 
   geom_abline() + 
   scale_x_log10() +
   scale_y_log10() +
-  annotate("text", x = 0.6, y = 90, label = paste0('OOB RMSE = ' , round(red11_rmse_no.hi,2), ' | scaled RMSE = ', round(red11_rmse.scaled_no.hi*100,2), "%"), size = 3)
+  annotate("text", x = 0.6, y = 90, label = paste0('OOB RMSE = ' , round(red12_rmse_no.hi,2), ' | scaled RMSE = ', round(red12_rmse.scaled_no.hi*100,2), "%"), size = 3)
 
-# Plot residuals - red11 model, adjusted human-influenced vars to 0
-red11_resid_no.hi <- exp(TSS_no.hi$logTSS) - exp(red11_no.hi$predicted) # Observed minus predicted oob
-plot(red11_resid_no.hi ~ exp(red11_no.hi$predicted), xlab = "Predicted TSS (mg/L)", ylab = "Residuals (obs - pred)", main = "Red10 model residuals, no HI vars")
+# Plot residuals - red12 model, adjusted human-influenced vars to 0
+red12_resid_no.hi <- exp(SO4_no.hi$logSO4) - exp(red12_no.hi$predicted) # Observed minus predicted oob
+plot(red12_resid_no.hi ~ exp(red12_no.hi$predicted), xlab = "Predicted SO4 (mg/L)", ylab = "Residuals (obs - pred)", main = "Red10 model residuals, no HI vars")
 abline(h=0, col = "red", lty = 2)
 ```
 
@@ -981,65 +974,60 @@ abline(h=0, col = "red", lty = 2)
 
 ```{r}
 # CREATE DF FOR MAPPING PURPOSES to explore how residuals changed on the map after scaling all HI to zero
-# Need to join predictions to AWQMS columns, but there are no unique identifiers in the TSS table. Predictions will be in the same order as the TSS table initially.
+# Need to join predictions to AWQMS columns, but there are no unique identifiers in the SO4 table. Predictions will be in the same order as the SO4 table initially.
 
 # Join predictions to cal_val table
-red11_obs.predict_no.hi <- cbind(red11_plotdf_no.hi, TSS_no.hi) %>% 
+red12_obs.predict_no.hi <- cbind(red12_plotdf_no.hi, SO4_no.hi) %>% 
   arrange(ELEVWS) # Use unique col
 
-# Join TSS.obs_predict_no.hi with TSS.awqms, and makes sure the results match.
-red11_map_no.hi <- cbind(full_awqms,red11_obs.predict_no.hi)
+# Join SO4.obs_predict_no.hi with SO4.awqms, and makes sure the results match.
+red12_map_no.hi <- cbind(full_awqms,red12_obs.predict_no.hi)
 
-# Then select to remove duplicate logTSS column and reorder.
-red11_map_no.hi <- red11_map_no.hi %>% 
+# Then select to remove duplicate logSO4 column and reorder.
+red12_map_no.hi <- red12_map_no.hi %>% 
   select(MLocID:delta, BFIWS:L3Eco)
 
 pal <- colorNumeric(palette = "Purples", 
-  domain = c(0, 0.7))
+  domain = c(0, 75))
 pal2 <- colorNumeric(palette = "Purples", 
-  domain = c(0, 0.7))
-pal3 <- colorNumeric(palette = "RdBu", domain = c(-0.7,0.7))
+  domain = c(0, 75))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-66,66))
 
-map_function(red11_map_no.hi)
+map_function(red12_map_no.hi)
 
 # Save map as html
-# red11_model_map_no.hi <- map_function(red11_map_no.hi)
-# saveWidget(red11_model_map_no.hi, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//TSS//red11_model_map_no.hi.html", selfcontained = TRUE, title = "Full model Adjusted (no human-influenced vars)")
+# red12_model_map_no.hi <- map_function(red12_map_no.hi)
+# saveWidget(red12_model_map_no.hi, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//Sulfate//red12_model_map_no.hi.html", selfcontained = TRUE, title = "Full model Adjusted (no human-influenced vars)")
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 #### Top 4 predictors (not using this one)
 
+#### Model tuning - mtry and node size (number of trees happens in next step)
+
 ```{r}
-red4 <- rfsrc(logTSS ~ PESTIC1997WS + PCTICE2001WS + PCTCONIF2001WS + PCTBL2001WS, data = TSS, mtry = 30, nodesize = 1, importance = "TRUE", seed = 24)
+#Adjust the parameters below based on tuning (nodesize = 3; mtry = 4)
+tuning <- tune(logSO4 ~ L3Eco + WETINDEXWS + PCTCONIF2001WS + SWS, SO4, seed = 1234)
+tuning$optimal
+```
+
+```{r}
+red4 <- rfsrc(logSO4 ~ L3Eco + WETINDEXWS + PCTCONIF2001WS + SWS, data = SO4, mtry = 3, nodesize = 4, importance = "TRUE", seed = 24)
 red4 # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (untransformed)
 red4_oob.mse <- tail(red4$err.rate,1)
-red4_per.var <- 100 * (1 - red4_oob.mse/ var(TSS$logTSS, na.rm = TRUE))
+red4_per.var <- 100 * (1 - red4_oob.mse/ var(SO4$logSO4, na.rm = TRUE))
 print(red4_per.var)
 
 #In-bag RMSE
-red4_rmse<- rmse(exp(red4$predicted), exp(TSS$logTSS))
-red4_rmse.scaled <- red4_rmse/range_TSS
+red4_rmse<- rmse(exp(red4$predicted), exp(SO4$logSO4))
+red4_rmse.scaled <- red4_rmse/range_SO4
 print(paste0('In-bag RMSE = ' , round(red4_rmse,2), " (μS/cm)"))
 print(paste0('Scaled In-bag RMSE = ' , round(red4_rmse.scaled*100,2), "%"))
 
 #OOB RMSE
-red4_oob.rmse<- rmse(exp(red4$predicted.oob), exp(TSS$logTSS))
-red4_oob.rmse.scaled <- red4_oob.rmse/range_TSS
+red4_oob.rmse<- rmse(exp(red4$predicted.oob), exp(SO4$logSO4))
+red4_oob.rmse.scaled <- red4_oob.rmse/range_SO4
 print(paste0('OOB RMSE = ' , round(red4_oob.rmse,2), " (μS/cm)"))
 print(paste0('Scaled OOB RMSE = ' , round(red4_oob.rmse.scaled*100,2), "%"))
 
@@ -1050,13 +1038,13 @@ red4$err.rate
 plot(red4, plots.one.page=FALSE)
 red4_vimp <- sort(red4$importance, decreasing = TRUE)[1:20]
 par(mar=c(5,7,4,1)+.1)
-barplot(red4_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = "TSS Reduced (4 variables) model VIMP")
+barplot(red4_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = "SO4 Reduced (4 variables) model VIMP")
 
 #print(vimp(red4)$importance)
 
 # Make a df for plots
-red4_pred.oob <- data.frame(obs = TSS$logTSS, pred = red4$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
-red4_pred.ib <- data.frame(obs =TSS$logTSS, pred = red4$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
+red4_pred.oob <- data.frame(obs = SO4$logSO4, pred = red4$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
+red4_pred.ib <- data.frame(obs =SO4$logSO4, pred = red4$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
 red4_plotdf <- rbind(red4_pred.oob, red4_pred.ib) %>% 
   mutate(obs = exp(obs)) %>% 
   mutate(pred = exp(pred)) %>% 
@@ -1065,7 +1053,7 @@ red4_plotdf <- rbind(red4_pred.oob, red4_pred.ib) %>%
 # Plot
 ggplot(data = red4_plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
   geom_point(alpha = 0.75) +
-  labs(title = "TSS red4 Model",
+  labs(title = "SO4 red4 Model",
        x = "Predicted values (mg/L)",
        y = "Observed values (mg/L)") +
   theme_bw() + 
@@ -1073,9 +1061,9 @@ ggplot(data = red4_plotdf, aes(x = pred, y = obs, color = predictions, shape = p
   geom_smooth(method = "lm", se = FALSE) +
   scale_x_log10() +
   scale_y_log10() +
-  annotate("text", x = 1, y = 100, label = paste0('OOB RMSE = ' , round(red4_oob.rmse,2), ' | scaled RMSE = ', round(red4_oob.rmse.scaled*100,2), "%"), size = 3) +
-    annotate("text", x = 1, y = 120, label = paste0('IB RMSE = ' , round(red4_rmse,2), ' | scaled RMSE = ', round(red4_rmse.scaled*100,2), "%"), size = 3) +
-      annotate("text", x = 1, y = 145, label = paste0('% variance explained = ' , round(red4_per.var,2), '%'), size = 3) 
+  annotate("text", x = 0.6, y = 100, label = paste0('OOB RMSE = ' , round(red4_oob.rmse,2), ' | scaled RMSE = ', round(red4_oob.rmse.scaled*100,2), "%"), size = 3) +
+    annotate("text", x = 0.6, y = 140, label = paste0('IB RMSE = ' , round(red4_rmse,2), ' | scaled RMSE = ', round(red4_rmse.scaled*100,2), "%"), size = 3) +
+      annotate("text", x = 0.6, y = 190, label = paste0('% variance explained = ' , round(red4_per.var,2), '%'), size = 3) 
 ```
 
 ## E. Reference-Only Model
@@ -1083,46 +1071,45 @@ ggplot(data = red4_plotdf, aes(x = pred, y = obs, color = predictions, shape = p
 #### Subset the data
 
 ```{r}
-TSS.ref <- tss_vars_selected %>% 
+SO4.ref <- so4_vars_selected %>% 
   filter(ReferenceSite=="REFERENCE") %>% 
-  select(-c(MLocID:COMID, TSS, SampleStartDate))  %>%  # Remove AWQMS columns
-  select(-c("CANALDENSWS", "DAMDENSWS", "MINEDENSWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTAGSLPMID2001WS", "PCTCROP2001WS", "PCTIMP2001WS", "PCTFRSTLOSS2002WS", "PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "SW_FLUXWS", "TRIDENSWS", "WATERINPUTWS", "WWTPMAJORDENSWS", "WWTPALLDENSWS")) # Remove anthropogenic StreamCat vars
+  select(-c(MLocID:COMID, Sulfate, SampleStartDate))  %>%  # Remove AWQMS columns
+  select(-c("CANALDENSWS", "DAMDENSWS", "FERTWS", "MINEDENSWS", "NANIWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTAGSLPMID2001WS", "PCTCROP2001WS", "PCTIMP2001WS", "PCTFRSTLOSS2002WS", "PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "TRIDENSWS", "WWTPMAJORDENSWS", "WWTPALLDENSWS")) # Remove anthropogenic StreamCat vars
 
 # Convert character columns to factors
-TSS.ref[sapply(TSS.ref, is.character)] <- lapply(TSS.ref[sapply(TSS.ref, is.character)], as.factor)
+SO4.ref[sapply(SO4.ref, is.character)] <- lapply(SO4.ref[sapply(SO4.ref, is.character)], as.factor)
 ```
 
 #### Model tuning - mtry and node size (number of trees happens in next step)
 
 ```{r}
-#Adjust the parameters below based on tuning (nodesize = 5; mtry = 13)
-tuning <- tune(logTSS~., TSS.ref, seed = 2)
+#Adjust the parameters below based on tuning (nodesize = 1; mtry = 20)
+tuning <- tune(logSO4~., SO4.ref, seed = 2)
 tuning$optimal
-
 ```
 
 #### Build full ref-only model
 
 ```{r}
-ref <- rfsrc(logTSS ~ ., data = TSS.ref, mtry = 13, nodesize = 5, importance = "TRUE", seed = 24)
+ref <- rfsrc(logSO4 ~ ., data = SO4.ref, mtry = 20, nodesize = 1, importance = "TRUE", seed = 24)
 ref # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (untransformed)
 ref_oob.mse <- tail(ref$err.rate,1)
-ref_per.var <- 100 * (1 - ref_oob.mse/ var(TSS.ref$logTSS, na.rm = TRUE))
+ref_per.var <- 100 * (1 - ref_oob.mse/ var(SO4.ref$logSO4, na.rm = TRUE))
 print(ref_per.var)
 
-ref_range_TSS <- max(exp(TSS.ref$logTSS)) - min(exp(TSS.ref$logTSS))
+ref_range_SO4 <- max(exp(SO4.ref$logSO4)) - min(exp(SO4.ref$logSO4))
 
 #In-bag RMSE
-ref.rmse<- rmse(exp(ref$predicted), exp(TSS.ref$logTSS))
-ref_rmse.scaled <- ref.rmse/ref_range_TSS
+ref.rmse<- rmse(exp(ref$predicted), exp(SO4.ref$logSO4))
+ref_rmse.scaled <- ref.rmse/ref_range_SO4
 print(paste0('In-bag RMSE = ' , round(ref.rmse,2), " (μS/cm)"))
 print(paste0('Scaled In-bag RMSE = ' , round(ref_rmse.scaled*100,2), "%"))
 
 #OOB RMSE
-ref_oob.rmse<- rmse(exp(ref$predicted.oob), exp(TSS.ref$logTSS))
-ref_oob.rmse.scaled <- ref_oob.rmse/ref_range_TSS
+ref_oob.rmse<- rmse(exp(ref$predicted.oob), exp(SO4.ref$logSO4))
+ref_oob.rmse.scaled <- ref_oob.rmse/ref_range_SO4
 print(paste0('OOB RMSE = ' , round(ref_oob.rmse,2), " (μS/cm)"))
 print(paste0('Scaled OOB RMSE = ' , round(ref_oob.rmse.scaled*100,2), "%"))
 
@@ -1133,13 +1120,13 @@ ref$err.rate
 plot(ref, plots.one.page=FALSE)
 ref_vimp <- sort(ref$importance, decreasing = TRUE)[1:20]
 par(mar=c(5,7,4,1)+.1)
-barplot(ref_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = "TSS Full Reference-Only Model VIMP")
+barplot(ref_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = "SO4 Full Reference-Only Model VIMP")
 
 #print(vimp(ref)$importance)
 
 # Make a df for plots
-ref_pred.oob <- data.frame(obs = TSS.ref$logTSS, pred = ref$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
-ref_pred.ib <- data.frame(obs =TSS.ref$logTSS, pred = ref$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
+ref_pred.oob <- data.frame(obs = SO4.ref$logSO4, pred = ref$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
+ref_pred.ib <- data.frame(obs =SO4.ref$logSO4, pred = ref$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
 ref_plotdf<- rbind(ref_pred.oob, ref_pred.ib) %>% 
   mutate(obs = exp(obs)) %>% 
   mutate(pred = exp(pred)) %>% 
@@ -1148,7 +1135,7 @@ ref_plotdf<- rbind(ref_pred.oob, ref_pred.ib) %>%
 # Plot
 ggplot(data = ref_plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
   geom_point(alpha = 0.75) +
-  labs(title = "TSS Full Reference-Only Model",
+  labs(title = "SO4 Full Reference-Only Model",
        x = "Predicted values (mg/L)",
        y = "Observed values (mg/L)") +
   theme_bw() + 
@@ -1161,8 +1148,8 @@ ggplot(data = ref_plotdf, aes(x = pred, y = obs, color = predictions, shape = pr
       annotate("text", x = 0.75, y = 25, label = paste0('% variance explained = ' , round(ref_per.var,2), '%'), size = 3) 
 
 # Plot residuals - 
-ref_resid <- exp(TSS.ref$logTSS) - exp(ref$predicted) # Observed minus predicted oob
-plot(ref_resid ~ exp(ref$predicted), xlab = "Predicted TSS (mg/L)", ylab = "Residuals (obs - pred)", main = "Ref only model residuals")
+ref_resid <- exp(SO4.ref$logSO4) - exp(ref$predicted) # Observed minus predicted oob
+plot(ref_resid ~ exp(ref$predicted), xlab = "Predicted SO4 (mg/L)", ylab = "Residuals (obs - pred)", main = "Ref only model residuals")
 abline(h=0, col = "red", lty = 2)
 ```
 
@@ -1170,7 +1157,7 @@ abline(h=0, col = "red", lty = 2)
 
 ```{r}
 # Top importance vars
-partialplots <- plot.variable(ref, xvar.names = c("PCTBL2001WS", "PCTICE2001WS", "SWS", "PCTEXTRUVOLWS", "CLAYWS", "WETTEDWIDTH", "PCTCONIF2001WS", "NHD_pSLOPE"), partial = TRUE, plots.one.page = TRUE)
+partialplots <- plot.variable(ref, xvar.names = c("BFIWS", "PCTGLACTILCRSWS", "WETINDEXWS","ROCKNWS", "NA2OWS", "PCTOW2001WS" ,"KFFACTWS", "CLAYWS"), partial = TRUE, plots.one.page = TRUE)
 
 #******************consider adding code to look at individual metrics
 ```
@@ -1179,41 +1166,41 @@ partialplots <- plot.variable(ref, xvar.names = c("PCTBL2001WS", "PCTICE2001WS",
 
 ```{r}
 # CREATE DF FOR MAPPING PURPOSES
-# Need to join predictions to AWQMS columns, but there are no unique identifiers in the TSS table. Predictions will be in the same order as the TSS table initially.
+# Need to join predictions to AWQMS columns, but there are no unique identifiers in the SO4 table. Predictions will be in the same order as the SO4 table initially.
 
 # Find a StreamCat row that has ALL unique values
-# any(duplicated(TSS$ELEVWS))  # Elevation works.
-# any(duplicated(TSS$PRECIP9120WS))
+# any(duplicated(SO4$ELEVWS))  # Elevation works.
+# any(duplicated(SO4$PRECIP9120WS))
 
 # Join predictions to StreamCat table
-ref_obs.predict <- cbind(ref_plotdf, TSS.ref) %>% 
+ref_obs.predict <- cbind(ref_plotdf, SO4.ref) %>% 
   filter(predictions == "OOB") %>% 
   arrange(ELEVWS) # Order by unique col
 
-ref_awqms <- tss_vars_selected %>% 
+ref_awqms <- so4_vars_selected %>% 
   arrange(ELEVWS) %>% # Order by unique col
   filter(ReferenceSite=='REFERENCE') %>% 
-  select(MLocID:logTSS) 
+  select(MLocID:logSO4) 
 
-# Join obs.predict and awqms tables, and makes sure the TSS results match (Make sure logTSS column is the same as logTSS.1)
+# Join obs.predict and awqms tables, and makes sure the SO4 results match (Make sure logSO4 column is the same as logSO4.1)
 ref_map <- cbind(ref_obs.predict, ref_awqms)
 
-# Then select to remove duplicate logTSS column and reorder.
+# Then select to remove duplicate logSO4 column and reorder.
 ref_map <- ref_map %>% 
   select(obs:COMID) %>% 
   relocate(MLocID:COMID, .before = obs)
 
 pal <- colorNumeric(palette = "BuGn", 
-  domain = c(0, 67))
+  domain = c(0, 20))
 pal2 <- colorNumeric(palette = "BuGn", 
-  domain = c(0, 67))
-pal3 <- colorNumeric(palette = "RdBu", domain = c(-65,65))
+  domain = c(0, 20))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-20,20))
 
 map_function(ref_map)
 
 # Save map as html
 # ref_model_map <- map_function(ref_map)
-# saveWidget(ref_model_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//TSS//ref_model_map.html", selfcontained = TRUE, title = "Ref-only model")
+# saveWidget(ref_model_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//Sulfate//ref_model_map.html", selfcontained = TRUE, title = "Ref-only model")
 ```
 
 ## F. Make comparisons of predictions
@@ -1222,7 +1209,7 @@ map_function(ref_map)
 
 ```{r}
 # Construct a dataframe of predictions to compare
-boxplot_preds <- data.frame(MLocID = red11_map$MLocID, StationDes = red11_map$StationDes, Obs = red11_map$obs, Pred_unadj = red11_map$pred, L3Eco = as.character(red11_map$L3Eco),Pred_adj = red11_map_no.hi$pred, Ref = red11_map$ReferenceSite)
+boxplot_preds <- data.frame(MLocID = red12_map$MLocID, StationDes = red12_map$StationDes, Obs = red12_map$obs, Pred_unadj = red12_map$pred, L3Eco = as.character(red12_map$L3Eco),Pred_adj = red12_map_no.hi$pred, Ref = red12_map$ReferenceSite)
 
 boxplot_ref<- ref_map %>%
   select(MLocID, Pred_ref = pred)
@@ -1240,15 +1227,15 @@ ggplot(boxplot_df, aes(x = L3Eco, y = Prediction, fill = Model)) + geom_boxplot(
   guides(x = guide_axis(angle = 45)) +
  
   scale_y_log10() +
-  theme_bw(base_size=14) + ylab("TSS (mg/L)")
+  theme_bw(base_size=14) + ylab("SO4 (mg/L)")
 
-# Ignore warning for 621 rows removed - these are NAs in the Pred_ref column.
+# Ignore warning for 544 rows removed - these are NAs in the Pred_ref column.
 ```
 
 #### Combined Leaflet map of predictions
 
 ```{r}
-leaflet_df <- left_join(boxplot_df, tss %>%  select(MLocID, Project1, Lat_DD, Long_DD), by = "MLocID") %>% 
+leaflet_df <- left_join(boxplot_df, so4 %>%  select(MLocID, Project1, Lat_DD, Long_DD), by = "MLocID") %>% 
   pivot_wider(names_from = Model, values_from = Prediction) %>% 
   relocate(Obs, .before= Pred_unadj)
 
@@ -1266,7 +1253,7 @@ map_all <- function(data) {
                                   "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$Ref, "<br>",
-                                  "<strong>", "Observed TSS: ", "</strong>", data$Obs))  %>% 
+                                  "<strong>", "Observed SO4: ", "</strong>", data$Obs))  %>% 
       addCircleMarkers(data = data, group = "Pred_unadj",lng = ~data$Long_DD, 
                      lat = ~data$Lat_DD, fillColor = pal2(data$Pred_unadj), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
@@ -1275,7 +1262,7 @@ map_all <- function(data) {
                                   "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$Ref, "<br>",
-                                  "<strong>", "Predicted TSS UNADJUSTED (reduced model): ", "</strong>", data$Pred_unadj))  %>% 
+                                  "<strong>", "Predicted SO4 UNADJUSTED (reduced model): ", "</strong>", data$Pred_unadj))  %>% 
      addCircleMarkers(data = data, group = "Pred_adj",lng = ~data$Long_DD, 
                      lat = ~data$Lat_DD, fillColor = pal3(data$Pred_adj), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
@@ -1284,7 +1271,7 @@ map_all <- function(data) {
                                   "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$Ref, "<br>",
-                                  "<strong>", "Predicted TSS ADJUSTED: ", "</strong>", data$Pred_adj))  %>% 
+                                  "<strong>", "Predicted SO4 ADJUSTED: ", "</strong>", data$Pred_adj))  %>% 
      addCircleMarkers(data = data, group = "Pred_ref",lng = ~data$Long_DD, 
                      lat = ~data$Lat_DD, fillColor = pal4(data$Pred_ref), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
@@ -1293,15 +1280,15 @@ map_all <- function(data) {
                                   "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$Ref, "<br>",
-                                  "<strong>", "Predicted TSS REF ONLY: ", "</strong>", data$Pred_ref))  %>% 
+                                  "<strong>", "Predicted SO4 REF ONLY: ", "</strong>", data$Pred_ref))  %>% 
     addLayersControl(
       baseGroups = c("Basic Map", "Terrain", "Satellite"),
       overlayGroups = c("Observed","Pred_unadj", "Pred_adj", "Pred_ref"),
       options = layersControlOptions(collapsed = FALSE)) %>% 
-    addLegend(pal = pal, group = "Observed", values = data$Obs, position = "bottomright" , title = "Observed TSS" ) %>% 
-    addLegend(pal = pal2,group = "Pred_unadj",values = data$Obs, position = "bottomright" , title = "Predicted TSS (UNADJUSTED)" ) %>%  # Keep values=data$Obs here (instead of data$pred) to keep the legend colors scales the same between obs and pred.
-        addLegend(pal = pal3, group = "Pred_adj", values = data$Pred_adj, position = "bottomleft" , title = "Predicted TSS (ADJUSTED)" ) %>% 
-        addLegend(pal = pal4, group = "Pred_ref", values = data$Pred_adj, position = "bottomleft" , title = "Predicted TSS (REF ONLY)" )    # Keep values=data$Pred_adj here (instead of data$Ref) to keep the legend colors scales the same between ref expectations.
+    addLegend(pal = pal, group = "Observed", values = data$Obs, position = "bottomright" , title = "Observed SO4" ) %>% 
+    addLegend(pal = pal2,group = "Pred_unadj",values = data$Obs, position = "bottomright" , title = "Predicted SO4 (UNADJUSTED)" ) %>%  # Keep values=data$Obs here (instead of data$pred) to keep the legend colors scales the same between obs and pred.
+        addLegend(pal = pal3, group = "Pred_adj", values = data$Pred_adj, position = "bottomleft" , title = "Predicted SO4 (ADJUSTED)" ) %>% 
+        addLegend(pal = pal4, group = "Pred_ref", values = data$Pred_adj, position = "bottomleft" , title = "Predicted SO4 (REF ONLY)" )    # Keep values=data$Pred_adj here (instead of data$Ref) to keep the legend colors scales the same between ref expectations.
 }
 
 pal <- colorNumeric(palette = "Greens", 
@@ -1315,7 +1302,7 @@ map_all(leaflet_df)
 
 # Save map as html
 # map_all <- map_all(leaflet_df)
-# saveWidget(map_all, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//TSS//map_all.html", selfcontained = TRUE, title = "Map_All")
+# saveWidget(map_all, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//Sulfate//map_all.html", selfcontained = TRUE, title = "Map_All")
 ```
  
 #### Unadjusted predictions vs. adjusted human inflence 
@@ -1326,8 +1313,8 @@ leaflet_df$Ref <- factor(leaflet_df$Ref, levels = c("REFERENCE", "MODERATELY DIS
 ggplot(leaflet_df, aes(x = Pred_unadj, y = Pred_adj, color = Ref, shape = Ref)) +
   geom_point(size = 1.5) + theme_bw(base_size = 15) +
   labs(
-    x = "Reduced model predicted TSS (mg/L)",
-    y = "Predicted TSS (mg/L) adjusted\n for no human disturbance predictions",
+    x = "Reduced model predicted SO4 (mg/L)",
+    y = "Predicted SO4 (mg/L) adjusted\n for no human disturbance predictions",
     color = "Reference Status", shape = "Reference Status") + 
   geom_abline(intercept = 0, slope = 1, linetype = "dashed")
 ```

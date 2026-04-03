@@ -188,7 +188,8 @@ chem.ref.wq <- chem.ref %>%
 
 #--------------------------------------------------------------------------------------------------------------------
 # CALCULATE TOTAL NITROGEN for sites sampled prior to 2018. 
-#  (per Zach Mandera, TN started being recorded in early 2018.  For samples prior to 2018, use TN = TKN + Nitrate + Nitrite)
+#  (per Zach Mandera, TN started being recorded in early 2018.  For samples prior to 2018, use TN = TKN + Nitrate + Nitrite
+#  https://echo.epa.gov/trends/loading-tool/resources/technical-background-methodology/nutrient-aggregation)
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # nits
 tn.nits<-subset(chem.ref.wq, chem.ref.wq$`Char_Name`=="Nitrate + Nitrite")

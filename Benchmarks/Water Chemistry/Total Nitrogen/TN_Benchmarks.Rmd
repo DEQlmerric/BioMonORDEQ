@@ -566,10 +566,10 @@ map_function <- function(data) {
 }
 
 pal <- colorNumeric(palette = "Greens", 
-  domain = c(0, 6))
+  domain = c(0, max(full_map$obs)))
 pal2 <- colorNumeric(palette = "Greens", 
-  domain = c(0, 6))
-pal3 <- colorNumeric(palette = "RdBu", domain = c(-5,5))
+  domain = c(0, max(full_map$obs)))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-1*max(full_map$delta), max(full_map$delta)))
 
 map_function(full_map)
 
@@ -684,15 +684,15 @@ map_predictors <- function(data) {
 }
 
 pal <- colorNumeric(palette = "Greens", 
-  domain = c(0,100))
+  domain = c(0,max(full_map$PCTCONIF2001WS)))
 pal2 <- colorNumeric(palette = "Oranges", 
-  domain = c(0, 15))
+  domain = c(0, max(full_map$FERTWS)))
 pal3 <- colorNumeric(palette = "YlOrBr", 
-                     domain = c(0,2300))
+                     domain = c(0,max(full_map$ELEVWS)))
 pal4 <- colorNumeric(palette = "Greys", 
-  domain = c(0, 15))
+  domain = c(0, max(full_map$RDDENSWS)))
 pal5 <- colorNumeric(palette = "Blues", 
-  domain = c(500,1020))
+  domain = c(min(full_map$WETINDEXWS),max(full_map$WETINDEXWS)))
 
 map_predictors(full_map)
 
@@ -784,10 +784,10 @@ full_map_no.hi <- full_map_no.hi %>%
   select(MLocID:delta, BFIWS:L3Eco)
 
 pal <- colorNumeric(palette = "Purples", 
-  domain = c(0, 6))
+  domain = c(0, max(full_map_no.hi$obs)))
 pal2 <- colorNumeric(palette = "Purples", 
-  domain = c(0, 6))
-pal3 <- colorNumeric(palette = "RdBu", domain = c(-5.5,5.5))
+  domain = c(0, max(full_map_no.hi$obs)))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-1*max(full_map_no.hi$delta), max(full_map_no.hi$delta)))
 
 map_function(full_map_no.hi)
 
@@ -799,10 +799,17 @@ map_function(full_map_no.hi)
 
 ## C. Model Reduction
 
+```{r}
+#Adjust the parameters below based on tuning (nodesize = 2; mtry = 10)
+tuning <- tune(logTN ~ PCTCONIF2001WS + FERTWS + L2Eco + ELEVWS + RDDENSWS + L3Eco + WETINDEXWS + TMAX9120WS + PCTDECID2001WS + POPDEN2010WS, TN, seed = 1234)
+tuning$optimal
+
+```
+
 #### Build model with Top 10 predictors
 
 ```{r}
-red10 <- rfsrc(logTN ~ PCTCONIF2001WS + FERTWS + L2Eco + ELEVWS + RDDENSWS + L3Eco + WETINDEXWS + TMAX9120WS + PCTDECID2001WS + POPDEN2010WS, data = TN, mtry = 57, nodesize = 7, importance = "TRUE", seed = 24)
+red10 <- rfsrc(logTN ~ PCTCONIF2001WS + FERTWS + L2Eco + ELEVWS + RDDENSWS + L3Eco + WETINDEXWS + TMAX9120WS + PCTDECID2001WS + POPDEN2010WS, data = TN, mtry = 10, nodesize = 2, importance = "TRUE", seed = 24)
 red10 # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (untransformed)
@@ -885,10 +892,10 @@ red10_map <- red10_map %>%
   relocate(MLocID:COMID, .before = obs)
 
 pal <- colorNumeric(palette = "Greens", 
-  domain = c(0, 6))
+  domain = c(0, max(red10_map$obs)))
 pal2 <- colorNumeric(palette = "Greens", 
-  domain = c(0, 6))
-pal3 <- colorNumeric(palette = "RdBu", domain = c(-5,5))
+  domain = c(0, max(red10_map$obs)))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-1*max(red10_map$delta), max(red10_map$delta)))
 
 map_function(red10_map)
 
@@ -1008,10 +1015,10 @@ red10_map_no.hi <- red10_map_no.hi %>%
   select(MLocID:delta, BFIWS:L3Eco)
 
 pal <- colorNumeric(palette = "Purples", 
-  domain = c(0, 6))
+  domain = c(0, max(red10_map_no.hi$obs)))
 pal2 <- colorNumeric(palette = "Purples", 
-  domain = c(0, 6))
-pal3 <- colorNumeric(palette = "RdBu", domain = c(-5.5,5.5))
+  domain = c(0, max(red10_map_no.hi$obs)))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-1*max(red10_map_no.hi$delta), max(red10_map_no.hi$delta)))
 
 map_function(red10_map_no.hi)
 
@@ -1031,7 +1038,14 @@ abline(h=0)
 #### Top 3 predictors (not using this one)
 
 ```{r}
-red3 <- rfsrc(logTN ~ PCTCONIF2001WS + FERTWS + ELEVWS, data = TN, mtry = 57, nodesize = 7, importance = "TRUE", seed = 24)
+#Adjust the parameters below based on tuning (nodesize = 7; mtry = 3)
+tuning <- tune(logTN ~ PCTCONIF2001WS + FERTWS + ELEVWS, TN, seed = 1234)
+tuning$optimal
+
+```
+
+```{r}
+red3 <- rfsrc(logTN ~ PCTCONIF2001WS + FERTWS + ELEVWS, data = TN, mtry = 3, nodesize = 7, importance = "TRUE", seed = 24)
 red3 # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (untransformed)
@@ -1214,10 +1228,10 @@ ref_map <- ref_map %>%
   relocate(MLocID:COMID, .before = obs)
 
 pal <- colorNumeric(palette = "BuGn", 
-  domain = c(0, 1.5))
+  domain = c(0, max(ref_map$obs)))
 pal2 <- colorNumeric(palette = "BuGn", 
-  domain = c(0, 1.5))
-pal3 <- colorNumeric(palette = "RdBu", domain = c(-0.9, 0.9))
+  domain = c(0, max(ref_map$obs)))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-1*max(ref_map$delta), max(ref_map$delta)))
 
 map_function(ref_map)
 
@@ -1314,11 +1328,11 @@ map_all <- function(data) {
 }
 
 pal <- colorNumeric(palette = "Purples", 
-  domain = c(0, 6))
+  domain = c(0, max(leaflet_df$Obs)))
 pal2 <- colorNumeric(palette = "Purples", 
-  domain = c(0, 6))
-pal3 <- colorNumeric(palette = "Greens", c(0, 0.85))
-pal4 <- colorNumeric(palette = "Greens", domain = c(0, 0.85), na.color = "transparent") 
+  domain = c(0, max(leaflet_df$Obs)))
+pal3 <- colorNumeric(palette = "Greens", c(0, max(leaflet_df$Pred_unadj)))
+pal4 <- colorNumeric(palette = "Greens", domain = c(0, max(leaflet_df$Pred_unadj)), na.color = "transparent") 
 
 map_all(leaflet_df)
 

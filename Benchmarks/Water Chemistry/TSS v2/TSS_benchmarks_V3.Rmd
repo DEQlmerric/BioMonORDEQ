@@ -542,10 +542,10 @@ map_function <- function(data) {
 }
 
 pal <- colorNumeric(palette = "Greens", 
-  domain = c(0, 170))
+  domain = c(0, max(full_map$obs)))
 pal2 <- colorNumeric(palette = "Greens", 
-  domain = c(0, 170))
-pal3 <- colorNumeric(palette = "RdBu", domain = c(-165,165))
+  domain = c(0, max(full_map$obs)))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-1*max(full_map$delta), max(full_map$delta)))
 
 map_function(full_map)
 
@@ -654,15 +654,15 @@ map_predictors <- function(data) {
 }
 
 pal <- colorNumeric(palette = "Blues", 
-  domain = c(0,14))
+  domain = c(0,max(full_map$PCTICE2001WS)))
 pal2 <- colorNumeric(palette = "Greens", 
-  domain = c(0, 100))
+  domain = c(0, max(full_map$PCTCONIF2001WS)))
 pal3 <- colorNumeric(palette = "Reds", 
-                     domain = c(0,4300))
+                     domain = c(0,max(full_map$PESTIC1997WS)))
 pal4 <- colorNumeric(palette = "Oranges", 
-  domain = c(0,0.6))
+  domain = c(0,max(full_map$DAMDENSWS)))
 pal5 <- colorNumeric(palette = "Greys", 
-  domain = c(0,68))
+  domain = c(0,max(full_map$PCTBL2001WS)))
 
 map_predictors(full_map)
 
@@ -753,10 +753,10 @@ full_map_no.hi <- full_map_no.hi %>%
   select(MLocID:delta, BFIWS:L3Eco)
 
 pal <- colorNumeric(palette = "Purples", 
-  domain = c(0, 175))
+  domain = c(0, max(full_map_no.hi$obs)))
 pal2 <- colorNumeric(palette = "Purples", 
-  domain = c(0, 175))
-pal3 <- colorNumeric(palette = "RdBu", domain = c(-170,170))
+  domain = c(0, max(full_map_no.hi$obs)))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-1*max(full_map_no.hi$delta), max(full_map_no.hi$delta)))
 
 map_function(full_map_no.hi)
 
@@ -770,7 +770,13 @@ map_function(full_map_no.hi)
 #### Build model with Top 11 predictors
 
 ```{r}
-red11 <- rfsrc(logTSS ~ PESTIC1997WS + PCTICE2001WS + PCTCONIF2001WS + PCTBL2001WS + DAMDENSWS + CLAYWS + PCTGLACLAKECRSWS + PCTCROP2001WS + WATERINPUTWS + WETTEDWIDTH + PCTAGSLPMID2001WS, data = TSS, mtry = 30, nodesize = 1, importance = "TRUE", seed = 24)
+#Adjust the parameters below based on tuning (nodesize = 1; mtry = 11)
+tuning <- tune(logTSS~PESTIC1997WS + PCTICE2001WS + PCTCONIF2001WS + PCTBL2001WS + DAMDENSWS + CLAYWS + PCTGLACLAKECRSWS + PCTCROP2001WS + WATERINPUTWS + WETTEDWIDTH + PCTAGSLPMID2001WS, TSS, seed = 1234)
+tuning$optimal
+```
+
+```{r}
+red11 <- rfsrc(logTSS ~ PESTIC1997WS + PCTICE2001WS + PCTCONIF2001WS + PCTBL2001WS + DAMDENSWS + CLAYWS + PCTGLACLAKECRSWS + PCTCROP2001WS + WATERINPUTWS + WETTEDWIDTH + PCTAGSLPMID2001WS, data = TSS, mtry = 11, nodesize = 1, importance = "TRUE", seed = 24)
 red11 # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (untransformed)
@@ -812,7 +818,7 @@ red11_plotdf <- rbind(red11_pred.oob, red11_pred.ib) %>%
 # Plot
 ggplot(data = red11_plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
   geom_point(alpha = 0.75) +
-  labs(title = "TSS Red10 Model",
+  labs(title = "TSS Red11 Model",
        x = "Predicted values (mg/L)",
        y = "Observed values (mg/L)") +
   theme_bw() + 
@@ -853,10 +859,10 @@ red11_map <- red11_map %>%
   relocate(MLocID:COMID, .before = obs)
 
 pal <- colorNumeric(palette = "Greens", 
-  domain = c(0, 175))
+  domain = c(0, max(red11_map$obs)))
 pal2 <- colorNumeric(palette = "Greens", 
-  domain = c(0, 175))
-pal3 <- colorNumeric(palette = "RdBu", domain = c(-165,165))
+  domain = c(0, max(red11_map$obs)))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-1*max(red11_map$delta), max(red11_map$delta)))
 
 map_function(red11_map)
 
@@ -967,7 +973,7 @@ ggplot(data = red11_plotdf_no.hi, aes(x = pred, y = obs)) +
 
 # Plot residuals - red11 model, adjusted human-influenced vars to 0
 red11_resid_no.hi <- exp(TSS_no.hi$logTSS) - exp(red11_no.hi$predicted) # Observed minus predicted oob
-plot(red11_resid_no.hi ~ exp(red11_no.hi$predicted), xlab = "Predicted TSS (mg/L)", ylab = "Residuals (obs - pred)", main = "Red10 model residuals, no HI vars")
+plot(red11_resid_no.hi ~ exp(red11_no.hi$predicted), xlab = "Predicted TSS (mg/L)", ylab = "Residuals (obs - pred)", main = "Red11 model residuals, no HI vars")
 abline(h=0, col = "red", lty = 2)
 ```
 
@@ -989,10 +995,10 @@ red11_map_no.hi <- red11_map_no.hi %>%
   select(MLocID:delta, BFIWS:L3Eco)
 
 pal <- colorNumeric(palette = "Purples", 
-  domain = c(0, 0.7))
+  domain = c(0, max(red11_map_no.hi$obs)))
 pal2 <- colorNumeric(palette = "Purples", 
-  domain = c(0, 0.7))
-pal3 <- colorNumeric(palette = "RdBu", domain = c(-0.7,0.7))
+  domain = c(0, max(red11_map_no.hi$obs)))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-1*max(red11_map_no.hi$delta), max(red11_map_no.hi$delta)))
 
 map_function(red11_map_no.hi)
 
@@ -1001,23 +1007,16 @@ map_function(red11_map_no.hi)
 # saveWidget(red11_model_map_no.hi, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//TSS//red11_model_map_no.hi.html", selfcontained = TRUE, title = "Full model Adjusted (no human-influenced vars)")
 ```
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 #### Top 4 predictors (not using this one)
 
 ```{r}
-red4 <- rfsrc(logTSS ~ PESTIC1997WS + PCTICE2001WS + PCTCONIF2001WS + PCTBL2001WS, data = TSS, mtry = 30, nodesize = 1, importance = "TRUE", seed = 24)
+#Adjust the parameters below based on tuning (nodesize = 8; mtry = 3)
+tuning <- tune(logTSS ~ PESTIC1997WS + PCTICE2001WS + PCTCONIF2001WS + PCTBL2001WS, TSS, seed = 1234)
+tuning$optimal
+```
+
+```{r}
+red4 <- rfsrc(logTSS ~ PESTIC1997WS + PCTICE2001WS + PCTCONIF2001WS + PCTBL2001WS, data = TSS, mtry = 8, nodesize = 3, importance = "TRUE", seed = 24)
 red4 # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (untransformed)
@@ -1198,10 +1197,10 @@ ref_map <- ref_map %>%
   relocate(MLocID:COMID, .before = obs)
 
 pal <- colorNumeric(palette = "BuGn", 
-  domain = c(0, 67))
+  domain = c(0, max(ref_map$obs)))
 pal2 <- colorNumeric(palette = "BuGn", 
-  domain = c(0, 67))
-pal3 <- colorNumeric(palette = "RdBu", domain = c(-65,65))
+  domain = c(0, max(ref_map$obs)))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-1*max(ref_map$delta), max(ref_map$delta)))
 
 map_function(ref_map)
 
@@ -1299,11 +1298,11 @@ map_all <- function(data) {
 }
 
 pal <- colorNumeric(palette = "Greens", 
-  domain = c(0, 180))
+  domain = c(0, max(leaflet_df$Obs)))
 pal2 <- colorNumeric(palette = "Greens", 
-  domain = c(0, 180))
-pal3 <- colorNumeric(palette = "Oranges", c(0, 30))
-pal4 <- colorNumeric(palette = "Oranges", domain = c(0, 30), na.color = "transparent") 
+  domain = c(0, max(leaflet_df$Obs)))
+pal3 <- colorNumeric(palette = "Oranges", c(0, max(leaflet_df$Pred_unadj)))
+pal4 <- colorNumeric(palette = "Oranges", domain = c(0, max(leaflet_df$Pred_unadj)), na.color = "transparent") 
 
 map_all(leaflet_df)
 

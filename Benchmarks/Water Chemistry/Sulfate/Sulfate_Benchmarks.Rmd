@@ -544,10 +544,10 @@ map_function <- function(data) {
 }
 
 pal <- colorNumeric(palette = "Greens", 
-  domain = c(0, 71))
+  domain = c(0, max(full_map$obs)))
 pal2 <- colorNumeric(palette = "Greens", 
-  domain = c(0, 71))
-pal3 <- colorNumeric(palette = "RdBu", domain = c(-60,60))
+  domain = c(0, max(full_map$obs)))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-1*max(full_map$delta),max(full_map$delta)))
 
 map_function(full_map)
 
@@ -659,15 +659,15 @@ map_predictors <- function(data) {
 }
 
 pal <- colorNumeric(palette = "Blues", 
-  domain = c(525,1020))
+  domain = c(min(full_map$WETINDEXWS),max(full_map$WETINDEXWS)))
 pal2 <- colorNumeric(palette = "Greens", 
-  domain = c(0, 100))
+  domain = c(0, max(full_map$PCTCONIF2001WS)))
 pal3 <- colorNumeric(palette = "Reds", 
-                     domain = c(0,0.7))
+                     domain = c(0,max(full_map$SWS)))
 pal4 <- colorNumeric(palette = "Oranges", 
-  domain = c(0,75))
+  domain = c(0,max(full_map$PCTCROP2001WS)))
 pal5 <- colorNumeric(palette = "Greys", 
-  domain = c(0,100))
+  domain = c(0,max(full_map$PCTEXTRUVOLWS)))
 
 map_predictors(full_map)
 
@@ -758,10 +758,10 @@ full_map_no.hi <- full_map_no.hi %>%
   select(MLocID:delta, BFIWS:L3Eco)
 
 pal <- colorNumeric(palette = "Purples", 
-  domain = c(0, 75))
+  domain = c(0, max(full_map_no.hi$obs)))
 pal2 <- colorNumeric(palette = "Purples", 
-  domain = c(0, 75))
-pal3 <- colorNumeric(palette = "RdBu", domain = c(-65,65))
+  domain = c(0, max(full_map_no.hi$obs)))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-1*max(full_map_no.hi$delta),max(full_map_no.hi$delta)))
 
 map_function(full_map_no.hi)
 
@@ -866,10 +866,10 @@ red12_map <- red12_map %>%
   relocate(MLocID:COMID, .before = obs)
 
 pal <- colorNumeric(palette = "Greens", 
-  domain = c(0, 75))
+  domain = c(0, max(red12_map$obs)))
 pal2 <- colorNumeric(palette = "Greens", 
-  domain = c(0, 075))
-pal3 <- colorNumeric(palette = "RdBu", domain = c(-60,60))
+  domain = c(0, max(red12_map$obs)))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-1*max(red12_map$delta), max(red12_map$delta)))
 
 map_function(red12_map)
 
@@ -970,7 +970,7 @@ plot(red12_resid_no.hi ~ exp(red12_no.hi$predicted), xlab = "Predicted SO4 (mg/L
 abline(h=0, col = "red", lty = 2)
 ```
 
-#### Leaflet map after adjusting human vbls for reduced10 model
+#### Leaflet map after adjusting human vbls for red12 model
 
 ```{r}
 # CREATE DF FOR MAPPING PURPOSES to explore how residuals changed on the map after scaling all HI to zero
@@ -988,10 +988,10 @@ red12_map_no.hi <- red12_map_no.hi %>%
   select(MLocID:delta, BFIWS:L3Eco)
 
 pal <- colorNumeric(palette = "Purples", 
-  domain = c(0, 75))
+  domain = c(0, max(red12_map_no.hi$obs)))
 pal2 <- colorNumeric(palette = "Purples", 
-  domain = c(0, 75))
-pal3 <- colorNumeric(palette = "RdBu", domain = c(-66,66))
+  domain = c(0, max(red12_map_no.hi$obs)))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-1*max(red12_map_no.hi$delta), max(red12_map_no.hi$delta)))
 
 map_function(red12_map_no.hi)
 
@@ -1191,10 +1191,10 @@ ref_map <- ref_map %>%
   relocate(MLocID:COMID, .before = obs)
 
 pal <- colorNumeric(palette = "BuGn", 
-  domain = c(0, 20))
+  domain = c(0, max(ref_map$obs)))
 pal2 <- colorNumeric(palette = "BuGn", 
-  domain = c(0, 20))
-pal3 <- colorNumeric(palette = "RdBu", domain = c(-20,20))
+  domain = c(0, max(ref_map$obs)))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-1*max(ref_map$delta), max(ref_map$delta)))
 
 map_function(ref_map)
 
@@ -1292,11 +1292,11 @@ map_all <- function(data) {
 }
 
 pal <- colorNumeric(palette = "Greens", 
-  domain = c(0, 180))
+  domain = c(0, max(leaflet_df$Obs)))
 pal2 <- colorNumeric(palette = "Greens", 
-  domain = c(0, 180))
-pal3 <- colorNumeric(palette = "Oranges", c(0, 30))
-pal4 <- colorNumeric(palette = "Oranges", domain = c(0, 30), na.color = "transparent") 
+  domain = c(0, max(leaflet_df$Obs)))
+pal3 <- colorNumeric(palette = "Oranges", c(0, max(leaflet_df$Pred_unadj)))
+pal4 <- colorNumeric(palette = "Oranges", domain = c(0, max(leaflet_df$Pred_unadj)), na.color = "transparent") 
 
 map_all(leaflet_df)
 

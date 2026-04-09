@@ -8,14 +8,11 @@
 
 library(reshape2)
 require(tidyverse)
-
-
-
-
+library(openxlsx)
 
 
 # bring in data
-screens <-  read_excel("Reference/GE_screens.xlsx", 
+screens <-  read.xlsx("Reference/GE_screens.xlsx", 
                                   sheet = "GE.screens_2023-11-17")
       # merge multiple sets of GE screens together, if necessary
 
@@ -244,24 +241,7 @@ stations <- stations %>%
 GE_Site_sum.scores_ave_bpj <- GE_Site_sum.scores_ave_bpj %>%
   left_join(stations, by = 'MLocID')
 
-                # SLH 11.17.23: I don't think we need to keep this piece.  Remove later if proved unnecessary 
-
-                                                        ref2020.sites_FINAL <- GE_Site_sum.scores_ave_bpj[GE_Site_sum.scores_ave_bpj$Ref2020_FINAL=='YES',]
-                                                        
-                                                        
-                                                        
-                                                        write.csv(ref2020.sites_FINAL, '//deqlab1/GIS_WA/Project_Working_Folders/Reference/2020/_Final outputs/REF.sites.only_2020_FINAL_DEQ.csv')
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        # create an exportable table of ref sites by ecoregion, save in same location as 'ref2020.sites_FINAL'
-                                                        
-                                                        
-                                                        ref2020.sites_by_eco <- with(GE_Site_sum.scores_ave_bpj, table(Ref2020_FINAL, EcoRegion3))
-                                                        write.csv(ref2020.sites_by_eco, '//deqlab1/GIS_WA/Project_Working_Folders/Reference/2020/_Final outputs/REF.2020_FINAL_deq_by_ecoregion.csv')
-
+                
                                                         
                                                         
                                                         

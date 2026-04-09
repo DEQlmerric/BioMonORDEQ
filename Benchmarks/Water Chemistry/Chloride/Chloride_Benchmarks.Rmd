@@ -584,37 +584,23 @@ partialplots_hi <- plot.variable(full, xvar.names = c("SEPTICWS", "PCTFRSTLOSS20
 #******************consider adding code to look at individual metrics
 ```
 
-
-
-
-
-# SYB start here next time
-
-
-
-
-
-
-
-
-
 #### Another way to do partial plots (slower but more customizable)
 ```{r}
-partial.obj <- partial(full, partial.xvar = "PESTIC1997WS", partial.values = full$xvar$PESTIC1997WS)
+partial.obj <- partial(full, partial.xvar = "ELEVWS", partial.values = full$xvar$ELEVWS)
 pdta <- get.partial.plot.data(partial.obj)
-plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "PESTIC1997WS", ylab = "ŷ")
+plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "ELEVWS", ylab = "ŷ")
 
-partial.obj <- partial(full, partial.xvar = "PCTICE2001WS", partial.values = full$xvar$PCTICE2001WS)
+partial.obj <- partial(full, partial.xvar = "TMAX9120WS", partial.values = full$xvar$TMAX9120WS)
 pdta <- get.partial.plot.data(partial.obj)
-plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "PCTICE2001WS", ylab = "ŷ")
+plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "TMAX9120WS", ylab = "ŷ")
 
-partial.obj <- partial(full, partial.xvar = "PCTCONIF2001WS", partial.values = full$xvar$PCTCONIF2001WS)
+partial.obj <- partial(full, partial.xvar = "CLAYWS", partial.values = full$xvar$CLAYWS)
 pdta <- get.partial.plot.data(partial.obj)
-plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "PCTCONIF2001WS", ylab = "ŷ")
+plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "CLAYWS", ylab = "ŷ")
 
-partial.obj <- partial(full, partial.xvar = "DAMDENSWS", partial.values = full$xvar$DAMDENSWS)
+partial.obj <- partial(full, partial.xvar = "PRECIP_MINUS_EVTWS", partial.values = full$xvar$PRECIP_MINUS_EVTWS)
 pdta <- get.partial.plot.data(partial.obj)
-plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "DAMDENSWS", ylab = "ŷ")
+plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "PRECIP_MINUS_EVTWS", ylab = "ŷ")
 
 ```
 
@@ -626,73 +612,73 @@ map_predictors <- function(data) {
   addProviderTiles(providers$Esri.WorldTopoMap, group = "Terrain") %>%
   addProviderTiles(providers$Esri.WorldImagery, group = "Satellite") %>%
   setView(lng = -120.5583, lat =44.0671, zoom =6.4) %>%
-  addCircleMarkers(data = data, group = "PCTICE2001WS", lng = ~data$Long_DD, 
-                     lat = ~data$Lat_DD, fillColor = pal(data$PCTICE2001WS), stroke = TRUE,
+  addCircleMarkers(data = data, group = "ELEVWS", lng = ~data$Long_DD, 
+                     lat = ~data$Lat_DD, fillColor = pal(data$ELEVWS), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
                    popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
                                   "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
                                   "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
-                                  "<strong>", "PCTICE2001WS: ", "</strong>", data$PCTICE2001WS))  %>% 
-      addCircleMarkers(data = data, group = "PCTCONIF2001WS",lng = ~data$Long_DD, 
-                     lat = ~data$Lat_DD, fillColor = pal2(data$PCTCONIF2001WS), stroke = TRUE,
+                                  "<strong>", "ELEVWS: ", "</strong>", data$ELEVWS))  %>% 
+      addCircleMarkers(data = data, group = "TMAX9120WS",lng = ~data$Long_DD, 
+                     lat = ~data$Lat_DD, fillColor = pal2(data$TMAX9120WS), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
                    popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
                                   "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
                                   "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
-                                  "<strong>", "PCTCONIF2001WS: ", "</strong>", data$PCTCONIF2001WS))  %>% 
-     addCircleMarkers(data = data, group = "PESTIC1997WS",lng = ~data$Long_DD, 
-                     lat = ~data$Lat_DD, fillColor = pal3(data$PESTIC1997WS), stroke = TRUE,
+                                  "<strong>", "TMAX9120WS: ", "</strong>", data$TMAX9120WS))  %>% 
+     addCircleMarkers(data = data, group = "CLAYWS",lng = ~data$Long_DD, 
+                     lat = ~data$Lat_DD, fillColor = pal3(data$CLAYWS), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
                    popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
                                   "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
                                   "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
-                                  "<strong>", "PESTIC1997WS: ", "</strong>", data$PESTIC1997WS))  %>% 
-     addCircleMarkers(data = data, group = "DAMDENSWS",lng = ~data$Long_DD, 
-                     lat = ~data$Lat_DD, fillColor = pal4(data$DAMDENSWS), stroke = TRUE,
+                                  "<strong>", "CLAYWS: ", "</strong>", data$CLAYWS))  %>% 
+     addCircleMarkers(data = data, group = "PRECIP_MINUS_EVTWS",lng = ~data$Long_DD, 
+                     lat = ~data$Lat_DD, fillColor = pal4(data$PRECIP_MINUS_EVTWS), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
                    popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
                                   "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
                                   "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
-                                  "<strong>", "DAMDENSWS: ", "</strong>", data$DAMDENSWS))  %>% 
-     addCircleMarkers(data = data, group = "distance",lng = ~data$Long_DD, 
-                     lat = ~data$Lat_DD, fillColor = pal5(data$distance), stroke = TRUE,
+                                  "<strong>", "PRECIP_MINUS_EVTWS: ", "</strong>", data$PRECIP_MINUS_EVTWS))  %>% 
+     addCircleMarkers(data = data, group = "PCTBL2001WS",lng = ~data$Long_DD, 
+                     lat = ~data$Lat_DD, fillColor = pal5(data$PCTBL2001WS), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
                    popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
                                   "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
                                   "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
-                                  "<strong>", "distance: ", "</strong>", data$distance))  %>% 
-    hideGroup(c("PCTCONIF2001WS","PESTIC1997WS", "DAMDENSWS", "distance")) %>%  # Don't check all layers by default
+                                  "<strong>", "PCTBL2001WS: ", "</strong>", data$PCTBL2001WS))  %>% 
+    hideGroup(c("TMAX9120WS","CLAYWS", "PRECIP_MINUS_EVTWS", "PCTBL2001WS")) %>%  # Don't check all layers by default
     addLayersControl(
       baseGroups = c("Basic Map", "Terrain", "Satellite"),
-      overlayGroups = c("PCTICE2001WS", "PCTCONIF2001WS","PESTIC1997WS", "DAMDENSWS", "distance"),
+      overlayGroups = c("ELEVWS", "TMAX9120WS","CLAYWS", "PRECIP_MINUS_EVTWS", "PCTBL2001WS"),
       options = layersControlOptions(collapsed = FALSE)) %>% 
-    addLegend(pal = pal, group = "PCTICE2001WS", values = data$PCTICE2001WS, position = "bottomright" , title = "PCTICE2001WS" ) %>% 
-    addLegend(pal = pal2,group = "PCTCONIF2001WS",values = data$PCTCONIF2001WS, position = "bottomright" , title = "PCTCONIF2001WS" ) %>%  
-    addLegend(pal = pal3, group = "PESTIC1997WS", values = data$PESTIC1997WS, position = "bottomleft" , title = "PESTIC1997WS" ) %>% 
-    addLegend(pal = pal4, group = "DAMDENSWS", values = data$DAMDENSWS, position = "bottomleft" , title = "DAMDENSWS" ) %>% 
-    addLegend(pal = pal5, group = "distance", values = data$distance, position = "bottomleft" , title = "distance" )
+    addLegend(pal = pal, group = "ELEVWS", values = data$ELEVWS, position = "bottomright" , title = "ELEVWS" ) %>% 
+    addLegend(pal = pal2,group = "TMAX9120WS",values = data$TMAX9120WS, position = "bottomright" , title = "TMAX9120WS" ) %>%  
+    addLegend(pal = pal3, group = "CLAYWS", values = data$CLAYWS, position = "bottomleft" , title = "CLAYWS" ) %>% 
+    addLegend(pal = pal4, group = "PRECIP_MINUS_EVTWS", values = data$PRECIP_MINUS_EVTWS, position = "bottomleft" , title = "PRECIP_MINUS_EVTWS" ) %>% 
+    addLegend(pal = pal5, group = "PCTBL2001WS", values = data$PCTBL2001WS, position = "bottomleft" , title = "PCTBL2001WS" )
 }
 
-pal <- colorNumeric(palette = "Blues", 
-  domain = c(0,14))
-pal2 <- colorNumeric(palette = "Greens", 
-  domain = c(0, 100))
+pal <- colorNumeric(palette = "Oranges", 
+  domain = c(min(full_map$ELEVWS),max(full_map$ELEVWS)))
+pal2 <- colorNumeric(palette = "RdBu", 
+  domain = c(min(full_map$TMAX9120WS), max(full_map$TMAX9120WS)), reverse = TRUE)
 pal3 <- colorNumeric(palette = "Reds", 
-                     domain = c(0,4300))
-pal4 <- colorNumeric(palette = "Oranges", 
-  domain = c(0,0.6))
+                     domain = c(min(full_map$CLAYWS), max(full_map$CLAYWS)))
+pal4 <- colorNumeric(palette = "Blues", 
+  domain = c(min(full_map$PRECIP_MINUS_EVTWS), max(full_map$PRECIP_MINUS_EVTWS)))
 pal5 <- colorNumeric(palette = "Greys", 
-  domain = c(0,575682))
+  domain = c(min(full_map$PCTBL2001WS), max(full_map$PCTBL2001WS)))
 
 map_predictors(full_map)
 
@@ -726,7 +712,7 @@ plot(mse ~ full_map$Long_DD, xlab = "Longitude", ylab = "MSE")
 ```{r}
 # Reduce all human-influenced vars to all 0s.
 CHLOR_no.hi <- CHLOR %>% 
-  mutate(across(all_of(c("CANALDENSWS", "DAMDENSWS", "MINEDENSWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTAGSLPMID2001WS", "PCTCROP2001WS", "PCTIMP2001WS", "PCTFRSTLOSS2002WS", "PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "SW_FLUXWS", "TRIDENSWS", "WATERINPUTWS", "WWTPMAJORDENSWS", "WWTPALLDENSWS")), ~0))
+  mutate(across(all_of(c("CANALDENSWS", "DAMDENSWS", "FERTWS", "MINEDENSWS", "NANIWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTAGSLPMID2001WS", "PCTCROP2001WS", "PCTIMP2001WS", "PCTFRSTLOSS2002WS", "PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "TRIDENSWS", "WWTPMAJORDENSWS", "WWTPALLDENSWS")), ~0))
 
 # Make predictions with adjusted human-influence to 0 
 full_no.hi <- predict(full, newdata= CHLOR_no.hi, seed = 24)
@@ -783,11 +769,10 @@ full_map_no.hi <- full_map_no.hi %>%
   select(MLocID:delta, BFIWS:L3Eco)
 
 pal <- colorNumeric(palette = "Purples", 
-  domain = c(0, 175))
+  domain = c(0, max(full_map_no.hi$obs)))
 pal2 <- colorNumeric(palette = "Purples", 
-  domain = c(0, 175))
-pal3 <- colorNumeric(palette = "RdBu", domain = c(-170,170))
-
+  domain = c(0, max(full_map_no.hi$obs)))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-1*max(full_map_no.hi$delta), max(full_map_no.hi$delta)))
 map_function(full_map_no.hi)
 
 # Save map as html
@@ -797,50 +782,56 @@ map_function(full_map_no.hi)
 
 ## C. Model Reduction
 
-#### Build model with Top 11 predictors
+#### Build model with Top 10 predictors
 
 ```{r}
-red11 <- rfsrc(logCHLOR ~ PESTIC1997WS + PCTICE2001WS + PCTCONIF2001WS + PCTBL2001WS + DAMDENSWS + CLAYWS + PCTGLACLAKECRSWS + PCTCROP2001WS + WATERINPUTWS + WETTEDWIDTH + PCTAGSLPMID2001WS, data = CHLOR, mtry = 30, nodesize = 1, importance = "TRUE", seed = 24)
-red11 # Model output. (OOB) R squared = Percent Variance Explained.
+#Adjust the parameters below based on tuning (nodesize = 2; mtry = 4)
+tuning <- tune(logCHLOR ~ ELEVWS + TMAX9120WS + L3Eco + CLAYWS + L2Eco + PRECIP_MINUS_EVTWS + PCTBL2001WS + PCTCONIF2001WS + SEPTICWS + PCTFRSTLOSS2002WS , data = CHLOR, seed = 1234)
+tuning$optimal
+```
+
+```{r}
+red10 <- rfsrc(logCHLOR ~ ELEVWS + TMAX9120WS + L3Eco + CLAYWS + L2Eco + PRECIP_MINUS_EVTWS + PCTBL2001WS + PCTCONIF2001WS + SEPTICWS + PCTFRSTLOSS2002WS , data = CHLOR, mtry = 4, nodesize = 2, importance = "TRUE", seed = 24)
+red10 # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (untransformed)
-red11_oob.mse <- tail(red11$err.rate,1)
-red11_per.var <- 100 * (1 - red11_oob.mse/ var(CHLOR$logCHLOR, na.rm = TRUE))
-print(red11_per.var)
+red10_oob.mse <- tail(red10$err.rate,1)
+red10_per.var <- 100 * (1 - red10_oob.mse/ var(CHLOR$logCHLOR, na.rm = TRUE))
+print(red10_per.var)
 
 #In-bag RMSE
-red11_rmse<- rmse(exp(red11$predicted), exp(CHLOR$logCHLOR))
-red11_rmse.scaled <- red11_rmse/range_CHLOR
-print(paste0('In-bag RMSE = ' , round(red11_rmse,2), " (μS/cm)"))
-print(paste0('Scaled In-bag RMSE = ' , round(red11_rmse.scaled*100,2), "%"))
+red10_rmse<- rmse(exp(red10$predicted), exp(CHLOR$logCHLOR))
+red10_rmse.scaled <- red10_rmse/range_CHLOR
+print(paste0('In-bag RMSE = ' , round(red10_rmse,2), " (μS/cm)"))
+print(paste0('Scaled In-bag RMSE = ' , round(red10_rmse.scaled*100,2), "%"))
 
 #OOB RMSE
-red11_oob.rmse<- rmse(exp(red11$predicted.oob), exp(CHLOR$logCHLOR))
-red11_oob.rmse.scaled <- red11_oob.rmse/range_CHLOR
-print(paste0('OOB RMSE = ' , round(red11_oob.rmse,2), " (μS/cm)"))
-print(paste0('Scaled OOB RMSE = ' , round(red11_oob.rmse.scaled*100,2), "%"))
+red10_oob.rmse<- rmse(exp(red10$predicted.oob), exp(CHLOR$logCHLOR))
+red10_oob.rmse.scaled <- red10_oob.rmse/range_CHLOR
+print(paste0('OOB RMSE = ' , round(red10_oob.rmse,2), " (μS/cm)"))
+print(paste0('Scaled OOB RMSE = ' , round(red10_oob.rmse.scaled*100,2), "%"))
 
 # Model tuning - How many trees? (default: 500)
-red11$err.rate
+red10$err.rate
 
 # VIP
-plot(red11, plots.one.page=FALSE)
-red11_vimp <- sort(red11$importance, decreasing = TRUE)[1:20]
+plot(red10, plots.one.page=FALSE)
+red10_vimp <- sort(red10$importance, decreasing = TRUE)[1:20]
 par(mar=c(5,7,4,1)+.1)
-barplot(red11_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = "CHLOR Reduced (11 variables) model VIMP")
+barplot(red10_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = "CHLOR Reduced (10 variables) model VIMP")
 
-#print(vimp(red11)$importance)
+#print(vimp(red10)$importance)
 
 # Make a df for plots
-red11_pred.oob <- data.frame(obs = CHLOR$logCHLOR, pred = red11$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
-red11_pred.ib <- data.frame(obs =CHLOR$logCHLOR, pred = red11$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
-red11_plotdf <- rbind(red11_pred.oob, red11_pred.ib) %>% 
+red10_pred.oob <- data.frame(obs = CHLOR$logCHLOR, pred = red10$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
+red10_pred.ib <- data.frame(obs =CHLOR$logCHLOR, pred = red10$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
+red10_plotdf <- rbind(red10_pred.oob, red10_pred.ib) %>% 
   mutate(obs = exp(obs)) %>% 
   mutate(pred = exp(pred)) %>% 
   mutate(delta = obs - pred)
 
 # Plot
-ggplot(data = red11_plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
+ggplot(data = red10_plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
   geom_point(alpha = 0.75) +
   labs(title = "CHLOR Red10 Model",
        x = "Predicted values (mg/L)",
@@ -850,12 +841,12 @@ ggplot(data = red11_plotdf, aes(x = pred, y = obs, color = predictions, shape = 
   geom_smooth(method = "lm", se = FALSE) +
   scale_x_log10() +
   scale_y_log10() +
-  annotate("text", x = 0.75, y = 100, label = paste0('OOB RMSE = ' , round(red11_oob.rmse,2), ' | scaled RMSE = ', round(red11_oob.rmse.scaled*100,2), "%"), size = 3) +
-    annotate("text", x = 0.75, y = 120, label = paste0('IB RMSE = ' , round(red11_rmse,2), ' | scaled RMSE = ', round(red11_rmse.scaled*100,2), "%"), size = 3) +
-      annotate("text", x = 0.75, y = 145, label = paste0('% variance explained = ' , round(red11_per.var,2), '%'), size = 3) 
+  annotate("text", x = 0.7, y = 60, label = paste0('OOB RMSE = ' , round(red10_oob.rmse,2), ' | scaled RMSE = ', round(red10_oob.rmse.scaled*100,2), "%"), size = 3) +
+    annotate("text", x = 0.7, y = 77, label = paste0('IB RMSE = ' , round(red10_rmse,2), ' | scaled RMSE = ', round(red10_rmse.scaled*100,2), "%"), size = 3) +
+      annotate("text", x = 0.7, y = 100, label = paste0('% variance explained = ' , round(red10_per.var,2), '%'), size = 3) 
 ```
 
-#### Leaflet map of red11 model
+#### Leaflet map of red10 model
 
 ```{r}
 # CREATE DF FOR MAPPING PURPOSES
@@ -866,46 +857,46 @@ ggplot(data = red11_plotdf, aes(x = pred, y = obs, color = predictions, shape = 
 # any(duplicated(CHLOR$PRECIP9120WS))
 
 # Join predictions to StreamCat table
-red11_obs.predict <- cbind(red11_plotdf, CHLOR) %>% 
+red10_obs.predict <- cbind(red10_plotdf, CHLOR) %>% 
   filter(predictions == "OOB") %>% 
   arrange(ELEVWS) # Order by unique col
 
-red11_awqms <- chlor_vars_selected %>% 
+red10_awqms <- chlor_vars_selected %>% 
   arrange(ELEVWS) %>% # Order by unique col
   select(MLocID:logCHLOR) 
 
 # Join obs.pred with awqms table, and makes sure the CHLOR results match (Make sure logCHLOR column is the same as logCHLOR.1)
-red11_map <- cbind(red11_obs.predict,red11_awqms)
+red10_map <- cbind(red10_obs.predict,red10_awqms)
 
 # Then select to remove duplicate logCHLOR column and reorder.
-red11_map <- red11_map %>% 
+red10_map <- red10_map %>% 
   select(obs:COMID) %>% 
   relocate(MLocID:COMID, .before = obs)
 
 pal <- colorNumeric(palette = "Greens", 
-  domain = c(0, 175))
+  domain = c(0, red10_map$obs))
 pal2 <- colorNumeric(palette = "Greens", 
-  domain = c(0, 175))
-pal3 <- colorNumeric(palette = "RdBu", domain = c(-165,165))
+  domain = c(0, red10_map$obs))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-1 * max(red10_map$delta),max(red10_map$delta)))
 
-map_function(red11_map)
+map_function(red10_map)
 
 # Save map as html
-# red11_model_map <- map_function(red11_map)
-# saveWidget(red11_model_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//Chloride//red11_model_map.html", selfcontained = TRUE, title = "red11 model")
+# red10_model_map <- map_function(red10_map)
+# saveWidget(red10_model_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//Chloride//red10_model_map.html", selfcontained = TRUE, title = "red10 model")
 ```
 
 #### Overlay reduced and full models
 
 ```{r}
-full_red_map <- left_join(full_map, red11_map %>% select(MLocID, pred), by = "MLocID") %>% 
+full_red_map <- left_join(full_map, red10_map %>% select(MLocID, pred), by = "MLocID") %>% 
   mutate(full_pred = pred.x) %>% 
-  mutate(red11_pred = pred.y) %>% 
+  mutate(red10_pred = pred.y) %>% 
   select(-c(pred.x,pred.y)) %>% 
-  relocate(red11_pred, .after = obs) %>% 
+  relocate(red10_pred, .after = obs) %>% 
   relocate(full_pred, .after = obs) %>% 
   select(MLocID:predictions) %>% 
-  gather(key = "Model", value = "Prediction", full_pred, red11_pred)
+  gather(key = "Model", value = "Prediction", full_pred, red10_pred)
 
 ggplot(full_red_map, aes(x = Prediction, y = obs, color = Model)) +
   geom_point(size = 1.5, alpha = 0.5) + theme_bw(base_size = 15) +
@@ -922,42 +913,44 @@ ggplot(full_red_map, aes(x = Prediction, y = obs, color = Model)) +
 # Select only the human influenced predictors at reference sites from the reduced model.
 CHLOR_ref_hi <- full_map %>% 
   filter(ReferenceSite == "REFERENCE") %>% 
-  select(c(MLocID:logCHLOR, PESTIC1997WS, DAMDENSWS, PCTAGSLPMID2001WS, WATERINPUTWS, PCTCROP2001WS))
+  select(c(MLocID:logCHLOR, SEPTICWS, PCTFRSTLOSS2002WS, PCTURBOP2001WS, CANALDENSWS, PCTNONAGINTRODMANAGVEGWS))
 
-# DAMDENSWS
+# PCTFRSTLOSS2002WS
 par(mfrow=c(1,2))
-plot.variable(red11, xvar.names = c("DAMDENSWS"), partial = TRUE, plots.one.page = TRUE)
-abline(v=quantile(CHLOR_ref_hi$DAMDENSWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
-hist(CHLOR_ref_hi$DAMDENSWS, main = '')
-quantile(CHLOR_ref_hi$DAMDENSWS, probs = seq(.1, .9, by = .1))
+plot.variable(red10, xvar.names = c("PCTFRSTLOSS2002WS"), partial = TRUE, plots.one.page = TRUE)
+abline(v=quantile(CHLOR_ref_hi$PCTFRSTLOSS2002WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
+hist(CHLOR_ref_hi$PCTFRSTLOSS2002WS, main = '')
+quantile(CHLOR_ref_hi$PCTFRSTLOSS2002WS, probs = seq(.1, .9, by = .1))
 
-# PESTIC1997WS: Mean pesticide use (kg/km2) in yr. 1997
+# SEPTICWS
 par(mfrow=c(1,2))
-plot.variable(red11, xvar.names = c("PESTIC1997WS"), partial = TRUE, plots.one.page = TRUE)
-abline(v=quantile(CHLOR_ref_hi$PESTIC1997WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
-hist(CHLOR_ref_hi$PESTIC1997WS, main = '')
-quantile(CHLOR_ref_hi$PESTIC1997WS, probs = seq(.1, .9, by = .1))
+plot.variable(red10, xvar.names = c("SEPTICWS"), partial = TRUE, plots.one.page = TRUE)
+abline(v=quantile(CHLOR_ref_hi$SEPTICWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
+hist(CHLOR_ref_hi$SEPTICWS, main = '')
+quantile(CHLOR_ref_hi$SEPTICWS, probs = seq(.1, .9, by = .1))
 
-# PCTAGSLPMID2001WS
-par(mfrow=c(1,2))
-plot.variable(red11, xvar.names = c("PCTAGSLPMID2001WS"), partial = TRUE, plots.one.page = TRUE)
-abline(v=quantile(CHLOR_ref_hi$PCTAGSLPMID2001WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
-hist(CHLOR_ref_hi$PCTAGSLPMID2001WS, main = '')
-quantile(CHLOR_ref_hi$PCTAGSLPMID2001WS, probs = seq(.1, .9, by = .1))
+# BELOW not in reduced model
 
-# WATERINPUTWS
-par(mfrow=c(1,2))
-plot.variable(red11, xvar.names = c("WATERINPUTWS"), partial = TRUE, plots.one.page = TRUE)
-abline(v=quantile(CHLOR_ref_hi$WATERINPUTWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
-hist(CHLOR_ref_hi$WATERINPUTWS, main = '')
-quantile(CHLOR_ref_hi$WATERINPUTWS, probs = seq(.1, .9, by = .1))
-
-# PCTCROP2001WS
-par(mfrow=c(1,2))
-plot.variable(red11, xvar.names = c("PCTCROP2001WS"), partial = TRUE, plots.one.page = TRUE)
-abline(v=quantile(CHLOR_ref_hi$PCTCROP2001WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
-hist(CHLOR_ref_hi$PCTCROP2001WS, main = '')
-quantile(CHLOR_ref_hi$PCTCROP2001WS, probs = seq(.1, .9, by = .1))
+# # PCTURBOP2001WS
+# par(mfrow=c(1,2))
+# plot.variable(red10, xvar.names = c("PCTURBOP2001WS"), partial = TRUE, plots.one.page = TRUE)
+# abline(v=quantile(CHLOR_ref_hi$PCTURBOP2001WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
+# hist(CHLOR_ref_hi$PCTURBOP2001WS, main = '')
+# quantile(CHLOR_ref_hi$PCTURBOP2001WS, probs = seq(.1, .9, by = .1))
+# 
+# # CANALDENSWS
+# par(mfrow=c(1,2))
+# plot.variable(red10, xvar.names = c("CANALDENSWS"), partial = TRUE, plots.one.page = TRUE)
+# abline(v=quantile(CHLOR_ref_hi$CANALDENSWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
+# hist(CHLOR_ref_hi$CANALDENSWS, main = '')
+# quantile(CHLOR_ref_hi$CANALDENSWS, probs = seq(.1, .9, by = .1))
+# 
+# # PCTNONAGINTRODMANAGVEGWS
+# par(mfrow=c(1,2))
+# plot.variable(red10, xvar.names = c("PCTNONAGINTRODMANAGVEGWS"), partial = TRUE, plots.one.page = TRUE)
+# abline(v=quantile(CHLOR_ref_hi$PCTNONAGINTRODMANAGVEGWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
+# hist(CHLOR_ref_hi$PCTNONAGINTRODMANAGVEGWS, main = '')
+# quantile(CHLOR_ref_hi$PCTNONAGINTRODMANAGVEGWS, probs = seq(.1, .9, by = .1))
 ```
 
 #### Reduce all human-influenced variables [to 0]* and make predictions using reduced model.
@@ -965,39 +958,39 @@ quantile(CHLOR_ref_hi$PCTCROP2001WS, probs = seq(.1, .9, by = .1))
 
 ```{r}
 # Make predictions with adjusted human-influence to 0 
-red11_no.hi <- predict(red11, newdata= CHLOR_no.hi, seed = 24)
+red10_no.hi <- predict(red10, newdata= CHLOR_no.hi, seed = 24)
 
 # Mean squared error (untransformed)
-red11_mse_no.hi <- tail(red11_no.hi$err.rate,1)
-red11_per.var_no.hi <- 100 * (1 - red11_mse_no.hi/ var(CHLOR_no.hi$logCHLOR, na.rm = TRUE))
+red10_mse_no.hi <- tail(red10_no.hi$err.rate,1)
+red10_per.var_no.hi <- 100 * (1 - red10_mse_no.hi/ var(CHLOR_no.hi$logCHLOR, na.rm = TRUE))
 
 # RMSE
-red11_rmse_no.hi<- rmse(exp(red11_no.hi$predicted), exp(CHLOR_no.hi$logCHLOR))
-red11_rmse.scaled_no.hi <- red11_rmse_no.hi/range_CHLOR
-print(paste0('OOB RMSE = ' , round(red11_rmse_no.hi,2), " (μS/cm)"))
-print(paste0('Scaled OOB RMSE = ' , round(red11_rmse.scaled_no.hi*100,2), "%"))
+red10_rmse_no.hi<- rmse(exp(red10_no.hi$predicted), exp(CHLOR_no.hi$logCHLOR))
+red10_rmse.scaled_no.hi <- red10_rmse_no.hi/range_CHLOR
+print(paste0('OOB RMSE = ' , round(red10_rmse_no.hi,2), " (μS/cm)"))
+print(paste0('Scaled OOB RMSE = ' , round(red10_rmse.scaled_no.hi*100,2), "%"))
 
 # Make a df for plots
-red11_plotdf_no.hi <- data.frame(obs = CHLOR_no.hi$logCHLOR, pred = red11_no.hi$predicted) %>% 
+red10_plotdf_no.hi <- data.frame(obs = CHLOR_no.hi$logCHLOR, pred = red10_no.hi$predicted) %>% 
   mutate(obs = exp(obs)) %>% 
   mutate(pred = exp(pred)) %>% 
   mutate(delta = obs - pred)
 
 # Plot
-ggplot(data = red11_plotdf_no.hi, aes(x = pred, y = obs)) +
+ggplot(data = red10_plotdf_no.hi, aes(x = pred, y = obs)) +
   geom_point(alpha = 0.75) +
-  labs(title = "CHLOR Red11 Model predictions without human influenced vars",
+  labs(title = "CHLOR red10 Model predictions without human influenced vars",
        x = "Predicted values (mg/L)",
        y = "Observed values (mg/L)") +
   theme_bw() + 
   geom_abline() + 
   scale_x_log10() +
   scale_y_log10() +
-  annotate("text", x = 0.6, y = 90, label = paste0('OOB RMSE = ' , round(red11_rmse_no.hi,2), ' | scaled RMSE = ', round(red11_rmse.scaled_no.hi*100,2), "%"), size = 3)
+  annotate("text", x = 0.6, y = 90, label = paste0('OOB RMSE = ' , round(red10_rmse_no.hi,2), ' | scaled RMSE = ', round(red10_rmse.scaled_no.hi*100,2), "%"), size = 3)
 
-# Plot residuals - red11 model, adjusted human-influenced vars to 0
-red11_resid_no.hi <- exp(CHLOR_no.hi$logCHLOR) - exp(red11_no.hi$predicted) # Observed minus predicted oob
-plot(red11_resid_no.hi ~ exp(red11_no.hi$predicted), xlab = "Predicted CHLOR (mg/L)", ylab = "Residuals (obs - pred)", main = "Red10 model residuals, no HI vars")
+# Plot residuals - red10 model, adjusted human-influenced vars to 0
+red10_resid_no.hi <- exp(CHLOR_no.hi$logCHLOR) - exp(red10_no.hi$predicted) # Observed minus predicted oob
+plot(red10_resid_no.hi ~ exp(red10_no.hi$predicted), xlab = "Predicted CHLOR (mg/L)", ylab = "Residuals (obs - pred)", main = "Red10 model residuals, no HI vars")
 abline(h=0, col = "red", lty = 2)
 ```
 
@@ -1008,46 +1001,40 @@ abline(h=0, col = "red", lty = 2)
 # Need to join predictions to AWQMS columns, but there are no unique identifiers in the CHLOR table. Predictions will be in the same order as the CHLOR table initially.
 
 # Join predictions to cal_val table
-red11_obs.predict_no.hi <- cbind(red11_plotdf_no.hi, CHLOR_no.hi) %>% 
+red10_obs.predict_no.hi <- cbind(red10_plotdf_no.hi, CHLOR_no.hi) %>% 
   arrange(ELEVWS) # Use unique col
 
 # Join CHLOR.obs_predict_no.hi with CHLOR.awqms, and makes sure the results match.
-red11_map_no.hi <- cbind(full_awqms,red11_obs.predict_no.hi)
+red10_map_no.hi <- cbind(full_awqms,red10_obs.predict_no.hi)
 
 # Then select to remove duplicate logCHLOR column and reorder.
-red11_map_no.hi <- red11_map_no.hi %>% 
+red10_map_no.hi <- red10_map_no.hi %>% 
   select(MLocID:delta, BFIWS:L3Eco)
 
 pal <- colorNumeric(palette = "Purples", 
-  domain = c(0, 0.7))
+  domain = c(0, max(red10_map_no.hi$obs)))
 pal2 <- colorNumeric(palette = "Purples", 
-  domain = c(0, 0.7))
-pal3 <- colorNumeric(palette = "RdBu", domain = c(-0.7,0.7))
+  domain = c(0, max(red10_map_no.hi$obs)))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-1* max(red10_map_no.hi$delta), max(red10_map_no.hi$delta)))
 
-map_function(red11_map_no.hi)
+map_function(red10_map_no.hi)
 
 # Save map as html
-# red11_model_map_no.hi <- map_function(red11_map_no.hi)
-# saveWidget(red11_model_map_no.hi, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//Chloride//red11_model_map_no.hi.html", selfcontained = TRUE, title = "Full model Adjusted (no human-influenced vars)")
+# red10_model_map_no.hi <- map_function(red10_map_no.hi)
+# saveWidget(red10_model_map_no.hi, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//Chloride//red10_model_map_no.hi.html", selfcontained = TRUE, title = "Full model Adjusted (no human-influenced vars)")
 ```
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 #### Top 4 predictors (not using this one)
 
 ```{r}
-red4 <- rfsrc(logCHLOR ~ PESTIC1997WS + PCTICE2001WS + PCTCONIF2001WS + PCTBL2001WS, data = CHLOR, mtry = 30, nodesize = 1, importance = "TRUE", seed = 24)
+#Adjust the parameters below based on tuning (nodesize = 1; mtry = 3)
+tuning <- tune(logCHLOR ~ ELEVWS + TMAX9120WS + L3Eco + CLAYWS, data = CHLOR, seed = 1234)
+tuning$optimal
+```
+
+```{r}
+red4 <- rfsrc(logCHLOR ~ ELEVWS + TMAX9120WS + L3Eco + CLAYWS, data = CHLOR, mtry = 3, nodesize = 1, importance = "TRUE", seed = 24)
 red4 # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (untransformed)
@@ -1097,9 +1084,9 @@ ggplot(data = red4_plotdf, aes(x = pred, y = obs, color = predictions, shape = p
   geom_smooth(method = "lm", se = FALSE) +
   scale_x_log10() +
   scale_y_log10() +
-  annotate("text", x = 1, y = 100, label = paste0('OOB RMSE = ' , round(red4_oob.rmse,2), ' | scaled RMSE = ', round(red4_oob.rmse.scaled*100,2), "%"), size = 3) +
-    annotate("text", x = 1, y = 120, label = paste0('IB RMSE = ' , round(red4_rmse,2), ' | scaled RMSE = ', round(red4_rmse.scaled*100,2), "%"), size = 3) +
-      annotate("text", x = 1, y = 145, label = paste0('% variance explained = ' , round(red4_per.var,2), '%'), size = 3) 
+  annotate("text", x = 0.7, y = 60, label = paste0('OOB RMSE = ' , round(red4_oob.rmse,2), ' | scaled RMSE = ', round(red4_oob.rmse.scaled*100,2), "%"), size = 3) +
+    annotate("text", x = 0.7, y = 75, label = paste0('IB RMSE = ' , round(red4_rmse,2), ' | scaled RMSE = ', round(red4_rmse.scaled*100,2), "%"), size = 3) +
+      annotate("text", x = 0.7, y = 100, label = paste0('% variance explained = ' , round(red4_per.var,2), '%'), size = 3) 
 ```
 
 ## E. Reference-Only Model
@@ -1109,8 +1096,9 @@ ggplot(data = red4_plotdf, aes(x = pred, y = obs, color = predictions, shape = p
 ```{r}
 CHLOR.ref <- chlor_vars_selected %>% 
   filter(ReferenceSite=="REFERENCE") %>% 
-  select(-c(MLocID:COMID, CHLOR, SampleStartDate))  %>%  # Remove AWQMS columns
-  select(-c("CANALDENSWS", "DAMDENSWS", "MINEDENSWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTAGSLPMID2001WS", "PCTCROP2001WS", "PCTIMP2001WS", "PCTFRSTLOSS2002WS", "PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "SW_FLUXWS", "TRIDENSWS", "WATERINPUTWS", "WWTPMAJORDENSWS", "WWTPALLDENSWS")) # Remove anthropogenic StreamCat vars
+  select(-c(MLocID:COMID, Chloride, SampleStartDate))  %>%  # Remove AWQMS columns
+  select(-c("CANALDENSWS", "DAMDENSWS", "FERTWS", "MINEDENSWS", "NANIWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTAGSLPMID2001WS", "PCTCROP2001WS", "PCTIMP2001WS", "PCTFRSTLOSS2002WS", "PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "TRIDENSWS", "WWTPMAJORDENSWS", "WWTPALLDENSWS")) %>% # Remove anthropogenic StreamCat vars
+  as.data.frame()
 
 # Convert character columns to factors
 CHLOR.ref[sapply(CHLOR.ref, is.character)] <- lapply(CHLOR.ref[sapply(CHLOR.ref, is.character)], as.factor)
@@ -1119,7 +1107,7 @@ CHLOR.ref[sapply(CHLOR.ref, is.character)] <- lapply(CHLOR.ref[sapply(CHLOR.ref,
 #### Model tuning - mtry and node size (number of trees happens in next step)
 
 ```{r}
-#Adjust the parameters below based on tuning (nodesize = 5; mtry = 13)
+#Adjust the parameters below based on tuning (nodesize = 5; mtry = 12)
 tuning <- tune(logCHLOR~., CHLOR.ref, seed = 2)
 tuning$optimal
 
@@ -1128,7 +1116,7 @@ tuning$optimal
 #### Build full ref-only model
 
 ```{r}
-ref <- rfsrc(logCHLOR ~ ., data = CHLOR.ref, mtry = 13, nodesize = 5, importance = "TRUE", seed = 24)
+ref <- rfsrc(logCHLOR ~ ., data = CHLOR.ref, mtry = 12, nodesize = 5, importance = "TRUE", seed = 24)
 ref # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (untransformed)
@@ -1181,7 +1169,7 @@ ggplot(data = ref_plotdf, aes(x = pred, y = obs, color = predictions, shape = pr
   scale_x_log10() +
   scale_y_log10() +
   annotate("text", x = 0.75, y = 15, label = paste0('OOB RMSE = ' , round(ref_oob.rmse,2), ' | scaled RMSE = ', round(ref_oob.rmse.scaled*100,2), "%"), size = 3) +
-    annotate("text", x = 0.75, y = 20, label = paste0('IB RMSE = ' , round(ref.rmse,2), ' | scaled RMSE = ', round(ref_rmse.scaled*100,2), "%"), size = 3) +
+    annotate("text", x = 0.75, y = 19, label = paste0('IB RMSE = ' , round(ref.rmse,2), ' | scaled RMSE = ', round(ref_rmse.scaled*100,2), "%"), size = 3) +
       annotate("text", x = 0.75, y = 25, label = paste0('% variance explained = ' , round(ref_per.var,2), '%'), size = 3) 
 
 # Plot residuals - 
@@ -1194,7 +1182,7 @@ abline(h=0, col = "red", lty = 2)
 
 ```{r}
 # Top importance vars
-partialplots <- plot.variable(ref, xvar.names = c("PCTBL2001WS", "PCTICE2001WS", "SWS", "PCTEXTRUVOLWS", "CLAYWS", "WETTEDWIDTH", "PCTCONIF2001WS", "NHD_pSLOPE"), partial = TRUE, plots.one.page = TRUE)
+partialplots <- plot.variable(ref, xvar.names = c("BFIWS", "Coast_dist", "PCTMXFST2001WS", "ELEVWS", "TMAX9120WS", "ROCKNWS", "MSST2008", "RUNOFFWS"), partial = TRUE, plots.one.page = TRUE)
 
 #******************consider adding code to look at individual metrics
 ```
@@ -1228,10 +1216,10 @@ ref_map <- ref_map %>%
   relocate(MLocID:COMID, .before = obs)
 
 pal <- colorNumeric(palette = "BuGn", 
-  domain = c(0, 67))
+  domain = c(0, max(ref_map$obs)))
 pal2 <- colorNumeric(palette = "BuGn", 
-  domain = c(0, 67))
-pal3 <- colorNumeric(palette = "RdBu", domain = c(-65,65))
+  domain = c(0, max(ref_map$obs)))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-1*max(ref_map$delta), max(ref_map$delta)))
 
 map_function(ref_map)
 
@@ -1246,7 +1234,7 @@ map_function(ref_map)
 
 ```{r}
 # Construct a dataframe of predictions to compare
-boxplot_preds <- data.frame(MLocID = red11_map$MLocID, StationDes = red11_map$StationDes, Obs = red11_map$obs, Pred_unadj = red11_map$pred, L3Eco = as.character(red11_map$L3Eco),Pred_adj = red11_map_no.hi$pred, Ref = red11_map$ReferenceSite)
+boxplot_preds <- data.frame(MLocID = red10_map$MLocID, StationDes = red10_map$StationDes, Obs = red10_map$obs, Pred_unadj = red10_map$pred, L3Eco = as.character(red10_map$L3Eco),Pred_adj = red10_map_no.hi$pred, Ref = red10_map$ReferenceSite)
 
 boxplot_ref<- ref_map %>%
   select(MLocID, Pred_ref = pred)
@@ -1266,7 +1254,7 @@ ggplot(boxplot_df, aes(x = L3Eco, y = Prediction, fill = Model)) + geom_boxplot(
   scale_y_log10() +
   theme_bw(base_size=14) + ylab("CHLOR (mg/L)")
 
-# Ignore warning for 621 rows removed - these are NAs in the Pred_ref column.
+# Ignore warning for 540 rows removed - these are NAs in the Pred_ref column.
 ```
 
 #### Combined Leaflet map of predictions
@@ -1329,11 +1317,11 @@ map_all <- function(data) {
 }
 
 pal <- colorNumeric(palette = "Greens", 
-  domain = c(0, 180))
+  domain = c(0, max(leaflet_df$Obs)))
 pal2 <- colorNumeric(palette = "Greens", 
-  domain = c(0, 180))
-pal3 <- colorNumeric(palette = "Oranges", c(0, 30))
-pal4 <- colorNumeric(palette = "Oranges", domain = c(0, 30), na.color = "transparent") 
+  domain = c(0, max(leaflet_df$Obs)))
+pal3 <- colorNumeric(palette = "Oranges", c(0, max(leaflet_df$Pred_unadj)))
+pal4 <- colorNumeric(palette = "Oranges", domain = c(0, max(leaflet_df$Pred_unadj)), na.color = "transparent") 
 
 map_all(leaflet_df)
 

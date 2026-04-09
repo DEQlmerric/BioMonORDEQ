@@ -549,10 +549,10 @@ map_function <- function(data) {
 }
 
 pal <- colorNumeric(palette = "Greens", 
-  domain = c(0, 800))
+  domain = c(0, max(full_map$obs)))
 pal2 <- colorNumeric(palette = "Greens", 
-  domain = c(0, 800))
-pal3 <- colorNumeric(palette = "RdBu", domain = c(-630,630))
+  domain = c(0, max(full_map$obs)))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-1*max(full_map$delta), max(full_map$delta)))
 
 map_function(full_map)
 
@@ -647,13 +647,13 @@ map_predictors <- function(data) {
 }
 
 pal <- colorNumeric(palette = "Blues", 
-  domain = c(0,4700))
+  domain = c(0,max(full_map$PRECIP9120WS)))
 pal2 <- colorNumeric(palette = "Greens", 
-  domain = c(0, 0.45))
+  domain = c(0, max(full_map$KFFACTWS)))
 pal3 <- colorNumeric(palette = "RdBu", 
-                     domain = c(6,20), reverse = TRUE)
+                     domain = c(min(full_map$TMAX9120WS),max(full_map$TMAX9120WS)), reverse = TRUE)
 pal4 <- colorNumeric(palette = "Oranges", 
-  domain = c(0, 6.8))
+  domain = c(0, max(full_map$OMWS)))
 
 map_predictors(full_map)
 
@@ -745,10 +745,10 @@ full_map_no.hi <- full_map_no.hi %>%
   select(MLocID:delta, BFIWS:L3Eco)
 
 pal <- colorNumeric(palette = "Greens", 
-  domain = c(0, 800))
+  domain = c(0, max(full_map_no.hi$obs)))
 pal2 <- colorNumeric(palette = "Greens", 
-  domain = c(0, 800))
-pal3 <- colorNumeric(palette = "RdBu", domain = c(-630,630))
+  domain = c(0, max(full_map_no.hi$obs)))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-1*max(full_map_no.hi$delta), max(full_map_no.hi$delta)))
 
 map_function(full_map_no.hi)
 
@@ -892,10 +892,10 @@ ref_map <- ref_map %>%
   relocate(MLocID:COMID, .before = obs)
 
 pal <- colorNumeric(palette = "BuGn", 
-  domain = c(0,250))
+  domain = c(0,max(ref_map$obs)))
 pal2 <- colorNumeric(palette = "BuGn", 
-  domain = c(0,250))
-pal3 <- colorNumeric(palette = "RdBu", domain = c(-131,131))
+  domain = c(0,max(ref_map$obs)))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-1*max(ref_map$delta), max(ref_map$delta)))
 
 map_function(ref_map)
 
@@ -993,11 +993,11 @@ map_all <- function(data) {
 }
 
 pal <- colorNumeric(palette = "Greens", 
-  domain = c(0, 800))
+  domain = c(0, max(leaflet_df$Obs)))
 pal2 <- colorNumeric(palette = "Greens", 
-  domain = c(0, 800))
-pal3 <- colorNumeric(palette = "Oranges", c(0, 500))
-pal4 <- colorNumeric(palette = "Oranges", domain = c(0, 500), na.color = "transparent") 
+  domain = c(0, max(leaflet_df$Obs)))
+pal3 <- colorNumeric(palette = "Oranges", domain = c(0, max(leaflet_df$Pred_unadj)))
+pal4 <- colorNumeric(palette = "Oranges", domain = c(0, max(leaflet_df$Pred_unadj)), na.color = "transparent") 
 
 map_all(leaflet_df)
 

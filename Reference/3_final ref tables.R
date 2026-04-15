@@ -68,41 +68,57 @@ d <-  d %>%
   mutate(date.stamp = today)
 
 
-# read in the existing One.Table
+                                                                                   
+#######
+#######
 
-one.table <- read.csv("Reference/one.table_rule.all.csv")
+#                 save file with date included = ref_screen.DEQ+DATE.csv
 
-one.table_new <- rbind(one.table, d)
+#######
+#######
+
+library(openxlsx)
+
+today <- Sys.Date()
+
+worksheet.name <- paste("one.table_", today)
 
 
-write.csv(one.table_new, 'Reference/one.table_rule.all.csv', row.names=FALSE)
+# This overwrites, but keeps all data present in new file
+filepath <- "Reference/one.table_rule.all.xlsx"  #change filepath to original xlsx filepath
+
+wb <- loadWorkbook(filepath)  
+addWorksheet(wb,worksheet.name) #change "sheet2" to "whatever-you-want-to-name-sheet"
+writeData(wb, worksheet.name, d) #change "sheet2" to whatever you named new tab and df to whatever dataframe you want
+saveWorkbook(wb,filepath, overwrite = TRUE)
 
 
 
-                                      # already created this file.  Not necessary to repeat, but save here in case it needs to be done again, or modified in the future.
+                                      # # already created this file.  Not necessary to repeat, but save here in case it needs to be done again, or modified in the future.
+                                      # 
+                                      #                                                   # Create One Summary table, covering site info + GIS screens + GE screens + FINAL REF
+                                      #                                                   one.table_rule.all <- rbind(d, u)
+                                      #                                                   
+                                      #                                                   write.csv(one.table_rule.all, 'Reference/one.table_rule.all.csv', row.names=FALSE)
+                                      #                                                   write.csv(one.table_rule.all, '//deqlab1/GIS_WA/Project_WOrking_Folders/Reference/2020/_Final outputs/one.table_rule.all.csv', row.names = FALSE)
+                                      #                                                   
+                                      #                                                   
+                                      #                                                   # create a data dictionary for one.table
+                                      #                                                   variables <- colnames(one.table_rule.all)
+                                      #                                                   
+                                      #                                                   definitions <- c('unique station identifier_DEQ stations table', 'station descriptive name', 'latitude_NAD83 decimal degrees', 'longitude_NAD83 decimal degrees',
+                                      #                                                                    'Level3 Omernik Ecoregion_abbreviation', 'Common identifier of an NHD Flowline', 'road density per watershed area', 'xings per watershed area',
+                                      #                                                                    '% Ag land use', '% of watershed assigned to Code21 landuse from NLCD', 'of mines in watershed', 'gravel mines per watershed area', '% of watershed with canals', 'Roads GIS status: 1 = Candidate ref 2 = Trashed 0 = Neither',
+                                      #                                                                    'Road crossings GIS status', 'Ag GIS status', 'Code21 GIS status', 'Mines GIS status', 'Gravel Mines GIS status', 'Canals GIS status',
+                                      #                                                                    'Overall GIS screen status--across all 7 GIS metrics', 'East or West of Cascades crest', 'Overall score from Google Earth Screens', 
+                                      #                                                                    'Best professional judgement call from Reference Council', 'FINAL Reference status: combines GIS + GE + BPJ', 'Organization that provided the station'
+                                      #                                                                   )
+                                      #                                                   
+                                      #                                                   
+                                      #                                                   one.table_meta.data<-as.data.frame(cbind(variables, definitions))
+                                      #                                                   write.csv(one.table_meta.data, 'Reference/one.table_meta.data.csv')
+                                      #                                                   write.csv(one.table_meta.data, '//deqlab1/GIS_WA/Project_WOrking_Folders/Reference/2020/_Final outputs/one.table_meta.data.csv')
 
-                                                                                        # Create One Summary table, covering site info + GIS screens + GE screens + FINAL REF
-                                                                                        one.table_rule.all <- rbind(d, u)
-                                                                                        
-                                                                                        write.csv(one.table_rule.all, 'Reference/one.table_rule.all.csv', row.names=FALSE)
-                                                                                        write.csv(one.table_rule.all, '//deqlab1/GIS_WA/Project_WOrking_Folders/Reference/2020/_Final outputs/one.table_rule.all.csv', row.names = FALSE)
-                                                                                        
-                                                                                        
-                                                                                        # create a data dictionary for one.table
-                                                                                        variables <- colnames(one.table_rule.all)
-                                                                                        
-                                                                                        definitions <- c('unique station identifier_DEQ stations table', 'station descriptive name', 'latitude_NAD83 decimal degrees', 'longitude_NAD83 decimal degrees',
-                                                                                                         'Level3 Omernik Ecoregion_abbreviation', 'Common identifier of an NHD Flowline', 'road density per watershed area', 'xings per watershed area',
-                                                                                                         '% Ag land use', '% of watershed assigned to Code21 landuse from NLCD', 'of mines in watershed', 'gravel mines per watershed area', '% of watershed with canals', 'Roads GIS status: 1 = Candidate ref 2 = Trashed 0 = Neither',
-                                                                                                         'Road crossings GIS status', 'Ag GIS status', 'Code21 GIS status', 'Mines GIS status', 'Gravel Mines GIS status', 'Canals GIS status',
-                                                                                                         'Overall GIS screen status--across all 7 GIS metrics', 'East or West of Cascades crest', 'Overall score from Google Earth Screens', 
-                                                                                                         'Best professional judgement call from Reference Council', 'FINAL Reference status: combines GIS + GE + BPJ', 'Organization that provided the station'
-                                                                                                        )
-                                                                                        
-                                                                                        
-                                                                                        one.table_meta.data<-as.data.frame(cbind(variables, definitions))
-                                                                                        write.csv(one.table_meta.data, 'Reference/one.table_meta.data.csv')
-                                                                                        write.csv(one.table_meta.data, '//deqlab1/GIS_WA/Project_WOrking_Folders/Reference/2020/_Final outputs/one.table_meta.data.csv')
 
 
 

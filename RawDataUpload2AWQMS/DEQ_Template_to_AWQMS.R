@@ -1,51 +1,54 @@
-### Generate AWQMS upload from data template ###
+### Generate AWQMS upload from the data template that meets the data accessibility standards ###
 ### L. Merrick 5/7/2021 ###
 ### Revised to use contractor version received from Cole ecological in 2023
 
 library(tidyverse)
 library(readxl)
+library(openxlsx)
 library(RODBC)
 
 
 # Enter File Information 
 # Be sure to delete unused rows on Sample and Results tabs of the template
-data_path <- "//deqhq1/STORMWATER/Muni Stormwater Program/Municipal - Phase I/Electronic Data Delivery/2025/Submitted Data/WES-Rivergrove-Gladstone/WC_WES2024 MS4BioSubmission_CoPermittee.xlsx"
-out_path <- "//deqhq1/STORMWATER/Muni Stormwater Program/Municipal - Phase I/Electronic Data Delivery/2025/Submitted Data/WES-Rivergrove-Gladstone/WES_25_Bio_RResults.csv"
-org = "CITY_GRESHAM(NOSTORETID)"
+data_path <- "//deqlab1/BioMon/Bugs/2026/WC_BioSubmission_RefTrend 2025 results.xlsx"
+out_path <- "//deqlab1/BioMon/Bugs/2026/ODEQ_25_Bio_RResults.xlsx"
+org = "OREGONDEQ"
 
 # pull in hybrid taxon table from SQL BioMon database 
 # this files lives and is updated in this BioMon repo 
-hybrid_taxon <- read_excel("bugs analyses/Taxonomy/ODEQ_Taxonomy_dec22.xlsx") %>% 
+hybrid_taxon <- read_excel("bugs analyses/Taxonomy/ODEQ_Taxonomy_dec22.xlsx") |> 
   mutate(AWQMS_tax_uid = as.character(AWQMS_tax_uid))
 
 # this is the downloaded AWQMS taxon table. I don't know the best way to get this integrated without downloaded the latest version each time. 
-awqms_t <- read_excel("RawDataUpload2AWQMS/AWQMS_Taxon2oct23.xlsx", sheet = "Taxon") %>% 
+awqms_t <- read_excel("RawDataUpload2AWQMS/AWQMS_Taxon2oct23.xlsx", sheet = "Taxon") |> 
          mutate(UID = as.character(UID))
 
 #bring in data 
-Samp <- read_excel(data_path, sheet = "Sample") %>%
-  filter(!is.na('Monitoring Location ID')) %>% 
+Samp <- read_excel(data_path, sheet = "Sample") |>
+  filter(!is.na('Monitoring Location ID')) |>
+  rename_with(~ str_remove_all(.x, "[\\^\\*]")) |>
   select("Sample ID (Locked)","Project ID",Comments,"Sample Date", "Monitoring Location ID", #"Alternate Project ID"
-         Taxonomist,"Subsample Amount", "Habitat Type","Field QA","Lab QA") %>%  
+         Taxonomist,"Subsample Amount", "Habitat Type","Field QA","Lab QA") |>  
   rename(act_id= "Sample ID (Locked)",project = "Project ID",
          #AltProjectID = "Alternate Project ID",
          act_comments = Comments, Subsample_fraction_value = "Subsample Amount",
          Habitat_sampled = "Habitat Type",Field_QA = "Field QA",Lab_QA = "Lab QA",
          Date = "Sample Date", MLocID = "Monitoring Location ID",
-         act_comments = Comments) %>%
+         act_comments = Comments) |>
   mutate(Methods_ok = "Yes",
          Fixed_Count = "fixed count 500",
          #Subsample_fraction_value = (subsample_squares/30), #Subsample_fraction_value moved to rename because there's no need to divide by total number of caton tray squares
          Area_sampled = 8) 
 
-counts <- read_excel(data_path, sheet = "Results") %>% 
+counts <- read_excel(data_path, sheet = "Results") |>
+  rename_with(~ str_remove_all(.x, "[\\^\\*]")) |> 
   select("Sample ID", "Taxonomic Serial Number (Locked)", # "Monitoring Location ID","Sample Date",
          "DEQ Taxon (Locked)","DEQ Taxon Code", 
-         "Taxonomic Serial Number (Locked)","Stage ID","Count Value","Unique Taxon","Comments") %>%
+         "Taxonomic Serial Number (Locked)","Stage ID","Count Value","Unique Taxon","Comments") |>
   rename(act_id="Sample ID",TaxonSN_org = "Taxonomic Serial Number (Locked)",
          StageID = "Stage ID",Count = "Count Value",UniqueTaxon = "Unique Taxon",
          Taxon = "DEQ Taxon (Locked)", DEQ_TAXON = "DEQ Taxon Code",
-         res_comments = "Comments") %>% 
+         res_comments = "Comments") |> 
   mutate(Taxon = case_when(Taxon == 'Eukiefferiella Pseudomontana group' ~ 'Eukiefferiella Pseudomontana Gr.',
                            Taxon == 'Tvetenia Bavarica group' ~ 'Tvetenia Bavarica Gr.',
                            Taxon == 'Eukiefferiella Claripennis group' ~ 'Eukiefferiella Claripennis Gr.',
@@ -57,10 +60,10 @@ counts <- read_excel(data_path, sheet = "Results") %>%
                            TRUE ~ Taxon))
 
 ### build table with sample info  
-d_samp <- counts %>% 
-  left_join(Samp, by = 'act_id') %>%
-  left_join(hybrid_taxon,by = 'DEQ_TAXON') %>%
-  left_join(awqms_t, by = c('AWQMS_tax_uid'= 'UID')) %>%
+d_samp <- counts |> 
+  left_join(Samp, by = 'act_id') |>
+  left_join(hybrid_taxon,by = 'DEQ_TAXON') |>
+  left_join(awqms_t, by = c('AWQMS_tax_uid'= 'UID')) |>
   mutate(colmeth = case_when(Habitat_sampled == 'R' ~ "Benthic Kick - Riffle",
                              Habitat_sampled == 'T' ~ "Benthic Kick - Transect",
                              Habitat_sampled == 'P' ~ "Benthic Kick - Pool",
@@ -82,35 +85,35 @@ d_samp <- counts %>%
          speciesID = if_else(UniqueTaxon == 'YES', 'UniqueTaxon','AmbiguousTaxon'),
          habit = "",
          Project1 = project,
-         Comments = '')%>%
+         Comments = '')|>
   select(act_id,act_type,Field_QA,Lab_QA,media,Date,Project1,MLocID,assemblage,act_comments,colmeth,equip,
          status,qual,value,Name,StageID,habit,FFG,Voltine,speciesID,method,context,DEQ_TAXON,
          Count,Area_sampled,Subsample_fraction_value,res_comments)  ## missing Taxonomy_lab, FFG,Volt from taxa table
 
 
 ### confirm act_ids #### - should match the number in the Samp table
-d_actid_check <- d_samp %>% 
-  select(act_id,act_type,Field_QA,Lab_QA) %>%
+d_actid_check <- d_samp |> 
+  select(act_id,act_type,Field_QA,Lab_QA) |>
   distinct()
 
 #create a table of counts 
-d_count <- d_samp %>% 
+d_count <- d_samp |> 
   mutate(char = 'Count',
          unit = 'count',
          value = 'Actual', #when would this be estimated? 
-         intent = 'Population Census') %>%
+         intent = 'Population Census') |>
   select(act_id,act_type,media,Date,Project1,MLocID,assemblage,act_comments,colmeth,equip,char,Count,unit,
-         status,qual,value,Name,StageID,habit,FFG,Voltine,speciesID,intent,res_comments,method,context,DEQ_TAXON) %>%  ## missing Taxonomy_lab, FFG,Volt from taxa table
+         status,qual,value,Name,StageID,habit,FFG,Voltine,speciesID,intent,res_comments,method,context,DEQ_TAXON) |>  ## missing Taxonomy_lab, FFG,Volt from taxa table
   rename(result = Count)
 
 
 #### density #####
-d_density <- d_samp %>% 
+d_density <- d_samp |> 
   mutate(char = 'Density',
          result = (Count/(Area_sampled*Subsample_fraction_value)),
          unit = '#/ft2',
          value = 'Calculated', #when would this be estimated? 
-         intent = 'Species Density') %>%
+         intent = 'Species Density') |>
   select(act_id,act_type,media,Date,Project1,MLocID,assemblage,act_comments,colmeth,equip,char,result,unit,
          status,qual,value,Name,StageID,habit,FFG,Voltine,speciesID,intent,res_comments,method,context,DEQ_TAXON)  ## missing Taxonomy_lab, FFG,Volt from taxa table
 
@@ -119,5 +122,5 @@ d <-rbind(d_count,d_density)
 
 # this is the AWQMS load file - use import configuration 1266
 
-write.csv(d, out_path, na = "",row.names = FALSE)
+write.xlsx(d, out_path, asTable = FALSE, overwrite = TRUE)
 

@@ -213,6 +213,15 @@ so4_vars <- so4_vars %>%
   relocate(L2Eco:L3Eco, .after = SITE_TYPE) %>% 
   select(-c(HUC8, EcoRegion4)) 
 ```
+#### Distance to coast
+```{r}
+# Done in ArcGIS Pro. Distance is in km.
+coast_dist <- read_excel("//deqlab1//GIS_WA//Personal_Working_Folders//SBerzins//Dist_to_coast_All_sites.xls") %>% select(-c("OBJECTID", "StationDes","Lat_DD", "Long_DD", "NEAR_FID")) %>% rename(Coast_dist = NEAR_DIST) 
+
+# Join to sulfate table
+so4_vars <- inner_join(coast_dist, so4_vars, by = "MLocID") %>% 
+  relocate(Coast_dist, .before = "PCT_EROD")
+```
 
 # **3 - PREPARE DATA FOR MODELS**
 
@@ -277,12 +286,12 @@ rm(list=c('spear', 'spear.rows'))
 # Calculate coefficient of variance (CV) for each predictor.
 cv <- so4_vars_num %>% 
   summarise(across(everything(), ~ cv(.x, na.rm = TRUE))) %>% 
-  pivot_longer(1:140, names_to="Var", values_to="CV") # Change first argument to 1:# columns
+  pivot_longer(1:141, names_to="Var", values_to="CV") # Change first argument to 1:# columns
 
 # Calculate % of zeros for each predictor.
 cv_pctzero <- so4_vars_num %>%
   summarise(across(everything(), ~ sum(. == 0, na.rm = TRUE) / n() * 100)) %>% 
-  pivot_longer(1:140, names_to="Var", values_to="Percent Zeros") %>%  # Change  first argument to 1:# columns
+  pivot_longer(1:141, names_to="Var", values_to="Percent Zeros") %>%  # Change  first argument to 1:# columns
   inner_join(cv, by = "Var")
 
 # Write output to Excel for variable selection meeting.
@@ -328,7 +337,7 @@ so4_vars %>%
 ```{r}
 # Use Excel formula (=TEXTJOIN(", ", TRUE, range:range)) to compile list from decisions sheet and paste below.
 so4_vars_selected <- so4_vars %>% 
-  select(c(MLocID:COMID,BFIWS, CANALDENSWS, CAOWS, CLAYWS, COMPSTRGTHWS, DAMDENSWS, ELEVWS, FERTWS, HYDRLCONDWS, KFFACTWS, MINEDENSWS, MSST2008, NA2OWS, NANIWS, NHD_pSLOPE, NPDESDENSWS, NWS, OMWS, PCT_EROD, PCTAGDRAINAGEWS, PCTAGSLPMID2001WS, PCTALKINTRUVOLWS, PCTALLUVCOASTWS, PCTBL2001WS, PCTBURNAREA2002WS, PCTCOLLUVSEDWS, PCTCONIF2001WS, PCTCROP2001WS, PCTDECID2001WS, PCTEOLCRSWS, PCTEOLFINEWS, PCTEXTRUVOLWS, PCTFRSTLOSS2002WS, PCTGLACLAKECRSWS, PCTGLACLAKEFINEWS, PCTGLACTILCRSWS, PCTGRS2001WS, PCTHBWET2001WS, PCTICE2001WS, PCTIMP2001WS, PCTINCVEGRESP2002WS, PCTMXFST2001WS, PCTNONAGINTRODMANAGVEGWS, PCTOW2001WS, PCTSALLAKEWS, PCTSHRB2001WS, PCTURBHI2001WS, PCTURBLO2001WS, PCTURBOP2001WS, PCTWATERWS, PCTWDWET2001WS, PESTIC1997WS, POPDEN2010WS, RCKDEPWS, RDCRSSLPWTDWS, RDCRSWS, RDDENSWS, ROCKNWS, RUNOFFWS, SANDWS, SEPTICWS, SN2008WS, STRMPOW_CAT, SUPERFUNDDENSWS, SWS, TMAX9120WS, TRIDENSWS, WETINDEXWS, WTDEPWS, WWTPALLDENSWS, WWTPMAJORDENSWS, SITE_TYPE:L3Eco)) %>% 
+  select(c(MLocID:COMID,BFIWS, CANALDENSWS, CAOWS, CLAYWS, COMPSTRGTHWS, DAMDENSWS, ELEVWS, FERTWS, HYDRLCONDWS, KFFACTWS, MINEDENSWS, MSST2008, NA2OWS, NANIWS, NHD_pSLOPE, NPDESDENSWS, NWS, OMWS, PCT_EROD, PCTAGDRAINAGEWS, PCTAGSLPMID2001WS, PCTALKINTRUVOLWS, PCTALLUVCOASTWS, PCTBL2001WS, PCTBURNAREA2002WS, PCTCOLLUVSEDWS, PCTCONIF2001WS, PCTCROP2001WS, PCTDECID2001WS, PCTEOLCRSWS, PCTEOLFINEWS, PCTEXTRUVOLWS, PCTFRSTLOSS2002WS, PCTGLACLAKECRSWS, PCTGLACLAKEFINEWS, PCTGLACTILCRSWS, PCTGRS2001WS, PCTHBWET2001WS, PCTICE2001WS, PCTIMP2001WS, PCTINCVEGRESP2002WS, PCTMXFST2001WS, PCTNONAGINTRODMANAGVEGWS, PCTOW2001WS, PCTSALLAKEWS, PCTSHRB2001WS, PCTURBHI2001WS, PCTURBLO2001WS, PCTURBOP2001WS, PCTWATERWS, PCTWDWET2001WS, PESTIC1997WS, POPDEN2010WS, RCKDEPWS, RDCRSSLPWTDWS, RDCRSWS, RDDENSWS, ROCKNWS, RUNOFFWS, SANDWS, SEPTICWS, SN2008WS, STRMPOW_CAT, SUPERFUNDDENSWS, SWS, TMAX9120WS, TRIDENSWS, WETINDEXWS, WTDEPWS, WWTPALLDENSWS, WWTPMAJORDENSWS, Coast_dist, SITE_TYPE:L3Eco)) %>% 
   relocate(COMID, .after = cal_val) %>% 
   mutate(logSO4 = log(Sulfate)) %>% 
   relocate(logSO4, .before= Sulfate)

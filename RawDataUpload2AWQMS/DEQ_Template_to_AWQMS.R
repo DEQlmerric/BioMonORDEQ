@@ -10,9 +10,9 @@ library(RODBC)
 
 # Enter File Information 
 # Be sure to delete unused rows on Sample and Results tabs of the template
-data_path <- "//deqlab1/BioMon/Bugs/2026/WC_BioSubmission_RefTrend 2025 results.xlsx"
-out_path <- "//deqlab1/BioMon/Bugs/2026/ODEQ_25_Bio_RResults.xlsx"
-org = "OREGONDEQ"
+data_path <- "//deqhq1/STORMWATER/Muni Stormwater Program/Municipal - Phase I/Electronic Data Delivery/2025/Submitted Data/WES-Rivergrove-Gladstone/WC_WES2024 MS4BioSubmission_CoPermittee_AWQMS_DCP0007 _DCP0008.xlsx"
+out_path <- "//deqhq1/STORMWATER/Muni Stormwater Program/Municipal - Phase I/Electronic Data Delivery/2025/Submitted Data/WES-Rivergrove-Gladstone/WES_25_Bio_RResults_DCP0007_DCP0008.xlsx"
+org = "WES"
 
 # pull in hybrid taxon table from SQL BioMon database 
 # this files lives and is updated in this BioMon repo 
@@ -86,6 +86,8 @@ d_samp <- counts |>
          habit = "",
          Project1 = project,
          Comments = '')|>
+  filter(Count != "LR")|>
+  mutate(Count = as.numeric(Count)) |>
   select(act_id,act_type,Field_QA,Lab_QA,media,Date,Project1,MLocID,assemblage,act_comments,colmeth,equip,
          status,qual,value,Name,StageID,habit,FFG,Voltine,speciesID,method,context,DEQ_TAXON,
          Count,Area_sampled,Subsample_fraction_value,res_comments)  ## missing Taxonomy_lab, FFG,Volt from taxa table
@@ -106,9 +108,8 @@ d_count <- d_samp |>
          status,qual,value,Name,StageID,habit,FFG,Voltine,speciesID,intent,res_comments,method,context,DEQ_TAXON) |>  ## missing Taxonomy_lab, FFG,Volt from taxa table
   rename(result = Count)
 
-
 #### density #####
-d_density <- d_samp |> 
+d_density <- d_samp |>
   mutate(char = 'Density',
          result = (Count/(Area_sampled*Subsample_fraction_value)),
          unit = '#/ft2',

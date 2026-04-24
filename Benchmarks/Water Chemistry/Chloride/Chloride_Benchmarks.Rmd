@@ -4,12 +4,17 @@ author: "S. Berzins, A. Thompson"
 date: "2026-03-31"
 output: html_document
 ---
-
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  dev = "pdf",           # Save figures as PDF
+  fig.path = "C://Users//sberzin//OneDrive - Oregon//Desktop//figures"  # Directory where figures will be saved
+)
+```
 # *Chloride*
 
 # **1 - LOAD PACKAGES**
 
-```{r warning=FALSE}
+```{r load packages, warning=FALSE}
 library(tidyverse)
 library(StreamCatTools) 
 library(readxl)
@@ -29,7 +34,7 @@ library(htmlwidgets)
 
 ## A. STATIONS - *FROM WATER CHEMISTRY BENCHMARKS SCRIPT*
 
-```{r}
+```{r import stations}
 chlor <- read_excel('~/BioMonORDEQ/Benchmarks/Water Chemistry/cal.val_chem.ref.wq_2026-02-10.xlsx') %>%  # Output file from ref benchmarks script 
   filter(Char_Name == 'Chloride') %>% 
   select(c(MLocID, Project1, StationDes, Lat_DD, Long_DD, SampleStartDate, Result_Numeric_mod, L2Eco, L3Eco, EcoRegion4, HUC8, ReferenceSite, cal_val, COMID)) %>% 
@@ -50,7 +55,7 @@ comids <- chlor %>%
 
 #### Run function to query ALL StreamCat data for selected COMIDs by subcategory
 
-```{r}
+```{r streamcat function}
 # NOTE: StreamCat doesn't pull data for 'other' areas of interest when aoi='watershed, catchment, other'. 
 # Instead, use aoi='watershed' and run separate line for aoi='other' since they don't pull unless on their own.
 # ALSO: Do not separate metric lists onto a new line by hitting the enter button, as any metric after the break will be excluded from the pull.
@@ -164,7 +169,7 @@ return(streamcat)
 
 #### Pull ALL StreamCat data by subcategory and merge
 
-```{r}
+```{r streamcat pull}
 # # PULL DATA BY SUBCATEGORY/TYPE
 # ag <- get_streamcat(comids = comids, type = "Agriculture")
 # clim <- get_streamcat(comids = comids, type = "Climate")
@@ -188,7 +193,7 @@ return(streamcat)
 
 ### OPTION 2: Read in SC data from pre-downloaded file.
 
-```{r}
+```{r streamcat flat file}
 sc_all <- read_excel("~/BioMonORDEQ/Benchmarks/Water Chemistry/SC_all_comids2026-04-14.xlsx")
 sc_all <- inner_join(sc_all, comids)  # only keep CHLOR
 ```
@@ -197,7 +202,7 @@ sc_all <- inner_join(sc_all, comids)  # only keep CHLOR
 
 #### Erodible geology, NHD slope, stream power
 
-```{r}
+```{r other predictors}
 # ERODIBLE VS RESISTENT GEOLOGY (KEPT ERODIBLE, SINCE RESISTENT IS INVERSE OF ERODIBLE)
 erod_resist_strmpow <- sc_all %>%
   mutate(PCT_EROD = PCTALLUVCOASTWS+PCTCARBRESIDWS+PCTCOASTCRSWS+PCTCOLLUVSEDWS+PCTEOLCRSWS+PCTEOLFINEWS+PCTGLACLAKECRSWS+PCTGLACLAKEFINEWS+PCTGLACTILCLAYWS+PCTGLACTILCRSWS+PCTGLACTILLOAMWS+PCTSALLAKEWS+PCTNONCARBRESIDWS)  %>% 
@@ -225,7 +230,7 @@ chlor_vars <- chlor_vars %>%
 ```
 
 #### Distance to coast
-```{r}
+```{r dist to coast}
 # Done in ArcGIS Pro. Distance is in km.
 coast_dist <- read_excel("//deqlab1//GIS_WA//Personal_Working_Folders//SBerzins//Dist_to_coast_All_sites.xls") %>% select(-c("OBJECTID", "StationDes","Lat_DD", "Long_DD", "NEAR_FID")) %>% rename(Coast_dist = NEAR_DIST) 
 
@@ -240,7 +245,7 @@ chlor_vars <- inner_join(coast_dist, chlor_vars, by = "MLocID") %>%
 
 #### IDENTIFY COLUMNS WITH MISSING DATA
 
-```{r}
+```{r handle NAs}
 # FIND OUT WHICH COLUMNS HAVE NAs
 sort(sapply(chlor_vars, function(x) sum(is.na(x))))
 
@@ -251,7 +256,7 @@ sort(sapply(chlor_vars, function(x) sum(is.na(x))))
 
 #### PERFORM NA ROUGH FIX
 
-```{r}
+```{r NA roughfix}
 # PERFORM NA ROUGHFIX FUNCTION ON METRICS WITH ONLY A FEW MISSING VALUES (Leave metrics with >10 NAs [MAST2008, BMMI0809, WETTEDWITDTH, THALWEGDEPTH, BANKFULLWIDTH, BANKFULLDEPTH] until after the correlation table is built.)
 chlor_vars$NSURPWS  <- na.roughfix(chlor_vars$NSURPWS) # 1 NA
 chlor_vars$NANIWS  <- na.roughfix(chlor_vars$NANIWS) # 1 NA
@@ -264,7 +269,7 @@ chlor_vars$MWST2008  <- na.roughfix(chlor_vars$MWST2008) # 6 NA
 
 #### Make Spearman correlation matrix to identify co-varied predictors (>0.8)
 
-```{r, warning=FALSE}
+```{r spearman matrix, warning=FALSE}
 # Subset numeric variables only
 chlor_vars_num <- chlor_vars %>% 
   select(!c(SITE_TYPE:L3Eco)) %>% 
@@ -286,14 +291,14 @@ rm(list=c('spear', 'spear.rows'))
 
 #### Export matrix and clean up in Excel
 
-```{r}
+```{r export spearman matrix}
 # Export once, then clean up in Excel.
 #write_xlsx(matrix, path = paste0("~/BioMonORDEQ/Benchmarks/Water Chemistry/Chloride/Chloride_Spearmans_Matrix", Sys.Date(), ".xlsx"))
 ```
 
 #### Calculate coefficient of variance (CV), proportion of 0s, and kernel density plots to guide variable selection decisions
 
-```{r}
+```{r coefficient of variance}
 # Calculate coefficient of variance (CV) for each predictor.
 cv <- chlor_vars_num %>% 
   summarise(across(everything(), ~ cv(.x, na.rm = TRUE))) %>% 
@@ -322,7 +327,7 @@ chlor_vars %>%
 
 #### Hold variable selection meeting
 
-```{r}
+```{r var selection info}
 # We did this as a team 4/3/2026.
 
 # 1. Make a variable selection decisions sheet in Excel based on the TEMPLATE (Benchmarks >> Water Chemistry >> TEMPLATE_Var selection decisions.xlsx) and save to model folder on GitHub.
@@ -345,7 +350,7 @@ chlor_vars %>%
 
 #### Update predictor list
 
-```{r}
+```{r create predictor list}
 # Use Excel formula (=TEXTJOIN(", ", TRUE, range:range)) to compile list from decisions sheet and paste below.
 chlor_vars_selected <- chlor_vars %>% 
   select(c(MLocID:COMID,BFIWS, CANALDENSWS, CAOWS, CLAYWS, COMPSTRGTHWS, DAMDENSWS, ELEVWS, FERTWS, HYDRLCONDWS, KFFACTWS, MINEDENSWS, MSST2008, NA2OWS, NANIWS, NH42008WS, NHD_pSLOPE, NPDESDENSWS, NWS, OMWS, PCT_EROD, PCTAGDRAINAGEWS, PCTAGSLPMID2001WS, PCTALKINTRUVOLWS, PCTALLUVCOASTWS, PCTBL2001WS, PCTBURNAREA2002WS, PCTCARBRESIDWS, PCTCOLLUVSEDWS, PCTCONIF2001WS, PCTCROP2001WS, PCTDECID2001WS, PCTEOLFINEWS, PCTEXTRUVOLWS, PCTFRSTLOSS2002WS, PCTGLACLAKECRSWS, PCTGLACLAKEFINEWS, PCTGLACTILCRSWS, PCTGRS2001WS, PCTHBWET2001WS, PCTICE2001WS, PCTIMP2001WS, PCTINCVEGRESP2002WS, PCTMXFST2001WS, PCTNONAGINTRODMANAGVEGWS, PCTOW2001WS, PCTSALLAKEWS, PCTSHRB2001WS, PCTURBHI2001WS, PCTURBLO2001WS, PCTURBOP2001WS, PCTWATERWS, PCTWDWET2001WS, PESTIC1997WS, POPDEN2010WS, PRECIP_MINUS_EVTWS, RCKDEPWS, RDCRSSLPWTDWS, RDCRSWS, RDDENSWS, ROCKNWS, RUNOFFWS, SANDWS, SEPTICWS, STRMPOW_CAT, SUPERFUNDDENSWS, SWS, TMAX9120WS, TRIDENSWS, WETINDEXWS, WTDEPWS, WWTPALLDENSWS, WWTPMAJORDENSWS, Coast_dist,SITE_TYPE:L3Eco)) %>% 
@@ -356,7 +361,7 @@ chlor_vars_selected <- chlor_vars %>%
 
 #### Perform final correlation check to ensure no co-varied predictors remain
 
-```{r, warning=FALSE}
+```{r final correlation check, warning=FALSE}
 # Subset numeric variables only
 chlor_vars_num_selected <- chlor_vars_selected %>% 
   select(!c(SITE_TYPE:L3Eco)) %>% 
@@ -379,13 +384,13 @@ rm(list=c('spear2', 'spear2.rows'))
 
 #### Clear out the environment
 
-```{r}
+```{r clean up environment}
 rm(list=c('cv_pctzero', 'erod_resist_strmpow', 'matrix', 'matrix2', 'comids', 'chlor_vars_num','chlor_vars_num_selected', 'coast_dist'))
 ```
 
 #### Perform final NA check and perform rough fix as desired
 
-```{r}
+```{r final NA check}
 # FIND OUT WHICH COLUMNS HAVE NAs
 sapply(chlor_vars_selected, function(x) sum(is.na(x)))
 
@@ -397,7 +402,7 @@ sapply(chlor_vars_selected, function(x) sum(is.na(x)))
 
 ## A. RESPONSE VARIABLE
 
-```{r}
+```{r plot response variable}
 # HISTOGRAM
 hist(chlor_vars_selected$Chloride, main = "", xlab = "Chloride (mg/L)") #raw data
 hist(chlor_vars_selected$logCHLOR, main = "", xlab = "log(Chloride)", breaks = 15)
@@ -411,7 +416,7 @@ boxplot(chlor_vars_selected$logCHLOR, ylab = "log(Chloride)")
 
 ## A. PREP RESPONSE DATA
 
-```{r}
+```{r prep response data}
 # Select response data of interest
 CHLOR <- chlor_vars_selected %>%
   select(-c(MLocID:COMID, Chloride, SampleStartDate)) %>%  #drop Chloride in favor of logCHLOR. Drop AWQMS columns too.
@@ -429,7 +434,7 @@ CHLOR[sapply(CHLOR, is.character)] <- lapply(CHLOR[sapply(CHLOR, is.character)],
 
 #### Model tuning - mtry and node size (number of trees happens in next step)
 
-```{r}
+```{r full model tuning}
 #Adjust the parameters below based on tuning
 full_tuning <- tune(logCHLOR~., data = CHLOR, seed = 1234)
 full_tuning$optimal
@@ -437,7 +442,7 @@ full_tuning$optimal
 
 #### Build full model
 
-```{r}
+```{r full model}
 full <- rfsrc(logCHLOR ~ ., data = CHLOR, mtry = full_tuning$optimal[[2]], nodesize = full_tuning$optimal[[1]], importance = "TRUE", seed = 160)
 full # Model output. (OOB) R squared = Percent Variance Explained.
 
@@ -497,7 +502,7 @@ ggplot(data = full_plotdf, aes(x = pred, y = obs, color = predictions, shape = p
 
 #### Leaflet map of full model
 
-```{r}
+```{r leaflet map of full model}
 # CREATE DF FOR MAPPING PURPOSES
 # Need to join predictions to AWQMS columns, but there are no unique identifiers in the CHLOR table. Predictions will be in the same order as the CHLOR table initially.
 
@@ -579,7 +584,7 @@ map_function(full_map)
 
 #### Partial dependence plots for full model
 
-```{r}
+```{r partial dependence plots for full model}
 # Top importance vars
 partialplots <- plot.variable(full, xvar.names = c("ELEVWS", "TMAX9120WS", "CLAYWS", "PRECIP_MINUS_EVTWS", "PCTBL2001WS", "PCTCONIF2001WS", "SEPTICWS", "PCTFRSTLOSS2002WS"), partial = TRUE, plots.one.page = TRUE)
 
@@ -595,7 +600,7 @@ partialplots_hi <- plot.variable(full, xvar.names = c("SEPTICWS", "PCTFRSTLOSS20
 ```
 
 #### Another way to do partial plots (slower but more customizable)
-```{r}
+```{r more partial plots for full model}
 # partial.obj <- partial(full, partial.xvar = "ELEVWS", partial.values = full$xvar$ELEVWS)
 # pdta <- get.partial.plot.data(partial.obj)
 # plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "ELEVWS", ylab = "ŷ")
@@ -615,7 +620,7 @@ partialplots_hi <- plot.variable(full, xvar.names = c("SEPTICWS", "PCTFRSTLOSS20
 ```
 
 #### Leaflet map of predictors  
-```{r}
+```{r leaflet map of selected predictors}
 map_predictors <- function(data) {
   leaflet() %>%
   addProviderTiles("OpenStreetMap", group = "Basic Map") %>% 
@@ -698,7 +703,7 @@ map_predictors(full_map)
 ```
 
 #### Residual plots
-```{r}
+```{r full model residual plots}
 # Plot residuals 
 full_resid <- exp(CHLOR$logCHLOR) - exp(full_pred.oob$pred) # Observed minus predicted oob
 plot(full_resid ~ exp(full_pred.oob$pred), xlab = "Predicted CHLOR (mg/L)", ylab = "Residuals", main = "Full Model residuals")
@@ -719,7 +724,7 @@ plot(mse ~ full_map$Long_DD, xlab = "Longitude", ylab = "MSE")
 
 #### Reduce all human-influenced variables to 0 and make predictions using full model.
 
-```{r}
+```{r adj full model}
 # Reduce all human-influenced vars to all 0s.
 CHLOR_no.hi <- CHLOR %>% 
   mutate(across(all_of(c("CANALDENSWS", "DAMDENSWS", "FERTWS", "MINEDENSWS", "NANIWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTAGSLPMID2001WS", "PCTCROP2001WS", "PCTIMP2001WS", "PCTFRSTLOSS2002WS", "PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "TRIDENSWS", "WWTPMAJORDENSWS", "WWTPALLDENSWS")), ~0))
@@ -763,7 +768,7 @@ abline(h=0, col = "red", lty = 2)
 
 #### Leaflet map adjusting human vbls to 0
 
-```{r}
+```{r leaflet map adj human variables to zero}
 # CREATE DF FOR MAPPING PURPOSES to explore how residuals changed on the map after scaling all HI to zero
 # Need to join predictions to AWQMS columns, but there are no unique identifiers in the CHLOR table. Predictions will be in the same order as the CHLOR table initially.
 
@@ -794,13 +799,13 @@ map_function(full_map_no.hi)
 
 #### Build model with Top 10 predictors
 
-```{r}
+```{r reduced model tuning}
 #Adjust the parameters below based on tuning 
 red10_tuning <- tune(logCHLOR ~ ELEVWS + TMAX9120WS + L3Eco + CLAYWS + L2Eco + PRECIP_MINUS_EVTWS + PCTBL2001WS + PCTCONIF2001WS + SEPTICWS + PCTFRSTLOSS2002WS , data = CHLOR, seed = 1234)
 red10_tuning$optimal
 ```
 
-```{r}
+```{r reduced model}
 red10 <- rfsrc(logCHLOR ~ ELEVWS + TMAX9120WS + L3Eco + CLAYWS + L2Eco + PRECIP_MINUS_EVTWS + PCTBL2001WS + PCTCONIF2001WS + SEPTICWS + PCTFRSTLOSS2002WS , data = CHLOR, mtry = red10_tuning$optimal[[2]], nodesize = red10_tuning$optimal[[1]], importance = "TRUE", seed = 24)
 red10 # Model output. (OOB) R squared = Percent Variance Explained.
 
@@ -858,7 +863,7 @@ ggplot(data = red10_plotdf, aes(x = pred, y = obs, color = predictions, shape = 
 
 #### Leaflet map of red10 model
 
-```{r}
+```{r leaflet map of reduced model}
 # CREATE DF FOR MAPPING PURPOSES
 # Need to join predictions to AWQMS columns, but there are no unique identifiers in the CHLOR table. Predictions will be in the same order as the CHLOR table initially.
 
@@ -898,7 +903,7 @@ map_function(red10_map)
 
 #### Overlay reduced and full models
 
-```{r}
+```{r reduced and full model prediction plot}
 full_red_map <- left_join(full_map, red10_map %>% select(MLocID, pred), by = "MLocID") %>% 
   mutate(full_pred = pred.x) %>% 
   mutate(red10_pred = pred.y) %>% 
@@ -919,7 +924,7 @@ ggplot(full_red_map, aes(x = Prediction, y = obs, color = Model)) +
 
 #### Distributions for Human-influenced vars at all reference sites
 
-```{r}
+```{r distributions of human influenced variables at all ref sites}
 # Select only the human influenced predictors at reference sites from the reduced model.
 CHLOR_ref_hi <- full_map %>% 
   filter(ReferenceSite == "REFERENCE") %>% 
@@ -966,7 +971,7 @@ quantile(CHLOR_ref_hi$SEPTICWS, probs = seq(.1, .9, by = .1))
 #### Reduce all human-influenced variables [to 0]* and make predictions using reduced model.
 ##### * We may decide to adjust to a non-zero percentile based on reference quantiles in the chunk above.
 
-```{r}
+```{r adj reduced model}
 # Make predictions with adjusted human-influence to 0 
 red10_no.hi <- predict(red10, newdata= CHLOR_no.hi, seed = 24)
 
@@ -1006,7 +1011,7 @@ abline(h=0, col = "red", lty = 2)
 
 #### Leaflet map after adjusting human vbls for reduced10 model
 
-```{r}
+```{r leaflet map after adj human variables to zero}
 # CREATE DF FOR MAPPING PURPOSES to explore how residuals changed on the map after scaling all HI to zero
 # Need to join predictions to AWQMS columns, but there are no unique identifiers in the CHLOR table. Predictions will be in the same order as the CHLOR table initially.
 
@@ -1035,7 +1040,7 @@ map_function(red10_map_no.hi)
 ```
 #### Partial dependence plots for red10 model
 
-```{r}
+```{r partial dependence plots for reduced model}
 # Top importance vars
 red10_partialplots <- plot.variable(red10, xvar.names = c("ELEVWS", "TMAX9120WS", "CLAYWS", "PRECIP_MINUS_EVTWS", "PCTBL2001WS", "PCTCONIF2001WS", "SEPTICWS", "PCTFRSTLOSS2002WS"), partial = TRUE, plots.one.page = TRUE)
 
@@ -1050,13 +1055,13 @@ red10_partialplots_hi <- plot.variable(red10, xvar.names = c("SEPTICWS", "PCTFRS
 
 #### Top 4 predictors (not using this one)
 
-```{r}
+```{r reducing the model further tuning}
 #Adjust the parameters below based on tuning
 red4_tuning <- tune(logCHLOR ~ ELEVWS + TMAX9120WS + L3Eco + CLAYWS, data = CHLOR, seed = 1234)
 red4_tuning$optimal
 ```
 
-```{r}
+```{r reducing the model further}
 red4 <- rfsrc(logCHLOR ~ ELEVWS + TMAX9120WS + L3Eco + CLAYWS, data = CHLOR, mtry = red4_tuning$optimal[[2]], nodesize = red4_tuning$optimal[[1]], importance = "TRUE", seed = 24)
 red4 # Model output. (OOB) R squared = Percent Variance Explained.
 
@@ -1116,7 +1121,7 @@ ggplot(data = red4_plotdf, aes(x = pred, y = obs, color = predictions, shape = p
 
 #### Subset the data
 
-```{r}
+```{r subset reference only data}
 CHLOR.ref <- chlor_vars_selected %>% 
   filter(ReferenceSite=="REFERENCE") %>% 
   select(-c(MLocID:COMID, Chloride, SampleStartDate))  %>%  # Remove AWQMS columns
@@ -1129,7 +1134,7 @@ CHLOR.ref[sapply(CHLOR.ref, is.character)] <- lapply(CHLOR.ref[sapply(CHLOR.ref,
 
 #### Model tuning - mtry and node size (number of trees happens in next step)
 
-```{r}
+```{r tuning ref only model}
 #Adjust the parameters below based on tuning 
 ref_tuning <- tune(logCHLOR~., CHLOR.ref, seed = 2)
 ref_tuning$optimal
@@ -1138,7 +1143,7 @@ ref_tuning$optimal
 
 #### Build full ref-only model
 
-```{r}
+```{r ref only model}
 ref <- rfsrc(logCHLOR ~ ., data = CHLOR.ref, mtry = ref_tuning$optimal[[2]], nodesize = ref_tuning$optimal[[1]], importance = "TRUE", seed = 24)
 ref # Model output. (OOB) R squared = Percent Variance Explained.
 
@@ -1203,7 +1208,7 @@ abline(h=0, col = "red", lty = 2)
 
 #### Partial dependence plots for full ref-only model
 
-```{r}
+```{r partial dependence plots for full ref only model}
 # Top importance vars
 partialplots <- plot.variable(ref, xvar.names = c("BFIWS", "Coast_dist", "PCTMXFST2001WS", "ELEVWS", "TMAX9120WS", "ROCKNWS", "MSST2008", "RUNOFFWS"), partial = TRUE, plots.one.page = TRUE)
 
@@ -1212,7 +1217,7 @@ partialplots <- plot.variable(ref, xvar.names = c("BFIWS", "Coast_dist", "PCTMXF
 
 #### Leaflet map of Ref-Only model
 
-```{r}
+```{r leaflet map of ref only model}
 # CREATE DF FOR MAPPING PURPOSES
 # Need to join predictions to AWQMS columns, but there are no unique identifiers in the CHLOR table. Predictions will be in the same order as the CHLOR table initially.
 
@@ -1255,7 +1260,7 @@ map_function(ref_map)
 
 #### Compare reduced model (adjusted and unadjusted) by ecoregion
 
-```{r}
+```{r comopare reduced model (adjusted and unadjusted) by ecoregion}
 # Construct a dataframe of predictions to compare
 boxplot_preds <- data.frame(MLocID = red10_map$MLocID, StationDes = red10_map$StationDes, Obs = red10_map$obs, Pred_unadj = red10_map$pred, L3Eco = as.character(red10_map$L3Eco),Pred_adj = red10_map_no.hi$pred, Ref = red10_map$ReferenceSite, Pred_full = full_map$pred)
 
@@ -1289,7 +1294,7 @@ ggplot(boxplot_df, aes(x = L3Eco, y = Prediction, fill = Model)) +
 
 #### Combined Leaflet map of predictions
 
-```{r}
+```{r combinded leaflet map of predictions}
 leaflet_df <- left_join(boxplot_df, chlor %>%  select(MLocID, Project1, Lat_DD, Long_DD), by = "MLocID") %>% 
   pivot_wider(names_from = Model, values_from = Prediction) %>% 
   relocate(Obs, .before= Pred_unadj)
@@ -1362,7 +1367,7 @@ map_all(leaflet_df)
  
 #### Unadjusted predictions vs. adjusted human inflence 
 
-```{r}
+```{r unadjusted predictions vs adj human influence}
 leaflet_df$Ref <- factor(leaflet_df$Ref, levels = c("REFERENCE", "MODERATELY DISTURBED", "MOST DISTURBED"))
 
 ggplot(leaflet_df, aes(x = Pred_unadj, y = Pred_adj, color = Ref, shape = Ref)) +

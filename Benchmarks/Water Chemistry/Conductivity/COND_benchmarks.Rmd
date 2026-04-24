@@ -924,11 +924,17 @@ boxplot_df$L3Eco <- factor(boxplot_df$L3Eco, levels = c("Coast Range", "Willamet
 # Clean out environment
 rm=(c("boxplot_preds", "boxplot_ref", "boxplot_combo"))
 
-ggplot(boxplot_df, aes(x = L3Eco, y = Prediction, fill = Model)) + geom_boxplot() +
+ggplot(boxplot_df, aes(x = L3Eco, y = Prediction, fill = Model)) + 
+  geom_boxplot() +
   guides(x = guide_axis(angle = 45)) +
- 
-  # scale_y_log10() +
-  theme_bw(base_size=14) + ylab("COND (μS/cm)")
+  scale_y_log10() +
+  theme_bw(base_size=14) + ylab("COND (μS/cm)") +
+   stat_summary(
+    fun.data = function(x) data.frame(y = median(x), label = length(x)),
+    geom = "text",
+    position = position_dodge(width = 0.75),
+    vjust = -0.5
+  )
 
 # Ignore warning for 698 rows removed - these are NAs in the Pred_ref column.
 ```

@@ -11,8 +11,9 @@ library(RODBC)
 # Enter File Information 
 # Be sure to delete unused rows on Sample and Results tabs of the template
 data_path <- "//deqlab1/Vol_Data/Gilliam SWCD/2023/August Thirtymile/AWQMSCopy_Thirtymile Aug 2023 Drift Taxonomy and mass.xlsx"
-out_path <- "//deqlab1/Vol_Data/Gilliam SWCD/2023/August Thirtymile/GilliamDrift23_Bio_RResults.xlsx"
+out_path <- "//deqlab1/Vol_Data/Gilliam SWCD/2023/August Thirtymile/GilliamDrifttest_Bio_RResults.xlsx"
 org = "GILLIAM_SWCD"
+proj = "ODEQVolMonWQProgram"
 
 # pull in hybrid taxon table from SQL BioMon database 
 # this files lives and is updated in this BioMon repo 
@@ -27,15 +28,16 @@ awqms_t <- read_excel("RawDataUpload2AWQMS/AWQMS_Taxon2oct23.xlsx", sheet = "Tax
 Samp <- read_excel(data_path, sheet = "Sample") |>
   filter(!is.na('Monitoring Location ID')) |>
   rename_with(~ str_remove_all(.x, "[\\^\\*]")) |>
-  select("Sample ID (Locked)","Project ID",Comments,"Sample Date", "Monitoring Location ID", #"Alternate Project ID"
+  select("Sample ID (Locked)",Comments,"Sample Date", "Monitoring Location ID", #"Alternate Project ID", "Project ID",
          Taxonomist,"Subsample Amount", "Habitat Type","Field QA","Lab QA") |>  
-  rename(act_id= "Sample ID (Locked)",project = "Project ID",
+  rename(act_id= "Sample ID (Locked)", #project = "Project ID",
          #AltProjectID = "Alternate Project ID",
          act_comments = Comments, Subsample_fraction_value = "Subsample Amount",
          Habitat_sampled = "Habitat Type",Field_QA = "Field QA",Lab_QA = "Lab QA",
          Date = "Sample Date", MLocID = "Monitoring Location ID",
          act_comments = Comments) |>
-  mutate(Methods_ok = "Yes",
+  mutate(project = proj,
+         Methods_ok = "Yes",
          Fixed_Count = "fixed count 500",
          #Subsample_fraction_value = (subsample_squares/30), #Subsample_fraction_value moved to rename because there's no need to divide by total number of caton tray squares
          Area_sampled = 8) 

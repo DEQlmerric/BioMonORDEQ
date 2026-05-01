@@ -10,9 +10,9 @@ library(RODBC)
 
 # Enter File Information 
 # Be sure to delete unused rows on Sample and Results tabs of the template
-data_path <- "//deqhq1/STORMWATER/Muni Stormwater Program/Municipal - Phase I/Electronic Data Delivery/2025/Submitted Data/WES-Rivergrove-Gladstone/WC_WES2024 MS4BioSubmission_CoPermittee_AWQMS_DCP0007 _DCP0008.xlsx"
-out_path <- "//deqhq1/STORMWATER/Muni Stormwater Program/Municipal - Phase I/Electronic Data Delivery/2025/Submitted Data/WES-Rivergrove-Gladstone/WES_25_Bio_RResults_DCP0007_DCP0008.xlsx"
-org = "WES"
+data_path <- "//deqlab1/Vol_Data/Gilliam SWCD/2023/August Thirtymile/AWQMSCopy_Thirtymile Aug 2023 Drift Taxonomy and mass.xlsx"
+out_path <- "//deqlab1/Vol_Data/Gilliam SWCD/2023/August Thirtymile/GilliamDrift23_Bio_RResults.xlsx"
+org = "GILLIAM_SWCD"
 
 # pull in hybrid taxon table from SQL BioMon database 
 # this files lives and is updated in this BioMon repo 

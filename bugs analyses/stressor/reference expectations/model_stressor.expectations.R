@@ -211,9 +211,9 @@ summary(a)
 abline(a)
 
 # save mtti rf model
-save(ranfor.mod=rf.mtti.reduced, file='bugs analyses/stressor/reference expectations/rf.mtti.reduced.Rdata')
+save(ranfor.mod=rf.mtti.reduced, file='bugs analyses/stressor/reference expectations/rf.mtti.reduced2.Rdata')
 
-
+  
 
 
 #--------------------------------------------------------------------------------------

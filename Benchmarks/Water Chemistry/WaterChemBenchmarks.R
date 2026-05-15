@@ -349,7 +349,7 @@ reach_single <- samp_dates %>%
 cal.val_chem.ref.wq <- rbind(reach_mult, reach_single)
 
 #3:  COMID CHECK
-# There are some sites where there is more than one COMID per reachcode.  We should randomly select
+# There are some sites where there is more than one site/reachcode per COMID.  We should randomly select
 # one of those sites to keep in the dataset (so we don't have different water chem results for the same set of predictors.)
 # HOWEVER there are some misidentified COMIDs in the dataset, so these will need to be screened for each parameter. 
 
@@ -362,7 +362,7 @@ mult.comids <- cal.val_chem.ref.wq %>%
   group_by(Char_Name, COMID) %>% 
   filter(n() > 1) %>% 
   sample_n(1) #%>% 
-  #filter(Char_Name == 'Total suspended solids') # Look at this per each char and double-check COMIDs make sense.
+  #filter(Char_Name == 'Conductivity') # Look at this per each char and double-check COMIDs make sense.
 
   # List all sites with just 1 COMID.
 single.comids <- cal.val_chem.ref.wq %>% 

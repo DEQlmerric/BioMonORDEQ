@@ -32,7 +32,7 @@ library(maps)
 ```{r}
 # Get both TP and TN as we're using the same variable selection for both chars.
 
-tp <- read_excel('~/BioMonORDEQ/Benchmarks/Water Chemistry/cal.val_chem.ref.wq_2026-02-10.xlsx') %>%  # Output file from ref benchmarks script 
+tp <- read_excel('~/BioMonORDEQ/Benchmarks/Water Chemistry/cal.val_chem.ref.wq_2026-05-14.xlsx') %>%  # Output file from ref benchmarks script 
   filter(Char_Name == 'Total Phosphorus, mixed forms') %>% 
   select(c(MLocID, Project1, StationDes, Lat_DD, Long_DD, SampleStartDate, Result_Numeric_mod, L2Eco, L3Eco, EcoRegion4, HUC8, ReferenceSite, cal_val, COMID)) %>% 
   mutate(Total_phosphorus = Result_Numeric_mod) %>% 
@@ -41,7 +41,7 @@ tp <- read_excel('~/BioMonORDEQ/Benchmarks/Water Chemistry/cal.val_chem.ref.wq_2
 comids <- tp %>% 
   select(COMID) # Get just the COMIDs for next step
 
-tn <- read_excel('~/BioMonORDEQ/Benchmarks/Water Chemistry/cal.val_chem.ref.wq_2026-02-10.xlsx') %>%  # Output file from ref benchmarks script 
+tn <- read_excel('~/BioMonORDEQ/Benchmarks/Water Chemistry/cal.val_chem.ref.wq_2026-05-14.xlsx') %>%  # Output file from ref benchmarks script 
   filter(Char_Name == 'Nitrogen') %>% 
   select(c(COMID)) 
 
@@ -305,7 +305,8 @@ boxplot(tp_vars_selected$logTP, ylab = "log(TP)")
 ```{r}
 # Select response data of interest
 TP <- tp_vars_selected %>%
-  select(-c(MLocID:COMID, Total_phosphorus, SampleStartDate)) #drop tp in favor of logTP. Drop AWQMS columns too.
+  select(-c(MLocID:COMID, Total_phosphorus, SampleStartDate)) %>% #drop tp in favor of logTP. Drop AWQMS columns too.
+  as.data.frame() # Make sure TP is a data frame, not a tibble
 
 # Convert character columns to factors
 TP[sapply(TP, is.character)] <- lapply(TP[sapply(TP, is.character)], as.factor)
@@ -321,14 +322,14 @@ TP$L3Eco <- factor(TP$L3Eco, levels = c("Coast Range", "Willamette Valley", "Kla
 
 ```{r}
 #Adjust the parameters below based on tuning (nodesize = 1; mtry = 74)
-tuning <- tune(logTP~., TP, seed = 1234)
-tuning$optimal
+full_tuning <- tune(logTP~., TP, seed = 1234)
+full_tuning$optimal
 ```
 
 #### Build full model
 
 ```{r}
-full <- rfsrc(logTP ~ ., data = TP, mtry = 74, nodesize = 1, importance = "TRUE", seed = 24)
+full <- rfsrc(logTP ~ ., data = TP, mtry = full_tuning$optimal[[2]], nodesize = full_tuning$optimal[[1]], importance = "TRUE", seed = 24)
 full # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (transformed)
@@ -471,11 +472,11 @@ map_function(full_map)
 
 ```{r}
 # Top importance vars
-partialplots <- plot.variable(full, xvar.names = c("PRECIP_MINUS_EVTWS", "PCTCONIF2001WS", "PESTIC1997WS", "WTDEPWS", "ROCKNWS", "RCKDEPWS", "RDDENSWS", "PCTBL2001WS"), partial = TRUE, plots.one.page = TRUE)
+partialplots <- plot.variable(full, xvar.names = c(names(full_vimp[1:8])), partial = TRUE, plots.one.page = TRUE)
 
-partialplots2 <- plot.variable(full, xvar.names = c("KFFACTWS", "SEPTICWS", "WETINDEXWS", "OMWS", "PCTCROP2001WS", "ELEVWS", "TMAX9120WS", "MSST2008"), partial = TRUE, plots.one.page = TRUE)
+partialplots2 <- plot.variable(full, xvar.names = c(names(full_vimp[9:16])), partial = TRUE, plots.one.page = TRUE)
 
-# Human-influenced vars
+# Human-influenced vars - need to update xvar.names with top HI vars
 partialplots_hi <- plot.variable(full, xvar.names = c("PESTIC1997WS", "RDDENSWS", "SEPTICWS","PCTCROP2001WS","PCTURBOP2001WS"), partial = TRUE, plots.one.page = TRUE)
 
 #******************consider adding code to look at individual metrics
@@ -483,22 +484,21 @@ partialplots_hi <- plot.variable(full, xvar.names = c("PESTIC1997WS", "RDDENSWS"
 
 #### Another way to do partial plots (slower but more customizable)
 ```{r}
-partial.obj <- partial(full, partial.xvar = "PRECIP_MINUS_EVTWS", partial.values = full$xvar$PRECIP_MINUS_EVTWS)
-pdta <- get.partial.plot.data(partial.obj)
-plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "PRECIP_MINUS_EVTWS", ylab = "ŷ")
-
-partial.obj <- partial(full, partial.xvar = "PCTCONIF2001WS", partial.values = full$xvar$PCTCONIF2001WS)
-pdta <- get.partial.plot.data(partial.obj)
-plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "PCTCONIF2001WS", ylab = "ŷ")
-
-partial.obj <- partial(full, partial.xvar = "PESTIC1997WS", partial.values = full$xvar$PESTIC1997WS)
-pdta <- get.partial.plot.data(partial.obj)
-plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "PESTIC1997WS", ylab = "ŷ")
-
-partial.obj <- partial(full, partial.xvar = "WTDEPWS", partial.values = full$xvar$WTDEPWS)
-pdta <- get.partial.plot.data(partial.obj)
-plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "WTDEPWS", ylab = "ŷ")
-
+# partial.obj <- partial(full, partial.xvar = "PRECIP_MINUS_EVTWS", partial.values = full$xvar$PRECIP_MINUS_EVTWS)
+# pdta <- get.partial.plot.data(partial.obj)
+# plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "PRECIP_MINUS_EVTWS", ylab = "ŷ")
+# 
+# partial.obj <- partial(full, partial.xvar = "PCTCONIF2001WS", partial.values = full$xvar$PCTCONIF2001WS)
+# pdta <- get.partial.plot.data(partial.obj)
+# plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "PCTCONIF2001WS", ylab = "ŷ")
+# 
+# partial.obj <- partial(full, partial.xvar = "PESTIC1997WS", partial.values = full$xvar$PESTIC1997WS)
+# pdta <- get.partial.plot.data(partial.obj)
+# plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "PESTIC1997WS", ylab = "ŷ")
+# 
+# partial.obj <- partial(full, partial.xvar = "WTDEPWS", partial.values = full$xvar$WTDEPWS)
+# pdta <- get.partial.plot.data(partial.obj)
+# plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "WTDEPWS", ylab = "ŷ")
 ```
 
 #### Leaflet map of predictors  
@@ -682,8 +682,14 @@ map_function(full_map_no.hi)
 
 #### Build model with Top 12 predictors
 
+```{r reduced model tuning}
+#Adjust the parameters below based on tuning 
+red12_tuning <- tune(logTP ~ PRECIP_MINUS_EVTWS + PCTCONIF2001WS + PESTIC1997WS + WTDEPWS + ROCKNWS + RCKDEPWS + RDDENSWS + PCTBL2001WS + KFFACTWS + SEPTICWS + WETINDEXWS +OMWS, data = TP, seed = 1234)
+red12_tuning$optimal
+```
+
 ```{r}
-red12 <- rfsrc(logTP ~ PRECIP_MINUS_EVTWS + PCTCONIF2001WS + PESTIC1997WS + WTDEPWS + ROCKNWS + RCKDEPWS + RDDENSWS + PCTBL2001WS + KFFACTWS + SEPTICWS + WETINDEXWS +OMWS, data = TP, mtry = 74, nodesize = 1, importance = "TRUE", seed = 24)
+red12 <- rfsrc(logTP ~ PRECIP_MINUS_EVTWS + PCTCONIF2001WS + PESTIC1997WS + WTDEPWS + ROCKNWS + RCKDEPWS + RDDENSWS + PCTBL2001WS + KFFACTWS + SEPTICWS + WETINDEXWS +OMWS, data = TP, mtry = red12_tuning$optimal[[2]], nodesize = red12_tuning$optimal[[1]], importance = "TRUE", seed = 24)
 red12 # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (untransformed)
@@ -901,10 +907,30 @@ map_function(red12_map_no.hi)
 # saveWidget(red12_model_map_no.hi, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//TP//red12_model_map_no.hi.html", selfcontained = TRUE, title = "Full model Adjusted (no human-influenced vars)")
 ```
 
+#### Partial dependence plots for red12 model
+
+```{r partial dependence plots for reduced model}
+# Top importance vars
+red12_partialplots <- plot.variable(red12, xvar.names = c(names(red12_vimp[1:8])), partial = TRUE, plots.one.page = TRUE)
+
+red12_partialplots2 <- plot.variable(red12, xvar.names = c(names(red12_vimp[9:12])), partial = TRUE, plots.one.page = TRUE)
+
+# Human-influenced vars
+red12_partialplots_hi <- plot.variable(red12, xvar.names = c("RDDENSWS", "PESTIC1997WS", "SEPTICWS"), partial = TRUE, plots.one.page = TRUE)
+
+#******************consider adding code to look at individual metrics
+```
+
 #### Top 3 predictors (not using this one)
+```{r full model tuning}
+#Adjust the parameters below based on tuning
+red3_tuning <- tune(logTP ~ PRECIP_MINUS_EVTWS + PCTCONIF2001WS + PESTIC1997WS, data = TP, seed = 1234)
+red3_tuning$optimal
+```
+
 
 ```{r}
-red3 <- rfsrc(logTP ~ PRECIP_MINUS_EVTWS + PCTCONIF2001WS + PESTIC1997WS, data = TP, mtry = 57, nodesize = 7, importance = "TRUE", seed = 24)
+red3 <- rfsrc(logTP ~ PRECIP_MINUS_EVTWS + PCTCONIF2001WS + PESTIC1997WS, data = TP, mtry = red3_tuning$optimal[[2]], nodesize = red3_tuning$optimal[[1]], importance = "TRUE", seed = 24)
 red3 # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (untransformed)
@@ -967,7 +993,8 @@ ggplot(data = red3_plotdf, aes(x = pred, y = obs, color = predictions, shape = p
 TP.ref <- tp_vars_selected %>% 
   filter(ReferenceSite=="REFERENCE") %>% 
   select(-c(MLocID:COMID, Total_phosphorus, SampleStartDate))  %>%  # Remove AWQMS columns
-  select(-c("CANALDENSWS", "DAMNRMSTORWS", "FERTWS", "MINEDENSWS", "NANIWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTCROP2001WS", "PCTFRSTLOSS2002WS","PCTHAY2001WS", "PCTIMP2001WS",  "PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "SW_FLUXWS", "TRIDENSWS", "WWTPMAJORDENSWS", "WWTPALLDENSWS")) # Remove anthropogenic StreamCat vars
+  select(-c("CANALDENSWS", "DAMNRMSTORWS", "FERTWS", "MINEDENSWS", "NANIWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTCROP2001WS", "PCTFRSTLOSS2002WS","PCTHAY2001WS", "PCTIMP2001WS",  "PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "SW_FLUXWS", "TRIDENSWS", "WWTPMAJORDENSWS", "WWTPALLDENSWS")) %>% # Remove anthropogenic StreamCat vars
+  as.data.frame()
 
 # Convert character columns to factors
 TP.ref[sapply(TP.ref, is.character)] <- lapply(TP.ref[sapply(TP.ref, is.character)], as.factor)
@@ -977,15 +1004,15 @@ TP.ref[sapply(TP.ref, is.character)] <- lapply(TP.ref[sapply(TP.ref, is.characte
 
 ```{r}
 #Adjust the parameters below based on tuning (nodesize = 3; mtry = 20)
-tuning <- tune(logTP~., TP.ref, seed = 2)
-tuning$optimal
+ref_tuning <- tune(logTP~., TP.ref, seed = 2)
+ref_tuning$optimal
 
 ```
 
 #### Build full ref-only model
 
 ```{r}
-ref <- rfsrc(logTP ~ ., data = TP.ref, mtry = 20, nodesize = 3, importance = "TRUE", seed = 24)
+ref <- rfsrc(logTP ~ ., data = TP.ref, mtry = ref_tuning$optimal[[2]], nodesize = ref_tuning$optimal[[1]], importance = "TRUE", seed = 24)
 ref # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (untransformed)
@@ -1051,9 +1078,9 @@ abline(h=0, col = "red", lty = 2)
 
 ```{r}
 # Top importance vars
-partialplots <- plot.variable(ref, xvar.names = c("PCTBURNAREA2002WS", "PCTBL2001WS", "SANDWS", "ROCKNWS", "ELEVWS", "PRECIP_MINUS_EVTWS", "OMWS", "K2OWS"), partial = TRUE, plots.one.page = TRUE)
+partialplots <- plot.variable(ref, xvar.names = c(names(ref_vimp[1:8])), partial = TRUE, plots.one.page = TRUE)
 
-partialplots2 <- plot.variable(ref, xvar.names = c("PCTCONIF2001WS", "PCTWDWET2001WS", "STRMPOW_CAT", "PCTSHRB2001WS", "PCTDECID2001WS", "CLAYWS", "NHD_pSLOPE", "HYDRLCONDWS"  ), partial = TRUE, plots.one.page = TRUE)
+partialplots2 <- plot.variable(ref, xvar.names = c(names(ref_vimp[9:16])), partial = TRUE, plots.one.page = TRUE)
 
 #******************consider adding code to look at individual metrics
 ```
@@ -1119,11 +1146,17 @@ boxplot_df$L3Eco <- factor(boxplot_df$L3Eco, levels = c("Coast Range", "Willamet
 # Clean out environment
 rm=(c("boxplot_preds", "boxplot_ref", "boxplot_combo"))
 
-ggplot(boxplot_df, aes(x = L3Eco, y = Prediction, fill = Model)) + geom_boxplot() +
+ggplot(boxplot_df, aes(x = L3Eco, y = Prediction, fill = Model)) + 
+  geom_boxplot() +
   guides(x = guide_axis(angle = 45)) +
- 
-  # scale_y_log10() +
-  theme_bw(base_size=14) + ylab("TP (mg/L)")
+  scale_y_log10() +
+  theme_bw(base_size=14) + ylab("TP (mg/L)") +
+   stat_summary(
+    fun.data = function(x) data.frame(y = median(x), label = length(x)),
+    geom = "text",
+    position = position_dodge(width = 0.75),
+    vjust = -0.5
+  )
 
 # Ignore warning for 624 rows removed - these are NAs in the Pred_ref column. (112 reference sites of 729 total observations.)
 ```

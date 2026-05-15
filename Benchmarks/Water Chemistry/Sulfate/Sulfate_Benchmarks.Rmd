@@ -1135,15 +1135,15 @@ map_function(ref_map)
 
 ```{r}
 # Construct a dataframe of predictions to compare
-boxplot_preds <- data.frame(MLocID = red12_map$MLocID, StationDes = red12_map$StationDes, Obs = red12_map$obs, Pred_unadj = red12_map$pred, L3Eco = as.character(red12_map$L3Eco),Pred_adj = red12_map_no.hi$pred, Ref = red12_map$ReferenceSite)
+boxplot_preds <- data.frame(MLocID = red12_map$MLocID, StationDes = red12_map$StationDes, Obs = red12_map$obs, Pred_reduced = red12_map$pred, L3Eco = as.character(red12_map$L3Eco),Pred_adj = red12_map_no.hi$pred, Ref = red12_map$ReferenceSite, Pred_full = full_map$pred)
 
 boxplot_ref<- ref_map %>%
   select(MLocID, Pred_ref = pred)
 
 boxplot_combo <- left_join(boxplot_preds, boxplot_ref, by="MLocID")
 
-boxplot_df <- gather(boxplot_combo, key = "Model", value = "Prediction", Pred_unadj, Pred_adj, Pred_ref, Obs)
-boxplot_df$Model <- factor(boxplot_df$Model, levels = c("Pred_ref", "Pred_adj","Pred_unadj", "Obs"))
+boxplot_df <- gather(boxplot_combo, key = "Model", value = "Prediction", Pred_full, Pred_reduced, Pred_adj, Pred_ref, Obs)
+boxplot_df$Model <- factor(boxplot_df$Model, levels = c("Pred_ref", "Pred_adj","Pred_reduced", "Pred_full", "Obs"))
 boxplot_df$L3Eco <- factor(boxplot_df$L3Eco, levels = c("Coast Range", "Willamette Valley", "Klamath Mountains", "Cascades", "Eastern Cascades Slopes and Foothills", "Columbia Plateau","Blue Mountains", "Northern Basin and Range", "Snake River Plain"))
 
 # Clean out environment

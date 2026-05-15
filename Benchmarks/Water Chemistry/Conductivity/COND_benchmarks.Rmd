@@ -809,15 +809,15 @@ map_function(ref_map)
 
 ```{r}
 # Construct a dataframe of predictions to compare
-boxplot_preds <- data.frame(MLocID = full_map$MLocID, StationDes = full_map$StationDes, Obs = full_map$obs, Pred_unadj = full_map$pred, L3Eco = as.character(full_map$L3Eco),Pred_adj = full_map_no.hi$pred, Ref = full_map$ReferenceSite)
+boxplot_preds <- data.frame(MLocID = full_map$MLocID, StationDes = full_map$StationDes, Obs = full_map$obs, Pred_full = full_map$pred, L3Eco = as.character(full_map$L3Eco),Pred_adj = full_map_no.hi$pred, Ref = full_map$ReferenceSite)
 
 boxplot_ref<- ref_map %>%
   select(MLocID, Pred_ref = pred)
 
 boxplot_combo <- left_join(boxplot_preds, boxplot_ref, by="MLocID")
 
-boxplot_df <- gather(boxplot_combo, key = "Model", value = "Prediction", Pred_unadj, Pred_adj, Pred_ref, Obs)
-boxplot_df$Model <- factor(boxplot_df$Model, levels = c("Pred_ref", "Pred_adj","Pred_unadj", "Obs"))
+boxplot_df <- gather(boxplot_combo, key = "Model", value = "Prediction", Pred_full, Pred_adj, Pred_ref, Obs)
+boxplot_df$Model <- factor(boxplot_df$Model, levels = c("Pred_ref", "Pred_adj","Pred_full", "Obs"))
 boxplot_df$L3Eco <- factor(boxplot_df$L3Eco, levels = c("Coast Range", "Willamette Valley", "Klamath Mountains", "Cascades", "Eastern Cascades Slopes and Foothills", "Columbia Plateau","Blue Mountains", "Northern Basin and Range", "Snake River Plain"))
 
 # Clean out environment

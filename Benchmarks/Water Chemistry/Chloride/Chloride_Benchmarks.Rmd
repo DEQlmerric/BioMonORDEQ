@@ -4,12 +4,7 @@ author: "S. Berzins, A. Thompson"
 date: "2026-03-31"
 output: html_document
 ---
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(
-  dev = "pdf",           # Save figures as PDF
-  fig.path = "C://Users//sberzin//OneDrive - Oregon//Desktop//figures"  # Directory where figures will be saved
-)
-```
+
 # *Chloride*
 
 # **1 - LOAD PACKAGES**
@@ -35,7 +30,7 @@ library(htmlwidgets)
 ## A. STATIONS - *FROM WATER CHEMISTRY BENCHMARKS SCRIPT*
 
 ```{r import stations}
-chlor <- read_excel('~/BioMonORDEQ/Benchmarks/Water Chemistry/cal.val_chem.ref.wq_2026-02-10.xlsx') %>%  # Output file from ref benchmarks script 
+chlor <- read_excel('~/BioMonORDEQ/Benchmarks/Water Chemistry/cal.val_chem.ref.wq_2026-05-14.xlsx') %>%  # Output file from ref benchmarks script 
   filter(Char_Name == 'Chloride') %>% 
   select(c(MLocID, Project1, StationDes, Lat_DD, Long_DD, SampleStartDate, Result_Numeric_mod, L2Eco, L3Eco, EcoRegion4, HUC8, ReferenceSite, cal_val, COMID)) %>% 
   mutate(Chloride = Result_Numeric_mod) %>% 
@@ -473,9 +468,9 @@ map_function(full_map)
 
 ```{r partial dependence plots for full model}
 # Top importance vars
-partialplots <- plot.variable(full, xvar.names = c("ELEVWS", "TMAX9120WS", "CLAYWS", "PRECIP_MINUS_EVTWS", "PCTBL2001WS", "PCTCONIF2001WS", "SEPTICWS", "PCTFRSTLOSS2002WS"), partial = TRUE, plots.one.page = TRUE)
+partialplots <- plot.variable(full, xvar.names = c(names(full_vimp[1:8])), partial = TRUE, plots.one.page = TRUE)
 
-partialplots2 <- plot.variable(full, xvar.names = c("PCTMXFST2001WS", "Coast_dist", "HYDRLCONDWS", "MSST2008", "PCTURBOP2001WS", "CANALDENSWS", "OMWS", "RUNOFFWS"), partial = TRUE, plots.one.page = TRUE)
+partialplots2 <- plot.variable(full, xvar.names = c(names(full_vimp[9:16])), partial = TRUE, plots.one.page = TRUE)
 
 par(mar = c(10, 5, 2, 2))
 partialplots3 <- plot.variable(full, xvar.names = c("L2Eco", "L3Eco"), partial = TRUE, las = 2, cex.axis = 0.7, plots.one.page = TRUE)
@@ -929,7 +924,9 @@ map_function(red10_map_no.hi)
 
 ```{r partial dependence plots for reduced model}
 # Top importance vars
-red10_partialplots <- plot.variable(red10, xvar.names = c("ELEVWS", "TMAX9120WS", "CLAYWS", "PRECIP_MINUS_EVTWS", "PCTBL2001WS", "PCTCONIF2001WS", "SEPTICWS", "PCTFRSTLOSS2002WS"), partial = TRUE, plots.one.page = TRUE)
+red10_partialplots <- plot.variable(red10, xvar.names = c(names(red10_vimp[1:8])), partial = TRUE, plots.one.page = TRUE)
+
+red10_partialplots2 <- plot.variable(red10, xvar.names = c(names(red10_vimp[9:10])), partial = TRUE, plots.one.page = TRUE)
 
 par(mar = c(10, 5, 2, 2))
 red10_partialplots2 <- plot.variable(red10, xvar.names = c("L2Eco", "L3Eco"), partial = TRUE, las = 2, cex.axis = 0.7, plots.one.page = TRUE)
@@ -1097,7 +1094,7 @@ abline(h=0, col = "red", lty = 2)
 
 ```{r partial dependence plots for full ref only model}
 # Top importance vars
-partialplots <- plot.variable(ref, xvar.names = c("BFIWS", "Coast_dist", "PCTMXFST2001WS", "ELEVWS", "TMAX9120WS", "ROCKNWS", "MSST2008", "RUNOFFWS"), partial = TRUE, plots.one.page = TRUE)
+partialplots <- plot.variable(ref, xvar.names = c(names(ref_vimp[1:8])), partial = TRUE, plots.one.page = TRUE)
 
 #******************consider adding code to look at individual metrics
 ```
@@ -1149,15 +1146,15 @@ map_function(ref_map)
 
 ```{r comopare reduced model (adjusted and unadjusted) by ecoregion}
 # Construct a dataframe of predictions to compare
-boxplot_preds <- data.frame(MLocID = red10_map$MLocID, StationDes = red10_map$StationDes, Obs = red10_map$obs, Pred_unadj = red10_map$pred, L3Eco = as.character(red10_map$L3Eco),Pred_adj = red10_map_no.hi$pred, Ref = red10_map$ReferenceSite, Pred_full = full_map$pred)
+boxplot_preds <- data.frame(MLocID = red10_map$MLocID, StationDes = red10_map$StationDes, Obs = red10_map$obs, Pred_reduced = red10_map$pred, L3Eco = as.character(red10_map$L3Eco),Pred_adj = red10_map_no.hi$pred, Ref = red10_map$ReferenceSite, Pred_full = full_map$pred)
 
 boxplot_ref<- ref_map %>%
   select(MLocID, Pred_ref = pred)
 
 boxplot_combo <- left_join(boxplot_preds, boxplot_ref, by="MLocID")
 
-boxplot_df <- gather(boxplot_combo, key = "Model", value = "Prediction", Pred_unadj, Pred_adj, Pred_ref, Pred_full, Obs)
-boxplot_df$Model <- factor(boxplot_df$Model, levels = c("Pred_ref", "Pred_adj","Pred_unadj", "Pred_full", "Obs"))
+boxplot_df <- gather(boxplot_combo, key = "Model", value = "Prediction", Pred_full, Pred_reduced, Pred_adj, Pred_ref, Obs)
+boxplot_df$Model <- factor(boxplot_df$Model, levels = c("Pred_ref", "Pred_adj","Pred_reduced", "Pred_full", "Obs"))
 boxplot_df$L3Eco <- factor(boxplot_df$L3Eco, levels = c("Coast Range", "Willamette Valley", "Klamath Mountains", "Cascades", "Eastern Cascades Slopes and Foothills", "Columbia Plateau","Blue Mountains", "Northern Basin and Range", "Snake River Plain"))
 
 # Clean out environment
@@ -1175,7 +1172,6 @@ ggplot(boxplot_df, aes(x = L3Eco, y = Prediction, fill = Model)) +
     vjust = -0.5
   )
   
-
 # Ignore warning for 540 rows removed - these are NAs in the Pred_ref column.
 ```
 

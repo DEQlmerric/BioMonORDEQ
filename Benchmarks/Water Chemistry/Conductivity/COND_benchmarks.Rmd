@@ -30,7 +30,7 @@ library(maps)
 ## A. STATIONS - *FROM WATER CHEMISTRY BENCHMARKS SCRIPT*
 
 ```{r}
-cond <- read_excel('~/BioMonORDEQ/Benchmarks/Water Chemistry/cal.val_chem.ref.wq_2026-02-10.xlsx') %>%  # Output file from ref benchmarks script 
+cond <- read_excel('~/BioMonORDEQ/Benchmarks/Water Chemistry/cal.val_chem.ref.wq_2026-05-14.xlsx') %>%  # Output file from ref benchmarks script 
   filter(Char_Name == 'Conductivity') %>% 
   select(c(MLocID, Project1, StationDes, Lat_DD, Long_DD, SampleStartDate, Result_Numeric_mod, L2Eco, L3Eco, EcoRegion4, HUC8, ReferenceSite, cal_val, COMID)) %>% 
   mutate(Conductivity = Result_Numeric_mod) %>% 
@@ -272,7 +272,7 @@ rm(list=c('cv_pctzero', 'erod_resist_strmpow', 'matrix', 'matrix2', 'comids',  '
 sort(sapply(cond_vars_selected, function(x) sum(is.na(x))))
 
 # DO ANY LAST NA ROUGH FIXES AS DESIRED (write code for specific predictors) 
-cond_vars_selected$WETTEDWIDTH <- na.roughfix(cond_vars$WETTEDWIDTH) # 68 NA
+cond_vars_selected$WETTEDWIDTH <- na.roughfix(cond_vars$WETTEDWIDTH) # 69 NA
 ```
 
 # **4 - EXPLORE DATA**
@@ -296,7 +296,8 @@ boxplot(cond_vars_selected$logCOND, ylab = "logCond")
 ```{r}
 # Select response data of interest
 COND <- cond_vars_selected %>%
-  select(-c(MLocID:COMID, Conductivity, SampleStartDate)) #drop Conductivity in favor of logCOND. Drop AWQMS columns too.
+  select(-c(MLocID:COMID, Conductivity, SampleStartDate)) %>%  #drop Conductivity in favor of logCOND. Drop AWQMS columns too.
+  as.data.frame() # Make sure COND is a data frame, not a tibble
 
 # Convert character columns to factors
 COND[sapply(COND, is.character)] <- lapply(COND[sapply(COND, is.character)], as.factor)
@@ -312,14 +313,14 @@ COND$L3Eco <- factor(COND$L3Eco, levels = c("Coast Range", "Willamette Valley", 
 
 ```{r}
 #Adjust the parameters below based on tuning (nodesize = 2; mtry = 73)
-tuning <- tune(logCOND~., COND, seed = 1234)
-tuning$optimal
+full_tuning <- tune(logCOND ~ ., COND, seed = 1234)
+full_tuning$optimal
 ```
 
 #### Build full model
 
 ```{r}
-full <- rfsrc(logCOND ~ ., data = COND, mtry = 73, nodesize = 2, importance = "TRUE", seed = 24)
+full <- rfsrc(logCOND ~ ., data = COND, mtry = full_tuning$optimal[[2]], nodesize = full_tuning$optimal[[1]], importance = "TRUE", seed = 24)
 full # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (transformed)
@@ -462,29 +463,29 @@ map_function(full_map)
 
 ```{r}
 # Top importance vars
-partialplots <- plot.variable(full, xvar.names = c("PRECIP9120WS", "KFFACTWS", "TMAX9120WS", "OMWS", "PCTBL2001WS", "SWS", "ELEVWS", "TRIDENSWS"), partial = TRUE, plots.one.page = TRUE)
+partialplots <- plot.variable(full, xvar.names = c(names(full_vimp[1:8])), partial = TRUE, plots.one.page = TRUE)
 
-partialplots2 <- plot.variable(full, xvar.names = c("PCT_EROD", "WTDEPWS", "PCTDECID2001WS", "PCTCROP2001WS", "SANDWS", "MSST2008", "PCTOW2001WS", "CLAYWS"), partial = TRUE, plots.one.page = TRUE)
+partialplots2 <- plot.variable(full, xvar.names = c(names(full_vimp[9:16])), partial = TRUE, plots.one.page = TRUE)
 
-# Human-influenced vars
-partialplots_hi <- plot.variable(full, xvar.names = c("TRIDENSWS", "PCTCROP2001WS"), partial = TRUE, plots.one.page = TRUE)
+# Human-influenced vars - need to update the xvar.names for the top HI Vars
+partialplots_hi <- plot.variable(full, xvar.names = c("PCTCROP2001WS", "SW_FLUXWS"), partial = TRUE, plots.one.page = TRUE)
 
 #******************consider adding code to look at individual metrics
 ```
 
 #### Another way to do partial plots (slower but more customizable)
 ```{r}
-partial.obj <- partial(full, partial.xvar = "PRECIP9120WS", partial.values = full$xvar$PRECIP9120WS)
-pdta <- get.partial.plot.data(partial.obj)
-plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "PRECIP9120WS", ylab = "ŷ")
-
-partial.obj <- partial(full, partial.xvar = "KFFACTWS", partial.values = full$xvar$KFFACTWS)
-pdta <- get.partial.plot.data(partial.obj)
-plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "KFFACTWS", ylab = "ŷ")
-
-partial.obj <- partial(full, partial.xvar = "TMAX9120WS", partial.values = full$xvar$TMAX9120WS)
-pdta <- get.partial.plot.data(partial.obj)
-plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "TMAX9120WS", ylab = "ŷ")
+# partial.obj <- partial(full, partial.xvar = "PRECIP9120WS", partial.values = full$xvar$PRECIP9120WS)
+# pdta <- get.partial.plot.data(partial.obj)
+# plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "PRECIP9120WS", ylab = "ŷ")
+# 
+# partial.obj <- partial(full, partial.xvar = "KFFACTWS", partial.values = full$xvar$KFFACTWS)
+# pdta <- get.partial.plot.data(partial.obj)
+# plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "KFFACTWS", ylab = "ŷ")
+# 
+# partial.obj <- partial(full, partial.xvar = "TMAX9120WS", partial.values = full$xvar$TMAX9120WS)
+# pdta <- get.partial.plot.data(partial.obj)
+# plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "TMAX9120WS", ylab = "ŷ")
 ```
 
 #### Leaflet map of predictors
@@ -671,7 +672,8 @@ map_function(full_map_no.hi)
 COND.ref <- cond_vars_selected %>% 
   filter(ReferenceSite=="REFERENCE") %>% 
   select(-c(MLocID:COMID, Conductivity, SampleStartDate))  %>%  # Remove AWQMS columns
-  select(-c("CANALDENSWS", "DAMDENSWS", "MINEDENSWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTAGSLPMID2001WS", "PCTCROP2001WS", "PCTFRSTLOSS2002WS", "PCTIMP2001WS",  "PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "SW_FLUXWS", "TRIDENSWS", "WWTPALLDENSWS")) # Remove anthropogenic StreamCat vars
+  select(-c("CANALDENSWS", "DAMDENSWS", "MINEDENSWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTAGSLPMID2001WS", "PCTCROP2001WS", "PCTFRSTLOSS2002WS", "PCTIMP2001WS",  "PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "SW_FLUXWS", "TRIDENSWS", "WWTPALLDENSWS")) %>% # Remove anthropogenic StreamCat vars
+    as.data.frame()
 
 # Convert character columns to factors
 COND.ref[sapply(COND.ref, is.character)] <- lapply(COND.ref[sapply(COND.ref, is.character)], as.factor)
@@ -681,15 +683,15 @@ COND.ref[sapply(COND.ref, is.character)] <- lapply(COND.ref[sapply(COND.ref, is.
 
 ```{r}
 #Adjust the parameters below based on tuning (nodesize = 2; mtry = 32)
-tuning <- tune(logCOND~., COND.ref, seed = 2)
-tuning$optimal
+ref_tuning <- tune(logCOND~., COND.ref, seed = 2)
+ref_tuning$optimal
 
 ```
 
 #### Build full ref-only model
 
 ```{r}
-ref <- rfsrc(logCOND ~ ., data = COND.ref, mtry = 32, nodesize = 2, importance = "TRUE", seed = 24)
+ref <- rfsrc(logCOND ~ ., data = COND.ref, mtry = ref_tuning$optimal[[2]], nodesize = ref_tuning$optimal[[1]], importance = "TRUE", seed = 24)
 ref # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (untransformed)
@@ -755,7 +757,7 @@ abline(h=0, col = "red", lty = 2)
 
 ```{r}
 # Top importance vars
-partialplots <- plot.variable(ref, xvar.names = c("CLAYWS", "PCTBL2001WS", "TMAX9120WS", "MSST2008", "ELEVWS", "PCTICE2001WS", "SANDWS", "ROCKNWS"), partial = TRUE, plots.one.page = TRUE)
+partialplots <- plot.variable(ref, xvar.names = c(names(ref_vimp[1:8])), partial = TRUE, plots.one.page = TRUE)
 
 #******************consider adding code to look at individual metrics
 ```
@@ -833,7 +835,7 @@ ggplot(boxplot_df, aes(x = L3Eco, y = Prediction, fill = Model)) +
     vjust = -0.5
   )
 
-# Ignore warning for 698 rows removed - these are NAs in the Pred_ref column.
+# Ignore warning for 700 rows removed - these are NAs in the Pred_ref column.
 ```
 
 #### Combined Leaflet map of predictions

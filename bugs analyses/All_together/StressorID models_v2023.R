@@ -141,7 +141,7 @@ bugs.MTTI_cross <-	column_to_rownames(bugs.MTTI_cross, 'sample.id')
 
 #This will get saved to the ORDEQBioassessment package
 # load MTTI model
-load('bugs analyses/stressor/wa_MTTI.mar23.Rdata')
+load('bugs analyses/stressor/wa_MTTI.11.23_tot.abund150.Rdata')
 
 
 # make predictions for  data

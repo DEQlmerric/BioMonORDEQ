@@ -15,10 +15,11 @@
 library(readxl)
 library(tidyverse)
 library(openxlsx)
+library(RODBC)
 # update file location based on the sites you are screening - this should be an export from the GIS tool 
 # this file must have a column MlocID and sites should be in the stations database 
-gis_mets <- read_excel("//deqlab1/GIS_LIBRARY/Reference_Site_Selection/Siletz33360_metrics.xlsx", 
-                       sheet = "Siletz33360_metrics")
+gis_mets <- read_excel("//deqlab1/GIS_WA/Personal_Working_Folders/AThompson/WatershedToolComparison2026/StreamStats test/StreamStats_metrics.xlsx", 
+                       sheet = "RefScreenTest_ExportFeatures2")
 
 
 
@@ -26,7 +27,9 @@ gis_mets <- gis_mets %>%
   select(OBJECTID, MLocID, Area_km2,rd_km,rdden_km_km2,total_strm_km,xings,xings_km2,
          canal_km,P_canal,mines,mines_km2,grvl_mn,grvl_mn_km2,Ag_km2,P_AgLand,Urban21_km2,P_Urban21Land)
 
-
+# AT - had to rename MLocID field to match rest of code
+gis_mets <- gis_mets %>%
+  rename(MLocID = MLocId)
 
 
 # source function, run GIS metrics through the screening thresholds to establish "MOST DISTURBED" and or "GIS Candidates".
@@ -55,12 +58,6 @@ wb <- loadWorkbook(filepath)
 addWorksheet(wb,worksheet.name) #change "sheet2" to "whatever-you-want-to-name-sheet"
 writeData(wb, worksheet.name, ref_screen) #change "sheet2" to whatever you named new tab and df to whatever dataframe you want
 saveWorkbook(wb,filepath, overwrite = TRUE)
-
-
-
-
-
-
 
 
 

@@ -106,6 +106,14 @@ get_streamcat <- function(comids, type = c("Agriculture","Climate","Dams","Flow"
                                                                      aoi='other')) 
   }
   
+  if(type == "Riparian Buffer"){
+    
+    streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
+                                                                     metric = 'superfunddenswsrp100,tridenswsrp100', 
+                                                                     showAreaSqKm = FALSE,
+                                                                     aoi='WsRp100')) 
+  }
+  
   names(streamcat) <- base::toupper(names(streamcat))
   return(streamcat)
 }

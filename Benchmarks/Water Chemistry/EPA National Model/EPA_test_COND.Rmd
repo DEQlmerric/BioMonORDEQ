@@ -181,6 +181,41 @@ ggplot(data = full_plotdf, aes(x = pred, y = obs, color = predictions, shape = p
     annotate("text", x = 100, y = 14500, label = paste0('IB RMSE = ' , round(full_rmse,2), ' | scaled RMSE = ', round(full_rmse.scaled*100,2), "%"), size = 3) +
       annotate("text", x = 100, y = 20000, label = paste0('% variance explained = ' , round(full_per.var,2), '%'), size = 3) 
 ```
+#### Partial dependence plots for full model
+
+```{r partial dependence plots for full model}
+# Top importance vars
+partialplots <- plot.variable(full, xvar.names = c(names(full_vimp[1:8])), partial = TRUE, plots.one.page = TRUE)
+
+partialplots2 <- plot.variable(full, xvar.names = c(names(full_vimp[9:16])), partial = TRUE, plots.one.page = TRUE)
+
+# Human-influenced vars
+partialplots_hi <- plot.variable(full, xvar.names = c("pctimp2019ws", "coalminedensws", "pcthay2019ws"), partial = TRUE, plots.one.page = TRUE)
+
+#******************consider adding code to look at individual metrics
+```
+#### Another way to do partial plots (slower but more customizable)
+```{r more partial plots for full model}
+# partial.obj <- partial(full, partial.xvar = "pctimp2019ws", partial.values = full$xvar$pctimp2019ws)
+# pdta <- get.partial.plot.data(partial.obj)
+# plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "pctimp2019ws", ylab = "ŷ")
+# 
+# partial.obj <- partial(full, partial.xvar = "runoffws", partial.values = full$xvar$runoffws)
+# pdta <- get.partial.plot.data(partial.obj)
+# plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "runoffws", ylab = "ŷ")
+# 
+# partial.obj <- partial(full, partial.xvar = "pctforest", partial.values = full$xvar$pctforest)
+# pdta <- get.partial.plot.data(partial.obj)
+# plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "pctforest", ylab = "ŷ")
+# 
+# partial.obj <- partial(full, partial.xvar = "ppt", partial.values = full$xvar$ppt)
+# pdta <- get.partial.plot.data(partial.obj)
+# plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "ppt", ylab = "ŷ")
+# 
+# partial.obj <- partial(full, partial.xvar = "pctcrop2019ws", partial.values = full$xvar$pctcrop2019ws)
+# pdta <- get.partial.plot.data(partial.obj)
+# plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "pctcrop2019ws", ylab = "ŷ")
+```
 
 #### Leaflet map of full model
 
@@ -225,8 +260,8 @@ map_function <- function(data) {
       baseGroups = c("Basic Map", "Terrain", "Satellite"),
       overlayGroups = c("Observed","Predicted", "Obs-Pred"),
       options = layersControlOptions(collapsed = FALSE)) %>% 
-    addLegend(pal = pal, group = "Observed", values = data$obs, position = "bottomright" , title = "Observed COND" ) %>% 
-    addLegend(pal = pal2,group = "Predicted",values = data$obs, position = "bottomright" , title = "Predicted COND" ) %>%  # Keep values=data$obs here (instead of data$pred) to keep the legend colors scales the same between obs and pred.
+    addLegend(pal = pal, group = "Observed", values = log(data$obs), position = "bottomright" , title = "Observed logCOND" ) %>% 
+    addLegend(pal = pal2,group = "Predicted",values = log(data$obs), position = "bottomright" , title = "Predicted logCOND" ) %>%  # Keep values=data$obs here (instead of data$pred) to keep the legend colors scales the same between obs and pred.
         addLegend(pal = pal3, group = "Obs-Pred", values = data$delta, position = "bottomleft" , title = "Obs - Pred COND" )
 }
 
@@ -243,7 +278,70 @@ map_function(full_map)
 # saveWidget(full_model_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//CONDide//full_model_map.html", selfcontained = TRUE, title = "Full model")
 ```
 
-#### Partial dependence plots for full model
+#### Try it without the non-SC variables
+```{r full model}
+COND_rm <- COND %>% 
+  select(-c(fstfrz.pt,pctcarbonatews,pctsandstone.carbonatews,pctsandstonews,pctsemiconsol.sandws,
+pctvolcanicws,rhmean.pt,wdsum.pt,elev.delt,hort,bfi.gam,rt.master,ref2,bfi.rf,pctwdwet2019ws))
+ 
+full <- rfsrc(logCOND ~ ., data = COND_rm, mtry = full_tuning$optimal[[2]], nodesize = full_tuning$optimal[[1]], importance = "TRUE", seed = 2)
+full # Model output. (OOB) R squared = Percent Variance Explained.
+
+# Mean squared error (transformed)
+full_oob.mse <- tail(full$err.rate,1)
+full_per.var <- 100 * (1 - full_oob.mse/ var(COND_rm$logCOND, na.rm = TRUE))
+print(full_per.var)
+
+range_COND <- max(exp(COND_rm$logCOND)) - min(exp(COND_rm$logCOND))
+
+#In-bag RMSE
+full_rmse<- rmse(exp(full$predicted), exp(COND_rm$logCOND))
+full_rmse.scaled <- full_rmse/range_COND
+print(paste0('In-bag RMSE = ' , round(full_rmse,2), " ((μS/cm))"))
+print(paste0('Scaled In-bag RMSE = ' , round(full_rmse.scaled*100,2), "%"))
+
+#OOB RMSE
+full_oob.rmse<- rmse(exp(full$predicted.oob), exp(COND$logCOND))
+full_oob.rmse.scaled <- full_oob.rmse/range_COND
+print(paste0('OOB RMSE = ' , round(full_oob.rmse,2), " ((μS/cm))"))
+print(paste0('Scaled OOB RMSE = ' , round(full_oob.rmse.scaled*100,2), "%"))
+
+# Model tuning - How many trees? (default: 500)
+#full$err.rate
+
+# VIP
+plot(full, plots.one.page=FALSE)
+full_vimp <- sort(full$importance, decreasing = TRUE)[1:20]
+par(mar=c(5,8.5,4,1)+.1)
+barplot(full_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = "COND Full model VIMP")
+
+#print(vimp(full)$importance)
+
+# Make a df for plots
+full_pred.oob <- data.frame(obs = COND_rm$logCOND, pred = full$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
+full_pred.ib <- data.frame(obs =COND_rm$logCOND, pred = full$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
+full_plotdf <- rbind(full_pred.oob, full_pred.ib) %>% 
+  mutate(obs = exp(obs)) %>% 
+  mutate(pred = exp(pred)) %>% 
+  mutate(delta = obs - pred)
+
+# Plot
+ggplot(data = full_plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
+  geom_point(alpha = 0.75) +
+  labs(title = "COND_rm Full Model",
+       x = "Predicted values (μS/cm)",
+       y = "Observed values (μS/cm)") +
+  theme_bw() + 
+  geom_abline() + 
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_x_log10() +
+  scale_y_log10() +
+  annotate("text", x = 100, y = 10000, label = paste0('OOB RMSE = ' , round(full_oob.rmse,2), ' | scaled RMSE = ', round(full_oob.rmse.scaled*100,2), "%"), size = 3) +
+    annotate("text", x = 100, y = 14500, label = paste0('IB RMSE = ' , round(full_rmse,2), ' | scaled RMSE = ', round(full_rmse.scaled*100,2), "%"), size = 3) +
+      annotate("text", x = 100, y = 20000, label = paste0('% variance explained = ' , round(full_per.var,2), '%'), size = 3) 
+```
+
+#### Partial dependence plots for full model (non-SC vars removed)
 
 ```{r partial dependence plots for full model}
 # Top importance vars
@@ -252,28 +350,28 @@ partialplots <- plot.variable(full, xvar.names = c(names(full_vimp[1:8])), parti
 partialplots2 <- plot.variable(full, xvar.names = c(names(full_vimp[9:16])), partial = TRUE, plots.one.page = TRUE)
 
 # Human-influenced vars
-partialplots_hi <- plot.variable(full, xvar.names = c("pctimp2019ws", "coalminedensws", "pctcrop2019ws"), partial = TRUE, plots.one.page = TRUE)
+partialplots_hi <- plot.variable(full, xvar.names = c("pctimp2019ws", "coalminedensws", "pcthay2019ws"), partial = TRUE, plots.one.page = TRUE)
 
 #******************consider adding code to look at individual metrics
 ```
 
 #### Another way to do partial plots (slower but more customizable)
 ```{r more partial plots for full model}
-# partial.obj <- partial(full, partial.xvar = "ELEVWS", partial.values = full$xvar$ELEVWS)
+# partial.obj <- partial(full, partial.xvar = "pctimp2019ws", partial.values = full$xvar$pctimp2019ws)
 # pdta <- get.partial.plot.data(partial.obj)
-# plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "ELEVWS", ylab = "ŷ")
+# plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "pctimp2019ws", ylab = "ŷ")
 # 
-# partial.obj <- partial(full, partial.xvar = "TMAX9120WS", partial.values = full$xvar$TMAX9120WS)
+# partial.obj <- partial(full, partial.xvar = "runoffws", partial.values = full$xvar$runoffws)
 # pdta <- get.partial.plot.data(partial.obj)
-# plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "TMAX9120WS", ylab = "ŷ")
+# plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "runoffws", ylab = "ŷ")
 # 
-# partial.obj <- partial(full, partial.xvar = "CLAYWS", partial.values = full$xvar$CLAYWS)
+# partial.obj <- partial(full, partial.xvar = "pctforest", partial.values = full$xvar$pctforest)
 # pdta <- get.partial.plot.data(partial.obj)
-# plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "CLAYWS", ylab = "ŷ")
+# plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "pctforest", ylab = "ŷ")
 # 
-# partial.obj <- partial(full, partial.xvar = "PRECIP_MINUS_EVTWS", partial.values = full$xvar$PRECIP_MINUS_EVTWS)
+# partial.obj <- partial(full, partial.xvar = "ppt", partial.values = full$xvar$ppt)
 # pdta <- get.partial.plot.data(partial.obj)
-# plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "PRECIP_MINUS_EVTWS", ylab = "ŷ")
+# plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "ppt", ylab = "ŷ")
 
 ```
 
@@ -384,24 +482,24 @@ plot(mse ~ full_map$Long_DD, xlab = "Longitude", ylab = "MSE")
 
 ```{r adj full model}
 # Reduce all human-influenced vars to all 0s.
-COND_no.hi <- COND %>% 
-  mutate(across(all_of(c("canaldensws", "coalminedensws", "damnrmstorws", "manurews", "minedensws", "minedenswsrp100", "npdesdensws","pctag2006slp10ws", "pctcrop2019ws", "pcthay2019ws", "pctimp2019ws", "pctnonagintrodmanagvegws","pcturbop2019ws", "rdcrsws", "superfunddensws", "superfunddenswsrp100", "tridenswsrp100")), ~0))
+COND_rm_no.hi <- COND_rm %>% 
+  mutate(across(all_of(c("canaldensws", "coalminedensws", "damnrmstorws", "manurews", "minedensws", "minedenswsrp100", "npdesdensws","pctag2006slp10ws", "pctcrop2019ws", "pctfrstloss2013ws", "pcthay2019ws", "pctimp2019ws", "pctnonagintrodmanagvegws","pcturbop2019ws", "rdcrsws", "superfunddensws", "superfunddenswsrp100", "tridenswsrp100")), ~0))
 
 # Make predictions with adjusted human-influence to 0 
-full_no.hi <- predict(full, newdata= COND_no.hi, seed = 24)
+full_no.hi <- predict(full, newdata= COND_rm_no.hi, seed = 24)
 
 # Mean squared error (untransformed)
 full_mse_no.hi <- tail(full_no.hi$err.rate,1)
-full_per.var_no.hi <- 100 * (1 - full_mse_no.hi/ var(COND_no.hi$logCOND, na.rm = TRUE))
+full_per.var_no.hi <- 100 * (1 - full_mse_no.hi/ var(COND_rm_no.hi$logCOND, na.rm = TRUE))
 
 # RMSE
-full_rmse_no.hi<- rmse(exp(full_no.hi$predicted), exp(COND_no.hi$logCOND))
+full_rmse_no.hi<- rmse(exp(full_no.hi$predicted), exp(COND_rm_no.hi$logCOND))
 full_rmse.scaled_no.hi <- full_rmse_no.hi/range_COND
 print(paste0('OOB RMSE = ' , round(full_rmse_no.hi,2), " ((μS/cm))"))
 print(paste0('Scaled OOB RMSE = ' , round(full_rmse.scaled_no.hi*100,2), "%"))
 
 # Make a df for plots
-full_plotdf_no.hi <- data.frame(obs = COND_no.hi$logCOND, pred = full_no.hi$predicted) %>% 
+full_plotdf_no.hi <- data.frame(obs = COND_rm_no.hi$logCOND, pred = full_no.hi$predicted) %>% 
   mutate(obs = exp(obs)) %>% 
   mutate(pred = exp(pred)) %>% 
   mutate(delta = obs - pred)
@@ -419,63 +517,38 @@ ggplot(data = full_plotdf_no.hi, aes(x = pred, y = obs)) +
   annotate("text", x =100, y = 10000, label = paste0('OOB RMSE = ' , round(full_rmse_no.hi,2), ' | scaled RMSE = ', round(full_rmse.scaled_no.hi*100,2), "%"), size = 3)
 
 # Plot residuals - full model, adjusted human-influenced vars to 0
-full_resid_no.hi <- exp(COND_no.hi$logCOND) - exp(full_no.hi$predicted) # Observed minus predicted oob
-plot(full_resid_no.hi ~ exp(full_no.hi$predicted), xlab = "Predicted COND ((μS/cm))", ylab = "Residuals (obs - pred)", main = "full model residuals, no HI vars")
+full_resid_no.hi <- exp(COND_rm_no.hi$logCOND) - exp(full_no.hi$predicted) # Observed minus predicted oob
+plot(full_resid_no.hi ~ exp(full_no.hi$predicted), xlab = "Predicted COND (μS/cm)", ylab = "Residuals (obs - pred)", main = "full model residuals, no HI vars")
 abline(h=0, col = "red", lty = 2)
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# Not edited beyond this point.  5/22/26 -SYB
-
-
-
-
-
-
-
-
-
 
 #### Leaflet map adjusting human vbls to 0
 
 ```{r leaflet map adj human variables to zero}
-# CREATE DF FOR MAPPING PURPOSES to explore how residuals changed on the map after scaling all HI to zero
-# Need to join predictions to AWQMS columns, but there are no unique identifiers in the COND table. Predictions will be in the same order as the COND table initially.
-
-# Join predictions to cal_val table
-full_obs.predict_no.hi <- cbind(full_plotdf_no.hi, COND_no.hi) %>% 
-  arrange(ELEVWS) # Use unique col
-
-# Join COND.obs_predict_no.hi with COND.awqms, and makes sure the results match.
-full_map_no.hi <- cbind(full_awqms,full_obs.predict_no.hi)
-
-# Then select to remove duplicate logCOND column and reorder.
-full_map_no.hi <- full_map_no.hi %>% 
-  select(MLocID:delta, BFIWS:L3Eco)
-
-pal <- colorNumeric(palette = "Purples", 
-  domain = c(0, max(full_map_no.hi$obs)))
-pal2 <- colorNumeric(palette = "Purples", 
-  domain = c(0, max(full_map_no.hi$obs)))
-pal3 <- colorNumeric(palette = "RdBu", domain = c(-1*max(full_map_no.hi$delta), max(full_map_no.hi$delta)))
-map_function(full_map_no.hi)
-
-# Save map as html
-# full_model_map_no_hi <- map_function(full_map_no.hi)
-# saveWidget(full_model_map_no_hi, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//CONDide//full_model_map_no_hi.html", selfcontained = TRUE, title = "Full model Adjusted (no human-influenced vars)")
+# # CREATE DF FOR MAPPING PURPOSES to explore how residuals changed on the map after scaling all HI to zero
+# # Need to join predictions to AWQMS columns, but there are no unique identifiers in the COND table. Predictions will be in the same order as the COND table initially.
+# 
+# # Join predictions to cal_val table
+# full_obs.predict_no.hi <- cbind(full_plotdf_no.hi, COND_rm_no.hi) %>% 
+#   arrange(ELEVWS) # Use unique col
+# 
+# # Join COND.obs_predict_no.hi with COND.awqms, and makes sure the results match.
+# full_map_no.hi <- cbind(full_awqms,full_obs.predict_no.hi)
+# 
+# # Then select to remove duplicate logCOND column and reorder.
+# full_map_no.hi <- full_map_no.hi %>% 
+#   select(MLocID:delta, BFIWS:L3Eco)
+# 
+# pal <- colorNumeric(palette = "Purples", 
+#   domain = c(0, max(full_map_no.hi$obs)))
+# pal2 <- colorNumeric(palette = "Purples", 
+#   domain = c(0, max(full_map_no.hi$obs)))
+# pal3 <- colorNumeric(palette = "RdBu", domain = c(-1*max(full_map_no.hi$delta), max(full_map_no.hi$delta)))
+# map_function(full_map_no.hi)
+# 
+# # Save map as html
+# # full_model_map_no_hi <- map_function(full_map_no.hi)
+# # saveWidget(full_model_map_no_hi, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//CONDide//full_model_map_no_hi.html", selfcontained = TRUE, title = "Full model Adjusted (no human-influenced vars)")
 ```
 
 ## C. Model Reduction
@@ -484,54 +557,54 @@ map_function(full_map_no.hi)
 
 ```{r reduced model tuning}
 #Adjust the parameters below based on tuning 
-red10_tuning <- tune(logCOND ~ ELEVWS + TMAX9120WS + L3Eco + CLAYWS + L2Eco + PRECIP_MINUS_EVTWS + PCTBL2001WS + PCTCONIF2001WS + SEPTICWS + PCTFRSTLOSS2002WS , data = COND, seed = 1234)
-red10_tuning$optimal
+red16_tuning <- tune(logCOND ~ runoffws+pctforest+ppt+pctimp2019ws+pctsilicicws+sio2ws+msst.2019+pctconif2019ws+pctice2019ws+pcteolcrsws+wsareasqkm+pctshrb2019ws+clayws+nws+caows+coalminedensws , data = COND_rm, seed = 1234)
+red16_tuning$optimal
 ```
 
 ```{r reduced model}
-red10 <- rfsrc(logCOND ~ ELEVWS + TMAX9120WS + L3Eco + CLAYWS + L2Eco + PRECIP_MINUS_EVTWS + PCTBL2001WS + PCTCONIF2001WS + SEPTICWS + PCTFRSTLOSS2002WS , data = COND, mtry = red10_tuning$optimal[[2]], nodesize = red10_tuning$optimal[[1]], importance = "TRUE", seed = 24)
-red10 # Model output. (OOB) R squared = Percent Variance Explained.
+red16 <- rfsrc(logCOND ~ runoffws+pctforest+ppt+pctimp2019ws+pctsilicicws+sio2ws+msst.2019+pctconif2019ws+pctice2019ws+pcteolcrsws+wsareasqkm+pctshrb2019ws+clayws+nws+caows+coalminedensws , data = COND_rm, mtry = red16_tuning$optimal[[2]], nodesize = red16_tuning$optimal[[1]], importance = "TRUE", seed = 24)
+red16 # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (untransformed)
-red10_oob.mse <- tail(red10$err.rate,1)
-red10_per.var <- 100 * (1 - red10_oob.mse/ var(COND$logCOND, na.rm = TRUE))
-print(red10_per.var)
+red16_oob.mse <- tail(red16$err.rate,1)
+red16_per.var <- 100 * (1 - red16_oob.mse/ var(COND$logCOND, na.rm = TRUE))
+print(red16_per.var)
 
 #In-bag RMSE
-red10_rmse<- rmse(exp(red10$predicted), exp(COND$logCOND))
-red10_rmse.scaled <- red10_rmse/range_COND
-print(paste0('In-bag RMSE = ' , round(red10_rmse,2), " ((μS/cm))"))
-print(paste0('Scaled In-bag RMSE = ' , round(red10_rmse.scaled*100,2), "%"))
+red16_rmse<- rmse(exp(red16$predicted), exp(COND$logCOND))
+red16_rmse.scaled <- red16_rmse/range_COND
+print(paste0('In-bag RMSE = ' , round(red16_rmse,2), " ((μS/cm))"))
+print(paste0('Scaled In-bag RMSE = ' , round(red16_rmse.scaled*100,2), "%"))
 
 #OOB RMSE
-red10_oob.rmse<- rmse(exp(red10$predicted.oob), exp(COND$logCOND))
-red10_oob.rmse.scaled <- red10_oob.rmse/range_COND
-print(paste0('OOB RMSE = ' , round(red10_oob.rmse,2), " ((μS/cm))"))
-print(paste0('Scaled OOB RMSE = ' , round(red10_oob.rmse.scaled*100,2), "%"))
+red16_oob.rmse<- rmse(exp(red16$predicted.oob), exp(COND$logCOND))
+red16_oob.rmse.scaled <- red16_oob.rmse/range_COND
+print(paste0('OOB RMSE = ' , round(red16_oob.rmse,2), " ((μS/cm))"))
+print(paste0('Scaled OOB RMSE = ' , round(red16_oob.rmse.scaled*100,2), "%"))
 
 # Model tuning - How many trees? (default: 500)
-red10$err.rate
+red16$err.rate
 
 # VIP
-plot(red10, plots.one.page=FALSE)
-red10_vimp <- sort(red10$importance, decreasing = TRUE)[1:20]
+plot(red16, plots.one.page=FALSE)
+red16_vimp <- sort(red16$importance, decreasing = TRUE)[1:20]
 par(mar=c(5,7,4,1)+.1)
-barplot(red10_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = "COND Reduced (10 variables) model VIMP")
+barplot(red16_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = "COND Reduced (10 variables) model VIMP")
 
-#print(vimp(red10)$importance)
+#print(vimp(red16)$importance)
 
 # Make a df for plots
-red10_pred.oob <- data.frame(obs = COND$logCOND, pred = red10$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
-red10_pred.ib <- data.frame(obs =COND$logCOND, pred = red10$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
-red10_plotdf <- rbind(red10_pred.oob, red10_pred.ib) %>% 
+red16_pred.oob <- data.frame(obs = COND$logCOND, pred = red16$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
+red16_pred.ib <- data.frame(obs =COND$logCOND, pred = red16$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
+red16_plotdf <- rbind(red16_pred.oob, red16_pred.ib) %>% 
   mutate(obs = exp(obs)) %>% 
   mutate(pred = exp(pred)) %>% 
   mutate(delta = obs - pred)
 
 # Plot
-ggplot(data = red10_plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
+ggplot(data = red16_plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
   geom_point(alpha = 0.75) +
-  labs(title = "COND Red10 Model",
+  labs(title = "COND red16 Model",
        x = "Predicted values ((μS/cm))",
        y = "Observed values ((μS/cm))") +
   theme_bw() + 
@@ -539,113 +612,116 @@ ggplot(data = red10_plotdf, aes(x = pred, y = obs, color = predictions, shape = 
   geom_smooth(method = "lm", se = FALSE) +
   scale_x_log10() +
   scale_y_log10() +
-  annotate("text", x = 0.7, y = 60, label = paste0('OOB RMSE = ' , round(red10_oob.rmse,2), ' | scaled RMSE = ', round(red10_oob.rmse.scaled*100,2), "%"), size = 3) +
-    annotate("text", x = 0.7, y = 77, label = paste0('IB RMSE = ' , round(red10_rmse,2), ' | scaled RMSE = ', round(red10_rmse.scaled*100,2), "%"), size = 3) +
-      annotate("text", x = 0.7, y = 100, label = paste0('% variance explained = ' , round(red10_per.var,2), '%'), size = 3) 
+  annotate("text", x = 100, y = 10000, label = paste0('OOB RMSE = ' , round(red16_oob.rmse,2), ' | scaled RMSE = ', round(red16_oob.rmse.scaled*100,2), "%"), size = 3) +
+    annotate("text", x = 100, y = 14500, label = paste0('IB RMSE = ' , round(red16_rmse,2), ' | scaled RMSE = ', round(red16_rmse.scaled*100,2), "%"), size = 3) +
+      annotate("text", x = 100, y = 20000, label = paste0('% variance explained = ' , round(red16_per.var,2), '%'), size = 3) 
 ```
 
-#### Leaflet map of red10 model
+#### Partial dependence plots for red16 model
+
+```{r partial dependence plots for reduced model}
+# Top importance vars
+red16_partialplots <- plot.variable(red16, xvar.names = c(names(red16_vimp[1:8])), partial = TRUE, plots.one.page = TRUE)
+
+red16_partialplots2 <- plot.variable(red16, xvar.names = c(names(red16_vimp[9:10])), partial = TRUE, plots.one.page = TRUE)
+
+# Human-influenced vars
+red16_partialplots_hi <- plot.variable(red16, xvar.names = c("pctimp2019ws", "coalminedensws", "pcthay2019ws"), partial = TRUE, plots.one.page = TRUE)
+
+#******************consider adding code to look at individual metrics
+```
+
+#### Leaflet map of red16 model
 
 ```{r leaflet map of reduced model}
 # CREATE DF FOR MAPPING PURPOSES
 # Need to join predictions to AWQMS columns, but there are no unique identifiers in the COND table. Predictions will be in the same order as the COND table initially.
 
-# Find a StreamCat row that has ALL unique values
-# any(duplicated(COND$ELEVWS))  # Elevation works.
-# any(duplicated(COND$PRECIP9120WS))
 
 # Join predictions to StreamCat table
-red10_obs.predict <- cbind(red10_plotdf, COND) %>% 
-  filter(predictions == "OOB") %>% 
-  arrange(ELEVWS) # Order by unique col
+red16_obs.predict <- cbind(red16_plotdf, COND) %>% 
+  filter(predictions == "OOB") 
 
-red10_awqms <- COND_vars_selected %>% 
-  arrange(ELEVWS) %>% # Order by unique col
-  select(MLocID:logCOND) 
-
-# Join obs.pred with awqms table, and makes sure the COND results match (Make sure logCOND column is the same as logCOND.1)
-red10_map <- cbind(red10_obs.predict,red10_awqms)
-
-# Then select to remove duplicate logCOND column and reorder.
-red10_map <- red10_map %>% 
-  select(obs:COMID) %>% 
-  relocate(MLocID:COMID, .before = obs)
+# Join pred with awqms table, and makes sure the COND results match (Make sure logCOND column is the same as logCOND.1)
+red16_map <- cbind(red16_obs.predict,COND_uid) %>% 
+  relocate(uid:cond, .before = obs) %>% 
+  select(uid:pctforest)
 
 pal <- colorNumeric(palette = "Greens", 
-  domain = c(0, red10_map$obs))
+  domain = c(0, log(red16_map$obs)))
 pal2 <- colorNumeric(palette = "Greens", 
-  domain = c(0, red10_map$obs))
-pal3 <- colorNumeric(palette = "RdBu", domain = c(-1 * max(red10_map$delta),max(red10_map$delta)))
+  domain = c(0, log(red16_map$obs)))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-1 * max(red16_map$delta),max(red16_map$delta)))
 
-map_function(red10_map)
+map_function(red16_map)
 
 # Save map as html
-# red10_model_map <- map_function(red10_map)
-# saveWidget(red10_model_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//CONDide//red10_model_map.html", selfcontained = TRUE, title = "red10 model")
+# red16_model_map <- map_function(red16_map)
+# saveWidget(red16_model_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//CONDide//red16_model_map.html", selfcontained = TRUE, title = "red16 model")
 ```
 
 #### Overlay reduced and full models
 
 ```{r reduced and full model prediction plot}
-full_red_map <- left_join(full_map, red10_map %>% select(MLocID, pred), by = "MLocID") %>% 
+full_red_map <- left_join(full_map, red16_map %>% select(uid, pred), by = "uid") %>% 
   mutate(full_pred = pred.x) %>% 
-  mutate(red10_pred = pred.y) %>% 
+  mutate(red16_pred = pred.y) %>% 
   select(-c(pred.x,pred.y)) %>% 
-  relocate(red10_pred, .after = obs) %>% 
+  relocate(red16_pred, .after = obs) %>% 
   relocate(full_pred, .after = obs) %>% 
-  select(MLocID:predictions) %>% 
-  gather(key = "Model", value = "Prediction", full_pred, red10_pred)
+  select(uid:predictions) %>% 
+  gather(key = "Model", value = "Prediction", full_pred, red16_pred)
 
 ggplot(full_red_map, aes(x = Prediction, y = obs, color = Model)) +
   geom_point(size = 1.5, alpha = 0.5) + theme_bw(base_size = 15) +
   geom_smooth(method = "lm", se = FALSE) +
   labs(
-    x = "Predicted COND ((μS/cm))",
-    y = "Observed COND ((μS/cm))") + scale_x_log10() + scale_y_log10() +
+    x = "Predicted COND (μS/cm)",
+    y = "Observed COND (μS/cm)") + scale_x_log10() + scale_y_log10() +
   geom_abline(intercept = 0, slope = 1, linetype = "dashed")
 ```
 
-#### Distributions for Human-influenced vars at all reference sites
+#### Distributions for Human-influenced vars at all reference sites (N/A since we do not know reference status for EPA sites)
 
 ```{r distributions of human influenced variables at all ref sites}
-# Select only the human influenced predictors at reference sites from the reduced model.
-COND_ref_hi <- full_map %>% 
-  filter(ReferenceSite == "REFERENCE") %>% 
-  select(c(MLocID:logCOND, SEPTICWS, PCTFRSTLOSS2002WS, PCTURBOP2001WS, CANALDENSWS, PCTNONAGINTRODMANAGVEGWS))
-
-# PCTFRSTLOSS2002WS
-par(mfrow=c(1,2))
-plot.variable(red10, xvar.names = c("PCTFRSTLOSS2002WS"), partial = TRUE, plots.one.page = TRUE)
-abline(v=quantile(COND_ref_hi$PCTFRSTLOSS2002WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
-hist(COND_ref_hi$PCTFRSTLOSS2002WS, main = '')
-quantile(COND_ref_hi$PCTFRSTLOSS2002WS, probs = seq(.1, .9, by = .1))
-
-# SEPTICWS
-par(mfrow=c(1,2))
-plot.variable(red10, xvar.names = c("SEPTICWS"), partial = TRUE, plots.one.page = TRUE)
-abline(v=quantile(COND_ref_hi$SEPTICWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
-hist(COND_ref_hi$SEPTICWS, main = '')
-quantile(COND_ref_hi$SEPTICWS, probs = seq(.1, .9, by = .1))
+# # Select only the human influenced predictors at reference sites from the reduced model.
+# COND_ref_hi <- full_map %>% 
+#   filter(ReferenceSite == "REFERENCE") %>% 
+#   select(c(MLocID:logCOND, SEPTICWS, PCTFRSTLOSS2002WS, PCTURBOP2001WS, CANALDENSWS, PCTNONAGINTRODMANAGVEGWS))
+# 
+# # PCTFRSTLOSS2002WS
+# par(mfrow=c(1,2))
+# plot.variable(red16, xvar.names = c("PCTFRSTLOSS2002WS"), partial = TRUE, plots.one.page = TRUE)
+# abline(v=quantile(COND_ref_hi$PCTFRSTLOSS2002WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
+# hist(COND_ref_hi$PCTFRSTLOSS2002WS, main = '')
+# quantile(COND_ref_hi$PCTFRSTLOSS2002WS, probs = seq(.1, .9, by = .1))
+# 
+# # SEPTICWS
+# par(mfrow=c(1,2))
+# plot.variable(red16, xvar.names = c("SEPTICWS"), partial = TRUE, plots.one.page = TRUE)
+# abline(v=quantile(COND_ref_hi$SEPTICWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
+# hist(COND_ref_hi$SEPTICWS, main = '')
+# quantile(COND_ref_hi$SEPTICWS, probs = seq(.1, .9, by = .1))
 
 # BELOW not in reduced model
 
 # # PCTURBOP2001WS
 # par(mfrow=c(1,2))
-# plot.variable(red10, xvar.names = c("PCTURBOP2001WS"), partial = TRUE, plots.one.page = TRUE)
+# plot.variable(red16, xvar.names = c("PCTURBOP2001WS"), partial = TRUE, plots.one.page = TRUE)
 # abline(v=quantile(COND_ref_hi$PCTURBOP2001WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
 # hist(COND_ref_hi$PCTURBOP2001WS, main = '')
 # quantile(COND_ref_hi$PCTURBOP2001WS, probs = seq(.1, .9, by = .1))
 # 
 # # CANALDENSWS
 # par(mfrow=c(1,2))
-# plot.variable(red10, xvar.names = c("CANALDENSWS"), partial = TRUE, plots.one.page = TRUE)
+# plot.variable(red16, xvar.names = c("CANALDENSWS"), partial = TRUE, plots.one.page = TRUE)
 # abline(v=quantile(COND_ref_hi$CANALDENSWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
 # hist(COND_ref_hi$CANALDENSWS, main = '')
 # quantile(COND_ref_hi$CANALDENSWS, probs = seq(.1, .9, by = .1))
 # 
 # # PCTNONAGINTRODMANAGVEGWS
 # par(mfrow=c(1,2))
-# plot.variable(red10, xvar.names = c("PCTNONAGINTRODMANAGVEGWS"), partial = TRUE, plots.one.page = TRUE)
+# plot.variable(red16, xvar.names = c("PCTNONAGINTRODMANAGVEGWS"), partial = TRUE, plots.one.page = TRUE)
 # abline(v=quantile(COND_ref_hi$PCTNONAGINTRODMANAGVEGWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
 # hist(COND_ref_hi$PCTNONAGINTRODMANAGVEGWS, main = '')
 # quantile(COND_ref_hi$PCTNONAGINTRODMANAGVEGWS, probs = seq(.1, .9, by = .1))
@@ -656,41 +732,49 @@ quantile(COND_ref_hi$SEPTICWS, probs = seq(.1, .9, by = .1))
 
 ```{r adj reduced model}
 # Make predictions with adjusted human-influence to 0 
-red10_no.hi <- predict(red10, newdata= COND_no.hi, seed = 24)
+red16_no.hi <- predict(red16, newdata= COND_rm_no.hi, seed = 24)
 
 # Mean squared error (untransformed)
-red10_mse_no.hi <- tail(red10_no.hi$err.rate,1)
-red10_per.var_no.hi <- 100 * (1 - red10_mse_no.hi/ var(COND_no.hi$logCOND, na.rm = TRUE))
+red16_mse_no.hi <- tail(red16_no.hi$err.rate,1)
+red16_per.var_no.hi <- 100 * (1 - red16_mse_no.hi/ var(COND_rm_no.hi$logCOND, na.rm = TRUE))
 
 # RMSE
-red10_rmse_no.hi<- rmse(exp(red10_no.hi$predicted), exp(COND_no.hi$logCOND))
-red10_rmse.scaled_no.hi <- red10_rmse_no.hi/range_COND
-print(paste0('OOB RMSE = ' , round(red10_rmse_no.hi,2), " ((μS/cm))"))
-print(paste0('Scaled OOB RMSE = ' , round(red10_rmse.scaled_no.hi*100,2), "%"))
+red16_rmse_no.hi<- rmse(exp(red16_no.hi$predicted), exp(COND_rm_no.hi$logCOND))
+red16_rmse.scaled_no.hi <- red16_rmse_no.hi/range_COND
+print(paste0('OOB RMSE = ' , round(red16_rmse_no.hi,2), " ((μS/cm))"))
+print(paste0('Scaled OOB RMSE = ' , round(red16_rmse.scaled_no.hi*100,2), "%"))
 
 # Make a df for plots
-red10_plotdf_no.hi <- data.frame(obs = COND_no.hi$logCOND, pred = red10_no.hi$predicted) %>% 
+red16_plotdf_no.hi <- data.frame(obs = COND_rm_no.hi$logCOND, pred = red16_no.hi$predicted) %>% 
   mutate(obs = exp(obs)) %>% 
   mutate(pred = exp(pred)) %>% 
   mutate(delta = obs - pred)
 
 # Plot
-ggplot(data = red10_plotdf_no.hi, aes(x = pred, y = obs)) +
+ggplot(data = red16_plotdf_no.hi, aes(x = pred, y = obs)) +
   geom_point(alpha = 0.75) +
-  labs(title = "COND red10 Model predictions without human influenced vars",
+  labs(title = "COND red16 Model predictions without human influenced vars",
        x = "Predicted values ((μS/cm))",
        y = "Observed values ((μS/cm))") +
   theme_bw() + 
   geom_abline() + 
   scale_x_log10() +
   scale_y_log10() +
-  annotate("text", x = 0.6, y = 90, label = paste0('OOB RMSE = ' , round(red10_rmse_no.hi,2), ' | scaled RMSE = ', round(red10_rmse.scaled_no.hi*100,2), "%"), size = 3)
+  annotate("text", x = 0.6, y = 90, label = paste0('OOB RMSE = ' , round(red16_rmse_no.hi,2), ' | scaled RMSE = ', round(red16_rmse.scaled_no.hi*100,2), "%"), size = 3)
 
-# Plot residuals - red10 model, adjusted human-influenced vars to 0
-red10_resid_no.hi <- exp(COND_no.hi$logCOND) - exp(red10_no.hi$predicted) # Observed minus predicted oob
-plot(red10_resid_no.hi ~ exp(red10_no.hi$predicted), xlab = "Predicted COND ((μS/cm))", ylab = "Residuals (obs - pred)", main = "Red10 model residuals, no HI vars")
+# Plot residuals - red16 model, adjusted human-influenced vars to 0
+red16_resid_no.hi <- exp(COND_rm_no.hi$logCOND) - exp(red16_no.hi$predicted) # Observed minus predicted oob
+plot(red16_resid_no.hi ~ exp(red16_no.hi$predicted), xlab = "Predicted COND ((μS/cm))", ylab = "Residuals (obs - pred)", main = "red16 model residuals, no HI vars")
 abline(h=0, col = "red", lty = 2)
 ```
+
+
+
+
+# Not edited beyond this point.  6/16/26 -SYB
+
+
+
 
 #### Leaflet map after adjusting human vbls for reduced10 model
 
@@ -698,45 +782,41 @@ abline(h=0, col = "red", lty = 2)
 # CREATE DF FOR MAPPING PURPOSES to explore how residuals changed on the map after scaling all HI to zero
 # Need to join predictions to AWQMS columns, but there are no unique identifiers in the COND table. Predictions will be in the same order as the COND table initially.
 
-# Join predictions to cal_val table
-red10_obs.predict_no.hi <- cbind(red10_plotdf_no.hi, COND_no.hi) %>% 
-  arrange(ELEVWS) # Use unique col
+# # Join predictions to cal_val table
+# red16_obs.predict_no.hi <- cbind(red16_plotdf_no.hi, COND_rm_no.hi) %>% 
+#   arrange(ELEVWS) # Use unique col
+# 
+# # Join COND.obs_predict_no.hi with COND.awqms, and makes sure the results match.
+# red16_map_no.hi <- cbind(full_awqms,red16_obs.predict_no.hi)
+# 
+# # Then select to remove duplicate logCOND column and reorder.
+# red16_map_no.hi <- red16_map_no.hi %>% 
+#   select(MLocID:delta, BFIWS:L3Eco)
+# 
+# 
 
-# Join COND.obs_predict_no.hi with COND.awqms, and makes sure the results match.
-red10_map_no.hi <- cbind(full_awqms,red10_obs.predict_no.hi)
+# Join predictions to StreamCat table
+red16_obs.predict_no.hi <- cbind(red16_plotdf_no.hi, COND_rm_no.hi) %>% 
+  filter(predictions == "OOB") 
 
-# Then select to remove duplicate logCOND column and reorder.
-red10_map_no.hi <- red10_map_no.hi %>% 
-  select(MLocID:delta, BFIWS:L3Eco)
+# Join pred with awqms table, and makes sure the COND results match (Make sure logCOND column is the same as logCOND.1)
+red16_map_no.hi <- cbind(red16_obs.predict_no.hi,COND_uid) %>% 
+  relocate(uid:cond, .before = obs) %>% 
+  select(uid:pctforest)
 
 pal <- colorNumeric(palette = "Purples", 
-  domain = c(0, max(red10_map_no.hi$obs)))
+  domain = c(0, max(red16_map_no.hi$obs)))
 pal2 <- colorNumeric(palette = "Purples", 
-  domain = c(0, max(red10_map_no.hi$obs)))
-pal3 <- colorNumeric(palette = "RdBu", domain = c(-1* max(red10_map_no.hi$delta), max(red10_map_no.hi$delta)))
+  domain = c(0, max(red16_map_no.hi$obs)))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-1* max(red16_map_no.hi$delta), max(red16_map_no.hi$delta)))
 
-map_function(red10_map_no.hi)
+map_function(red16_map_no.hi)
 
 # Save map as html
-# red10_model_map_no.hi <- map_function(red10_map_no.hi)
-# saveWidget(red10_model_map_no.hi, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//CONDide//red10_model_map_no.hi.html", selfcontained = TRUE, title = "Full model Adjusted (no human-influenced vars)")
+# red16_model_map_no.hi <- map_function(red16_map_no.hi)
+# saveWidget(red16_model_map_no.hi, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//CONDide//red16_model_map_no.hi.html", selfcontained = TRUE, title = "Full model Adjusted (no human-influenced vars)")
 ```
-#### Partial dependence plots for red10 model
 
-```{r partial dependence plots for reduced model}
-# Top importance vars
-red10_partialplots <- plot.variable(red10, xvar.names = c(names(red10_vimp[1:8])), partial = TRUE, plots.one.page = TRUE)
-
-red10_partialplots2 <- plot.variable(red10, xvar.names = c(names(red10_vimp[9:10])), partial = TRUE, plots.one.page = TRUE)
-
-par(mar = c(10, 5, 2, 2))
-red10_partialplots2 <- plot.variable(red10, xvar.names = c("L2Eco", "L3Eco"), partial = TRUE, las = 2, cex.axis = 0.7, plots.one.page = TRUE)
-
-# Human-influenced vars
-red10_partialplots_hi <- plot.variable(red10, xvar.names = c("SEPTICWS", "PCTFRSTLOSS2002WS"), partial = TRUE, plots.one.page = TRUE)
-
-#******************consider adding code to look at individual metrics
-```
 
 #### Top 4 predictors (not using this one)
 
@@ -947,7 +1027,7 @@ map_function(ref_map)
 
 ```{r comopare reduced model (adjusted and unadjusted) by ecoregion}
 # Construct a dataframe of predictions to compare
-boxplot_preds <- data.frame(MLocID = red10_map$MLocID, StationDes = red10_map$StationDes, Obs = red10_map$obs, Pred_reduced = red10_map$pred, L3Eco = as.character(red10_map$L3Eco),Pred_adj = red10_map_no.hi$pred, Ref = red10_map$ReferenceSite, Pred_full = full_map$pred)
+boxplot_preds <- data.frame(MLocID = red16_map$MLocID, StationDes = red16_map$StationDes, Obs = red16_map$obs, Pred_reduced = red16_map$pred, L3Eco = as.character(red16_map$L3Eco),Pred_adj = red16_map_no.hi$pred, Ref = red16_map$ReferenceSite, Pred_full = full_map$pred)
 
 boxplot_ref<- ref_map %>%
   select(MLocID, Pred_ref = pred)

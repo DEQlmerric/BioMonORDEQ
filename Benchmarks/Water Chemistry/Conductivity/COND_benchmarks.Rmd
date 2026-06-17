@@ -50,7 +50,7 @@ comids <- cond %>%
 
 ```{r streamcat pull}
 # # Run function to query ALL StreamCat data for selected COMIDs by subcategory
-# source('~/BioMonORDEQ/Benchmarks/Water Chemistry/SC_pull.R')
+#source('~/BioMonORDEQ/Benchmarks/Water Chemistry/SC_pull.R')
 # 
 # #Pull ALL StreamCat data by subcategory and merge
 # ag <- get_streamcat(comids = comids, type = "Agriculture")
@@ -61,16 +61,18 @@ comids <- cond %>%
 # cover <- get_streamcat(comids = comids, type = "Land Cover")
 # litho <- get_streamcat(comids = comids, type = "Lithology") 
 # mintox <- get_streamcat(comids = comids, type = "Mining_Toxics")
+# riparian <- get_streamcat(comids = comids, type = "Riparian Buffer")
 # roads <- get_streamcat(comids = comids, type = "Roads")
 # urb <- get_streamcat(comids = comids, type = "Urban")
 # fire <- get_streamcat(comids = comids, type = "Wildfire")
 # other <- get_streamcat(comids = comids, type = "Others")
+# riparian <- get_streamcat(comids = comids, type = "Riparian Buffer")
 # 
 # # MERGE INTO ONE TABLE
 # sc_all <- list(ag, clim, dams, flow, iwi, cover, litho, mintox, roads, urb, fire, other)
 # sc_all <- sc_all %>% reduce(full_join, by = 'COMID')
 # 
-# rm(list=c('ag', 'clim', 'dams', 'flow','iwi', 'cover', 'litho', 'mintox', 'roads', 'urb', 'fire', 'other'))
+# rm(list=c('ag', 'clim', 'dams', 'flow','iwi', 'cover', 'litho', 'mintox', 'riparian', 'roads', 'urb', 'fire', 'other'))
 ```
 
 ### OPTION 2: Read in SC data from pre-downloaded file.

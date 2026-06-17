@@ -7,7 +7,7 @@
 
 # FUNCTION - START +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 get_streamcat <- function(comids, type = c("Agriculture","Climate","Dams","Flow","IWI","Land Cover","Lithology","Mining_Toxics","Roads",
-                                           "Urban","Wildfire","Others")){
+                                           "Urban","Wildfire","Others","Riparian Buffer")){
   type <- match.arg(type)
   
   if(type == "Agriculture"){
@@ -109,9 +109,9 @@ get_streamcat <- function(comids, type = c("Agriculture","Climate","Dams","Flow"
   if(type == "Riparian Buffer"){
     
     streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                     metric = 'superfunddenswsrp100,tridenswsrp100', 
+                                                                     metric = 'superfunddens,tridens', 
                                                                      showAreaSqKm = FALSE,
-                                                                     aoi='WsRp100')) 
+                                                                     aoi='watershed,rp100')) 
   }
   
   names(streamcat) <- base::toupper(names(streamcat))

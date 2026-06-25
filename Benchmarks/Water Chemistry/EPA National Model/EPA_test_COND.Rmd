@@ -127,7 +127,13 @@ COND <- epa_data %>%
 
 # for sorting purposes later
 COND_uid <- epa_data %>%
-  select(c(uid, COMID,cond,Lat_DD,Long_DD,SampleStartDate)) %>% 
+  select(c(uid, COMID,cond,Lat_DD,Long_DD,us.l3code, state.nm,SampleStartDate)) %>% 
+  mutate(logCOND = log(cond))
+
+# for sorting purposes later
+COND_uid.ref <- epa_data %>% 
+  filter(rt.master=="B" | rt.master == "S") %>% 
+  select(c(uid, COMID,cond,Lat_DD,Long_DD,us.l3code, state.nm,SampleStartDate)) %>% 
   mutate(logCOND = log(cond))
 
 # Convert character columns to factors
@@ -703,7 +709,7 @@ ggplot(data = red15_plotdf_no.hi, aes(x = pred, y = obs)) +
   geom_abline() + 
   scale_x_log10() +
   scale_y_log10() +
-  annotate("text", x = 0.6, y = 90, label = paste0('OOB RMSE = ' , round(red15_rmse_no.hi,2), ' | scaled RMSE = ', round(red15_rmse.scaled_no.hi*100,2), "%"), size = 3)
+  annotate("text", x = 100, y = 10000, label = paste0('OOB RMSE = ' , round(red15_rmse_no.hi,2), ' | scaled RMSE = ', round(red15_rmse.scaled_no.hi*100,2), "%"), size = 3)
 
 # Plot residuals - red15 model, adjusted human-influenced vars to 0
 red15_resid_no.hi <- exp(COND_no.hi$logCOND) - exp(red15_no.hi$predicted) # Observed minus predicted oob
@@ -711,32 +717,19 @@ plot(red15_resid_no.hi ~ exp(red15_no.hi$predicted), xlab = "Predicted COND ((μ
 abline(h=0, col = "red", lty = 2)
 ```
 
-#### Leaflet map after adjusting human vbls for reduced10 model
+#### Leaflet map after adjusting human vbls for red15 model
 
 ```{r leaflet map after adj human variables to zero}
 # CREATE DF FOR MAPPING PURPOSES to explore how residuals changed on the map after scaling all HI to zero
 # Need to join predictions to AWQMS columns, but there are no unique identifiers in the COND table. Predictions will be in the same order as the COND table initially.
 
-# # Join predictions to cal_val table
-# red15_obs.predict_no.hi <- cbind(red15_plotdf_no.hi, COND_no.hi) %>% 
-#   arrange(ELEVWS) # Use unique col
-# 
-# # Join COND.obs_predict_no.hi with COND.awqms, and makes sure the results match.
-# red15_map_no.hi <- cbind(full_awqms,red15_obs.predict_no.hi)
-# 
-# # Then select to remove duplicate logCOND column and reorder.
-# red15_map_no.hi <- red15_map_no.hi %>% 
-#   select(MLocID:delta, BFIWS:L3Eco)
-# 
-# 
-
 # Join predictions to StreamCat table
-red15_obs.predict_no.hi <- cbind(red15_plotdf_no.hi, COND_no.hi) %>% 
-  filter(predictions == "OOB") 
+red15_obs.predict_no.hi <- cbind(red15_plotdf_no.hi, COND_no.hi) #%>% 
+#  filter(predictions == "OOB") 
 
 # Join pred with awqms table, and makes sure the COND results match (Make sure logCOND column is the same as logCOND.1)
 red15_map_no.hi <- cbind(red15_obs.predict_no.hi,COND_uid) %>% 
-  relocate(uid:cond, .before = obs) %>% 
+  relocate(uid:SampleStartDate, .before = obs) %>% 
   select(uid:pctforest)
 
 pal <- colorNumeric(palette = "Purples", 
@@ -757,12 +750,12 @@ map_function(red15_map_no.hi)
 
 ```{r reducing the model further tuning}
 #Adjust the parameters below based on tuning
-red4_tuning <- tune(logCOND ~ ELEVWS + TMAX9120WS + L3Eco + CLAYWS, data = COND, seed = 1234)
+red4_tuning <- tune(logCOND ~ runoffws+pctforest+precip9120ws+pctimp2019ws, data = COND, seed = 1234)
 red4_tuning$optimal
 ```
 
 ```{r reducing the model further}
-red4 <- rfsrc(logCOND ~ ELEVWS + TMAX9120WS + L3Eco + CLAYWS, data = COND, mtry = red4_tuning$optimal[[2]], nodesize = red4_tuning$optimal[[1]], importance = "TRUE", seed = 24)
+red4 <- rfsrc(logCOND ~ runoffws+pctforest+precip9120ws+pctimp2019ws, data = COND, mtry = red4_tuning$optimal[[2]], nodesize = red4_tuning$optimal[[1]], importance = "TRUE", seed = 24)
 red4 # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (untransformed)
@@ -812,9 +805,49 @@ ggplot(data = red4_plotdf, aes(x = pred, y = obs, color = predictions, shape = p
   geom_smooth(method = "lm", se = FALSE) +
   scale_x_log10() +
   scale_y_log10() +
-  annotate("text", x = 0.7, y = 60, label = paste0('OOB RMSE = ' , round(red4_oob.rmse,2), ' | scaled RMSE = ', round(red4_oob.rmse.scaled*100,2), "%"), size = 3) +
-    annotate("text", x = 0.7, y = 75, label = paste0('IB RMSE = ' , round(red4_rmse,2), ' | scaled RMSE = ', round(red4_rmse.scaled*100,2), "%"), size = 3) +
-      annotate("text", x = 0.7, y = 100, label = paste0('% variance explained = ' , round(red4_per.var,2), '%'), size = 3) 
+  annotate("text", x = 100, y = 10000, label = paste0('OOB RMSE = ' , round(red4_oob.rmse,2), ' | scaled RMSE = ', round(red4_oob.rmse.scaled*100,2), "%"), size = 3) +
+    annotate("text", x = 100, y = 14500, label = paste0('IB RMSE = ' , round(red4_rmse,2), ' | scaled RMSE = ', round(red4_rmse.scaled*100,2), "%"), size = 3) +
+      annotate("text", x = 100, y = 20000, label = paste0('% variance explained = ' , round(red4_per.var,2), '%'), size = 3) 
+
+```
+#### Reduce all human-influenced variables [to 0]* and make predictions using red4 model.
+
+```{r adj reduced model}
+# Make predictions with adjusted human-influence to 0 
+red4_no.hi <- predict(red4, newdata= COND_no.hi, seed = 24)
+
+# Mean squared error (untransformed)
+red4_mse_no.hi <- tail(red4_no.hi$err.rate,1)
+red4_per.var_no.hi <- 100 * (1 - red4_mse_no.hi/ var(COND_no.hi$logCOND, na.rm = TRUE))
+
+# RMSE
+red4_rmse_no.hi<- rmse(exp(red4_no.hi$predicted), exp(COND_no.hi$logCOND))
+red4_rmse.scaled_no.hi <- red4_rmse_no.hi/range_COND
+print(paste0('OOB RMSE = ' , round(red4_rmse_no.hi,2), " ((μS/cm))"))
+print(paste0('Scaled OOB RMSE = ' , round(red4_rmse.scaled_no.hi*100,2), "%"))
+
+# Make a df for plots
+red4_plotdf_no.hi <- data.frame(obs = COND_no.hi$logCOND, pred = red4_no.hi$predicted) %>% 
+  mutate(obs = exp(obs)) %>% 
+  mutate(pred = exp(pred)) %>% 
+  mutate(delta = obs - pred)
+
+# Plot
+ggplot(data = red4_plotdf_no.hi, aes(x = pred, y = obs)) +
+  geom_point(alpha = 0.75) +
+  labs(title = "COND red4 Model predictions without human influenced vars",
+       x = "Predicted values ((μS/cm))",
+       y = "Observed values ((μS/cm))") +
+  theme_bw() + 
+  geom_abline() + 
+  scale_x_log10() +
+  scale_y_log10() +
+  annotate("text", x = 100, y = 10000, label = paste0('OOB RMSE = ' , round(red4_rmse_no.hi,2), ' | scaled RMSE = ', round(red4_rmse.scaled_no.hi*100,2), "%"), size = 3)
+
+# Plot residuals - red4 model, adjusted human-influenced vars to 0
+red4_resid_no.hi <- exp(COND_no.hi$logCOND) - exp(red4_no.hi$predicted) # Observed minus predicted oob
+plot(red4_resid_no.hi ~ exp(red4_no.hi$predicted), xlab = "Predicted COND ((μS/cm))", ylab = "Residuals (obs - pred)", main = "red4 model residuals, no HI vars")
+abline(h=0, col = "red", lty = 2)
 ```
 
 ## E. Reference-Only Model
@@ -822,10 +855,9 @@ ggplot(data = red4_plotdf, aes(x = pred, y = obs, color = predictions, shape = p
 #### Subset the data
 
 ```{r subset reference only data}
-COND.ref <- COND_vars_selected %>% 
-  filter(ReferenceSite=="REFERENCE") %>% 
-  select(-c(MLocID:COMID, CONDide, SampleStartDate))  %>%  # Remove AWQMS columns
-  select(-c("CANALDENSWS", "DAMDENSWS", "FERTWS", "MINEDENSWS", "NANIWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTAGSLPMID2001WS", "PCTCROP2001WS", "PCTIMP2001WS", "PCTFRSTLOSS2002WS", "PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "TRIDENSWS", "WWTPMAJORDENSWS", "WWTPALLDENSWS")) %>% # Remove anthropogenic StreamCat vars
+COND.ref <- COND_no.hi %>% 
+  filter(rt.master=="B" | rt.master == "S") %>% 
+  select(-c(rt.master)) %>% 
   as.data.frame()
 
 # Convert character columns to factors
@@ -838,7 +870,6 @@ COND.ref[sapply(COND.ref, is.character)] <- lapply(COND.ref[sapply(COND.ref, is.
 #Adjust the parameters below based on tuning 
 ref_tuning <- tune(logCOND~., COND.ref, seed = 2)
 ref_tuning$optimal
-
 ```
 
 #### Build full ref-only model
@@ -896,9 +927,9 @@ ggplot(data = ref_plotdf, aes(x = pred, y = obs, color = predictions, shape = pr
   geom_smooth(method = "lm", se = FALSE) +
   scale_x_log10() +
   scale_y_log10() +
-  annotate("text", x = 0.75, y = 15, label = paste0('OOB RMSE = ' , round(ref_oob.rmse,2), ' | scaled RMSE = ', round(ref_oob.rmse.scaled*100,2), "%"), size = 3) +
-    annotate("text", x = 0.75, y = 19, label = paste0('IB RMSE = ' , round(ref.rmse,2), ' | scaled RMSE = ', round(ref_rmse.scaled*100,2), "%"), size = 3) +
-      annotate("text", x = 0.75, y = 25, label = paste0('% variance explained = ' , round(ref_per.var,2), '%'), size = 3) 
+  annotate("text", x = 100, y = 10000, label = paste0('OOB RMSE = ' , round(ref_oob.rmse,2), ' | scaled RMSE = ', round(ref_oob.rmse.scaled*100,2), "%"), size = 3) +
+    annotate("text", x = 100, y = 14000, label = paste0('IB RMSE = ' , round(ref.rmse,2), ' | scaled RMSE = ', round(ref_rmse.scaled*100,2), "%"), size = 3) +
+      annotate("text", x = 100, y = 19000, label = paste0('% variance explained = ' , round(ref_per.var,2), '%'), size = 3) 
 
 # Plot residuals - 
 ref_resid <- exp(COND.ref$logCOND) - exp(ref$predicted) # Observed minus predicted oob
@@ -918,42 +949,26 @@ partialplots <- plot.variable(ref, xvar.names = c(names(ref_vimp[1:8])), partial
 #### Leaflet map of Ref-Only model
 
 ```{r leaflet map of ref only model}
-# CREATE DF FOR MAPPING PURPOSES
-# Need to join predictions to AWQMS columns, but there are no unique identifiers in the COND table. Predictions will be in the same order as the COND table initially.
-
-# Find a StreamCat row that has ALL unique values
-# any(duplicated(COND$ELEVWS))  # Elevation works.
-# any(duplicated(COND$PRECIP9120WS))
-
 # Join predictions to StreamCat table
 ref_obs.predict <- cbind(ref_plotdf, COND.ref) %>% 
-  filter(predictions == "OOB") %>% 
-  arrange(ELEVWS) # Order by unique col
+  filter(predictions == "OOB") 
 
-ref_awqms <- COND_vars_selected %>% 
-  arrange(ELEVWS) %>% # Order by unique col
-  filter(ReferenceSite=='REFERENCE') %>% 
-  select(MLocID:logCOND) 
+# Join pred with awqms table, and makes sure the COND results match (Make sure logCOND column is the same as logCOND.1)
+ref_map <- cbind(ref_obs.predict,COND_uid.ref) %>% 
+  relocate(uid:SampleStartDate, .before = obs) %>% 
+  select(uid:pctforest)
 
-# Join obs.predict and awqms tables, and makes sure the COND results match (Make sure logCOND column is the same as logCOND.1)
-ref_map <- cbind(ref_obs.predict, ref_awqms)
-
-# Then select to remove duplicate logCOND column and reorder.
-ref_map <- ref_map %>% 
-  select(obs:COMID) %>% 
-  relocate(MLocID:COMID, .before = obs)
-
-pal <- colorNumeric(palette = "BuGn", 
-  domain = c(0, max(ref_map$obs)))
-pal2 <- colorNumeric(palette = "BuGn", 
-  domain = c(0, max(ref_map$obs)))
+pal <- colorNumeric(palette = "BuGn",
+  domain = c(0, log(max(ref_map$obs))))
+pal2 <- colorNumeric(palette = "BuGn",
+  domain = c(0, log(max(ref_map$obs))))
 pal3 <- colorNumeric(palette = "RdBu", domain = c(-1*max(ref_map$delta), max(ref_map$delta)))
-
+# 
 map_function(ref_map)
-
-# Save map as html
-# ref_model_map <- map_function(ref_map)
-# saveWidget(ref_model_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//CONDide//ref_model_map.html", selfcontained = TRUE, title = "Ref-only model")
+# 
+# # Save map as html
+# # ref_model_map <- map_function(ref_map)
+# # saveWidget(ref_model_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//CONDide//ref_model_map.html", selfcontained = TRUE, title = "Ref-only model")
 ```
 
 ## F. Make comparisons of predictions
@@ -962,25 +977,56 @@ map_function(ref_map)
 
 ```{r comopare reduced model (adjusted and unadjusted) by ecoregion}
 # Construct a dataframe of predictions to compare
-boxplot_preds <- data.frame(MLocID = red15_map$MLocID, StationDes = red15_map$StationDes, Obs = red15_map$obs, Pred_reduced = red15_map$pred, L3Eco = as.character(red15_map$L3Eco),Pred_adj = red15_map_no.hi$pred, Ref = red15_map$ReferenceSite, Pred_full = full_map$pred)
+boxplot_preds <- data.frame(uid = red15_map$uid, Obs = red15_map$obs, Pred_reduced = red15_map$pred, L3Eco = as.character(red15_map$us.l3code), State = red15_map$state.nm, Pred_adj = red15_map_no.hi$pred, Ref = red15_map$rt.master, Pred_full = full_map$pred)
+
+boxplot_preds <- boxplot_preds %>%
+  mutate(L1Eco = case_when(
+    L3Eco %in% c("49", "50", "58", "62") ~ "Northern Forests",
+    L3Eco %in% c("78","77","41","21","19","17","16","15","11","9","5","4") ~ "Northwestern Forested Mountains",
+    L3Eco %in% c("1", "2", "3") ~ "Marine West Coast Forest",
+    L3Eco %in% c("33","35","36","37","38","39","45","51","52","53","54","55","56","57","59","60","61","63","64","65","66","67","68","69","70","71","72","73","74","75","82","83","84"
+) ~ "Eastern Temperate Forests",
+    L3Eco %in% c("25","26","27","28","29","30","31","32","34","40","42","43","44","46","47","48"
+) ~ "Great Plains",
+    L3Eco %in% c("10","12","13","14","18","20","22","24","80","81"
+) ~ "North American Deserts",
+    L3Eco %in% c("6","7","8","85"
+) ~ "Mediterranean California",
+    L3Eco %in% c("79") ~ "Southern Semi-Arid Highlands",
+    L3Eco %in% c("23") ~ "Temperate Sierras",
+    L3Eco %in% c("76") ~ "Tropical Wet Forests"
+  )) %>% 
+  mutate(L3Eco = case_when(
+    L3Eco == "3" ~ "Willamette Valley",
+    L3Eco == "9" ~ "Eastern Cascades Slopes and Foothills",
+    L3Eco == "11" ~ "Blue Mountains",
+    L3Eco == "78" ~ "Klamath Mountains",
+    L3Eco == "1" ~ "Coast Range",
+    L3Eco == "4" ~ "Cascades",
+    L3Eco == "80" ~ "Northern Basin and Range",
+    L3Eco == "10" ~ "Columbia Plateau",
+    L3Eco == "12" ~ "Snake River Plain",
+    TRUE ~ L3Eco))
+
+boxplot_preds$L3Eco <- factor(boxplot_preds$L3Eco)
 
 boxplot_ref<- ref_map %>%
-  select(MLocID, Pred_ref = pred)
+  select(uid, Pred_ref = pred)
 
-boxplot_combo <- left_join(boxplot_preds, boxplot_ref, by="MLocID")
+boxplot_combo <- left_join(boxplot_preds, boxplot_ref, by="uid")
 
 boxplot_df <- gather(boxplot_combo, key = "Model", value = "Prediction", Pred_full, Pred_reduced, Pred_adj, Pred_ref, Obs)
 boxplot_df$Model <- factor(boxplot_df$Model, levels = c("Pred_ref", "Pred_adj","Pred_reduced", "Pred_full", "Obs"))
-boxplot_df$L3Eco <- factor(boxplot_df$L3Eco, levels = c("Coast Range", "Willamette Valley", "Klamath Mountains", "Cascades", "Eastern Cascades Slopes and Foothills", "Columbia Plateau","Blue Mountains", "Northern Basin and Range", "Snake River Plain"))
+# boxplot_df$L3Eco <- factor(boxplot_df$L3Eco, levels = c("Coast Range", "Willamette Valley", "Klamath Mountains", "Cascades", "Eastern Cascades Slopes and Foothills", "Columbia Plateau","Blue Mountains", "Northern Basin and Range", "Snake River Plain"))
 
 # Clean out environment
 rm=(c("boxplot_preds", "boxplot_ref", "boxplot_combo"))
 
-ggplot(boxplot_df, aes(x = L3Eco, y = Prediction, fill = Model)) + 
+ggplot(boxplot_df, aes(x = L1Eco, y = Prediction, fill = Model)) + 
   geom_boxplot() +
   guides(x = guide_axis(angle = 45)) +
   scale_y_log10() +
-  theme_bw(base_size=14) + ylab("COND ((μS/cm))") +
+  theme_bw(base_size=14) + ylab("COND (μS/cm)") +
    stat_summary(
     fun.data = function(x) data.frame(y = median(x), label = length(x)),
     geom = "text",
@@ -1067,7 +1113,7 @@ map_all(leaflet_df)
 #### Unadjusted predictions vs. adjusted human inflence 
 
 ```{r unadjusted predictions vs adj human influence}
-leaflet_df$Ref <- factor(leaflet_df$Ref, levels = c("REFERENCE", "MODERATELY DISTURBED", "MOST DISTURBED"))
+leaflet_df$Ref <- factor(leaflet_df$Ref, levels = c("B", "S", "T"))
 
 ggplot(leaflet_df, aes(x = Pred_unadj, y = Pred_adj, color = Ref, shape = Ref)) +
   geom_point(size = 1.5) + theme_bw(base_size = 15) +

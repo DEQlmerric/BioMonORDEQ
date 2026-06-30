@@ -79,9 +79,9 @@ if(F){
 # Declare directories ####
 wd <- getwd()
 myDate <- format(Sys.Date(), "%Y%m%d")
-input.dir <- "bugs analyses/stressor/TolAnal_forShannon/Input_Data"
-state.dir <- "MD_MBSS"
-output.dir <- "bugs analyses/stressor/TolAnal_forShannon/Output_Data"
+input.dir <- "bugs analyses/stressor/Taxa tolerances/FINES/Input_data"
+state.dir <- "ORWA"
+output.dir <- "bugs analyses/stressor/Taxa tolerances/FINES/Output_data"
 results.dir <- paste0("/Taxa_Tolerance_Results_", state.dir,"_",myDate,"/")
 
 # create results folder
@@ -94,7 +94,7 @@ if(boo_Results==FALSE){
 # specify input files
       #fn.data1 <- "_TolAnal_MD_MBSS_Run1_20250307.csv"
 
-fn.data1 <- "_TolAnal_MD_20250305_All.csv"
+fn.data1 <- "bugs.fines_1027.csv"
 
 
 # Read data files ####
@@ -107,8 +107,8 @@ rm(boo_Results, input.dir, fn.data1)
 
 # Data processing ####
 # state
-state=c('MD_MBSS')
-stateName=c('MD_MBSS')
+state=c('ORWA')
+stateName=c('ORWA')
 
 ## Transform data ####
 # df_preds <- df_orig %>%
@@ -174,7 +174,7 @@ stateName=c('MD_MBSS')
 
 # Transformations
 # Check for value=0
-my_preds <- c("MSST", "IWI_v2_1", "WSAREASQKM", "pSLOPE", "ELEVCAT_m")
+my_preds <- c("PCT_FN")
 
 tmp <- df_orig %>% 
   select(BugSampleID, one_of(my_preds)) %>% 
@@ -185,6 +185,9 @@ tmp <- df_orig %>%
 rm(tmp, my_preds)
 
 # no zero values in dataset, otherwise, run code below.
+
+@@@@@@@@@@@@ but fines does allow for '0' values....???????
+
 
 # Get min non-zero values
 # rm(tmp)
@@ -209,25 +212,32 @@ rm(tmp, my_preds)
 #          )
 
 # Transformations
+                                                                                  # df_input_v2 <- df_orig %>%
+                                                                                  #   mutate(#ELEVCAT_m = "identity"
+                                                                                  #          # , IWI_v2_1 = "identity"
+                                                                                  #          , pSLOPE_log = log(pSLOPE)
+                                                                                  #          , WSAREASQKM_log = log(WSAREASQKM)
+                                                                                  #          # , MSST = "identity"
+                                                                                  #          )
+
+
 df_input_v2 <- df_orig %>%
-  mutate(#ELEVCAT_m = "identity"
-         # , IWI_v2_1 = "identity"
-         , pSLOPE_log = log(pSLOPE)
-         , WSAREASQKM_log = log(WSAREASQKM)
-         # , MSST = "identity"
-         )
+  mutate(PCT_FN_log1p = log(PCT_FN+1))
+
+
+
+
 
 ## SiteDateRA table ####
 SiteDateRA <- df_input_v2 %>% 
-  select(-c( Source, Count, RMN_StationID, WaterbodyName, COMID_Final # Select_Run1,
-            , Year, Month, CollDate, CollMeth, Plot_Label, Taxon_Group)) %>% # remove unnecessary fields
+  select(-c(Count, Plot_Label, Taxon_Group, NonDistinct, siteID, Date)) %>% # remove unnecessary fields
   relocate(OTU_TolAnal, .after = last_col()) %>%
   pivot_wider(., names_from = OTU_TolAnal, values_from = RA
               , values_fill = 0) %>% 
   rename(SampleID = BugSampleID)
 
 SiteDateRA <- as.data.table(SiteDateRA)
-nrow(SiteDateRA)# 874
+nrow(SiteDateRA)# 1027
 
 ## OTU table ####
 otuTable_State <- df_input_v2 %>% 
@@ -245,19 +255,25 @@ otuTable_State <- as.data.table(otuTable_State)
 ## SiteDatePA table ####
 # otusState
 otusState=sort(unique(otuTable_State$OTU))
-length(otusState) # 718
+length(otusState) # 668
 
 rm(SiteDatePA)
 SiteDatePA=copy(SiteDateRA)
-SiteDatePA[,.(CHIRONOMINAE,CHIRONOMINI,CONCHAPELOPIA)] # Check first few taxa
+SiteDatePA[,.(Acari, Agapetus, Amiocentrus)] # Check first few taxa
 SiteDatePA[,(otusState):=lapply(.SD,function(x) ifelse(x>0,1,0)),.SDcols=otusState]
 SiteDatePA[,(otusState):=lapply(.SD,function(x) as.integer(x)),.SDcols=otusState]
-SiteDatePA[,.(CHIRONOMINAE,CHIRONOMINI,CONCHAPELOPIA)] # Check P/A transformation
+SiteDatePA[,.(Acari, Agapetus, Amiocentrus)] # Check P/A transformation
+
+
+
+
+
+
 
 # Counts
-nrow(otuTable_State)              # 670 taxa
-nrow(SiteDatePA)                  # 3408 SampleIDs
-uniqueN(otuTable_State$OTU)       # 670 taxa (includes nOcc <30)
+nrow(otuTable_State)              # 668 taxa
+nrow(SiteDatePA)                  # 1027 SampleIDs
+uniqueN(otuTable_State$OTU)       # 668 taxa (includes nOcc <30)
 uniqueN(otuTable_State$TaxaGroup) # 14 taxaGroups
 
 ## Things to update list ####
@@ -269,16 +285,13 @@ uniqueN(otuTable_State$TaxaGroup) # 14 taxaGroups
 
 # vars
 rm(vars,varsLab,varsTrans,varsScale)
-vars=c("ELEVCAT_m", "IWI_v2_1", "MSST", "pSLOPE", "WSAREASQKM")
+vars=c("PCT_FN")
 
-varsLab=c("Catchment Elevation (m)", "Index of Watershed Integrity"
-          , "Mean Summer Stream Temperature", "Percent Stream Slope"
-          , "Watershed Area (Sq km)")
+varsLab=c("Fines (%)")
 
-varsTrans=c("ELEVCAT_m", "IWI_v2_1", "MSST"
-            , "pSLOPE_log", "WSAREASQKM_log")
+varsTrans=c("PCT_FN_log1p")
 
-varsScale=c('identity','identity','identity','log','log') # identity
+varsScale=c('log1p') # identity
 cbind(varsScale,varsTrans,vars,varsLab)
 length(vars) # 5 vars
 
@@ -289,7 +302,7 @@ length(taxaGroups_State) # 14 taxaGroups
 
 # regions
 rm(regions)
-regions=c('MD_MBSS')
+regions=c('ORWA')
 length(regions) # 1 regions
 
 ###################################*
@@ -323,7 +336,7 @@ K=8L # Use k=10 for ORWA MWMT. Use 8 for ORWA-IWI. Use 5-8 for other projects.
 # map
 rm(map)
 map=st_as_sf(maps::map('state',fill=T,plot=F))
-map=map[map$ID %in% c("maryland"),]
+map=map[map$ID %in% c("oregon", "washington"),]
 nrow(map) # 7
 
 gc(); save.image()
@@ -463,21 +476,29 @@ for(r in 1:length(regions)){ # Loop across regions   1:length(regions)
     
     #keep the MSST breaks the same across all datasets; don't transform MSST?
     
-    if(varsTrans[v]== "ELEVCAT_m") {
-      labels = c(5, 200, 400, 600, 835)
+                                                                                    # if(varsTrans[v]== "ELEVCAT_m") {
+                                                                                    #   labels = c(5, 200, 400, 600, 835)
+                                                                                    #   breaks = labels
+                                                                                    # } else if(varsTrans[v]== "IWI_v2_1"){
+                                                                                    #   labels = c(0.1, 0.25, 0.5, 0.75, 0.9)
+                                                                                    #   breaks = labels
+                                                                                    # } else if(varsTrans[v]== "MSST"){
+                                                                                    #   labels = c(10, 14, 18, 22, 26)
+                                                                                    #   breaks = labels
+                                                                                    # } else if(varsTrans[v]== "pSLOPE_log"){
+                                                                                    #   labels = c(0.001, 0.5, 1, 5, 10)
+                                                                                    #   breaks = log(labels)
+                                                                                    # } else if(varsTrans[v]== "WSAREASQKM_log"){
+                                                                                    #   labels = c(1, 10, 100, 500, 1000, 2000, 5000, 15000)
+                                                                                    #   breaks = log(labels)
+                                                                                    # } else stop('CHECK breaks')
+    
+    if(varsTrans[v]== "PCT_FN_log1p") {
+      labels = c(1.791759,2.397895,3.044522,3.433987,3.931826)
       breaks = labels
-    } else if(varsTrans[v]== "IWI_v2_1"){
-      labels = c(0.1, 0.25, 0.5, 0.75, 0.9)
-      breaks = labels
-    } else if(varsTrans[v]== "MSST"){
-      labels = c(10, 14, 18, 22, 26)
-      breaks = labels
-    } else if(varsTrans[v]== "pSLOPE_log"){
-      labels = c(0.001, 0.5, 1, 5, 10)
-      breaks = log(labels)
-    } else if(varsTrans[v]== "WSAREASQKM_log"){
-      labels = c(1, 10, 100, 500, 1000, 2000, 5000, 15000)
-      breaks = log(labels)
+    #} else if(varsTrans[v]== "PCT_FN_log10") {
+    #  labels = c(0.77815125,1.041392685,1.322219295,1.491361694,1.707570176)
+    #  breaks = labels
     } else stop('CHECK breaks')
     
     # dfRegionVar
@@ -622,6 +643,8 @@ for(r in 1:length(regions)){ # Loop across regions   1:length(regions)
       waRegionVar[,WAopt:=exp(WAoptTrans)-1]
     } else if(varsScale[v]=='logNeg'){
       waRegionVar[,WAopt:=1-exp(WAoptTrans)]
+    } else if(varsScale[v]=='log10p'){
+      waRegionVar[,WAopt:=10^(WAoptTrans)-1]
     } else stop('CHECK WAopt backtransform')
     
     # WAtol - Backtransforming can give wonky results. Rely on WAlwr and WAupr instead. 
@@ -636,6 +659,8 @@ for(r in 1:length(regions)){ # Loop across regions   1:length(regions)
       waRegionVar[,WAtol:=exp(WAtolTrans)-1]
     } else if(varsScale[v]=='logNeg'){
       waRegionVar[,WAtol:=1-exp(WAtolTrans)]
+    } else if(varsScale[v]=='log10p'){
+      waRegionVar[,WAopt:=10^(WAoptTrans)-1]
     } else stop('CHECK WAtol backtransform')
     
     # WAlwr
@@ -650,6 +675,8 @@ for(r in 1:length(regions)){ # Loop across regions   1:length(regions)
       waRegionVar[,WAlwr:=exp(WAlwrTrans)-1]
     } else if(varsScale[v]=='logNeg'){
       waRegionVar[,WAlwr:=1-exp(WAlwrTrans)]
+    } else if(varsScale[v]=='log10p'){
+      waRegionVar[,WAopt:=10^(WAoptTrans)-1]
     } else stop('CHECK WAlwr backtransform')
     
     # WAupr
@@ -664,6 +691,8 @@ for(r in 1:length(regions)){ # Loop across regions   1:length(regions)
       waRegionVar[,WAupr:=exp(WAuprTrans)-1]
     } else if(varsScale[v]=='logNeg'){
       waRegionVar[,WAupr:=1-exp(WAuprTrans)]
+    } else if(varsScale[v]=='log10p'){
+      waRegionVar[,WAopt:=10^(WAoptTrans)-1]  
     } else stop('CHECK WAupr backtransform')
     
     # Export - Not needed
@@ -694,6 +723,8 @@ for(r in 1:length(regions)){ # Loop across regions   1:length(regions)
       xgrid=exp(xgridTrans)-1
     } else if(varsScale[v]=='logNeg'){
       xgrid=1-exp(xgridTrans)
+    } else if(varsScale[v]=='log10p'){
+      xgrid=10^(xgridTrans)-1
     } else stop('CHECK xgrid backtransform')
     # head(cbind(xgrid,xgridTrans))
     
@@ -992,6 +1023,10 @@ for(r in 1:length(regions)){ # Loop across regions   1:length(regions)
           optima=exp(optimaTrans)-1
         } else if(varsScale[v]=='logNeg'){
           optima=1-exp(optimaTrans)
+        } else if(varsScale[v]=='asin.sqrt'){
+            optima=  100(sin(optimaTrans))^2
+        } else if(varsScale[v]=='log10p'){
+          optima=10^(optimaTrans)-1
         } else stop('CHECK optima backtransform')
         # rbind(optima,optimaTrans)
         
@@ -1329,8 +1364,8 @@ for(r in 1:length(regions)){ # Loop across regions   1:length(regions)
       
       # dfLong - Presence and Absense - For GAM plots
       rm(dfLong)
-      dfLong=melt(dfRegionVar,id.vars=c('SampleID','Latitude','Longitude'
-                                        ,'Pred','PredTrans','PredTransBin')
+      dfLong=melt(dfRegionVar,id.vars=c('SampleID','Latitude','Longitude',
+                                        'Pred','PredTrans','PredTransBin')
                   ,measure.vars=otusRegionVarGroupPlot,variable.name='OTU')
       # dfLong[,.N,by=OTU]
       nrow(dfLong) # 66,500
@@ -1365,15 +1400,20 @@ for(r in 1:length(regions)){ # Loop across regions   1:length(regions)
       
       # digits
       rm(digits)
-      if(vars[v]=='ELEVCAT_m'){
-        digits=2
-      } else if(vars[v]=='IWI_v2_1'){
-        digits=2
-      } else if(vars[v]=='MSST'){
-        digits=2
-      } else if(vars[v]=='pSLOPE'){
-        digits=2
-      } else if(vars[v]=='WSAREASQKM'){
+                                                                                    # if(vars[v]=='ELEVCAT_m'){
+                                                                                    #   digits=2
+                                                                                    # } else if(vars[v]=='IWI_v2_1'){
+                                                                                    #   digits=2
+                                                                                    # } else if(vars[v]=='MSST'){
+                                                                                    #   digits=2
+                                                                                    # } else if(vars[v]=='pSLOPE'){
+                                                                                    #   digits=2
+                                                                                    # } else if(vars[v]=='WSAREASQKM'){
+                                                                                    #   digits=2
+                                                                                    # } else stop('CHECK digits')
+      
+      
+      if(vars[v]=='PCT_FN'){
         digits=2
       } else stop('CHECK digits')
       

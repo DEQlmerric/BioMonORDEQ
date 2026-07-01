@@ -10,10 +10,10 @@ library(RODBC)
 
 # Enter File Information 
 # Be sure to delete unused rows on Sample and Results tabs of the template
-data_path <- "//deqlab1/Vol_Data/Gilliam SWCD/2023/August Thirtymile/AWQMSCopy_Thirtymile Aug 2023 Drift Taxonomy and mass.xlsx"
-out_path <- "//deqlab1/Vol_Data/Gilliam SWCD/2023/August Thirtymile/GilliamDrifttest_Bio_RResults.xlsx"
-org = "GILLIAM_SWCD"
-proj = "ODEQVolMonWQProgram"
+data_path <- "//deqlab1/BioMon/Bugs/2020/19-136_2019_OR_DEQ_Data_6-16-20_AWQMSDCP0015_inTemplate.xlsx"
+out_path <- "//deqlab1/BioMon/Bugs/2020/BioMon2020_Bio_RResults.xlsx"
+org = "OREGONDEQ"
+proj = "Statewide Biomonitoring"
 
 # pull in hybrid taxon table from SQL BioMon database 
 # this files lives and is updated in this BioMon repo 
@@ -26,8 +26,8 @@ awqms_t <- read_excel("RawDataUpload2AWQMS/AWQMS_Taxon2oct23.xlsx", sheet = "Tax
 
 #bring in data 
 Samp <- read_excel(data_path, sheet = "Sample") |>
-  filter(!is.na('Monitoring Location ID')) |>
   rename_with(~ str_remove_all(.x, "[\\^\\*]")) |>
+  filter(!is.na(`Monitoring Location ID`)) |>
   select("Sample ID (Locked)",Comments,"Sample Date", "Monitoring Location ID", #"Alternate Project ID", "Project ID",
          Taxonomist,"Subsample Amount", "Habitat Type","Field QA","Lab QA") |>  
   rename(act_id= "Sample ID (Locked)", #project = "Project ID",
@@ -43,7 +43,8 @@ Samp <- read_excel(data_path, sheet = "Sample") |>
          Area_sampled = 8) 
 
 counts <- read_excel(data_path, sheet = "Results") |>
-  rename_with(~ str_remove_all(.x, "[\\^\\*]")) |> 
+  rename_with(~ str_remove_all(.x, "[\\^\\*]")) |>
+  filter(!is.na(`Sample ID`)) |>
   select("Sample ID", "Taxonomic Serial Number (Locked)", # "Monitoring Location ID","Sample Date",
          "DEQ Taxon (Locked)","DEQ Taxon Code", 
          "Taxonomic Serial Number (Locked)","Stage ID","Count Value","Unique Taxon","Comments") |>

@@ -97,7 +97,7 @@ envmod <- function(ss0, runmod = F, doimport = F, doenvplots = F) {
         dev.new()
         par(mar = c(4,4,1,1))
         plot(envdata.ref.sav[, svar[i]], envdata[, svar[i]],
-             xlab = "Ref prediction", ylab = "Observed",
+             xlab = "Ref prediction", ylab = "Observed", main=svar[i],
              pch = 21, col = "grey", bg = "white")
         abline(0,1, lty = "dashed")
     }

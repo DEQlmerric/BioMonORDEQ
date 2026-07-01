@@ -5,7 +5,7 @@ date: "2026-03-27"
 output: html_document
 ---
 
-# *Total Suspended Solids*
+# *Sulfate*
 
 # **1 - LOAD PACKAGES**
 
@@ -22,6 +22,7 @@ library(randomForestSRC)
 library(leaflet)
 library(RColorBrewer)
 library(htmlwidgets)
+library(maps)
 ```
 
 # **2 - IMPORT DATA**
@@ -29,7 +30,7 @@ library(htmlwidgets)
 ## A. STATIONS - *FROM WATER CHEMISTRY BENCHMARKS SCRIPT*
 
 ```{r}
-so4 <- read_excel('~/BioMonORDEQ/Benchmarks/Water Chemistry/cal.val_chem.ref.wq_2026-02-10.xlsx') %>%  # Output file from ref benchmarks script 
+so4 <- read_excel('~/BioMonORDEQ/Benchmarks/Water Chemistry/cal.val_chem.ref.wq_2026-05-14.xlsx') %>%  # Output file from ref benchmarks script 
   filter(Char_Name == 'Sulfate') %>% 
   select(c(MLocID, Project1, StationDes, Lat_DD, Long_DD, SampleStartDate, Result_Numeric_mod, L2Eco, L3Eco, EcoRegion4, HUC8, ReferenceSite, cal_val, COMID)) %>% 
   mutate(Sulfate = Result_Numeric_mod) %>% 
@@ -45,142 +46,40 @@ comids <- so4 %>%
 
 ##### View StreamCat updates: <https://www.epa.gov/national-aquatic-resource-surveys/streamcat-updates>
 
-#### Run function to query ALL StreamCat data for selected COMIDs by subcategory
+### OPTION 1: Pull data direction from StreamCat.
 
-```{r}
-# NOTE: StreamCat doesn't pull data for 'other' areas of interest when aoi='watershed, catchment, other'. 
-# Instead, use aoi='watershed' and run separate line for aoi='other' since they don't pull unless on their own.
-# ALSO: Do not separate metric lists onto a new line by hitting the enter button, as any metric after the break will be excluded from the pull.
-
-# FUNCTION - START +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-get_streamcat <- function(comids, type = c("Agriculture","Climate","Dams","Flow","IWI","Land Cover","Lithology","Mining_Toxics","Roads",
-                                           "Urban","Wildfire","Others")){
-type <- match.arg(type)
-
-if(type == "Agriculture"){
-
-  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'canaldens,pctagdrainage,pctagslphigh2001,pctagslpmid2001,pestic1997,sw_flux,waterinput,wdrw_LD,pctcrop2001,pcthay2001,cbnf,fert,manure,nani,nsurp,agkffact',
-                                                                           showAreaSqKm = FALSE,
-                                                                           aoi='watershed')) 
-  }
-
-if(type == "Climate"){
-
-  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'precip2008,precip8110,precip9120,tmax8110,tmax9120,tmean2008,tmean8110,tmean9120,tmin8110,tmin9120,inorgnwetdep2008,nh42008,no32008,sn2008,precip_minus_evt,wetindex', 
-                                                                           showAreaSqKm = FALSE,
-                                                                           aoi='watershed'))
-  }
-
-if(type == "Dams"){
-
-  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'damdens,damnidstor,damnrmstor,NABD_Dens,NABD_NIDStor,NABD_NrmStor', 
-                                                                           showAreaSqKm = FALSE,
-                                                                           aoi='watershed'))
-  }
-
-if(type == "Flow"){
-
-  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'bfi,elev,runoff', 
-                                                                           showAreaSqKm = FALSE,
-                                                                           aoi='watershed'))
-  }
-
-if(type == "IWI"){
-
-  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'chem,conn,habt,hyd,sed,temp', 
-                                                                           showAreaSqKm = FALSE,
-                                                                           aoi='watershed'))
-  }
-
-if(type == "Land Cover"){
-
-  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'pctbl2001,pctconif2001,pctdecid2001,pctgrs2001,pcthbwet2001,pctice2001,pctmxfst2001,pctow2001,pctshrb2001,pcturbhi2001,pcturblo2001,pcturbmd2001,pcturbop2001,pctwdwet2001,pctfrstloss2002', 
-                                                                           showAreaSqKm = FALSE,
-                                                                           aoi='watershed'))
-  }
-
-if(type == "Lithology"){ 
-
-  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'al2o3,cao,compstrgth,fe2o3,hydrlcond,k2o,mgo,na2o,p2o5,pctalkintruvol,pctalluvcoast,pctcarbresid,pctcoastcrs,pctcolluvsed,pcteolcrs,pcteolfine,pctextruvol,pctglaclakecrs,pctglaclakefine,pctglactilclay,pctglactilcrs,pctglactilloam,pcthydric,pctnoncarbresid,pctsallake,pctsilicic,pctwater,rockn,s,sio2,clay,kffact,om,perm,Rckdep,rckdep,sand,wtdep,n',
-                                                                           showAreaSqKm = FALSE,
-                                                                           aoi='watershed'))
-  }
-
-if(type == "Mining_Toxics"){
-
-  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'coalminedens,minedens,superfunddens,tridens', 
-                                                                           showAreaSqKm = FALSE,
-                                                                           aoi='watershed'))
-  }
-
-if(type == "Roads"){ 
-
-  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'rdcrs,rdcrsslpwtd,rddens', 
-                                                                           showAreaSqKm = FALSE,
-                                                                           aoi='watershed'))
-  }
-
-if(type == "Urban"){ 
-
-  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'huden2010,npdesdens,popden2010,septic,wwtpalldens,wwtpmajordens,wwtpminordens,pctimp2001,pctimpslphigh2001,pctimpslpmid2001,pctnonagintrodmanagveg', 
-                                                                           showAreaSqKm = FALSE,
-                                                                           aoi='watershed'))
-  }
-
-if(type == "Wildfire"){ 
-
-  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'pctfire2002,pctburnarea2002,pcthighsev2002,pctincvegresp2002,pctlowsev2002,pctmodsev2002,pctnonprocmask2002,pctundsev2002', 
-                                                                           showAreaSqKm = FALSE,
-                                                                           aoi='watershed'))
-  }
-
-if(type == "Others"){
-
-  streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
-                                                                           metric = 'bankfulldepth,bankfullwidth,ici,iwi,mast2008,msst2008,mwst2008,thalwegdepth,wettedwidth,prg_bmmi0809', 
-                                                                           showAreaSqKm = FALSE,
-                                                                           aoi='other')) 
-  }
-
-names(streamcat) <- base::toupper(names(streamcat))
-return(streamcat)
-}
-# FUNCTION - END  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+```{r streamcat pull}
+# # Run function to query ALL StreamCat data for selected COMIDs by subcategory
+#source('~/BioMonORDEQ/Benchmarks/Water Chemistry/SC_pull.R')
+# 
+# #Pull ALL StreamCat data by subcategory and merge
+# ag <- get_streamcat(comids = comids, type = "Agriculture")
+# clim <- get_streamcat(comids = comids, type = "Climate")
+# dams <- get_streamcat(comids = comids, type = "Dams")
+# flow <- get_streamcat(comids = comids, type = "Flow")
+# iwi <- get_streamcat(comids = comids, type = "IWI") 
+# cover <- get_streamcat(comids = comids, type = "Land Cover")
+# litho <- get_streamcat(comids = comids, type = "Lithology") 
+# mintox <- get_streamcat(comids = comids, type = "Mining_Toxics")
+# riparian <- get_streamcat(comids = comids, type = "Riparian Buffer")
+# roads <- get_streamcat(comids = comids, type = "Roads")
+# urb <- get_streamcat(comids = comids, type = "Urban")
+# fire <- get_streamcat(comids = comids, type = "Wildfire")
+# other <- get_streamcat(comids = comids, type = "Others")
+# riparian <- get_streamcat(comids = comids, type = "Riparian Buffer")
+# 
+# # MERGE INTO ONE TABLE
+# sc_all <- list(ag, clim, dams, flow, iwi, cover, litho, mintox, roads, urb, fire, other)
+# sc_all <- sc_all %>% reduce(full_join, by = 'COMID')
+# 
+# rm(list=c('ag', 'clim', 'dams', 'flow','iwi', 'cover', 'litho', 'mintox', 'riparian', 'roads', 'urb', 'fire', 'other'))
 ```
 
-#### Pull ALL StreamCat data by subcategory and merge
+### OPTION 2: Read in SC data from pre-downloaded file.
 
-```{r}
-# PULL DATA BY SUBCATEGORY/TYPE
-ag <- get_streamcat(comids = comids, type = "Agriculture")
-clim <- get_streamcat(comids = comids, type = "Climate")
-dams <- get_streamcat(comids = comids, type = "Dams")
-flow <- get_streamcat(comids = comids, type = "Flow")
-iwi <- get_streamcat(comids = comids, type = "IWI") 
-cover <- get_streamcat(comids = comids, type = "Land Cover")
-litho <- get_streamcat(comids = comids, type = "Lithology") 
-mintox <- get_streamcat(comids = comids, type = "Mining_Toxics")
-roads <- get_streamcat(comids = comids, type = "Roads")
-urb <- get_streamcat(comids = comids, type = "Urban")
-fire <- get_streamcat(comids = comids, type = "Wildfire")
-other <- get_streamcat(comids = comids, type = "Others")
-
-# MERGE INTO ONE TABLE
-sc_all <- list(ag, clim, dams, flow, iwi, cover, litho, mintox, roads, urb, fire, other)
-sc_all <- sc_all %>% reduce(full_join, by = 'COMID')
-
-rm(list=c('ag', 'clim', 'dams', 'flow','iwi', 'cover', 'litho', 'mintox', 'roads', 'urb', 'fire', 'other'))
+```{r streamcat flat file}
+sc_all <- read_excel("~/BioMonORDEQ/Benchmarks/Water Chemistry/SC_all_comids_2026-05-14.xlsx")
+sc_all <- inner_join(sc_all, comids)  # only keep Sulfate COMIDs.
 ```
 
 ## C. OTHER PREDICTORS - *OUTSIDE OF STREAMCAT*
@@ -403,7 +302,8 @@ boxplot(so4_vars_selected$logSO4, ylab = "log(Sulfate)")
 ```{r}
 # Select response data of interest
 SO4 <- so4_vars_selected %>%
-  select(-c(MLocID:COMID, Sulfate, SampleStartDate)) #drop tp in favor of logSO4. Drop AWQMS columns too.
+  select(-c(MLocID:COMID, Sulfate, SampleStartDate)) %>% #drop tp in favor of logSO4. Drop AWQMS columns too.
+  as.data.frame()
 
 # Convert character columns to factors
 SO4[sapply(SO4, is.character)] <- lapply(SO4[sapply(SO4, is.character)], as.factor)
@@ -419,14 +319,14 @@ SO4$L3Eco <- factor(SO4$L3Eco, levels = c("Coast Range", "Willamette Valley", "K
 
 ```{r}
 #Adjust the parameters below based on tuning (nodesize = 6; mtry = 72)
-tuning <- tune(logSO4~., SO4, seed = 1234)
-tuning$optimal
+full_tuning <- tune(logSO4~., SO4, seed = 1234)
+full_tuning$optimal
 ```
 
 #### Build full model
 
 ```{r}
-full <- rfsrc(logSO4 ~ ., data = SO4, mtry = 72, nodesize = 6, importance = "TRUE", seed = 24)
+full <- rfsrc(logSO4 ~ ., data = SO4, mtry = full_tuning$optimal[[2]], nodesize = full_tuning$optimal[[1]], importance = "TRUE", seed = 24)
 full # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (transformed)
@@ -572,9 +472,9 @@ map_function(full_map)
 par(mar = c(10, 5, 2, 2))
 partialplot_eco <- plot.variable(full, xvar.names = c("L3Eco"), partial = TRUE, las = 2, cex.axis = 0.7, plots.one.page = TRUE)
 
-partialplots <- plot.variable(full, xvar.names = c("WETINDEXWS", "PCTCONIF2001WS", "SWS", "PCTCROP2001WS", "PCTEXTRUVOLWS", "CLAYWS", "TMAX9120WS", "NWS"), partial = TRUE, plots.one.page = TRUE)
+partialplots <- plot.variable(full, xvar.names = c(names(full_vimp[1:8])), partial = TRUE, plots.one.page = TRUE)
 
-partialplots2 <- plot.variable(full, xvar.names = c("ROCKNWS", "OMWS", "PCTNONAGINTRODMANAGVEGWS", "MSST2008", "KFFACTWS", "RUNOFFWS", "NANIWS", "BFIWS"), partial = TRUE, plots.one.page = TRUE)
+partialplots2 <- plot.variable(full, xvar.names = c(names(full_vimp[9:16])), partial = TRUE, plots.one.page = TRUE)
 
 # Human-influenced vars
 partialplots_hi <- plot.variable(full, xvar.names = c("PCTCROP2001WS", "PCTNONAGINTRODMANAGVEGWS", "NANIWS"), partial = TRUE, plots.one.page = TRUE)
@@ -584,21 +484,21 @@ partialplots_hi <- plot.variable(full, xvar.names = c("PCTCROP2001WS", "PCTNONAG
 
 #### Another way to do partial plots (slower but more customizable)
 ```{r}
-partial.obj <- partial(full, partial.xvar = "WETINDEXWS", partial.values = full$xvar$WETINDEXWS)
-pdta <- get.partial.plot.data(partial.obj)
-plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "WETINDEXWS", ylab = "ŷ")
-
-partial.obj <- partial(full, partial.xvar = "PCTCONIF2001WS", partial.values = full$xvar$PCTCONIF2001WS)
-pdta <- get.partial.plot.data(partial.obj)
-plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "PCTCONIF2001WS", ylab = "ŷ")
-
-partial.obj <- partial(full, partial.xvar = "SWS", partial.values = full$xvar$SWS)
-pdta <- get.partial.plot.data(partial.obj)
-plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "SWS", ylab = "ŷ")
-
-partial.obj <- partial(full, partial.xvar = "PCTCROP2001WS", partial.values = full$xvar$PCTCROP2001WS)
-pdta <- get.partial.plot.data(partial.obj)
-plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "PCTCROP2001WS", ylab = "ŷ")
+# partial.obj <- partial(full, partial.xvar = "WETINDEXWS", partial.values = full$xvar$WETINDEXWS)
+# pdta <- get.partial.plot.data(partial.obj)
+# plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "WETINDEXWS", ylab = "ŷ")
+# 
+# partial.obj <- partial(full, partial.xvar = "PCTCONIF2001WS", partial.values = full$xvar$PCTCONIF2001WS)
+# pdta <- get.partial.plot.data(partial.obj)
+# plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "PCTCONIF2001WS", ylab = "ŷ")
+# 
+# partial.obj <- partial(full, partial.xvar = "SWS", partial.values = full$xvar$SWS)
+# pdta <- get.partial.plot.data(partial.obj)
+# plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "SWS", ylab = "ŷ")
+# 
+# partial.obj <- partial(full, partial.xvar = "PCTCROP2001WS", partial.values = full$xvar$PCTCROP2001WS)
+# pdta <- get.partial.plot.data(partial.obj)
+# plot(pdta$x, exp(pdta$yhat), type = "b", pch = 16, xlab = "PCTCROP2001WS", ylab = "ŷ")
 
 ```
 
@@ -785,14 +685,14 @@ map_function(full_map_no.hi)
 
 ```{r}
 #Adjust the parameters below based on tuning (nodesize = 2; mtry = 7)
-tuning_red12 <- tune(logSO4~L3Eco + WETINDEXWS + PCTCONIF2001WS + SWS + PCTCROP2001WS + PCTEXTRUVOLWS + CLAYWS + TMAX9120WS + NWS + ROCKNWS + OMWS + PCTNONAGINTRODMANAGVEGWS, SO4, seed = 1234)
-tuning_red12$optimal
+red12_tuning <- tune(logSO4~L3Eco + WETINDEXWS + PCTCONIF2001WS + SWS + PCTCROP2001WS + PCTEXTRUVOLWS + CLAYWS + TMAX9120WS + NWS + ROCKNWS + OMWS + PCTNONAGINTRODMANAGVEGWS, SO4, seed = 1234)
+red12_tuning$optimal
 ```
 
 #### Build model with Top 12 predictors
 
 ```{r}
-red12 <- rfsrc(logSO4 ~ L3Eco + WETINDEXWS + PCTCONIF2001WS + SWS + PCTCROP2001WS + PCTEXTRUVOLWS + CLAYWS + TMAX9120WS + NWS + ROCKNWS + OMWS + PCTNONAGINTRODMANAGVEGWS + NANIWS, data = SO4, mtry = 7, nodesize = 2, importance = "TRUE", seed = 24)
+red12 <- rfsrc(logSO4 ~ L3Eco + WETINDEXWS + PCTCONIF2001WS + SWS + PCTCROP2001WS + PCTEXTRUVOLWS + CLAYWS + TMAX9120WS + NWS + ROCKNWS + OMWS + PCTNONAGINTRODMANAGVEGWS + NANIWS, data = SO4, mtry = red12_tuning$optimal[[2]], nodesize = red12_tuning$optimal[[1]], importance = "TRUE", seed = 24)
 red12 # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (untransformed)
@@ -1009,18 +909,34 @@ map_function(red12_map_no.hi)
 # saveWidget(red12_model_map_no.hi, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//Sulfate//red12_model_map_no.hi.html", selfcontained = TRUE, title = "Full model Adjusted (no human-influenced vars)")
 ```
 
+#### Partial dependence plots for red12 model
+
+```{r partial dependence plots for reduced model}
+# Top importance vars
+red12_partialplots <- plot.variable(red12, xvar.names = c(names(red12_vimp[1:8])), partial = TRUE, plots.one.page = TRUE)
+
+red12_partialplots2 <- plot.variable(red12, xvar.names = c(names(red12_vimp[9:16])), partial = TRUE, plots.one.page = TRUE)
+
+par(mar = c(10, 5, 2, 2))
+red12_partialplots2 <- plot.variable(red12, xvar.names = c("L2Eco", "L3Eco"), partial = TRUE, las = 2, cex.axis = 0.7, plots.one.page = TRUE)
+
+# Human-influenced vars
+red12_partialplots_hi <- plot.variable(red12, xvar.names = c("NANIWS", "PCTNONAGINTRODMANAGVEGWS", "PCTCROP2001WS"), partial = TRUE, plots.one.page = TRUE)
+
+#******************consider adding code to look at individual metrics
+```
 #### Top 4 predictors (not using this one)
 
 #### Model tuning - mtry and node size (number of trees happens in next step)
 
 ```{r}
 #Adjust the parameters below based on tuning (nodesize = 3; mtry = 4)
-tuning <- tune(logSO4 ~ L3Eco + WETINDEXWS + PCTCONIF2001WS + SWS, SO4, seed = 1234)
-tuning$optimal
+red4_tuning <- tune(logSO4 ~ L3Eco + WETINDEXWS + PCTCONIF2001WS + SWS, SO4, seed = 1234)
+red4_tuning$optimal
 ```
 
 ```{r}
-red4 <- rfsrc(logSO4 ~ L3Eco + WETINDEXWS + PCTCONIF2001WS + SWS, data = SO4, mtry = 3, nodesize = 4, importance = "TRUE", seed = 24)
+red4 <- rfsrc(logSO4 ~ L3Eco + WETINDEXWS + PCTCONIF2001WS + SWS, data = SO4, mtry = red4_tuning$optimal[[2]], nodesize = red4_tuning$optimal[[1]], importance = "TRUE", seed = 24)
 red4 # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (untransformed)
@@ -1083,7 +999,8 @@ ggplot(data = red4_plotdf, aes(x = pred, y = obs, color = predictions, shape = p
 SO4.ref <- so4_vars_selected %>% 
   filter(ReferenceSite=="REFERENCE") %>% 
   select(-c(MLocID:COMID, Sulfate, SampleStartDate))  %>%  # Remove AWQMS columns
-  select(-c("CANALDENSWS", "DAMDENSWS", "FERTWS", "MINEDENSWS", "NANIWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTAGSLPMID2001WS", "PCTCROP2001WS", "PCTIMP2001WS", "PCTFRSTLOSS2002WS", "PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "TRIDENSWS", "WWTPMAJORDENSWS", "WWTPALLDENSWS")) # Remove anthropogenic StreamCat vars
+  select(-c("CANALDENSWS", "DAMDENSWS", "FERTWS", "MINEDENSWS", "NANIWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTAGSLPMID2001WS", "PCTCROP2001WS", "PCTIMP2001WS", "PCTFRSTLOSS2002WS", "PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "TRIDENSWS", "WWTPMAJORDENSWS", "WWTPALLDENSWS")) %>%  # Remove anthropogenic StreamCat vars
+  as.data.frame()
 
 # Convert character columns to factors
 SO4.ref[sapply(SO4.ref, is.character)] <- lapply(SO4.ref[sapply(SO4.ref, is.character)], as.factor)
@@ -1093,14 +1010,14 @@ SO4.ref[sapply(SO4.ref, is.character)] <- lapply(SO4.ref[sapply(SO4.ref, is.char
 
 ```{r}
 #Adjust the parameters below based on tuning (nodesize = 1; mtry = 20)
-tuning <- tune(logSO4~., SO4.ref, seed = 2)
-tuning$optimal
+ref_tuning <- tune(logSO4~., SO4.ref, seed = 2)
+ref_tuning$optimal
 ```
 
 #### Build full ref-only model
 
 ```{r}
-ref <- rfsrc(logSO4 ~ ., data = SO4.ref, mtry = 20, nodesize = 1, importance = "TRUE", seed = 24)
+ref <- rfsrc(logSO4 ~ ., data = SO4.ref, mtry = ref_tuning$optimal[[2]], nodesize = ref_tuning$optimal[[1]], importance = "TRUE", seed = 24)
 ref # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (untransformed)
@@ -1166,7 +1083,9 @@ abline(h=0, col = "red", lty = 2)
 
 ```{r}
 # Top importance vars
-partialplots <- plot.variable(ref, xvar.names = c("BFIWS", "PCTGLACTILCRSWS", "WETINDEXWS","ROCKNWS", "NA2OWS", "PCTOW2001WS" ,"KFFACTWS", "CLAYWS"), partial = TRUE, plots.one.page = TRUE)
+partialplots <- plot.variable(ref, xvar.names = c(names(ref_vimp[1:8])), partial = TRUE, plots.one.page = TRUE)
+
+partialplots2 <- plot.variable(ref, xvar.names = c(names(ref_vimp[9:16])), partial = TRUE, plots.one.page = TRUE)
 
 #******************consider adding code to look at individual metrics
 ```
@@ -1218,25 +1137,31 @@ map_function(ref_map)
 
 ```{r}
 # Construct a dataframe of predictions to compare
-boxplot_preds <- data.frame(MLocID = red12_map$MLocID, StationDes = red12_map$StationDes, Obs = red12_map$obs, Pred_unadj = red12_map$pred, L3Eco = as.character(red12_map$L3Eco),Pred_adj = red12_map_no.hi$pred, Ref = red12_map$ReferenceSite)
+boxplot_preds <- data.frame(MLocID = red12_map$MLocID, StationDes = red12_map$StationDes, Obs = red12_map$obs, Pred_reduced = red12_map$pred, L3Eco = as.character(red12_map$L3Eco),Pred_adj = red12_map_no.hi$pred, Ref = red12_map$ReferenceSite, Pred_full = full_map$pred)
 
 boxplot_ref<- ref_map %>%
   select(MLocID, Pred_ref = pred)
 
 boxplot_combo <- left_join(boxplot_preds, boxplot_ref, by="MLocID")
 
-boxplot_df <- gather(boxplot_combo, key = "Model", value = "Prediction", Pred_unadj, Pred_adj, Pred_ref, Obs)
-boxplot_df$Model <- factor(boxplot_df$Model, levels = c("Pred_ref", "Pred_adj","Pred_unadj", "Obs"))
+boxplot_df <- gather(boxplot_combo, key = "Model", value = "Prediction", Pred_full, Pred_reduced, Pred_adj, Pred_ref, Obs)
+boxplot_df$Model <- factor(boxplot_df$Model, levels = c("Pred_ref", "Pred_adj","Pred_reduced", "Pred_full", "Obs"))
 boxplot_df$L3Eco <- factor(boxplot_df$L3Eco, levels = c("Coast Range", "Willamette Valley", "Klamath Mountains", "Cascades", "Eastern Cascades Slopes and Foothills", "Columbia Plateau","Blue Mountains", "Northern Basin and Range", "Snake River Plain"))
 
 # Clean out environment
 rm=(c("boxplot_preds", "boxplot_ref", "boxplot_combo"))
 
-ggplot(boxplot_df, aes(x = L3Eco, y = Prediction, fill = Model)) + geom_boxplot() +
+ggplot(boxplot_df, aes(x = L3Eco, y = Prediction, fill = Model)) + 
+  geom_boxplot() +
   guides(x = guide_axis(angle = 45)) +
- 
   scale_y_log10() +
-  theme_bw(base_size=14) + ylab("SO4 (mg/L)")
+  theme_bw(base_size=14) + ylab("SO4 (mg/L)") +
+   stat_summary(
+    fun.data = function(x) data.frame(y = median(x), label = length(x)),
+    geom = "text",
+    position = position_dodge(width = 0.75),
+    vjust = -0.5
+  )
 
 # Ignore warning for 544 rows removed - these are NAs in the Pred_ref column.
 ```

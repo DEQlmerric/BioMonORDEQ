@@ -87,14 +87,7 @@ bugs.7977_otus.attr <- bugs.7977_OTUs %>%
                                                                                   
 
 
-species <- bugs.7977_otus.attr %>%
-  filter(Species != "") |>
-  group_by(BugSampleID, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family, SubFamily, Tribe, 
-           GenusGroup, Genus, SubGenus, SpeciesGroup, SpeciesSubGroup, SpeciesComplex, Species, Taxon_Group) |>
-  summarise(across(c(Count, RA), sum)) |>
-  mutate(OTU_TolAnal = str_c(Genus, Species, sep=" ")) |>
-  as.data.frame(species) |>
-  select(BugSampleID, OTU_TolAnal, Count, RA, Taxon_Group, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family, SubFamily, Tribe)
+
 
 species.complex <- bugs.7977_otus.attr %>%
   filter(SpeciesComplex != "") |>

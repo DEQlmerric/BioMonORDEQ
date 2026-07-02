@@ -94,7 +94,7 @@ if(boo_Results==FALSE){
 # specify input files
       #fn.data1 <- "_TolAnal_MD_MBSS_Run1_20250307.csv"
 
-fn.data1 <- "bugs.fines_1027.csv"
+fn.data1 <- "bugs.fines_1027_rolled.csv"
 
 
 # Read data files ####
@@ -230,11 +230,17 @@ df_input_v2 <- df_orig %>%
 
 ## SiteDateRA table ####
 SiteDateRA <- df_input_v2 %>% 
-  select(-c(Count, Plot_Label, Taxon_Group, NonDistinct, siteID, Date)) %>% # remove unnecessary fields
+  select(-c(Count, Plot_Label, Taxon_Group, siteID, Date, Phylum, SubPhylum,
+            Class, SubClass, Order, SubOrder, SuperFamily, Family, SubFamily, 
+            Tribe)) %>% # remove unnecessary fields
   relocate(OTU_TolAnal, .after = last_col()) %>%
   pivot_wider(., names_from = OTU_TolAnal, values_from = RA
               , values_fill = 0) %>% 
   rename(SampleID = BugSampleID)
+
+
+          # duplicates cause error -- run this to find and delete them
+          # a <- df_input_v2[duplicated(df_input_v2), ]
 
 SiteDateRA <- as.data.table(SiteDateRA)
 nrow(SiteDateRA)# 1027

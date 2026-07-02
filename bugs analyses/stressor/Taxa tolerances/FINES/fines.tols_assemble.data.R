@@ -89,6 +89,7 @@ bugs.7977_otus.attr <- bugs.7977_OTUs %>%
 
 
 
+
 species.complex <- bugs.7977_otus.attr %>%
   filter(SpeciesComplex != "") |>
   group_by(BugSampleID, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family, SubFamily, Tribe, 

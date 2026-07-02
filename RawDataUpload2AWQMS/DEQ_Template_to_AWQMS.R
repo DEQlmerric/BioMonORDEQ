@@ -10,10 +10,10 @@ library(RODBC)
 
 # Enter File Information 
 # Be sure to delete unused rows on Sample and Results tabs of the template
-data_path <- "//deqlab1/Vol_Data/Gilliam SWCD/2023/August Thirtymile/AWQMSCopy_Thirtymile Aug 2023 Drift Taxonomy and mass.xlsx"
-out_path <- "//deqlab1/Vol_Data/Gilliam SWCD/2023/August Thirtymile/GilliamDrifttest_Bio_RResults.xlsx"
-org = "GILLIAM_SWCD"
-proj = "ODEQVolMonWQProgram"
+data_path <- "//deqlab1/BioMon/Bugs/2020/19-136_2019_OR_DEQ_Data_6-16-20_AWQMSDCP0015_inTemplate.xlsx"
+out_path <- "//deqlab1/BioMon/Bugs/2020/BioMon2020_Bio_RResults.xlsx"
+org = "OREGONDEQ"
+proj = "Statewide Biomonitoring"
 
 # pull in hybrid taxon table from SQL BioMon database 
 # this files lives and is updated in this BioMon repo 
@@ -26,8 +26,8 @@ awqms_t <- read_excel("RawDataUpload2AWQMS/AWQMS_Taxon2oct23.xlsx", sheet = "Tax
 
 #bring in data 
 Samp <- read_excel(data_path, sheet = "Sample") |>
-  filter(!is.na('Monitoring Location ID')) |>
   rename_with(~ str_remove_all(.x, "[\\^\\*]")) |>
+  filter(!is.na(`Monitoring Location ID`)) |>
   select("Sample ID (Locked)",Comments,"Sample Date", "Monitoring Location ID", #"Alternate Project ID", "Project ID",
          Taxonomist,"Subsample Amount", "Habitat Type","Field QA","Lab QA") |>  
   rename(act_id= "Sample ID (Locked)", #project = "Project ID",
@@ -43,7 +43,8 @@ Samp <- read_excel(data_path, sheet = "Sample") |>
          Area_sampled = 8) 
 
 counts <- read_excel(data_path, sheet = "Results") |>
-  rename_with(~ str_remove_all(.x, "[\\^\\*]")) |> 
+  rename_with(~ str_remove_all(.x, "[\\^\\*]")) |>
+  filter(!is.na(`Sample ID`)) |>
   select("Sample ID", "Taxonomic Serial Number (Locked)", # "Monitoring Location ID","Sample Date",
          "DEQ Taxon (Locked)","DEQ Taxon Code", 
          "Taxonomic Serial Number (Locked)","Stage ID","Count Value","Unique Taxon","Comments") |>
@@ -66,7 +67,8 @@ d_samp <- counts |>
   left_join(Samp, by = 'act_id') |>
   left_join(hybrid_taxon,by = 'DEQ_TAXON') |>
   left_join(awqms_t, by = c('AWQMS_tax_uid'= 'UID')) |>
-  mutate(colmeth = case_when(Habitat_sampled == 'R' ~ "Benthic Kick - Riffle",
+  mutate(Count_raw = Count, Count = readr::parse_double(Count, na="LR"), # This line creates two count values so that LR is retained in Count_raw, but in Count, so density can be calculated later
+    colmeth = case_when(Habitat_sampled == 'R' ~ "Benthic Kick - Riffle",
                              Habitat_sampled == 'T' ~ "Benthic Kick - Transect",
                              Habitat_sampled == 'P' ~ "Benthic Kick - Pool",
                              Habitat_sampled == 'G' ~ "Benthic Kick - Glide",
@@ -88,11 +90,10 @@ d_samp <- counts |>
          habit = "",
          Project1 = project,
          Comments = '')|>
-  filter(Count != "LR")|>
   mutate(Count = as.numeric(Count)) |>
   select(act_id,act_type,Field_QA,Lab_QA,media,Date,Project1,MLocID,assemblage,act_comments,colmeth,equip,
          status,qual,value,Name,StageID,habit,FFG,Voltine,speciesID,method,context,DEQ_TAXON,
-         Count,Area_sampled,Subsample_fraction_value,res_comments)  ## missing Taxonomy_lab, FFG,Volt from taxa table
+         Count,Count_raw,Area_sampled,Subsample_fraction_value,res_comments)  ## missing Taxonomy_lab, FFG,Volt from taxa table
 
 
 ### confirm act_ids #### - should match the number in the Samp table
@@ -105,10 +106,13 @@ d_count <- d_samp |>
   mutate(char = 'Count',
          unit = 'count',
          value = 'Actual', #when would this be estimated? 
-         intent = 'Population Census') |>
-  select(act_id,act_type,media,Date,Project1,MLocID,assemblage,act_comments,colmeth,equip,char,Count,unit,
-         status,qual,value,Name,StageID,habit,FFG,Voltine,speciesID,intent,res_comments,method,context,DEQ_TAXON) |>  ## missing Taxonomy_lab, FFG,Volt from taxa table
-  rename(result = Count)
+         intent = 'Population Census',
+         qual = case_when(Count_raw == "LR" & (is.na(qual) | qual == "") ~ "RC",
+                          Count_raw == "LR" ~ str_c(qual, ", RC"),
+                          TRUE ~ qual)) |>
+  rename(result = Count_raw) |>
+  select(act_id,act_type,media,Date,Project1,MLocID,assemblage,act_comments,colmeth,equip,char,result,unit,
+         status,qual,value,Name,StageID,habit,FFG,Voltine,speciesID,intent,res_comments,method,context,DEQ_TAXON) ## missing Taxonomy_lab, FFG,Volt from taxa table
 
 #### density #####
 d_density <- d_samp |>
@@ -117,6 +121,7 @@ d_density <- d_samp |>
          unit = '#/ft2',
          value = 'Calculated', #when would this be estimated? 
          intent = 'Species Density') |>
+  filter(Count_raw != "LR") |> # drops the LRs from the dataset since the density calculation would be blank or NA
   select(act_id,act_type,media,Date,Project1,MLocID,assemblage,act_comments,colmeth,equip,char,result,unit,
          status,qual,value,Name,StageID,habit,FFG,Voltine,speciesID,intent,res_comments,method,context,DEQ_TAXON)  ## missing Taxonomy_lab, FFG,Volt from taxa table
 

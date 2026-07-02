@@ -67,7 +67,8 @@ d_samp <- counts |>
   left_join(Samp, by = 'act_id') |>
   left_join(hybrid_taxon,by = 'DEQ_TAXON') |>
   left_join(awqms_t, by = c('AWQMS_tax_uid'= 'UID')) |>
-  mutate(colmeth = case_when(Habitat_sampled == 'R' ~ "Benthic Kick - Riffle",
+  mutate(Count_raw = Count, Count = readr::parse_double(Count, na="LR"), # This line creates two count values so that LR is retained in Count_raw, but in Count, so density can be calculated later
+    colmeth = case_when(Habitat_sampled == 'R' ~ "Benthic Kick - Riffle",
                              Habitat_sampled == 'T' ~ "Benthic Kick - Transect",
                              Habitat_sampled == 'P' ~ "Benthic Kick - Pool",
                              Habitat_sampled == 'G' ~ "Benthic Kick - Glide",
@@ -89,11 +90,10 @@ d_samp <- counts |>
          habit = "",
          Project1 = project,
          Comments = '')|>
-  filter(Count != "LR")|>
   mutate(Count = as.numeric(Count)) |>
   select(act_id,act_type,Field_QA,Lab_QA,media,Date,Project1,MLocID,assemblage,act_comments,colmeth,equip,
          status,qual,value,Name,StageID,habit,FFG,Voltine,speciesID,method,context,DEQ_TAXON,
-         Count,Area_sampled,Subsample_fraction_value,res_comments)  ## missing Taxonomy_lab, FFG,Volt from taxa table
+         Count,Count_raw,Area_sampled,Subsample_fraction_value,res_comments)  ## missing Taxonomy_lab, FFG,Volt from taxa table
 
 
 ### confirm act_ids #### - should match the number in the Samp table
@@ -106,10 +106,13 @@ d_count <- d_samp |>
   mutate(char = 'Count',
          unit = 'count',
          value = 'Actual', #when would this be estimated? 
-         intent = 'Population Census') |>
-  select(act_id,act_type,media,Date,Project1,MLocID,assemblage,act_comments,colmeth,equip,char,Count,unit,
-         status,qual,value,Name,StageID,habit,FFG,Voltine,speciesID,intent,res_comments,method,context,DEQ_TAXON) |>  ## missing Taxonomy_lab, FFG,Volt from taxa table
-  rename(result = Count)
+         intent = 'Population Census',
+         qual = case_when(Count_raw == "LR" & (is.na(qual) | qual == "") ~ "RC",
+                          Count_raw == "LR" ~ str_c(qual, ", RC"),
+                          TRUE ~ qual)) |>
+  rename(result = Count_raw) |>
+  select(act_id,act_type,media,Date,Project1,MLocID,assemblage,act_comments,colmeth,equip,char,result,unit,
+         status,qual,value,Name,StageID,habit,FFG,Voltine,speciesID,intent,res_comments,method,context,DEQ_TAXON) ## missing Taxonomy_lab, FFG,Volt from taxa table
 
 #### density #####
 d_density <- d_samp |>
@@ -118,6 +121,7 @@ d_density <- d_samp |>
          unit = '#/ft2',
          value = 'Calculated', #when would this be estimated? 
          intent = 'Species Density') |>
+  filter(Count_raw != "LR") |> # drops the LRs from the dataset since the density calculation would be blank or NA
   select(act_id,act_type,media,Date,Project1,MLocID,assemblage,act_comments,colmeth,equip,char,result,unit,
          status,qual,value,Name,StageID,habit,FFG,Voltine,speciesID,intent,res_comments,method,context,DEQ_TAXON)  ## missing Taxonomy_lab, FFG,Volt from taxa table
 

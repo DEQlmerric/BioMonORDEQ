@@ -40,7 +40,7 @@ attributes <- ORDEQBioassessment::attribute_table  # Taxon, taxonomic hierarchy,
 attributes <- attributes %>% 
   select(Taxon, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family,
          SubFamily, Tribe, GenusGroup, Genus, SubGenus, SpeciesGroup, SpeciesSubGroup, 
-         SpeciesComplex, Species, Taxon_Group)
+         SpeciesComplex, Species, Taxon_Group_SLH)
 
 
     # # fix INSECTA vs Insecta
@@ -87,148 +87,155 @@ bugs.7977_otus.attr <- bugs.7977_OTUs %>%
                                                                                   
 
 
-
+species <- bugs.7977_otus.attr %>%
+  filter(Species != "") |>
+  group_by(BugSampleID, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family, SubFamily, Tribe, 
+           GenusGroup, Genus, SubGenus, SpeciesGroup, SpeciesSubGroup, SpeciesComplex, Species, Taxon_Group_SLH) |>
+  summarise(across(c(Count, RA), sum)) |>
+  mutate(OTU_TolAnal = str_c(Genus, Species, sep=" ")) |>
+  as.data.frame(species) |>
+  select(BugSampleID, OTU_TolAnal, Count, RA, Taxon_Group_SLH, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family, SubFamily, Tribe)
 
 
 species.complex <- bugs.7977_otus.attr %>%
   filter(SpeciesComplex != "") |>
   group_by(BugSampleID, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family, SubFamily, Tribe, 
-           GenusGroup, Genus, SubGenus, SpeciesGroup, SpeciesSubGroup, SpeciesComplex, Taxon_Group) |>
+           GenusGroup, Genus, SubGenus, SpeciesGroup, SpeciesSubGroup, SpeciesComplex, Taxon_Group_SLH) |>
   summarise(across(c(Count, RA), sum)) |>
   mutate(OTU_TolAnal = str_c(Genus, SpeciesComplex, sep=" ")) |>
   as.data.frame(species.complex) |>
-  select(BugSampleID, OTU_TolAnal, Count, RA, Taxon_Group, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family, SubFamily, Tribe)
+  select(BugSampleID, OTU_TolAnal, Count, RA, Taxon_Group_SLH, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family, SubFamily, Tribe)
 
 species.subgroup <- bugs.7977_otus.attr %>%
   filter(SpeciesSubGroup != "") |>
   group_by(BugSampleID, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family, SubFamily, Tribe, 
-           GenusGroup, Genus, SubGenus, SpeciesGroup, SpeciesSubGroup, Taxon_Group) |>
+           GenusGroup, Genus, SubGenus, SpeciesGroup, SpeciesSubGroup, Taxon_Group_SLH) |>
   summarise(across(c(Count, RA), sum)) |>
   mutate(OTU_TolAnal = str_c(Genus, SpeciesSubGroup, sep=" ")) |>
   as.data.frame(species.subgroup) |>
-  select(BugSampleID, OTU_TolAnal, Count, RA, Taxon_Group, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family, SubFamily, Tribe)
+  select(BugSampleID, OTU_TolAnal, Count, RA, Taxon_Group_SLH, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family, SubFamily, Tribe)
 
 species.group <- bugs.7977_otus.attr %>%
   filter(SpeciesGroup != "") |>
   group_by(BugSampleID, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family, SubFamily, Tribe, 
-           GenusGroup, Genus, SubGenus, SpeciesGroup, Taxon_Group) |>
+           GenusGroup, Genus, SubGenus, SpeciesGroup, Taxon_Group_SLH) |>
   summarise(across(c(Count, RA), sum)) |>
   mutate(OTU_TolAnal = str_c(Genus, SpeciesGroup, sep=" ")) |>
   as.data.frame(species.group) |>
-  select(BugSampleID, OTU_TolAnal, Count, RA, Taxon_Group, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family, SubFamily, Tribe)
+  select(BugSampleID, OTU_TolAnal, Count, RA, Taxon_Group_SLH, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family, SubFamily, Tribe)
 
 
 subgenus <- bugs.7977_otus.attr %>%
   filter(SubGenus != "") |>
   group_by(BugSampleID, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family, SubFamily, Tribe, 
-           GenusGroup, Genus, SubGenus, Taxon_Group) |>
+           GenusGroup, Genus, SubGenus, Taxon_Group_SLH) |>
   summarise(across(c(Count, RA), sum)) |>
   mutate(OTU_TolAnal = str_c(Genus, SubGenus, sep=" ")) |>
   as.data.frame(subgenus) |>
-  select(BugSampleID, OTU_TolAnal, Count, RA, Taxon_Group, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family, SubFamily, Tribe)
+  select(BugSampleID, OTU_TolAnal, Count, RA, Taxon_Group_SLH, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family, SubFamily, Tribe)
 
 genus <- bugs.7977_otus.attr %>%
   filter(Genus != "") |>
   group_by(BugSampleID, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family, SubFamily, Tribe, 
-           GenusGroup, Genus, Taxon_Group) |>
+           GenusGroup, Genus, Taxon_Group_SLH) |>
   summarise(across(c(Count, RA), sum)) |>
   mutate(OTU_TolAnal = Genus) |>
   as.data.frame(genus) |>
-  select(BugSampleID, OTU_TolAnal, Count, RA, Taxon_Group, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family, SubFamily, Tribe)
+  select(BugSampleID, OTU_TolAnal, Count, RA, Taxon_Group_SLH, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family, SubFamily, Tribe)
 
 genus.group <- bugs.7977_otus.attr %>%
   filter(GenusGroup != "") |>
   group_by(BugSampleID, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family, SubFamily, Tribe, 
-           GenusGroup, Taxon_Group) |>
+           GenusGroup, Taxon_Group_SLH) |>
   summarise(across(c(Count, RA), sum)) |>
   mutate(OTU_TolAnal = GenusGroup) |>
   as.data.frame(genus.group) |>
-  select(BugSampleID, OTU_TolAnal, Count, RA, Taxon_Group, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family, SubFamily, Tribe)
+  select(BugSampleID, OTU_TolAnal, Count, RA, Taxon_Group_SLH, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family, SubFamily, Tribe)
 
 tribe <- bugs.7977_otus.attr %>%
   filter(Tribe != "") |>
-  group_by(BugSampleID, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family, SubFamily, Tribe, Taxon_Group) |>
+  group_by(BugSampleID, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family, SubFamily, Tribe, Taxon_Group_SLH) |>
   summarise(across(c(Count, RA), sum)) |>
   mutate(OTU_TolAnal = Tribe) |>
   as.data.frame(tribe) |>
-  select(BugSampleID, OTU_TolAnal, Count, RA, Taxon_Group, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family, SubFamily, Tribe)
+  select(BugSampleID, OTU_TolAnal, Count, RA, Taxon_Group_SLH, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family, SubFamily, Tribe)
 
 subfamily <- bugs.7977_otus.attr %>%
   filter(SubFamily != "") |>
-  group_by(BugSampleID, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family, SubFamily, Taxon_Group) |>
+  group_by(BugSampleID, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family, SubFamily, Taxon_Group_SLH) |>
   summarise(across(c(Count, RA), sum)) |>
   mutate(OTU_TolAnal = SubFamily) |>
   as.data.frame(subfamily) |>
-  select(BugSampleID, OTU_TolAnal, Count, RA, Taxon_Group, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family, SubFamily) |>
+  select(BugSampleID, OTU_TolAnal, Count, RA, Taxon_Group_SLH, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family, SubFamily) |>
   mutate(Tribe = NA)
 
 family <- bugs.7977_otus.attr %>%
   filter(Family != "") |>
-  group_by(BugSampleID, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family, Taxon_Group) |>
+  group_by(BugSampleID, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family, Taxon_Group_SLH) |>
   summarise(across(c(Count, RA), sum)) |>
   mutate(OTU_TolAnal = Family) |>
   as.data.frame(family) |>
-  select(BugSampleID, OTU_TolAnal, Count, RA, Taxon_Group, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family) |>
+  select(BugSampleID, OTU_TolAnal, Count, RA, Taxon_Group_SLH, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family) |>
   mutate(SubFamily = NA, Tribe = NA)
 
 
 superfamily <- bugs.7977_otus.attr %>%
   filter(SuperFamily != "",  Class != 'Insecta') |>
-  group_by(BugSampleID, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Taxon_Group) |>
+  group_by(BugSampleID, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Taxon_Group_SLH) |>
   summarise(across(c(Count, RA), sum)) |>
   mutate(OTU_TolAnal = SuperFamily) |>
   as.data.frame(superfamily) |>
-  select(BugSampleID, OTU_TolAnal, Count, RA, Taxon_Group, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily) |>
+  select(BugSampleID, OTU_TolAnal, Count, RA, Taxon_Group_SLH, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily) |>
   mutate(Family = NA, SubFamily = NA, Tribe = NA)
 
 
 
 suborder <- bugs.7977_otus.attr %>%
   filter(SubOrder != "",  Class != 'Insecta') |>
-  group_by(BugSampleID, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, Taxon_Group) |>
+  group_by(BugSampleID, Phylum, SubPhylum, Class, SubClass, Order, SubOrder, Taxon_Group_SLH) |>
   summarise(across(c(Count, RA), sum)) |>
   mutate(OTU_TolAnal = SubOrder) |>
   as.data.frame(suborder) |>
-  select(BugSampleID, OTU_TolAnal, Count, RA, Taxon_Group, Phylum, SubPhylum, Class, SubClass, Order, SubOrder) |>
+  select(BugSampleID, OTU_TolAnal, Count, RA, Taxon_Group_SLH, Phylum, SubPhylum, Class, SubClass, Order, SubOrder) |>
   mutate(SuperFamily = NA, Family = NA, SubFamily = NA, Tribe = NA)
 
 order <- bugs.7977_otus.attr %>%
   filter(Order != "",  Class != 'Insecta') |>
-  group_by(BugSampleID, Phylum, SubPhylum, Class, SubClass, Order, Taxon_Group) |>
+  group_by(BugSampleID, Phylum, SubPhylum, Class, SubClass, Order, Taxon_Group_SLH) |>
   summarise(across(c(Count, RA), sum)) |>
   mutate(OTU_TolAnal = Order) |>
   as.data.frame(order) |>
-  select(BugSampleID, OTU_TolAnal, Count, RA, Taxon_Group, Phylum, SubPhylum, Class, SubClass, Order) |>
+  select(BugSampleID, OTU_TolAnal, Count, RA, Taxon_Group_SLH, Phylum, SubPhylum, Class, SubClass, Order) |>
   mutate(SubOrder = NA, SuperFamily = NA, Family = NA, SubFamily = NA, Tribe = NA)
 
 
 subclass <- bugs.7977_otus.attr %>%
   filter(SubClass != "" , Class != 'Insecta' , Class != 'Malacostraca') |>
-  group_by(BugSampleID, Phylum, SubPhylum, Class, SubClass, Taxon_Group) |>
+  group_by(BugSampleID, Phylum, SubPhylum, Class, SubClass, Taxon_Group_SLH) |>
   summarise(across(c(Count, RA), sum)) |>
   mutate(OTU_TolAnal = SubClass) |>
   as.data.frame(subclass) |>
-  select(BugSampleID, OTU_TolAnal, Count, RA, Taxon_Group, Phylum, SubPhylum, Class, SubClass) |>
+  select(BugSampleID, OTU_TolAnal, Count, RA, Taxon_Group_SLH, Phylum, SubPhylum, Class, SubClass) |>
   mutate(Order = NA, SubOrder = NA, SuperFamily = NA, Family = NA, SubFamily = NA, Tribe = NA)
 
 
 class <- bugs.7977_otus.attr %>%
   filter(Class != "" , Class != 'Insecta' , Class != 'Malacostraca') |>
-  group_by(BugSampleID, Phylum, SubPhylum, Class, Taxon_Group) |>
+  group_by(BugSampleID, Phylum, SubPhylum, Class, Taxon_Group_SLH) |>
   summarise(across(c(Count, RA), sum)) |>
   mutate(OTU_TolAnal = Class) |>
   as.data.frame(class) |>
-  select(BugSampleID, OTU_TolAnal, Count, RA, Taxon_Group, Phylum, SubPhylum, Class) |>
+  select(BugSampleID, OTU_TolAnal, Count, RA, Taxon_Group_SLH, Phylum, SubPhylum, Class) |>
   mutate(SubClass = NA, Order = NA, SubOrder = NA, SuperFamily = NA, Family = NA, SubFamily = NA, Tribe = NA)
 
 
 phylum <- bugs.7977_otus.attr %>%
   filter(Phylum != "" & (Phylum=='Nemata' | Phylum=='Nematomorpha' | Phylum=='Nemertea' | Phylum =='Platyhelminthes')) |>
-  group_by(BugSampleID, Phylum, Taxon_Group) |>
+  group_by(BugSampleID, Phylum, Taxon_Group_SLH) |>
   summarise(across(c(Count, RA), sum)) |>
   mutate(OTU_TolAnal = Phylum) |>
   as.data.frame(Class) |>
-  select(BugSampleID, OTU_TolAnal, Count, RA, Taxon_Group, Phylum) |>
+  select(BugSampleID, OTU_TolAnal, Count, RA, Taxon_Group_SLH, Phylum) |>
   mutate(SubPhylum = NA, Class = NA, SubClass = NA, Order = NA, SubOrder = NA, SuperFamily = NA, Family = NA, SubFamily = NA, Tribe = NA)
 
 # combine all levels back together
@@ -241,6 +248,10 @@ bugs_rolled <- rbind(phylum, class, subclass, order, suborder, superfamily, fami
 bugs_rolled <- bugs_rolled |>
   mutate(across(c(Phylum, SubPhylum, Class, SubClass, Order, SubOrder, SuperFamily, Family, SubFamily, Tribe), toupper))
 
+          # check for duplicates, which will crash the code used for determining tolerances/plotting
+          a <- bugs_rolled %>% 
+            group_by(BugSampleID, OTU_TolAnal) %>% 
+            filter(n() > 1)
 
 # 2) fines data:
 

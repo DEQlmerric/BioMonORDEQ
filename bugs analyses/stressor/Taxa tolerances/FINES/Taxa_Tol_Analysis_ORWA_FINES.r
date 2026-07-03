@@ -231,7 +231,7 @@ df_input_v2 <- df_orig %>%
 
 ## SiteDateRA table ####
 SiteDateRA <- df_input_v2 %>% 
-  select(-c(Count, Plot_Label, Taxon_Group, siteID, Date, Phylum, SubPhylum,
+  select(-c(Count, Plot_Label, Taxon_Group_SLH, siteID, Date, Phylum, SubPhylum,
             Class, SubClass, Order, SubOrder, SuperFamily, Family, SubFamily, 
             Tribe)) %>% # remove unnecessary fields
   relocate(OTU_TolAnal, .after = last_col()) %>%
@@ -248,7 +248,7 @@ nrow(SiteDateRA)# 1027
 
 ## OTU table ####
 otuTable_State <- df_input_v2 %>% 
-  mutate(TaxaGroup = Taxon_Group
+  mutate(TaxaGroup = Taxon_Group_SLH
          , TaxaGroup = gsub("OTHER NON-INSECT", "OTHER_NON_INSECT", TaxaGroup)) %>%
   select(TaxaGroup, OTU_TolAnal, Plot_Label) %>% 
   distinct() %>% 
@@ -262,14 +262,14 @@ otuTable_State <- as.data.table(otuTable_State)
 ## SiteDatePA table ####
 # otusState
 otusState=sort(unique(otuTable_State$OTU))
-length(otusState) # 668
+length(otusState) # 908
 
 rm(SiteDatePA)
 SiteDatePA=copy(SiteDateRA)
-SiteDatePA[,.(Acari, Agapetus, Amiocentrus)] # Check first few taxa
+SiteDatePA[,.(Chironomidae, Acari, Drunella)] # Check first few taxa
 SiteDatePA[,(otusState):=lapply(.SD,function(x) ifelse(x>0,1,0)),.SDcols=otusState]
 SiteDatePA[,(otusState):=lapply(.SD,function(x) as.integer(x)),.SDcols=otusState]
-SiteDatePA[,.(Acari, Agapetus, Amiocentrus)] # Check P/A transformation
+SiteDatePA[,.(Chironomidae, Acari, Drunella)] # Check P/A transformation
 
 
 

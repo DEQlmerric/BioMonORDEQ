@@ -192,13 +192,13 @@ range_COND <- max(exp(COND$logCOND)) - min(exp(COND$logCOND))
 #In-bag RMSE
 full_rmse<- rmse(exp(full$predicted), exp(COND$logCOND))
 full_rmse.scaled <- full_rmse/range_COND
-print(paste0('In-bag RMSE = ' , round(full_rmse,2), " ((μS/cm))"))
+print(paste0('In-bag RMSE = ' , round(full_rmse,2), " (μS/cm)"))
 print(paste0('Scaled In-bag RMSE = ' , round(full_rmse.scaled*100,2), "%"))
 
 #OOB RMSE
 full_oob.rmse<- rmse(exp(full$predicted.oob), exp(COND$logCOND))
 full_oob.rmse.scaled <- full_oob.rmse/range_COND
-print(paste0('OOB RMSE = ' , round(full_oob.rmse,2), " ((μS/cm))"))
+print(paste0('OOB RMSE = ' , round(full_oob.rmse,2), " (μS/cm)"))
 print(paste0('Scaled OOB RMSE = ' , round(full_oob.rmse.scaled*100,2), "%"))
 
 # Model tuning - How many trees? (default: 500)
@@ -418,7 +418,7 @@ map_function(full_map)
 ```{r full model residual plots}
 # Plot residuals 
 full_resid <- exp(COND$logCOND) - exp(full_pred.oob$pred) # Observed minus predicted oob
-plot(full_resid ~ exp(full_pred.oob$pred), xlab = "Predicted COND ((μS/cm))", ylab = "Residuals", main = "Full Model residuals")
+plot(full_resid ~ exp(full_pred.oob$pred), xlab = "Predicted COND (μS/cm)", ylab = "Residuals", main = "Full Model residuals")
 abline(h=0, col = "red", lty = 2)
 
 # Resids by lat and long
@@ -451,7 +451,7 @@ full_per.var_no.hi <- 100 * (1 - full_mse_no.hi/ var(COND_no.hi$logCOND, na.rm =
 # RMSE
 full_rmse_no.hi<- rmse(exp(full_no.hi$predicted), exp(COND_no.hi$logCOND))
 full_rmse.scaled_no.hi <- full_rmse_no.hi/range_COND
-print(paste0('OOB RMSE = ' , round(full_rmse_no.hi,2), " ((μS/cm))"))
+print(paste0('OOB RMSE = ' , round(full_rmse_no.hi,2), " (μS/cm)"))
 print(paste0('Scaled OOB RMSE = ' , round(full_rmse.scaled_no.hi*100,2), "%"))
 
 # Make a df for plots
@@ -464,8 +464,8 @@ full_plotdf_no.hi <- data.frame(obs = COND_no.hi$logCOND, pred = full_no.hi$pred
 ggplot(data = full_plotdf_no.hi, aes(x = pred, y = obs)) +
   geom_point(alpha = 0.75) +
   labs(title = "COND Full Model predictions without human influenced vars",
-       x = "Predicted values ((μS/cm))",
-       y = "Observed values ((μS/cm))") +
+       x = "Predicted values (μS/cm)",
+       y = "Observed values (μS/cm)") +
   theme_bw() + 
   geom_abline() + 
   scale_x_log10() +
@@ -509,7 +509,7 @@ abline(h=0, col = "red", lty = 2)
 
 ## C. Model Reduction
 
-#### Build model with Top 10 predictors
+#### Build model with Top 15 predictors
 
 ```{r reduced model tuning}
 #Adjust the parameters below based on tuning 
@@ -529,13 +529,13 @@ print(red15_per.var)
 #In-bag RMSE
 red15_rmse<- rmse(exp(red15$predicted), exp(COND$logCOND))
 red15_rmse.scaled <- red15_rmse/range_COND
-print(paste0('In-bag RMSE = ' , round(red15_rmse,2), " ((μS/cm))"))
+print(paste0('In-bag RMSE = ' , round(red15_rmse,2), " (μS/cm)"))
 print(paste0('Scaled In-bag RMSE = ' , round(red15_rmse.scaled*100,2), "%"))
 
 #OOB RMSE
 red15_oob.rmse<- rmse(exp(red15$predicted.oob), exp(COND$logCOND))
 red15_oob.rmse.scaled <- red15_oob.rmse/range_COND
-print(paste0('OOB RMSE = ' , round(red15_oob.rmse,2), " ((μS/cm))"))
+print(paste0('OOB RMSE = ' , round(red15_oob.rmse,2), " (μS/cm)"))
 print(paste0('Scaled OOB RMSE = ' , round(red15_oob.rmse.scaled*100,2), "%"))
 
 # Model tuning - How many trees? (default: 500)
@@ -561,8 +561,8 @@ red15_plotdf <- rbind(red15_pred.oob, red15_pred.ib) %>%
 ggplot(data = red15_plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
   geom_point(alpha = 0.75) +
   labs(title = "COND red15 Model",
-       x = "Predicted values ((μS/cm))",
-       y = "Observed values ((μS/cm))") +
+       x = "Predicted values (μS/cm)",
+       y = "Observed values (μS/cm)") +
   theme_bw() + 
   geom_abline() +
   geom_smooth(method = "lm", se = FALSE) +
@@ -697,7 +697,7 @@ red15_per.var_no.hi <- 100 * (1 - red15_mse_no.hi/ var(COND_no.hi$logCOND, na.rm
 # RMSE
 red15_rmse_no.hi<- rmse(exp(red15_no.hi$predicted), exp(COND_no.hi$logCOND))
 red15_rmse.scaled_no.hi <- red15_rmse_no.hi/range_COND
-print(paste0('OOB RMSE = ' , round(red15_rmse_no.hi,2), " ((μS/cm))"))
+print(paste0('OOB RMSE = ' , round(red15_rmse_no.hi,2), " (μS/cm)"))
 print(paste0('Scaled OOB RMSE = ' , round(red15_rmse.scaled_no.hi*100,2), "%"))
 
 # Make a df for plots
@@ -710,8 +710,8 @@ red15_plotdf_no.hi <- data.frame(obs = COND_no.hi$logCOND, pred = red15_no.hi$pr
 ggplot(data = red15_plotdf_no.hi, aes(x = pred, y = obs)) +
   geom_point(alpha = 0.75) +
   labs(title = "COND red15 Model predictions without human influenced vars",
-       x = "Predicted values ((μS/cm))",
-       y = "Observed values ((μS/cm))") +
+       x = "Predicted values (μS/cm)",
+       y = "Observed values (μS/cm)") +
   theme_bw() + 
   geom_abline() + 
   scale_x_log10() +
@@ -720,7 +720,7 @@ ggplot(data = red15_plotdf_no.hi, aes(x = pred, y = obs)) +
 
 # Plot residuals - red15 model, adjusted human-influenced vars to 0
 red15_resid_no.hi <- exp(COND_no.hi$logCOND) - exp(red15_no.hi$predicted) # Observed minus predicted oob
-plot(red15_resid_no.hi ~ exp(red15_no.hi$predicted), xlab = "Predicted COND ((μS/cm))", ylab = "Residuals (obs - pred)", main = "red15 model residuals, no HI vars")
+plot(red15_resid_no.hi ~ exp(red15_no.hi$predicted), xlab = "Predicted COND (μS/cm)", ylab = "Residuals (obs - pred)", main = "red15 model residuals, no HI vars")
 abline(h=0, col = "red", lty = 2)
 ```
 
@@ -773,13 +773,13 @@ print(red4_per.var)
 #In-bag RMSE
 red4_rmse<- rmse(exp(red4$predicted), exp(COND$logCOND))
 red4_rmse.scaled <- red4_rmse/range_COND
-print(paste0('In-bag RMSE = ' , round(red4_rmse,2), " ((μS/cm))"))
+print(paste0('In-bag RMSE = ' , round(red4_rmse,2), " (μS/cm)"))
 print(paste0('Scaled In-bag RMSE = ' , round(red4_rmse.scaled*100,2), "%"))
 
 #OOB RMSE
 red4_oob.rmse<- rmse(exp(red4$predicted.oob), exp(COND$logCOND))
 red4_oob.rmse.scaled <- red4_oob.rmse/range_COND
-print(paste0('OOB RMSE = ' , round(red4_oob.rmse,2), " ((μS/cm))"))
+print(paste0('OOB RMSE = ' , round(red4_oob.rmse,2), " (μS/cm)"))
 print(paste0('Scaled OOB RMSE = ' , round(red4_oob.rmse.scaled*100,2), "%"))
 
 # Model tuning - How many trees? (default: 500)
@@ -805,8 +805,8 @@ red4_plotdf <- rbind(red4_pred.oob, red4_pred.ib) %>%
 ggplot(data = red4_plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
   geom_point(alpha = 0.75) +
   labs(title = "COND red4 Model",
-       x = "Predicted values ((μS/cm))",
-       y = "Observed values ((μS/cm))") +
+       x = "Predicted values (μS/cm)",
+       y = "Observed values (μS/cm)") +
   theme_bw() + 
   geom_abline() +
   geom_smooth(method = "lm", se = FALSE) +
@@ -830,7 +830,7 @@ red4_per.var_no.hi <- 100 * (1 - red4_mse_no.hi/ var(COND_no.hi$logCOND, na.rm =
 # RMSE
 red4_rmse_no.hi<- rmse(exp(red4_no.hi$predicted), exp(COND_no.hi$logCOND))
 red4_rmse.scaled_no.hi <- red4_rmse_no.hi/range_COND
-print(paste0('OOB RMSE = ' , round(red4_rmse_no.hi,2), " ((μS/cm))"))
+print(paste0('OOB RMSE = ' , round(red4_rmse_no.hi,2), " (μS/cm)"))
 print(paste0('Scaled OOB RMSE = ' , round(red4_rmse.scaled_no.hi*100,2), "%"))
 
 # Make a df for plots
@@ -843,8 +843,8 @@ red4_plotdf_no.hi <- data.frame(obs = COND_no.hi$logCOND, pred = red4_no.hi$pred
 ggplot(data = red4_plotdf_no.hi, aes(x = pred, y = obs)) +
   geom_point(alpha = 0.75) +
   labs(title = "COND red4 Model predictions without human influenced vars",
-       x = "Predicted values ((μS/cm))",
-       y = "Observed values ((μS/cm))") +
+       x = "Predicted values (μS/cm)",
+       y = "Observed values (μS/cm)") +
   theme_bw() + 
   geom_abline() + 
   scale_x_log10() +
@@ -853,7 +853,7 @@ ggplot(data = red4_plotdf_no.hi, aes(x = pred, y = obs)) +
 
 # Plot residuals - red4 model, adjusted human-influenced vars to 0
 red4_resid_no.hi <- exp(COND_no.hi$logCOND) - exp(red4_no.hi$predicted) # Observed minus predicted oob
-plot(red4_resid_no.hi ~ exp(red4_no.hi$predicted), xlab = "Predicted COND ((μS/cm))", ylab = "Residuals (obs - pred)", main = "red4 model residuals, no HI vars")
+plot(red4_resid_no.hi ~ exp(red4_no.hi$predicted), xlab = "Predicted COND (μS/cm)", ylab = "Residuals (obs - pred)", main = "red4 model residuals, no HI vars")
 abline(h=0, col = "red", lty = 2)
 ```
 
@@ -895,13 +895,13 @@ ref_range_COND <- max(exp(COND.ref$logCOND)) - min(exp(COND.ref$logCOND))
 #In-bag RMSE
 ref.rmse<- rmse(exp(ref$predicted), exp(COND.ref$logCOND))
 ref_rmse.scaled <- ref.rmse/ref_range_COND
-print(paste0('In-bag RMSE = ' , round(ref.rmse,2), " ((μS/cm))"))
+print(paste0('In-bag RMSE = ' , round(ref.rmse,2), " (μS/cm)"))
 print(paste0('Scaled In-bag RMSE = ' , round(ref_rmse.scaled*100,2), "%"))
 
 #OOB RMSE
 ref_oob.rmse<- rmse(exp(ref$predicted.oob), exp(COND.ref$logCOND))
 ref_oob.rmse.scaled <- ref_oob.rmse/ref_range_COND
-print(paste0('OOB RMSE = ' , round(ref_oob.rmse,2), " ((μS/cm))"))
+print(paste0('OOB RMSE = ' , round(ref_oob.rmse,2), " (μS/cm)"))
 print(paste0('Scaled OOB RMSE = ' , round(ref_oob.rmse.scaled*100,2), "%"))
 
 # Model tuning - How many trees? (default: 500)
@@ -927,8 +927,8 @@ ref_plotdf<- rbind(ref_pred.oob, ref_pred.ib) %>%
 ggplot(data = ref_plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
   geom_point(alpha = 0.75) +
   labs(title = "COND Full Reference-Only Model",
-       x = "Predicted values ((μS/cm))",
-       y = "Observed values ((μS/cm))") +
+       x = "Predicted values (μS/cm)",
+       y = "Observed values (μS/cm)") +
   theme_bw() + 
   geom_abline() + 
   geom_smooth(method = "lm", se = FALSE) +
@@ -940,7 +940,7 @@ ggplot(data = ref_plotdf, aes(x = pred, y = obs, color = predictions, shape = pr
 
 # Plot residuals - 
 ref_resid <- exp(COND.ref$logCOND) - exp(ref$predicted) # Observed minus predicted oob
-plot(ref_resid ~ exp(ref$predicted), xlab = "Predicted COND ((μS/cm))", ylab = "Residuals (obs - pred)", main = "Ref only model residuals")
+plot(ref_resid ~ exp(ref$predicted), xlab = "Predicted COND (μS/cm)", ylab = "Residuals (obs - pred)", main = "Ref only model residuals")
 abline(h=0, col = "red", lty = 2)
 ```
 
@@ -1228,7 +1228,7 @@ deq_COND <- deq_sc_all %>%
   
 ```
 
-## A. HANDLE NA VALUES
+## C. HANDLE NA VALUES
 
 #### IDENTIFY COLUMNS WITH MISSING DATA
 
@@ -1264,3 +1264,86 @@ hist(deq_COND$logCOND, main = "", xlab = "log(Conductivity)" )
 # BOX PLOT & STRIP CHART
 boxplot(deq_COND$logCOND, ylab = "logCond")
 ```
+
+## D. Make predictions
+
+```{r}
+red15_deq <- predict(red15, newdata= deq_COND, seed = 24)
+
+# Mean squared error (untransformed)
+red15_mse_deq <- tail(red15_deq$err.rate,1)
+red15_per.var_deq <- 100 * (1 - red15_mse_deq/ var(deq_COND$logCOND, na.rm = TRUE))
+
+# RMSE
+red15_rmse_deq<- rmse(exp(red15_deq$predicted), exp(deq_COND$logCOND))
+deq_range_COND <- max(exp(deq_COND$logCOND)) - min(exp(deq_COND$logCOND))
+red15_rmse.scaled_deq <- red15_rmse_deq/deq_range_COND
+print(paste0('OOB RMSE = ' , round(red15_rmse_deq,2), " (μS/cm)"))
+print(paste0('Scaled OOB RMSE = ' , round(red15_rmse.scaled_deq*100,2), "%"))
+
+# Make a df for plots
+red15_plotdf_deq <- data.frame(obs = deq_COND$logCOND, pred = red15_deq$predicted) %>% 
+  mutate(obs = exp(obs)) %>% 
+  mutate(pred = exp(pred)) %>% 
+  mutate(delta = obs - pred)
+
+# Plot
+ggplot(data = red15_plotdf_deq, aes(x = pred, y = obs)) +
+  geom_point(alpha = 0.75) +
+  labs(title = "COND red15 Model predictions on DEQ data",
+       x = "Predicted values (μS/cm)",
+       y = "Observed values (μS/cm)") +
+  theme_bw() + 
+  geom_abline() + 
+  scale_x_log10() +
+  scale_y_log10() +
+  annotate("text", x = 100, y = 1000, label = paste0('OOB RMSE = ' , round(red15_rmse_deq,2), ' | scaled RMSE = ', round(red15_rmse.scaled_deq*100,2), "%"), size = 3)
+
+# Plot residuals - red15 model, adjusted human-influenced vars to 0
+red15_resid_deq <- exp(deq_COND$logCOND) - exp(red15_deq$predicted) # Observed minus predicted oob
+plot(red15_resid_deq ~ exp(red15_deq$predicted), xlab = "Predicted COND (μS/cm)", ylab = "Residuals (obs - pred)", main = "red15 DEQ predictions residuals")
+abline(h=0, col = "red", lty = 2)
+```
+## E. Reduce human-influenced variables to 0 and make predictions on DEQ data
+
+```{r}
+deq_COND_no.hi <- deq_COND %>% 
+  mutate(across(all_of(c("canaldensws", "coalminedensws", "damnrmstorws", "manurews", "minedensws", "minedenswsrp100", "npdesdensws","pctagslpmid20XXws", "pctagslphigh20XXws", "pctcrop20XXws", "pctfrstloss20XXws", "pcthay20XXws", "pctimp20XXws", "pctnonagintrodmanagvegws","pcturbop20XXws", "rdcrsws", "superfunddensws", "superfunddenswsrp100", "tridenswsrp100")), ~0))
+
+red15_deq_no.hi <- predict(red15, newdata= deq_COND_no.hi, seed = 24)
+
+# Mean squared error (untransformed)
+red15_mse_deq_no.hi  <- tail(red15_deq_no.hi $err.rate,1)
+red15_per.var_deq_no.hi  <- 100 * (1 - red15_mse_deq_no.hi / var(deq_COND_no.hi$logCOND, na.rm = TRUE))
+
+# RMSE
+red15_rmse_deq_no.hi <- rmse(exp(red15_deq_no.hi$predicted), exp(deq_COND_no.hi$logCOND))
+
+red15_rmse.scaled_deq_no.hi  <- red15_rmse_deq_no.hi /deq_range_COND
+print(paste0('OOB RMSE = ' , round(red15_rmse_deq_no.hi ,2), " (μS/cm)"))
+print(paste0('Scaled OOB RMSE = ' , round(red15_rmse.scaled_deq_no.hi *100,2), "%"))
+
+# Make a df for plots
+red15_plotdf_deq_no.hi <- data.frame(obs = deq_COND_no.hi$logCOND, pred = red15_deq_no.hi$predicted) %>% 
+  mutate(obs = exp(obs)) %>% 
+  mutate(pred = exp(pred)) %>% 
+  mutate(delta = obs - pred)
+
+# Plot
+ggplot(data = red15_plotdf_deq_no.hi, aes(x = pred, y = obs)) +
+  geom_point(alpha = 0.75) +
+  labs(title = "COND red15 Model predictions on DEQ data",
+       x = "Predicted values (μS/cm)",
+       y = "Observed values (μS/cm)") +
+  theme_bw() + 
+  geom_abline() + 
+  scale_x_log10() +
+  scale_y_log10() +
+  annotate("text", x = 100, y = 1000, label = paste0('OOB RMSE = ' , round(red15_rmse_deq_no.hi,2), ' | scaled RMSE = ', round(red15_rmse.scaled_deq_no.hi*100,2), "%"), size = 3)
+
+# Plot residuals - red15 model, adjusted human-influenced vars to 0
+red15_resid_deq_no.hi  <- exp(deq_COND_no.hi$logCOND) - exp(red15_deq_no.hi$predicted) # Observed minus predicted oob
+plot(red15_resid_deq_no.hi ~ exp(red15_deq_no.hi$predicted), xlab = "Predicted COND (μS/cm)", ylab = "Residuals (obs - pred)", main = "red15 DEQ predictions residuals")
+abline(h=0, col = "red", lty = 2)
+```
+

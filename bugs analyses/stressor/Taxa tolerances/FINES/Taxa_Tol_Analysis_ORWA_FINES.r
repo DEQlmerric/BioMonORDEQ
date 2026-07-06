@@ -187,7 +187,7 @@ rm(tmp, my_preds)
 
 # no zero values in dataset, otherwise, run code below.
 
-@@@@@@@@@@@@ but fines does allow for '0' values....???????
+#@@@@@@@@@@@@ but fines does allow for '0' values....???????
 
 
 # Get min non-zero values

@@ -43,12 +43,13 @@ epa_data <- epa_data %>%
   relocate(site.id2, .after = site.id) %>% 
   relocate(date.col, .after = year) %>% 
   filter(protocol == "WADEABLE") %>%  # Drop boatable sites
-  select(-c(fstfrz.pt,kffact.pt,rhmean.pt,pctcarbonatews,pctsandstone.carbonatews,pctsandstonews,pctsemiconsol.sandws,pctvolcanicws,elev.delt,hort,bfi.gam,bfi.rf,ref2))  # Per 6/22 communication w Lester Yuan, drop these vars as they are no longer present in StreamCat.
+  select(-c(fstfrz.pt,kffact.pt,rhmean.pt,pctcarbonatews,pctsandstone.carbonatews,pctsandstonews,pctsemiconsol.sandws,pctvolcanicws,elev.delt,hort,bfi.gam,bfi.rf,ref2)) %>%   # Per 6/22 communication w Lester Yuan, drop these vars as they are no longer present in StreamCat.
+  select(-c(elevation)) # drop in favor of elevws from SC
 
 # Also per LY and the paper, add other SC vars
 comids <- epa_data$comid
 
-ws<-sc_get_data(comids, metric = c('bfi','damdens','pctagslphigh2006','precip9120'), aoi = 'ws')
+ws<-sc_get_data(comids, metric = c('bfi','damdens','pctagslphigh2006','precip9120','elev'), aoi = 'ws')
 # Not sure why these numbers are all negative?? Multiplying by -1 to fix it
 other<--sc_get_data(comids, metric = c('bankfulldepth','bankfullwidth','mwst2014'), aoi = 'other') * -1 
 
@@ -68,7 +69,30 @@ epa_data <- epa_data %>%
          COMID = comid,
          SampleStartDate = date.col) %>% 
   select(uid:xfc.alg, order(colnames(.))) %>% 
-  relocate(rt.master, .after=everything())
+  # Remove years from EPA table so colnames can match DEQ table later
+  rename(
+         inorgnwetdep20XXws = inorgnwetdep.2008ws,
+         msst.20XX = msst.2019,
+         mwst.20XX = mwst2014,
+         pctagslpmid20XXws = pctag2006slp10ws,
+         pctagslphigh20XXws = pctagslphigh2006ws,
+         pctbl20XXws = pctbl2019ws,
+         pctconif20XXws = pctconif2019ws,
+         pctcrop20XXws = pctcrop2019ws,
+         pctdecid20XXws = pctdecid2019ws,
+         pctfire20XXws = pctfire2010ws,
+         pctfrstloss20XXws = pctfrstloss2013ws,
+         pctgrs20XXws = pctgrs2019ws,
+         pcthay20XXws = pcthay2019ws,
+         pcthbwet20XXws = pcthbwet2019ws,
+         pctice20XXws = pctice2019ws,
+         pctimp20XXws = pctimp2019ws,
+         pctmxtfst20XXws = pctmxfst2019ws,
+         pctow20XXws = pctow2019ws,
+         pctshrb20XXws = pctshrb2019ws,
+         pcturbop20XXws = pcturbop2019ws,
+         pctwdwet20XXws = pctwdwet2019ws) %>% 
+  mutate(pctcoastcrsws = as.numeric(pctcoastcrsws)) 
 ```
 
 # **3 - PREPARE DATA FOR MODELS**
@@ -91,11 +115,12 @@ sort(sapply(epa_data %>% select(c(bankfulldepth:rt.master)), function(x) sum(is.
 # PERFORM NA ROUGHFIX FUNCTION ON METRICS WITH A FEW MISSING VALUES
 epa_data$bfiws  <- na.roughfix(epa_data$bfiws) # 56 NA
 epa_data$damdensws <- na.roughfix(epa_data$damdensws) # 56 NA
-epa_data$pctagslphigh2006ws <- na.roughfix(epa_data$pctagslphigh2006ws) # 56 NA
+epa_data$pctagslphigh20XXws <- na.roughfix(epa_data$pctagslphigh20XXws) # 56 NA
 epa_data$precip9120ws <- na.roughfix(epa_data$precip9120ws) # 56 NA
 epa_data$bankfulldepth <- na.roughfix(epa_data$bankfulldepth) # 96 NA
 epa_data$bankfullwidth <- na.roughfix(epa_data$bankfullwidth) # 96 NA
-epa_data$mwst2014 <- na.roughfix(epa_data$mwst2014) # 147 NA
+epa_data$mwst.20XX <- na.roughfix(epa_data$mwst.20XX) # 147 NA
+epa_data$elevws <- na.roughfix(epa_data$elevws)
 ```
 
 # **4 - EXPLORE DATA**
@@ -123,7 +148,8 @@ COND <- epa_data %>%
   mutate(logCOND = log(cond)) %>% 
   relocate(logCOND, .before = everything()) %>% 
   select(-c(cond)) %>% 
-  as.data.frame() # Make sure COND is a data frame, not a tibble
+  as.data.frame() %>% # Make sure COND is a data frame, not a tibble
+  select(1, sort(names(.)))
 
 # for sorting purposes later
 COND_uid <- epa_data %>%
@@ -413,7 +439,7 @@ plot(mse ~ full_map$Long_DD, xlab = "Longitude", ylab = "MSE")
 ```{r adj full model}
 # Reduce all human-influenced vars to all 0s.
 COND_no.hi <- COND %>% 
-  mutate(across(all_of(c("canaldensws", "coalminedensws", "damnrmstorws", "manurews", "minedensws", "minedenswsrp100", "npdesdensws","pctag2006slp10ws", "pctcrop2019ws", "pctfrstloss2013ws", "pcthay2019ws", "pctimp2019ws", "pctnonagintrodmanagvegws","pcturbop2019ws", "rdcrsws", "superfunddensws", "superfunddenswsrp100", "tridenswsrp100")), ~0))
+  mutate(across(all_of(c("canaldensws", "coalminedensws", "damnrmstorws", "manurews", "minedensws", "minedenswsrp100", "npdesdensws","pctagslpmid20XXws", "pctagslphigh20XXws", "pctcrop20XXws", "pctfrstloss20XXws", "pcthay20XXws", "pctimp20XXws", "pctnonagintrodmanagvegws","pcturbop20XXws", "rdcrsws", "superfunddensws", "superfunddenswsrp100", "tridenswsrp100")), ~0))
 
 # Make predictions with adjusted human-influence to 0 
 full_no.hi <- predict(full, newdata= COND_no.hi, seed = 24)
@@ -487,12 +513,12 @@ abline(h=0, col = "red", lty = 2)
 
 ```{r reduced model tuning}
 #Adjust the parameters below based on tuning 
-red15_tuning <- tune(logCOND ~ runoffws+pctforest+precip9120ws+pctimp2019ws+pctsilicicws+sio2ws+msst.2019+pctconif2019ws+pctice2019ws+pcteolcrsws+wsareasqkm+pctshrb2019ws+clayws+nws+coalminedensws, data = COND, seed = 1234)
+red15_tuning <- tune(logCOND ~ runoffws+pctforest+precip9120ws+pctimp20XXws+pctsilicicws+sio2ws+msst.20XX+pctconif20XXws+pctice20XXws+pcteolcrsws+wsareasqkm+pctshrb20XXws+clayws+nws+coalminedensws, data = COND, seed = 1234)
 red15_tuning$optimal
 ```
 
 ```{r reduced model}
-red15 <- rfsrc(logCOND ~ runoffws+pctforest+precip9120ws+pctimp2019ws+pctsilicicws+sio2ws+msst.2019+pctconif2019ws+pctice2019ws+pcteolcrsws+wsareasqkm+pctshrb2019ws+clayws+nws+coalminedensws, data = COND, mtry = red15_tuning$optimal[[2]], nodesize = red15_tuning$optimal[[1]], importance = "TRUE", seed = 24)
+red15 <- rfsrc(logCOND ~ runoffws+pctforest+precip9120ws+pctimp20XXws+pctsilicicws+sio2ws+msst.20XX+pctconif20XXws+pctice20XXws+pcteolcrsws+wsareasqkm+pctshrb20XXws+clayws+nws+coalminedensws, data = COND, mtry = red15_tuning$optimal[[2]], nodesize = red15_tuning$optimal[[1]], importance = "TRUE", seed = 24)
 red15 # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (untransformed)
@@ -556,7 +582,7 @@ red15_partialplots <- plot.variable(red15, xvar.names = c(names(red15_vimp[1:8])
 red15_partialplots2 <- plot.variable(red15, xvar.names = c(names(red15_vimp[9:10])), partial = TRUE, plots.one.page = TRUE)
 
 # Human-influenced vars
-red15_partialplots_hi <- plot.variable(red15, xvar.names = c("pctimp2019ws", "coalminedensws", "pcthay2019ws"), partial = TRUE, plots.one.page = TRUE)
+red15_partialplots_hi <- plot.variable(red15, xvar.names = c("pctimp20XXws", "coalminedensws", "pcthay20XXws"), partial = TRUE, plots.one.page = TRUE)
 
 #******************consider adding code to look at individual metrics
 ```
@@ -610,25 +636,6 @@ ggplot(full_red_map, aes(x = Prediction, y = obs, color = Model)) +
     y = "Observed COND (μS/cm)") + scale_x_log10() + scale_y_log10() +
   geom_abline(intercept = 0, slope = 1, linetype = "dashed")
 ```
-
-
-
-
-
-
-
-
-
-# Not edited beyond this point.  6/23/26 -SYB
-
-
-
-
-
-
-
-
-
 
 #### Distributions for Human-influenced vars at all reference sites (N/A since we do not know reference status for EPA sites)
 
@@ -750,12 +757,12 @@ map_function(red15_map_no.hi)
 
 ```{r reducing the model further tuning}
 #Adjust the parameters below based on tuning
-red4_tuning <- tune(logCOND ~ runoffws+pctforest+precip9120ws+pctimp2019ws, data = COND, seed = 1234)
+red4_tuning <- tune(logCOND ~ runoffws+pctforest+precip9120ws+pctimp20XXws, data = COND, seed = 1234)
 red4_tuning$optimal
 ```
 
 ```{r reducing the model further}
-red4 <- rfsrc(logCOND ~ runoffws+pctforest+precip9120ws+pctimp2019ws, data = COND, mtry = red4_tuning$optimal[[2]], nodesize = red4_tuning$optimal[[1]], importance = "TRUE", seed = 24)
+red4 <- rfsrc(logCOND ~ runoffws+pctforest+precip9120ws+pctimp20XXws, data = COND, mtry = red4_tuning$optimal[[2]], nodesize = red4_tuning$optimal[[1]], importance = "TRUE", seed = 24)
 red4 # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (untransformed)
@@ -1040,9 +1047,9 @@ ggplot(boxplot_df, aes(x = L1Eco, y = Prediction, fill = Model)) +
 #### Combined Leaflet map of predictions
 
 ```{r combinded leaflet map of predictions}
-leaflet_df <- left_join(boxplot_df, COND %>%  select(MLocID, Project1, Lat_DD, Long_DD), by = "MLocID") %>% 
+leaflet_df <- left_join(boxplot_df, COND_uid %>%  select(uid, Lat_DD, Long_DD), by = "uid") %>% 
   pivot_wider(names_from = Model, values_from = Prediction) %>% 
-  relocate(Obs, .before= Pred_unadj)
+  relocate(Obs, .before= Pred_full)
 
 map_all <- function(data) {
   leaflet() %>%
@@ -1100,8 +1107,8 @@ pal <- colorNumeric(palette = "Greens",
   domain = c(0, max(leaflet_df$Obs)))
 pal2 <- colorNumeric(palette = "Greens", 
   domain = c(0, max(leaflet_df$Obs)))
-pal3 <- colorNumeric(palette = "Oranges", c(0, max(leaflet_df$Pred_unadj)))
-pal4 <- colorNumeric(palette = "Oranges", domain = c(0, max(leaflet_df$Pred_unadj)), na.color = "transparent") 
+pal3 <- colorNumeric(palette = "Oranges", c(0, max(leaflet_df$Pred_full)))
+pal4 <- colorNumeric(palette = "Oranges", domain = c(0, max(leaflet_df$Pred_full)), na.color = "transparent") 
 
 map_all(leaflet_df)
 
@@ -1115,11 +1122,11 @@ map_all(leaflet_df)
 ```{r unadjusted predictions vs adj human influence}
 leaflet_df$Ref <- factor(leaflet_df$Ref, levels = c("B", "S", "T"))
 
-ggplot(leaflet_df, aes(x = Pred_unadj, y = Pred_adj, color = Ref, shape = Ref)) +
+ggplot(leaflet_df, aes(x = Pred_reduced, y = Pred_adj, color = Ref, shape = Ref)) +
   geom_point(size = 1.5) + theme_bw(base_size = 15) +
   labs(
-    x = "Reduced model predicted COND ((μS/cm))",
-    y = "Predicted COND ((μS/cm)) adjusted\n for no human disturbance predictions",
+    x = "Reduced model predicted COND (μS/cm)",
+    y = "Predicted COND (μS/cm) adjusted\n for no human disturbance predictions",
     color = "Reference Status", shape = "Reference Status") + 
   geom_abline(intercept = 0, slope = 1, linetype = "dashed")
 ```
@@ -1131,72 +1138,94 @@ ggplot(leaflet_df, aes(x = Pred_unadj, y = Pred_adj, color = Ref, shape = Ref)) 
 ## A. STATIONS - *FROM WATER CHEMISTRY BENCHMARKS SCRIPT*
 
 ```{r}
-cond <- read_excel('~/BioMonORDEQ/Benchmarks/Water Chemistry/cal.val_chem.ref.wq_2026-05-14.xlsx') %>%  # Output file from ref benchmarks script 
+deq_cond <- read_excel('~/BioMonORDEQ/Benchmarks/Water Chemistry/cal.val_chem.ref.wq_2026-05-14.xlsx') %>%  # Output file from ref benchmarks script 
   filter(Char_Name == 'Conductivity') %>% 
   select(c(MLocID, Project1, StationDes, Lat_DD, Long_DD, SampleStartDate, Result_Numeric_mod, L2Eco, L3Eco, EcoRegion4, HUC8, ReferenceSite, cal_val, COMID)) %>% 
   mutate(Conductivity = Result_Numeric_mod) %>% 
   select(-Result_Numeric_mod)
 
-comids <- cond %>% 
+deq_comids <- deq_cond %>% 
   select(COMID) # Get just the COMIDs for next step
 ```
 
 ## B. WATERSHED PREDICTORS - *FROM EPA STREAMCAT*
 
-```{r streamcat pull}
-# # Run function to query ALL StreamCat data for selected COMIDs by subcategory
-source('~/BioMonORDEQ/Benchmarks/Water Chemistry/SC_pull.R')
+```{r streamcat data}
+deq_sc_ws <- read_csv(r"(\\deqlab1\\BioMon\\Projects\\Biomon Redux\\StreamCat data June 2026\\ws.csv)", col_select = 
+                         c(comid, elevws,bfiws,canaldensws,caows,clayws,coalminedensws,compstrgthws,damdensws,
+                           damnrmstorws, fe2o3ws, hydrlcondws,inorgnwetdep2008ws, k2ows, kffactws,manurews, mgows,
+                           na2ows, minedensws,npdesdensws, nws, omws, p2o5ws,pctagslpmid2001ws,pctagslphigh2001ws,
+                           pctalkintruvolws,pctalluvcoastws,pctbl2001ws,pctcarbresidws,pctcoastcrsws,pctcolluvsedws,
+                           pctconif2001ws,pctcrop2001ws,pctdecid2001ws,pcteolcrsws,pcteolfinews,pctextruvolws,
+                           pctfire2002ws, pctfrstloss2002ws,pctglaclakecrsws,pctglaclakefinews,pctglactilclayws,
+                           pctglactilcrsws,pctglactilloamws,pctgrs2001ws,pcthay2001ws,pcthbwet2001ws,pcthydricws,
+                           pctice2001ws,pctimp2001ws,pctmxfst2001ws,pctnonagintrodmanagvegws,pctnoncarbresidws,
+                           pctow2001ws,pctsallakews,pctshrb2001ws,pctsilicicws,pcturbop2001ws,pctwaterws,
+                           pctwdwet2001ws,permws,precip9120ws,rckdepws,rdcrsws,runoffws,sio2ws,superfunddensws,
+                           wetindexws,wsareasqkm,wtdepws)) %>% 
+  filter(comid %in% deq_comids$COMID)
 
-#Pull ALL StreamCat data by subcategory and merge
-ag <- get_streamcat(comids = comids, type = "Agriculture")
-clim <- get_streamcat(comids = comids, type = "Climate")
-dams <- get_streamcat(comids = comids, type = "Dams")
-flow <- get_streamcat(comids = comids, type = "Flow")
-iwi <- get_streamcat(comids = comids, type = "IWI")
-cover <- get_streamcat(comids = comids, type = "Land Cover")
-litho <- get_streamcat(comids = comids, type = "Lithology")
-mintox <- get_streamcat(comids = comids, type = "Mining_Toxics")
-riparian <- get_streamcat(comids = comids, type = "Riparian Buffer")
-roads <- get_streamcat(comids = comids, type = "Roads")
-urb <- get_streamcat(comids = comids, type = "Urban")
-fire <- get_streamcat(comids = comids, type = "Wildfire")
-other <- get_streamcat(comids = comids, type = "Others")
-riparian <- get_streamcat(comids = comids, type = "Riparian Buffer")
+deq_sc_other <- read_csv(r"(\\deqlab1\\BioMon\\Projects\\Biomon Redux\\StreamCat data June 2026\\other.csv)", 
+                         col_select = c(comid,bankfullwidth,bankfulldepth,msst2008,mwst2008)) %>% 
+  filter(comid %in% deq_comids$COMID)
 
-# MERGE INTO ONE TABLE
-sc_all <- list(ag, clim, dams, flow, iwi, cover, litho, mintox, roads, urb, fire, other)
-sc_all <- sc_all %>% reduce(full_join, by = 'COMID')
+deq_sc_rp100 <- read_csv(r"(\\deqlab1\\BioMon\\Projects\\Biomon Redux\\StreamCat data June 2026\\wsrp100.csv)", 
+                         col_select = c(comid,minedenswsrp100,tridenswsrp100,superfunddenswsrp100)) %>% 
+  filter(comid %in% deq_comids$COMID)
 
-rm(list=c('ag', 'clim', 'dams', 'flow','iwi', 'cover', 'litho', 'mintox', 'riparian', 'roads', 'urb', 'fire', 'other'))
+deq_sc_all <- deq_sc_ws %>% 
+  full_join(deq_sc_other, by = "comid") %>% 
+  full_join(deq_sc_rp100, by = "comid") %>% 
+  mutate(pctforest = rowSums(across(c(pctconif2001ws, pctdecid2001ws, pctmxfst2001ws)))) # Create pctforest var.
 ```
 
-#### Erodible geology, NHD slope, stream power
+#### Join with AWQMS columns and rename/reorder columns to match EPA table
 
 ```{r}
-# ERODIBLE VS RESISTENT GEOLOGY (KEPT ERODIBLE, SINCE RESISTENT IS INVERSE OF ERODIBLE)
-erod_resist_strmpow <- sc_all %>%
-  mutate(PCT_EROD = PCTALLUVCOASTWS+PCTCARBRESIDWS+PCTCOASTCRSWS+PCTCOLLUVSEDWS+PCTEOLCRSWS+PCTEOLFINEWS+PCTGLACLAKECRSWS+PCTGLACLAKEFINEWS+PCTGLACTILCLAYWS+PCTGLACTILCRSWS+PCTGLACTILLOAMWS+PCTSALLAKEWS+PCTNONCARBRESIDWS)  %>% 
-  mutate(PCT_RESIST = PCTALKINTRUVOLWS+PCTEXTRUVOLWS+PCTHYDRICWS+PCTSILICICWS) 
+cond_aqwms <- read_excel('~/BioMonORDEQ/Benchmarks/Water Chemistry/cal.val_chem.ref.wq_2026-05-14.xlsx') %>%  # Output file from ref benchmarks script 
+  filter(Char_Name == 'Conductivity') %>% 
+  select(c(MLocID, Project1, StationDes, Lat_DD, Long_DD, SampleStartDate, Result_Numeric_mod, L2Eco, L3Eco, EcoRegion4, HUC8, ReferenceSite, COMID)) %>% 
+  mutate(Conductivity = Result_Numeric_mod) %>% 
+  select(-Result_Numeric_mod) %>%  
+  mutate(logCOND = log(Conductivity)) %>% 
+  relocate(logCOND, .before= Conductivity) %>% 
+  mutate(comid = COMID)
 
-# SLOPE FROM NHD (TAKES 1-2 MIN)
-# Note: do NOT push the downloaded file to GitHub as it's too large and will result in issues. Commit the ignore instead.
-erod_resist_strmpow <- ORDEQBioassessment::get_NHD_info(erod_resist_strmpow) 
-
-# WATERSHED AREA AND STREAM POWER
-erod_resist_strmpow <- erod_resist_strmpow %>% 
-  mutate(STRMPOW_CAT = totdasqkm + PRECIP9120WS * slope) %>%  # WSAREASQKM from SC, instead pulling totdasqkm from get_NHD (they are the same)
-  select(COMID, PCT_EROD, STRMPOW_CAT, NHD_pSLOPE, SITE_TYPE) # Drop PCT_RESIST since it's the inverse of PCT_ERODE
-
-# JOIN WITH OTHER PARAMETERS NOT FROM STREAMCAT
-cond_vars <- sc_all %>% 
-  inner_join(erod_resist_strmpow, by='COMID') %>% # Join StreamCat data with erod_resist_strmpow data calulated above
-  inner_join(cond, by = 'COMID') # Join those with columns from AWQMS.
-
-# RE-ORDER COLUMNS 
-cond_vars <- cond_vars %>% 
-  relocate(MLocID:Conductivity, .before = 'COMID') %>% 
-  relocate(L2Eco:L3Eco, .after = SITE_TYPE) %>% 
-  select(-c(HUC8, EcoRegion4)) 
+deq_COND <- deq_sc_all %>% 
+  left_join(select(cond_aqwms, comid, logCOND, ReferenceSite), by = "comid") %>% 
+  # Remove years from table so colnames can match EPA table
+  rename(msst.20XX = msst2008,
+         mwst.20XX = mwst2008,
+         inorgnwetdep20XXws = inorgnwetdep2008ws,
+         pctagslpmid20XXws = pctagslpmid2001ws,
+         pctagslphigh20XXws = pctagslphigh2001ws,
+         pcthbwet20XXws = pcthbwet2001ws,
+         pctbl20XXws = pctbl2001ws,
+         pctconif20XXws = pctconif2001ws,
+         pctcrop20XXws = pctcrop2001ws,
+         pctdecid20XXws = pctdecid2001ws,
+         pctmxtfst20XXws = pctmxfst2001ws,
+         pctfire20XXws = pctfire2002ws,
+         pctfrstloss20XXws = pctfrstloss2002ws,
+         pctgrs20XXws = pctgrs2001ws,
+         pcthay20XXws = pcthay2001ws,
+         pctice20XXws = pctice2001ws,
+         pctimp20XXws = pctimp2001ws,
+         pctow20XXws = pctow2001ws,
+         pctshrb20XXws = pctshrb2001ws,
+         pcturbop20XXws = pcturbop2001ws,
+         pctwdwet20XXws = pctwdwet2001ws,
+         ) %>% 
+  select(1, sort(names(.))) %>% 
+  relocate(logCOND, .before = everything()) %>% 
+  mutate(rt.master = ReferenceSite) %>% 
+  select(-c(comid, ReferenceSite)) %>% 
+  mutate(rt.master = case_when(
+    rt.master == "MOST DISTURBED" ~ "T",
+    rt.master == "MODERATELY DISTURBED" ~ "S",
+    rt.master == "REFERENCE" ~ "B")) %>% 
+  mutate(rt.master = factor(rt.master, levels = c("B","S","T")))
+  
 ```
 
 ## A. HANDLE NA VALUES
@@ -1205,7 +1234,7 @@ cond_vars <- cond_vars %>%
 
 ```{r}
 # FIND OUT WHICH COLUMNS HAVE NAs
-sort(sapply(cond_vars, function(x) sum(is.na(x))))
+sort(sapply(deq_COND, function(x) sum(is.na(x))))
 
 # THEN WRITE CODE FOR THEM IN ROUGH FIX SECTION BELOW.
 
@@ -1216,43 +1245,22 @@ sort(sapply(cond_vars, function(x) sum(is.na(x))))
 
 ```{r}
 # PERFORM NA ROUGHFIX FUNCTION ON METRICS WITH ONLY A FEW MISSING VALUES (Leave metrics with >10 NAs [MAST2008, BMMI0809, WETTEDWITDTH, THALWEGDEPTH, BANKFULLWIDTH, BANKFULLDEPTH] until after the correlation table is built.)
-cond_vars$CLAYWS  <- na.roughfix(cond_vars$CLAYWS ) # 1 NA
-cond_vars$MSST2008 <- na.roughfix(cond_vars$ MSST2008) # 1 NA
-cond_vars$MWST2008 <- na.roughfix(cond_vars$ MWST2008) # 11 NAs
-cond_vars$NANIWS <- na.roughfix(cond_vars$NANIWS) # 1 NA
-cond_vars$NSURPWS <- na.roughfix(cond_vars$NSURPWS) # 1 NA
-cond_vars$OMWS <- na.roughfix(cond_vars$OMWS) # 1 NA
-cond_vars$PCTIMPSLPHIGH2001WS <- na.roughfix(cond_vars$PCTIMPSLPHIGH2001WS) # 4 NAs
-cond_vars$PERMWS <- na.roughfix(cond_vars$PERMWS) # 1 NA
-cond_vars$RCKDEPWS <- na.roughfix(cond_vars$RCKDEPWS) # 1 NA
-cond_vars$SANDWS <- na.roughfix(cond_vars$SANDWS) # 1 NA
-cond_vars$SW_FLUXWS <- na.roughfix(cond_vars$SW_FLUXWS) # 2 NA
-cond_vars$WTDEPWS <- na.roughfix(cond_vars$WTDEPWS) # 1 NA
+deq_COND$clayws  <- na.roughfix(deq_COND$clayws ) # 1 NA
+deq_COND$msst.20XX <- na.roughfix(deq_COND$ msst.20XX) # 1 NA
+deq_COND$mwst.20XX <- na.roughfix(deq_COND$ mwst.20XX) # 11 NAs
+deq_COND$omws <- na.roughfix(deq_COND$omws) # 1 NA
+deq_COND$permws <- na.roughfix(deq_COND$permws) # 4 NAs
+deq_COND$rckdepws <- na.roughfix(deq_COND$rckdepws) # 1 NA
+deq_COND$wtdepws <- na.roughfix(deq_COND$wtdepws) # 1 NA
+deq_COND$bankfulldepth <- na.roughfix(deq_COND$bankfulldepth) # 2 NA
+deq_COND$bankfullwidth <- na.roughfix(deq_COND$bankfullwidth) # 1 NA
 ```
 
-#### Calculate percent forest metric
-```{r}
-
-```
-
-
-#### Update predictor list
-
-```{r}
-# Use Excel formula (=TEXTJOIN(", ", TRUE, range:range)) to compile list from decisions sheet and paste below.
-cond_vars_selected <- cond_vars %>% 
-  select(c(MLocID:COMID, BFIWS, CANALDENSWS, CAOWS, CLAYWS, COMPSTRGTHWS, DAMDENSWS, ELEVWS, FE2O3WS, HYDRLCONDWS, K2OWS, KFFACTWS, MINEDENSWS, MSST2008, NA2OWS, NHD_pSLOPE, NPDESDENSWS, NWS, OMWS, PCT_EROD, PCTAGDRAINAGEWS, PCTAGSLPMID2001WS, PCTALKINTRUVOLWS, PCTALLUVCOASTWS, PCTBL2001WS, PCTBURNAREA2002WS, PCTCOLLUVSEDWS, PCTCONIF2001WS, PCTCROP2001WS, PCTDECID2001WS, PCTEOLCRSWS, PCTEOLFINEWS, PCTEXTRUVOLWS, PCTFRSTLOSS2002WS, PCTGLACLAKECRSWS, PCTGLACLAKEFINEWS, PCTGLACTILCRSWS, PCTGRS2001WS, PCTHBWET2001WS, PCTICE2001WS, PCTIMP2001WS, PCTINCVEGRESP2002WS, PCTNONAGINTRODMANAGVEGWS, PCTOW2001WS, PCTSALLAKEWS, PCTSHRB2001WS, PCTURBHI2001WS, PCTURBLO2001WS, PCTURBOP2001WS, PCTWATERWS, PESTIC1997WS, POPDEN2010WS, PRECIP9120WS, RCKDEPWS, RDCRSSLPWTDWS, RDCRSWS, RDDENSWS, ROCKNWS, SANDWS, SEPTICWS, STRMPOW_CAT, SUPERFUNDDENSWS, SW_FLUXWS, SWS, TMAX9120WS, TRIDENSWS, WATERINPUTWS, WETINDEXWS, WETTEDWIDTH, WTDEPWS, WWTPALLDENSWS, SITE_TYPE:L3Eco)) %>% 
-  relocate(COMID, .after = cal_val) %>% 
-  mutate(logCOND = log(Conductivity)) %>% 
-  relocate(logCOND, .before= Conductivity)
-```
 
 ```{r}
 # HISTOGRAM
-hist(cond_vars_selected$Conductivity, main = "", xlab = "Conductivity") #raw data
-hist(cond_vars_selected$logCOND, main = "", xlab = "log(Conductivity)" )
+hist(deq_COND$logCOND, main = "", xlab = "log(Conductivity)" )
 
 # BOX PLOT & STRIP CHART
-boxplot(cond_vars_selected$Conductivity, ylab = "Conductivity")
-boxplot(cond_vars_selected$logCOND, ylab = "logCond")
+boxplot(deq_COND$logCOND, ylab = "logCond")
 ```

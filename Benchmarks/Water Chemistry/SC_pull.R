@@ -111,7 +111,7 @@ get_streamcat <- function(comids, type = c("Agriculture","Climate","Dams","Flow"
     streamcat <- purrr::map_dfr(comids, ~StreamCatTools::sc_get_data(.,
                                                                      metric = 'superfunddens,tridens', 
                                                                      showAreaSqKm = FALSE,
-                                                                     aoi='watershed,rp100')) 
+                                                                     aoi='wsrp100')) 
   }
   
   names(streamcat) <- base::toupper(names(streamcat))

@@ -10,10 +10,10 @@ library(RODBC)
 
 # Enter File Information 
 # Be sure to delete unused rows on Sample and Results tabs of the template
-data_path <- "//deqlab1/BioMon/Bugs/2020/19-136_2019_OR_DEQ_Data_6-16-20_AWQMSDCP0015_inTemplate.xlsx"
-out_path <- "//deqlab1/BioMon/Bugs/2020/BioMon2020_Bio_RResults.xlsx"
-org = "OREGONDEQ"
-proj = "Statewide Biomonitoring"
+data_path <- "//deqlab1/Vol_Data/JohnsonCrWC/2025/WorkingCopy_ORDEQ BioSubmission_Clackamas FIP 2025_AWQMSDCP0017.xlsx"
+out_path <- "//deqlab1/Vol_Data/JohnsonCrWC/2025/JCWC_25_Bio_RResults_0017.xlsx"
+org = "JCWC_AW"
+proj = "ODEQVolMonWQProgram"
 
 # pull in hybrid taxon table from SQL BioMon database 
 # this files lives and is updated in this BioMon repo 
@@ -67,7 +67,8 @@ d_samp <- counts |>
   left_join(Samp, by = 'act_id') |>
   left_join(hybrid_taxon,by = 'DEQ_TAXON') |>
   left_join(awqms_t, by = c('AWQMS_tax_uid'= 'UID')) |>
-  mutate(Count_raw = Count, Count = readr::parse_double(Count, na="LR"), # This line creates two count values so that LR is retained in Count_raw, but in Count, so density can be calculated later
+  mutate(Count_raw = as.character(Count),
+         Count = suppressWarnings(Count_raw), # This line creates two count values so that LR is retained in Count_raw, but in Count, so density can be calculated later
     colmeth = case_when(Habitat_sampled == 'R' ~ "Benthic Kick - Riffle",
                              Habitat_sampled == 'T' ~ "Benthic Kick - Transect",
                              Habitat_sampled == 'P' ~ "Benthic Kick - Pool",

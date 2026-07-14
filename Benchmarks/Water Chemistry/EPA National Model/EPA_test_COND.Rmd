@@ -27,12 +27,9 @@ response_var <- "logCOND" # Response variable in quotes.
 par_name <- "Conductivity" # For plot titles
 model_name <- "Conductivity reduced model with mostly HI vars" # For plot titles.
 units <- "(μS/cm)" # For plot labels
-# data <- COND  # The formatted data table from the benchmarks code; 1st column should be response variable. Remaining columns are predictors.
-# awqms_sc <- cond_vars_selected  # The {parameter}_vars_selected table from the benchmarks code.
-# predictor_vars <- c("PRECIP9120WS", "KFFACTWS", "TMAX9120WS","CANALDENSWS", "DAMDENSWS", "MINEDENSWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTAGSLPMID2001WS", "PCTCROP2001WS", "PCTFRSTLOSS2002WS",  "PCTIMP2001WS", "PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS", "PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "SW_FLUXWS", 'TRIDENSWS', "WATERINPUTWS", "WWTPALLDENSWS") # Comma-separated list of predictor variables that you want in the reduced model.
-# hi_vars <- c("CANALDENSWS", "DAMDENSWS", "MINEDENSWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTAGSLPMID2001WS", "PCTCROP2001WS", "PCTFRSTLOSS2002WS",  "PCTIMP2001WS", "PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS", "PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "SW_FLUXWS", 'TRIDENSWS', "WATERINPUTWS", "WWTPALLDENSWS") # Which of the above predictor_vars are human-influenced? List them here.
-# unique_sc <- data[["ELEVWS"]] # You need to identify a StreamCat column that has ALL unique values so we can use it to sort a table that has no unique identifiers. Use any(duplicated(COND$ELEVWS)). Want to see FALSE.
-# map_color <- "orange"
+
+# Character vector of all human-influenced variables
+HI_vars <- c("canaldensws", "coalminedensws", "damdensws", "damnrmstorws", "manurews", "minedensws", "minedenswsrp100", "npdesdensws","pctagslpmid20XXws", "pctagslphigh20XXws", "pctcrop20XXws", "pctfrstloss20XXws", "pcthay20XXws", "pctimp20XXws", "pctnonagintrodmanagvegws","pcturbop20XXws", "rdcrsws", "superfunddensws", "superfunddenswsrp100", "tridenswsrp100")
 ```
 
 
@@ -445,7 +442,7 @@ plot(mse ~ full_map$Long_DD, xlab = "Longitude", ylab = "MSE")
 ```{r adj full model}
 # Reduce all human-influenced vars to all 0s.
 COND_no.hi <- COND %>% 
-  mutate(across(all_of(c("canaldensws", "coalminedensws", "damnrmstorws", "manurews", "minedensws", "minedenswsrp100", "npdesdensws","pctagslpmid20XXws", "pctagslphigh20XXws", "pctcrop20XXws", "pctfrstloss20XXws", "pcthay20XXws", "pctimp20XXws", "pctnonagintrodmanagvegws","pcturbop20XXws", "rdcrsws", "superfunddensws", "superfunddenswsrp100", "tridenswsrp100")), ~0))
+  mutate(across(all_of(c("canaldensws", "coalminedensws", "damdensws", "damnrmstorws", "manurews", "minedensws", "minedenswsrp100", "npdesdensws","pctagslpmid20XXws", "pctagslphigh20XXws", "pctcrop20XXws", "pctfrstloss20XXws", "pcthay20XXws", "pctimp20XXws", "pctnonagintrodmanagvegws","pcturbop20XXws", "rdcrsws", "superfunddensws", "superfunddenswsrp100", "tridenswsrp100")), ~0))
 
 # Make predictions with adjusted human-influence to 0 
 full_no.hi <- predict(full, newdata= COND_no.hi, seed = 24)
@@ -1126,15 +1123,15 @@ map_all(leaflet_df)
 #### Unadjusted predictions vs. adjusted human inflence 
 
 ```{r unadjusted predictions vs adj human influence}
-leaflet_df$Ref <- factor(leaflet_df$Ref, levels = c("B", "S", "T"))
-
-ggplot(leaflet_df, aes(x = Pred_reduced, y = Pred_adj, color = Ref, shape = Ref)) +
-  geom_point(size = 1.5) + theme_bw(base_size = 15) +
-  labs(
-    x = paste("Reduced model predicted COND", units),
-    y = paste("Predicted COND", units, "adjusted\n for no human disturbance predictions"),
-    color = "Reference Status", shape = "Reference Status") + 
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed")
+# leaflet_df$Ref <- factor(leaflet_df$Ref, levels = c("B", "S", "T"))
+# 
+# ggplot(leaflet_df, aes(x = Pred_reduced, y = Pred_adj, color = Ref, shape = Ref)) +
+#   geom_point(size = 1.5) + theme_bw(base_size = 15) +
+#   labs(
+#     x = paste("Reduced model predicted COND", units),
+#     y = paste("Predicted COND", units, "adjusted\n for no human disturbance predictions"),
+#     color = "Reference Status", shape = "Reference Status") + 
+#   geom_abline(intercept = 0, slope = 1, linetype = "dashed")
 ```
 
 

@@ -4,14 +4,6 @@ output: html_document
 ---
 # Taking data from EPA/Lester Yuan (ss.bugs) and plugging it into our Benchmarks code structure. No need to pull from StreamCat since ss.bugs comes with all predictor data.
 
-# SYB = Next steps:
-# 1. Look in the Supplementals for the publication and only keep the predictors listed in that table.
-# 2. Drop predictors if they didn't come from StreamCat (unless they are important... if so maybe try to figure out where they came from)
-# 3. Pull StreamCat data for Oregon COMIDs
-# 4. Run predictions on OR data
-# 5. Re-build the comparison boxplot (Obs, Full model predictions, Reduced Model predictions, Adjusted predictions, and Reference)
-# 6. Rinse and repeat for other parameters (nutrients next)
-
 # **1 - LOAD PACKAGES**
 
 ```{r load packages, warning=FALSE}
@@ -29,6 +21,17 @@ library(maps)
 library(RColorBrewer)
 library(htmlwidgets)
 ```
+
+```{r pre-define inputs}
+response_var <- "logCOND" # Response variable in quotes.
+par_name <- "Conductivity" # For plot titles
+model_name <- "Conductivity reduced model with mostly HI vars" # For plot titles.
+units <- "(μS/cm)" # For plot labels
+
+# Character vector of all human-influenced variables
+HI_vars <- c("canaldensws", "coalminedensws", "damdensws", "damnrmstorws", "manurews", "minedensws", "minedenswsrp100", "npdesdensws","pctagslpmid20XXws", "pctagslphigh20XXws", "pctcrop20XXws", "pctfrstloss20XXws", "pcthay20XXws", "pctimp20XXws", "pctnonagintrodmanagvegws","pcturbop20XXws", "rdcrsws", "superfunddensws", "superfunddenswsrp100", "tridenswsrp100")
+```
+
 
 # **2 - IMPORT DATA**
 
@@ -192,13 +195,13 @@ range_COND <- max(exp(COND$logCOND)) - min(exp(COND$logCOND))
 #In-bag RMSE
 full_rmse<- rmse(exp(full$predicted), exp(COND$logCOND))
 full_rmse.scaled <- full_rmse/range_COND
-print(paste0('In-bag RMSE = ' , round(full_rmse,2), " (μS/cm)"))
+print(paste0('In-bag RMSE = ' , round(full_rmse,2), units))
 print(paste0('Scaled In-bag RMSE = ' , round(full_rmse.scaled*100,2), "%"))
 
 #OOB RMSE
 full_oob.rmse<- rmse(exp(full$predicted.oob), exp(COND$logCOND))
 full_oob.rmse.scaled <- full_oob.rmse/range_COND
-print(paste0('OOB RMSE = ' , round(full_oob.rmse,2), " (μS/cm)"))
+print(paste0('OOB RMSE = ' , round(full_oob.rmse,2), units))
 print(paste0('Scaled OOB RMSE = ' , round(full_oob.rmse.scaled*100,2), "%"))
 
 # Model tuning - How many trees? (default: 500)
@@ -224,8 +227,8 @@ full_plotdf <- rbind(full_pred.oob, full_pred.ib) %>%
 ggplot(data = full_plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
   geom_point(alpha = 0.75) +
   labs(title = "COND Full Model",
-       x = "Predicted values (μS/cm)",
-       y = "Observed values (μS/cm)") +
+       x = paste("Predicted values", units),
+       y = paste("Observed values", units)) +
   theme_bw() + 
   geom_abline() + 
   geom_smooth(method = "lm", se = FALSE) +
@@ -244,7 +247,7 @@ partialplots <- plot.variable(full, xvar.names = c(names(full_vimp[1:8])), parti
 partialplots2 <- plot.variable(full, xvar.names = c(names(full_vimp[9:16])), partial = TRUE, plots.one.page = TRUE)
 
 # Human-influenced vars
-partialplots_hi <- plot.variable(full, xvar.names = c("pctimp2019ws", "coalminedensws", "pcthay2019ws"), partial = TRUE, plots.one.page = TRUE)
+partialplots_hi <- plot.variable(full, xvar.names = c("pctimp20XXws", "coalminedensws", "pcthay201XX", "pctcrop20XXws"), partial = TRUE, plots.one.page = TRUE)
 
 #******************consider adding code to look at individual metrics
 ```
@@ -329,7 +332,7 @@ map_function(full_map)
 
 # Save map as html
 # full_model_map <- map_function(full_map)
-# saveWidget(full_model_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//CONDide//full_model_map.html", selfcontained = TRUE, title = "Full model")
+# saveWidget(full_model_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//COND//full_model_map.html", selfcontained = TRUE, title = "Full model")
 ```
 #### Leaflet map of predictors  
 ```{r leaflet map of selected predictors}
@@ -411,14 +414,14 @@ map_function(full_map)
 # 
 # # Save map as html
 # # predictors_map <- map_predictors(full_map)
-# # saveWidget(predictors_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//CONDide//predictors_map.html", selfcontained = TRUE, title = "Predictors map")
+# # saveWidget(predictors_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//COND//predictors_map.html", selfcontained = TRUE, title = "Predictors map")
 ```
 
 #### Residual plots
 ```{r full model residual plots}
 # Plot residuals 
 full_resid <- exp(COND$logCOND) - exp(full_pred.oob$pred) # Observed minus predicted oob
-plot(full_resid ~ exp(full_pred.oob$pred), xlab = "Predicted COND (μS/cm)", ylab = "Residuals", main = "Full Model residuals")
+plot(full_resid ~ exp(full_pred.oob$pred), xlab = paste("Predicted COND", units), ylab = "Residuals", main = "Full Model residuals")
 abline(h=0, col = "red", lty = 2)
 
 # Resids by lat and long
@@ -439,7 +442,7 @@ plot(mse ~ full_map$Long_DD, xlab = "Longitude", ylab = "MSE")
 ```{r adj full model}
 # Reduce all human-influenced vars to all 0s.
 COND_no.hi <- COND %>% 
-  mutate(across(all_of(c("canaldensws", "coalminedensws", "damnrmstorws", "manurews", "minedensws", "minedenswsrp100", "npdesdensws","pctagslpmid20XXws", "pctagslphigh20XXws", "pctcrop20XXws", "pctfrstloss20XXws", "pcthay20XXws", "pctimp20XXws", "pctnonagintrodmanagvegws","pcturbop20XXws", "rdcrsws", "superfunddensws", "superfunddenswsrp100", "tridenswsrp100")), ~0))
+  mutate(across(all_of(c("canaldensws", "coalminedensws", "damdensws", "damnrmstorws", "manurews", "minedensws", "minedenswsrp100", "npdesdensws","pctagslpmid20XXws", "pctagslphigh20XXws", "pctcrop20XXws", "pctfrstloss20XXws", "pcthay20XXws", "pctimp20XXws", "pctnonagintrodmanagvegws","pcturbop20XXws", "rdcrsws", "superfunddensws", "superfunddenswsrp100", "tridenswsrp100")), ~0))
 
 # Make predictions with adjusted human-influence to 0 
 full_no.hi <- predict(full, newdata= COND_no.hi, seed = 24)
@@ -451,7 +454,7 @@ full_per.var_no.hi <- 100 * (1 - full_mse_no.hi/ var(COND_no.hi$logCOND, na.rm =
 # RMSE
 full_rmse_no.hi<- rmse(exp(full_no.hi$predicted), exp(COND_no.hi$logCOND))
 full_rmse.scaled_no.hi <- full_rmse_no.hi/range_COND
-print(paste0('OOB RMSE = ' , round(full_rmse_no.hi,2), " (μS/cm)"))
+print(paste0('OOB RMSE = ' , round(full_rmse_no.hi,2), units))
 print(paste0('Scaled OOB RMSE = ' , round(full_rmse.scaled_no.hi*100,2), "%"))
 
 # Make a df for plots
@@ -464,8 +467,8 @@ full_plotdf_no.hi <- data.frame(obs = COND_no.hi$logCOND, pred = full_no.hi$pred
 ggplot(data = full_plotdf_no.hi, aes(x = pred, y = obs)) +
   geom_point(alpha = 0.75) +
   labs(title = "COND Full Model predictions without human influenced vars",
-       x = "Predicted values (μS/cm)",
-       y = "Observed values (μS/cm)") +
+       x = paste("Predicted values", units),
+       y = paste("Observed values", units)) +
   theme_bw() + 
   geom_abline() + 
   scale_x_log10() +
@@ -474,7 +477,7 @@ ggplot(data = full_plotdf_no.hi, aes(x = pred, y = obs)) +
 
 # Plot residuals - full model, adjusted human-influenced vars to 0
 full_resid_no.hi <- exp(COND_no.hi$logCOND) - exp(full_no.hi$predicted) # Observed minus predicted oob
-plot(full_resid_no.hi ~ exp(full_no.hi$predicted), xlab = "Predicted COND (μS/cm)", ylab = "Residuals (obs - pred)", main = "full model residuals, no HI vars")
+plot(full_resid_no.hi ~ exp(full_no.hi$predicted), xlab = paste("Predicted COND", units), ylab = "Residuals (obs - pred)", main = "full model residuals, no HI vars")
 abline(h=0, col = "red", lty = 2)
 ```
 
@@ -504,7 +507,7 @@ abline(h=0, col = "red", lty = 2)
 # 
 # # Save map as html
 # # full_model_map_no_hi <- map_function(full_map_no.hi)
-# # saveWidget(full_model_map_no_hi, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//CONDide//full_model_map_no_hi.html", selfcontained = TRUE, title = "Full model Adjusted (no human-influenced vars)")
+# # saveWidget(full_model_map_no_hi, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//COND//full_model_map_no_hi.html", selfcontained = TRUE, title = "Full model Adjusted (no human-influenced vars)")
 ```
 
 ## C. Model Reduction
@@ -529,13 +532,13 @@ print(red15_per.var)
 #In-bag RMSE
 red15_rmse<- rmse(exp(red15$predicted), exp(COND$logCOND))
 red15_rmse.scaled <- red15_rmse/range_COND
-print(paste0('In-bag RMSE = ' , round(red15_rmse,2), " (μS/cm)"))
+print(paste0('In-bag RMSE = ' , round(red15_rmse,2), units))
 print(paste0('Scaled In-bag RMSE = ' , round(red15_rmse.scaled*100,2), "%"))
 
 #OOB RMSE
 red15_oob.rmse<- rmse(exp(red15$predicted.oob), exp(COND$logCOND))
 red15_oob.rmse.scaled <- red15_oob.rmse/range_COND
-print(paste0('OOB RMSE = ' , round(red15_oob.rmse,2), " (μS/cm)"))
+print(paste0('OOB RMSE = ' , round(red15_oob.rmse,2), units))
 print(paste0('Scaled OOB RMSE = ' , round(red15_oob.rmse.scaled*100,2), "%"))
 
 # Model tuning - How many trees? (default: 500)
@@ -545,7 +548,7 @@ red15$err.rate
 plot(red15, plots.one.page=FALSE)
 red15_vimp <- sort(red15$importance, decreasing = TRUE)[1:20]
 par(mar=c(5,7,4,1)+.1)
-barplot(red15_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = "COND Reduced (10 variables) model VIMP")
+barplot(red15_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = "COND Reduced (red15) model VIMP")
 
 #print(vimp(red15)$importance)
 
@@ -561,8 +564,8 @@ red15_plotdf <- rbind(red15_pred.oob, red15_pred.ib) %>%
 ggplot(data = red15_plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
   geom_point(alpha = 0.75) +
   labs(title = "COND red15 Model",
-       x = "Predicted values (μS/cm)",
-       y = "Observed values (μS/cm)") +
+       x = paste("Predicted values", units),
+       y = paste("Observed values", units)) +
   theme_bw() + 
   geom_abline() +
   geom_smooth(method = "lm", se = FALSE) +
@@ -613,7 +616,7 @@ map_function(red15_map)
 
 # Save map as html
 # red15_model_map <- map_function(red15_map)
-# saveWidget(red15_model_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//CONDide//red15_model_map.html", selfcontained = TRUE, title = "red15 model")
+# saveWidget(red15_model_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//COND//red15_model_map.html", selfcontained = TRUE, title = "red15 model")
 ```
 
 #### Overlay reduced and full models
@@ -632,8 +635,8 @@ ggplot(full_red_map, aes(x = Prediction, y = obs, color = Model)) +
   geom_point(size = 1.5, alpha = 0.5) + theme_bw(base_size = 15) +
   geom_smooth(method = "lm", se = FALSE) +
   labs(
-    x = "Predicted COND (μS/cm)",
-    y = "Observed COND (μS/cm)") + scale_x_log10() + scale_y_log10() +
+    x = paste("Predicted COND", units),
+    y = paste("Observed COND", units)) + scale_x_log10() + scale_y_log10() +
   geom_abline(intercept = 0, slope = 1, linetype = "dashed")
 ```
 
@@ -697,7 +700,7 @@ red15_per.var_no.hi <- 100 * (1 - red15_mse_no.hi/ var(COND_no.hi$logCOND, na.rm
 # RMSE
 red15_rmse_no.hi<- rmse(exp(red15_no.hi$predicted), exp(COND_no.hi$logCOND))
 red15_rmse.scaled_no.hi <- red15_rmse_no.hi/range_COND
-print(paste0('OOB RMSE = ' , round(red15_rmse_no.hi,2), " (μS/cm)"))
+print(paste0('OOB RMSE = ' , round(red15_rmse_no.hi,2), units))
 print(paste0('Scaled OOB RMSE = ' , round(red15_rmse.scaled_no.hi*100,2), "%"))
 
 # Make a df for plots
@@ -710,8 +713,8 @@ red15_plotdf_no.hi <- data.frame(obs = COND_no.hi$logCOND, pred = red15_no.hi$pr
 ggplot(data = red15_plotdf_no.hi, aes(x = pred, y = obs)) +
   geom_point(alpha = 0.75) +
   labs(title = "COND red15 Model predictions without human influenced vars",
-       x = "Predicted values (μS/cm)",
-       y = "Observed values (μS/cm)") +
+       x = paste("Predicted values", units),
+       y = paste("Observed values", units)) +
   theme_bw() + 
   geom_abline() + 
   scale_x_log10() +
@@ -720,7 +723,7 @@ ggplot(data = red15_plotdf_no.hi, aes(x = pred, y = obs)) +
 
 # Plot residuals - red15 model, adjusted human-influenced vars to 0
 red15_resid_no.hi <- exp(COND_no.hi$logCOND) - exp(red15_no.hi$predicted) # Observed minus predicted oob
-plot(red15_resid_no.hi ~ exp(red15_no.hi$predicted), xlab = "Predicted COND (μS/cm)", ylab = "Residuals (obs - pred)", main = "red15 model residuals, no HI vars")
+plot(red15_resid_no.hi ~ exp(red15_no.hi$predicted), xlab = paste("Predicted COND", units), ylab = "Residuals (obs - pred)", main = "red15 model residuals, no HI vars")
 abline(h=0, col = "red", lty = 2)
 ```
 
@@ -749,7 +752,7 @@ map_function(red15_map_no.hi)
 
 # Save map as html
 # red15_model_map_no.hi <- map_function(red15_map_no.hi)
-# saveWidget(red15_model_map_no.hi, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//CONDide//red15_model_map_no.hi.html", selfcontained = TRUE, title = "Full model Adjusted (no human-influenced vars)")
+# saveWidget(red15_model_map_no.hi, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//COND//red15_model_map_no.hi.html", selfcontained = TRUE, title = "Full model Adjusted (no human-influenced vars)")
 ```
 
 
@@ -773,13 +776,13 @@ print(red4_per.var)
 #In-bag RMSE
 red4_rmse<- rmse(exp(red4$predicted), exp(COND$logCOND))
 red4_rmse.scaled <- red4_rmse/range_COND
-print(paste0('In-bag RMSE = ' , round(red4_rmse,2), " (μS/cm)"))
+print(paste0('In-bag RMSE = ' , round(red4_rmse,2), units))
 print(paste0('Scaled In-bag RMSE = ' , round(red4_rmse.scaled*100,2), "%"))
 
 #OOB RMSE
 red4_oob.rmse<- rmse(exp(red4$predicted.oob), exp(COND$logCOND))
 red4_oob.rmse.scaled <- red4_oob.rmse/range_COND
-print(paste0('OOB RMSE = ' , round(red4_oob.rmse,2), " (μS/cm)"))
+print(paste0('OOB RMSE = ' , round(red4_oob.rmse,2), units))
 print(paste0('Scaled OOB RMSE = ' , round(red4_oob.rmse.scaled*100,2), "%"))
 
 # Model tuning - How many trees? (default: 500)
@@ -805,8 +808,8 @@ red4_plotdf <- rbind(red4_pred.oob, red4_pred.ib) %>%
 ggplot(data = red4_plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
   geom_point(alpha = 0.75) +
   labs(title = "COND red4 Model",
-       x = "Predicted values (μS/cm)",
-       y = "Observed values (μS/cm)") +
+       x = paste("Predicted values", units),
+       y = paste("Observed values", units)) +
   theme_bw() + 
   geom_abline() +
   geom_smooth(method = "lm", se = FALSE) +
@@ -830,7 +833,7 @@ red4_per.var_no.hi <- 100 * (1 - red4_mse_no.hi/ var(COND_no.hi$logCOND, na.rm =
 # RMSE
 red4_rmse_no.hi<- rmse(exp(red4_no.hi$predicted), exp(COND_no.hi$logCOND))
 red4_rmse.scaled_no.hi <- red4_rmse_no.hi/range_COND
-print(paste0('OOB RMSE = ' , round(red4_rmse_no.hi,2), " (μS/cm)"))
+print(paste0('OOB RMSE = ' , round(red4_rmse_no.hi,2), units))
 print(paste0('Scaled OOB RMSE = ' , round(red4_rmse.scaled_no.hi*100,2), "%"))
 
 # Make a df for plots
@@ -843,8 +846,8 @@ red4_plotdf_no.hi <- data.frame(obs = COND_no.hi$logCOND, pred = red4_no.hi$pred
 ggplot(data = red4_plotdf_no.hi, aes(x = pred, y = obs)) +
   geom_point(alpha = 0.75) +
   labs(title = "COND red4 Model predictions without human influenced vars",
-       x = "Predicted values (μS/cm)",
-       y = "Observed values (μS/cm)") +
+       x = paste("Predicted values", units),
+       y = paste("Observed values", units)) +
   theme_bw() + 
   geom_abline() + 
   scale_x_log10() +
@@ -853,7 +856,7 @@ ggplot(data = red4_plotdf_no.hi, aes(x = pred, y = obs)) +
 
 # Plot residuals - red4 model, adjusted human-influenced vars to 0
 red4_resid_no.hi <- exp(COND_no.hi$logCOND) - exp(red4_no.hi$predicted) # Observed minus predicted oob
-plot(red4_resid_no.hi ~ exp(red4_no.hi$predicted), xlab = "Predicted COND (μS/cm)", ylab = "Residuals (obs - pred)", main = "red4 model residuals, no HI vars")
+plot(red4_resid_no.hi ~ exp(red4_no.hi$predicted), xlab = paste("Predicted COND", units), ylab = "Residuals (obs - pred)", main = "red4 model residuals, no HI vars")
 abline(h=0, col = "red", lty = 2)
 ```
 
@@ -895,13 +898,13 @@ ref_range_COND <- max(exp(COND.ref$logCOND)) - min(exp(COND.ref$logCOND))
 #In-bag RMSE
 ref.rmse<- rmse(exp(ref$predicted), exp(COND.ref$logCOND))
 ref_rmse.scaled <- ref.rmse/ref_range_COND
-print(paste0('In-bag RMSE = ' , round(ref.rmse,2), " (μS/cm)"))
+print(paste0('In-bag RMSE = ' , round(ref.rmse,2), units))
 print(paste0('Scaled In-bag RMSE = ' , round(ref_rmse.scaled*100,2), "%"))
 
 #OOB RMSE
 ref_oob.rmse<- rmse(exp(ref$predicted.oob), exp(COND.ref$logCOND))
 ref_oob.rmse.scaled <- ref_oob.rmse/ref_range_COND
-print(paste0('OOB RMSE = ' , round(ref_oob.rmse,2), " (μS/cm)"))
+print(paste0('OOB RMSE = ' , round(ref_oob.rmse,2), units))
 print(paste0('Scaled OOB RMSE = ' , round(ref_oob.rmse.scaled*100,2), "%"))
 
 # Model tuning - How many trees? (default: 500)
@@ -927,8 +930,8 @@ ref_plotdf<- rbind(ref_pred.oob, ref_pred.ib) %>%
 ggplot(data = ref_plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
   geom_point(alpha = 0.75) +
   labs(title = "COND Full Reference-Only Model",
-       x = "Predicted values (μS/cm)",
-       y = "Observed values (μS/cm)") +
+       x = paste("Predicted values", units),
+       y = paste("Observed values", units)) +
   theme_bw() + 
   geom_abline() + 
   geom_smooth(method = "lm", se = FALSE) +
@@ -940,7 +943,7 @@ ggplot(data = ref_plotdf, aes(x = pred, y = obs, color = predictions, shape = pr
 
 # Plot residuals - 
 ref_resid <- exp(COND.ref$logCOND) - exp(ref$predicted) # Observed minus predicted oob
-plot(ref_resid ~ exp(ref$predicted), xlab = "Predicted COND (μS/cm)", ylab = "Residuals (obs - pred)", main = "Ref only model residuals")
+plot(ref_resid ~ exp(ref$predicted), xlab = paste("Predicted COND", units), ylab = "Residuals (obs - pred)", main = "Ref only model residuals")
 abline(h=0, col = "red", lty = 2)
 ```
 
@@ -975,7 +978,7 @@ map_function(ref_map)
 # 
 # # Save map as html
 # # ref_model_map <- map_function(ref_map)
-# # saveWidget(ref_model_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//CONDide//ref_model_map.html", selfcontained = TRUE, title = "Ref-only model")
+# # saveWidget(ref_model_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//COND//ref_model_map.html", selfcontained = TRUE, title = "Ref-only model")
 ```
 
 ## F. Make comparisons of predictions
@@ -1033,12 +1036,12 @@ ggplot(boxplot_df, aes(x = L1Eco, y = Prediction, fill = Model)) +
   geom_boxplot() +
   guides(x = guide_axis(angle = 45)) +
   scale_y_log10() +
-  theme_bw(base_size=14) + ylab("COND (μS/cm)") +
+  theme_bw(base_size=14) + ylab(paste("COND", units)) +
    stat_summary(
     fun.data = function(x) data.frame(y = median(x), label = length(x)),
     geom = "text",
     position = position_dodge(width = 0.75),
-    vjust = -0.5
+    vjust = -0.5, size = 3
   )
   
 # Ignore warning for 540 rows removed - these are NAs in the Pred_ref column.
@@ -1114,26 +1117,26 @@ map_all(leaflet_df)
 
 # Save map as html
 # map_all <- map_all(leaflet_df)
-# saveWidget(map_all, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//CONDide//map_all.html", selfcontained = TRUE, title = "Map_All")
+# saveWidget(map_all, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//COND//map_all.html", selfcontained = TRUE, title = "Map_All")
 ```
  
 #### Unadjusted predictions vs. adjusted human inflence 
 
 ```{r unadjusted predictions vs adj human influence}
-leaflet_df$Ref <- factor(leaflet_df$Ref, levels = c("B", "S", "T"))
-
-ggplot(leaflet_df, aes(x = Pred_reduced, y = Pred_adj, color = Ref, shape = Ref)) +
-  geom_point(size = 1.5) + theme_bw(base_size = 15) +
-  labs(
-    x = "Reduced model predicted COND (μS/cm)",
-    y = "Predicted COND (μS/cm) adjusted\n for no human disturbance predictions",
-    color = "Reference Status", shape = "Reference Status") + 
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed")
+# leaflet_df$Ref <- factor(leaflet_df$Ref, levels = c("B", "S", "T"))
+# 
+# ggplot(leaflet_df, aes(x = Pred_reduced, y = Pred_adj, color = Ref, shape = Ref)) +
+#   geom_point(size = 1.5) + theme_bw(base_size = 15) +
+#   labs(
+#     x = paste("Reduced model predicted COND", units),
+#     y = paste("Predicted COND", units, "adjusted\n for no human disturbance predictions"),
+#     color = "Reference Status", shape = "Reference Status") + 
+#   geom_abline(intercept = 0, slope = 1, linetype = "dashed")
 ```
 
 
 
-# **7 - Make predictions on Oregon data**
+# **6 - Make predictions on Oregon data**
 
 ## A. STATIONS - *FROM WATER CHEMISTRY BENCHMARKS SCRIPT*
 
@@ -1278,7 +1281,7 @@ red15_per.var_deq <- 100 * (1 - red15_mse_deq/ var(deq_COND$logCOND, na.rm = TRU
 red15_rmse_deq<- rmse(exp(red15_deq$predicted), exp(deq_COND$logCOND))
 deq_range_COND <- max(exp(deq_COND$logCOND)) - min(exp(deq_COND$logCOND))
 red15_rmse.scaled_deq <- red15_rmse_deq/deq_range_COND
-print(paste0('OOB RMSE = ' , round(red15_rmse_deq,2), " (μS/cm)"))
+print(paste0('OOB RMSE = ' , round(red15_rmse_deq,2), units))
 print(paste0('Scaled OOB RMSE = ' , round(red15_rmse.scaled_deq*100,2), "%"))
 
 # Make a df for plots
@@ -1291,8 +1294,8 @@ red15_plotdf_deq <- data.frame(obs = deq_COND$logCOND, pred = red15_deq$predicte
 ggplot(data = red15_plotdf_deq, aes(x = pred, y = obs)) +
   geom_point(alpha = 0.75) +
   labs(title = "COND red15 Model predictions on DEQ data",
-       x = "Predicted values (μS/cm)",
-       y = "Observed values (μS/cm)") +
+       x = paste("Predicted values", units),
+       y = paste("Observed values", units)) +
   theme_bw() + 
   geom_abline() + 
   scale_x_log10() +
@@ -1301,7 +1304,7 @@ ggplot(data = red15_plotdf_deq, aes(x = pred, y = obs)) +
 
 # Plot residuals - red15 model, adjusted human-influenced vars to 0
 red15_resid_deq <- exp(deq_COND$logCOND) - exp(red15_deq$predicted) # Observed minus predicted oob
-plot(red15_resid_deq ~ exp(red15_deq$predicted), xlab = "Predicted COND (μS/cm)", ylab = "Residuals (obs - pred)", main = "red15 DEQ predictions residuals")
+plot(red15_resid_deq ~ exp(red15_deq$predicted), xlab = paste("Predicted COND", units), ylab = "Residuals (obs - pred)", main = "red15 DEQ predictions residuals")
 abline(h=0, col = "red", lty = 2)
 ```
 ## E. Reduce human-influenced variables to 0 and make predictions on DEQ data
@@ -1320,7 +1323,7 @@ red15_per.var_deq_no.hi  <- 100 * (1 - red15_mse_deq_no.hi / var(deq_COND_no.hi$
 red15_rmse_deq_no.hi <- rmse(exp(red15_deq_no.hi$predicted), exp(deq_COND_no.hi$logCOND))
 
 red15_rmse.scaled_deq_no.hi  <- red15_rmse_deq_no.hi /deq_range_COND
-print(paste0('OOB RMSE = ' , round(red15_rmse_deq_no.hi ,2), " (μS/cm)"))
+print(paste0('OOB RMSE = ' , round(red15_rmse_deq_no.hi ,2), units))
 print(paste0('Scaled OOB RMSE = ' , round(red15_rmse.scaled_deq_no.hi *100,2), "%"))
 
 # Make a df for plots
@@ -1333,8 +1336,8 @@ red15_plotdf_deq_no.hi <- data.frame(obs = deq_COND_no.hi$logCOND, pred = red15_
 ggplot(data = red15_plotdf_deq_no.hi, aes(x = pred, y = obs)) +
   geom_point(alpha = 0.75) +
   labs(title = "COND red15 Model predictions on DEQ data",
-       x = "Predicted values (μS/cm)",
-       y = "Observed values (μS/cm)") +
+       x = paste("Predicted values", units),
+       y = paste("Observed values", units)) +
   theme_bw() + 
   geom_abline() + 
   scale_x_log10() +
@@ -1343,7 +1346,52 @@ ggplot(data = red15_plotdf_deq_no.hi, aes(x = pred, y = obs)) +
 
 # Plot residuals - red15 model, adjusted human-influenced vars to 0
 red15_resid_deq_no.hi  <- exp(deq_COND_no.hi$logCOND) - exp(red15_deq_no.hi$predicted) # Observed minus predicted oob
-plot(red15_resid_deq_no.hi ~ exp(red15_deq_no.hi$predicted), xlab = "Predicted COND (μS/cm)", ylab = "Residuals (obs - pred)", main = "red15 DEQ predictions residuals")
+plot(red15_resid_deq_no.hi ~ exp(red15_deq_no.hi$predicted), xlab = paste("Predicted COND", units), ylab = "Residuals (obs - pred)", main = "red15 DEQ predictions residuals")
 abline(h=0, col = "red", lty = 2)
+```
+
+```{r Add predictions to compare boxplot}
+# DEQ obs and predictions
+any(duplicated(deq_COND$elevws)) # false
+
+# Join predictions to StreamCat table
+deq_obs.predict <- cbind(red15_plotdf_deq, deq_COND) %>% 
+  arrange(elevws)
+
+deq_aqwms <- inner_join(deq_cond,deq_sc_all, by = join_by(COMID == comid)) %>% 
+  arrange(elevws) %>% 
+  select(c(MLocID:Conductivity))
+
+# No HI deq predictions
+deq_obs.predict_no.hi <- cbind(red15_plotdf_deq_no.hi, deq_COND) %>% 
+  arrange(elevws)
+
+deq_map <- cbind(deq_aqwms, deq_obs.predict, deq_obs.predict_no.hi %>% select(pred_no.hi = pred))
+
+# Construct a dataframe of predictions to compare
+deq_boxplot_preds <- data.frame(MLocID = deq_map$MLocID, Obs = deq_map$obs, Pred_deq = deq_map$pred, Pred_no.hi = deq_map$pred_no.hi, L3Eco = as.character(deq_map$L3Eco))
+
+deq_boxplot_preds$L3Eco <- factor(deq_boxplot_preds$L3Eco, levels = c("Coast Range", "Willamette Valley", "Klamath Mountains", "Cascades", "Eastern Cascades Slopes and Foothills", "Columbia Plateau","Blue Mountains", "Northern Basin and Range", "Snake River Plain"))
+
+deq_boxplot_df <- gather(deq_boxplot_preds, key = "Model", value = "Prediction", Obs, Pred_deq, Pred_no.hi)
+deq_boxplot_df$Model <- factor(deq_boxplot_df$Model, levels = c("Pred_no.hi", "Pred_deq", "Obs"))
+
+
+# Clean out environment
+rm=(c("deq_boxplot_preds"))
+
+ggplot(deq_boxplot_df, aes(x = L3Eco, y = Prediction, fill = Model)) + 
+  geom_boxplot() +
+  guides(x = guide_axis(angle = 45)) +
+  scale_y_log10() +
+  labs(title = "National model Predictions on ORDEQ data") +
+  theme_bw(base_size=14) + ylab(paste("COND", units)) +
+   stat_summary(
+    fun.data = function(x) data.frame(y = median(x), label = length(x)),
+    geom = "text",
+    position = position_dodge(width = 0.75),
+    vjust = -0.5, size = 3
+  )
+
 ```
 

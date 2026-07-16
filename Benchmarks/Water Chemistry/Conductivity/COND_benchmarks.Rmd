@@ -25,6 +25,23 @@ library(htmlwidgets)
 library(maps)
 ```
 
+```{r pre-define inputs}
+
+units <- "(μS/cm)" # For plot labels
+
+# plot labels
+x <- 50
+y1 <- 320
+y2 <- 390
+y3 <- 460
+
+# number of variables to include in the reduced model
+nred <- 15
+
+# Character vector of all human-influenced variables
+HI_vars <- c("CANALDENSWS", "DAMDENSWS", "MINEDENSWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTAGSLPMID2001WS", "PCTCROP2001WS", "PCTIMP2001WS", "PCTFRSTLOSS2002WS", "PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "SW_FLUXWS", "TRIDENSWS", "WATERINPUTWS", "WWTPALLDENSWS")
+```
+
 # **2 - IMPORT DATA**
 
 ## A. STATIONS - *FROM WATER CHEMISTRY BENCHMARKS SCRIPT*
@@ -309,6 +326,7 @@ COND$L2Eco <- factor(COND$L2Eco, levels = c("Marine West Coast Forest", "Western
 COND$L3Eco <- factor(COND$L3Eco, levels = c("Coast Range", "Willamette Valley", "Klamath Mountains", "Cascades", "Eastern Cascades Slopes and Foothills", "Columbia Plateau","Blue Mountains", "Northern Basin and Range", "Snake River Plain"))
 ```
 
+
 ## B. FULL MODEL - ALL PREDICTORS INCLUDED
 
 #### Model tuning - mtry and node size (number of trees happens in next step)
@@ -335,13 +353,13 @@ range_COND <- max(exp(COND$logCOND)) - min(exp(COND$logCOND))
 #In-bag RMSE
 full_rmse<- rmse(exp(full$predicted), exp(COND$logCOND))
 full_rmse.scaled <- full_rmse/range_COND
-print(paste0('In-bag RMSE = ' , round(full_rmse,2), " (μS/cm)"))
+print(paste0('In-bag RMSE = ' , round(full_rmse,2), units))
 print(paste0('Scaled In-bag RMSE = ' , round(full_rmse.scaled*100,2), "%"))
 
 #OOB RMSE
 full_oob.rmse<- rmse(exp(full$predicted.oob), exp(COND$logCOND))
 full_oob.rmse.scaled <- full_oob.rmse/range_COND
-print(paste0('OOB RMSE = ' , round(full_oob.rmse,2), " (μS/cm)"))
+print(paste0('OOB RMSE = ' , round(full_oob.rmse,2), units))
 print(paste0('Scaled OOB RMSE = ' , round(full_oob.rmse.scaled*100,2), "%"))
 
 # Model tuning - How many trees? (default: 500)
@@ -367,16 +385,16 @@ full_plotdf <- rbind(full_pred.oob, full_pred.ib) %>%
 ggplot(data = full_plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
   geom_point(alpha = 0.75) +
   labs(title = "Conductivity Full Model",
-       x = "Predicted values (μS/cm)",
-       y = "Observed values (μS/cm)") +
+       x = paste("Predicted values", units),
+       y = paste("Observed values", units)) +
   theme_bw() + 
   geom_abline() + 
   geom_smooth(method = "lm", se = FALSE) +
   scale_x_log10() +
   scale_y_log10() +
-  annotate("text", x = 50, y = 320, label = paste0('OOB RMSE = ' , round(full_oob.rmse,2), ' | scaled RMSE = ', round(full_oob.rmse.scaled*100,2), "%"), size = 3) +
-    annotate("text", x = 50, y = 390, label = paste0('IB RMSE = ' , round(full_rmse,2), ' | scaled RMSE = ', round(full_rmse.scaled*100,2), "%"), size = 3) +
-      annotate("text", x = 50, y = 460, label = paste0('% variance explained = ' , round(full_per.var,2), '%'), size = 3) 
+  annotate("text", x = x, y = y1, label = paste0('OOB RMSE = ' , round(full_oob.rmse,2), ' | scaled RMSE = ', round(full_oob.rmse.scaled*100,2), "%"), size = 3) +
+    annotate("text", x = x, y = y2, label = paste0('IB RMSE = ' , round(full_rmse,2), ' | scaled RMSE = ', round(full_rmse.scaled*100,2), "%"), size = 3) +
+      annotate("text", x = x, y = y3, label = paste0('% variance explained = ' , round(full_per.var,2), '%'), size = 3) 
 ```
 
 #### Leaflet map of full model
@@ -470,7 +488,7 @@ partialplots <- plot.variable(full, xvar.names = c(names(full_vimp[1:8])), parti
 partialplots2 <- plot.variable(full, xvar.names = c(names(full_vimp[9:16])), partial = TRUE, plots.one.page = TRUE)
 
 # Human-influenced vars - need to update the xvar.names for the top HI Vars
-partialplots_hi <- plot.variable(full, xvar.names = c("PCTCROP2001WS", "SW_FLUXWS"), partial = TRUE, plots.one.page = TRUE)
+partialplots_hi <- plot.variable(full, xvar.names = c("PCTCROP2001WS", "SW_FLUXWS", "CANALDENSWS"), partial = TRUE, plots.one.page = TRUE)
 
 #******************consider adding code to look at individual metrics
 ```
@@ -561,13 +579,33 @@ map_predictors(full_map)
 # predictors_map <- map_predictors(full_map)
 # saveWidget(predictors_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//COND//predictors_map.html", selfcontained = TRUE, title = "Predictors map")
 ```
+#### Map of predictors  
+
+```{r Map predictors}
+
+# define predictor
+predictor <- "PCTCROP2001WS"
+predictor_map <- map_data("state", region = "oregon")
+
+ggplot() + 
+  geom_polygon(data = predictor_map, aes(x = long, y = lat, group = group),
+               fill = "white", color = "black") +
+  geom_point(data = full_map, aes(x = Long_DD, y = Lat_DD, fill = get(predictor)), shape = 21, size = 2.5) + 
+  scale_fill_gradient(low = "white", high = "green", name = predictor) +
+  #scale_size_area(max_size = 8) +
+  scale_size_continuous(breaks = c(1, 3, 5 ,10), name = predictor) +
+  theme_void() +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank()) +
+  labs(title = predictor)
+```
 
 #### Residual plots
 
 ```{r}
 # Plot residuals 
 full_resid <- exp(COND$logCOND) - exp(full_pred.oob$pred) # Observed minus predicted oob
-plot(full_resid ~ exp(full_pred.oob$pred), xlab = "Predicted Conductivity (μS/cm)", ylab = "Residuals", main = "Full Model residuals")
+plot(full_resid ~ exp(full_pred.oob$pred), xlab = paste("Predicted Conductivity", units), ylab = "Residuals", main = "Full Model residuals")
 abline(h=0, col = "red", lty = 2)
 
 # Resids by lat and long
@@ -588,7 +626,7 @@ plot(mse ~ full_map$Long_DD, xlab = "Longitude", ylab = "MSE")
 ```{r}
 # Reduce all human-influenced vars to all 0s.
 COND_no.hi <- COND %>% 
-  mutate(across(all_of(c("CANALDENSWS", "DAMDENSWS", "MINEDENSWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTAGSLPMID2001WS", "PCTCROP2001WS", "PCTIMP2001WS", "PCTFRSTLOSS2002WS", "PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "SW_FLUXWS", "TRIDENSWS", "WATERINPUTWS", "WWTPALLDENSWS")), ~0))
+  mutate(across(all_of(HI_vars), ~0))
 
 # Make predictions with adjusted human-influence to 0 
 full_no.hi <- predict(full, newdata= COND_no.hi, seed = 24)
@@ -600,7 +638,7 @@ full_per.var_no.hi <- 100 * (1 - full_mse_no.hi/ var(COND_no.hi$logCOND, na.rm =
 # RMSE
 full_rmse_no.hi<- rmse(exp(full_no.hi$predicted), exp(COND_no.hi$logCOND))
 full_rmse.scaled_no.hi <- full_rmse_no.hi/range_COND
-print(paste0('OOB RMSE = ' , round(full_rmse_no.hi,2), " (μS/cm)"))
+print(paste0('OOB RMSE = ' , round(full_rmse_no.hi,2), units))
 print(paste0('Scaled OOB RMSE = ' , round(full_rmse.scaled_no.hi*100,2), "%"))
 
 # Make a df for plots
@@ -613,8 +651,8 @@ full_plotdf_no.hi <- data.frame(obs = COND_no.hi$logCOND, pred = full_no.hi$pred
 ggplot(data = full_plotdf_no.hi, aes(x = pred, y = obs)) +
   geom_point(alpha = 0.75) +
   labs(title = "COND Full Model predictions without human influenced vars",
-       x = "Predicted values (μS/cm)",
-       y = "Observed values (μS/cm)") +
+       x = paste("Predicted values", units),
+       y = paste("Observed values", units)) +
   theme_bw() + 
   geom_abline() + 
   scale_x_log10() +
@@ -623,7 +661,7 @@ ggplot(data = full_plotdf_no.hi, aes(x = pred, y = obs)) +
 
 # Plot residuals - full model, adjusted human-influenced vars to 0
 full_resid_no.hi <- exp(COND_no.hi$logCOND) - exp(full_no.hi$predicted) # Observed minus predicted oob
-plot(full_resid_no.hi ~ exp(full_no.hi$predicted), xlab = "Predicted COND (μS/cm)", ylab = "Residuals (obs - pred)", main = "full model residuals, no HI vars")
+plot(full_resid_no.hi ~ exp(full_no.hi$predicted), xlab = paste("Predicted COND", units), ylab = "Residuals (obs - pred)", main = "full model residuals, no HI vars")
 abline(h=0, col = "red", lty = 2)
 ```
 
@@ -659,12 +697,176 @@ map_function(full_map_no.hi)
 
 ## C. Model Reduction
 
-```{r}
+#### Build model with top predictors
 
-# Since adjusting human-influenced variables down to zero doesn't change the predictions appreciably, reducing the model doesn't seem like a good use of time.
+```{r reduced model tuning}
+# build formula
+red_vars <- as.formula(paste("logCOND~", paste(names(full_vimp)[1:nred], collapse = "+")))
 
+#Adjust the parameters below based on tuning 
+red15_tuning <- tune(red_vars, data = COND, seed = 1234)
+red15_tuning$optimal
 ```
 
+```{r reduced model}
+red15 <- rfsrc(red_vars, data = COND, mtry = red15_tuning$optimal[[2]], nodesize = red15_tuning$optimal[[1]], importance = "TRUE", seed = 24)
+red15 # Model output. (OOB) R squared = Percent Variance Explained.
+
+# Mean squared error (untransformed)
+red15_oob.mse <- tail(red15$err.rate,1)
+red15_per.var <- 100 * (1 - red15_oob.mse/ var(COND$logCOND, na.rm = TRUE))
+print(red15_per.var)
+
+#In-bag RMSE
+red15_rmse<- rmse(exp(red15$predicted), exp(COND$logCOND))
+red15_rmse.scaled <- red15_rmse/range_COND
+print(paste0('In-bag RMSE = ' , round(red15_rmse,2), units))
+print(paste0('Scaled In-bag RMSE = ' , round(red15_rmse.scaled*100,2), "%"))
+
+#OOB RMSE
+red15_oob.rmse<- rmse(exp(red15$predicted.oob), exp(COND$logCOND))
+red15_oob.rmse.scaled <- red15_oob.rmse/range_COND
+print(paste0('OOB RMSE = ' , round(red15_oob.rmse,2), units))
+print(paste0('Scaled OOB RMSE = ' , round(red15_oob.rmse.scaled*100,2), "%"))
+
+# Model tuning - How many trees? (default: 500)
+red15$err.rate
+
+# VIP
+plot(red15, plots.one.page=FALSE)
+red15_vimp <- sort(red15$importance, decreasing = TRUE)[1:nred]
+par(mar=c(5,7,4,1)+.1)
+barplot(red15_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = "COND Reduced (red15) model VIMP")
+
+#print(vimp(red15)$importance)
+
+# Make a df for plots
+red15_pred.oob <- data.frame(obs = COND$logCOND, pred = red15$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
+red15_pred.ib <- data.frame(obs =COND$logCOND, pred = red15$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
+red15_plotdf <- rbind(red15_pred.oob, red15_pred.ib) %>% 
+  mutate(obs = exp(obs)) %>% 
+  mutate(pred = exp(pred)) %>% 
+  mutate(delta = obs - pred)
+
+# Plot
+ggplot(data = red15_plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
+  geom_point(alpha = 0.75) +
+  labs(title = "COND red15 Model",
+       x = paste("Predicted values", units),
+       y = paste("Observed values", units)) +
+  theme_bw() + 
+  geom_abline() +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_x_log10() +
+  scale_y_log10() +
+  annotate("text", x = x, y = y1, label = paste0('OOB RMSE = ' , round(red15_oob.rmse,2), ' | scaled RMSE = ', round(red15_oob.rmse.scaled*100,2), "%"), size = 3) +
+    annotate("text", x = x, y = y2, label = paste0('IB RMSE = ' , round(red15_rmse,2), ' | scaled RMSE = ', round(red15_rmse.scaled*100,2), "%"), size = 3) +
+      annotate("text", x = x, y = y3, label = paste0('% variance explained = ' , round(red15_per.var,2), '%'), size = 3) 
+```
+
+#### Partial dependence plots for red15 model
+
+```{r partial dependence plots for reduced model}
+# Top importance vars
+red15_partialplots <- plot.variable(red15, xvar.names = c(names(red15_vimp[1:8])), partial = TRUE, plots.one.page = TRUE)
+
+red15_partialplots2 <- plot.variable(red15, xvar.names = c(names(red15_vimp[9:11])), partial = TRUE, plots.one.page = TRUE)
+
+# Human-influenced vars
+red15_partialplots_hi <- plot.variable(red15, xvar.names = c("PCTCROP2001WS", "SW_FLUXWS"), partial = TRUE, plots.one.page = TRUE)
+
+#******************consider adding code to look at individual metrics
+```
+
+#### Leaflet map of red15 model
+
+```{r leaflet map of reduced model}
+# CREATE DF FOR MAPPING PURPOSES
+# Need to join predictions to AWQMS columns, but there are no unique identifiers in the COND table. Predictions will be in the same order as the COND table initially.
+
+# Join predictions to StreamCat table
+red15_obs.predict <- cbind(red15_plotdf, COND) %>% 
+  filter(predictions == "OOB") %>% 
+  arrange(ELEVWS) # Order by unique col
+
+red15_map <- cbind(red15_obs.predict, full_awqms) %>% 
+  select(obs:COMID) %>%
+  relocate(MLocID:COMID, .before = obs)
+
+pal <- colorNumeric(palette = "Greens", 
+  domain = c(0, log(max(red15_map$obs))))
+pal2 <- colorNumeric(palette = "Greens", 
+  domain = c(0, log(max(red15_map$obs))))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-1 * max(red15_map$delta),max(red15_map$delta)))
+
+map_function(red15_map)
+
+# Save map as html
+# red15_model_map <- map_function(red15_map)
+# saveWidget(red15_model_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//COND//red15_model_map.html", selfcontained = TRUE, title = "red15 model")
+```
+
+#### Overlay reduced and full models
+
+```{r reduced and full model prediction plot}
+full_red_map <- left_join(full_map, red15_map %>% select(MLocID, pred), by = "MLocID") %>% 
+  mutate(full_pred = pred.x) %>% 
+  mutate(red15_pred = pred.y) %>% 
+  select(-c(pred.x,pred.y)) %>% 
+  relocate(red15_pred, .after = obs) %>% 
+  relocate(full_pred, .after = obs) %>% 
+  select(MLocID:predictions) %>% 
+  gather(key = "Model", value = "Prediction", full_pred, red15_pred)
+
+ggplot(full_red_map, aes(x = Prediction, y = obs, color = Model)) +
+  geom_point(size = 1.5, alpha = 0.5) + theme_bw(base_size = 15) +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(
+    x = paste("Predicted COND", units),
+    y = paste("Observed COND", units)) + scale_x_log10() + scale_y_log10() +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed")
+```
+
+#### Reduce all human-influenced variables [to 0]* and make predictions using reduced model.
+##### * We may decide to adjust to a non-zero percentile based on reference quantiles in the chunk above.
+
+```{r adj reduced model}
+# Make predictions with adjusted human-influence to 0 
+red15_no.hi <- predict(red15, newdata= COND_no.hi, seed = 24)
+
+# Mean squared error (untransformed)
+red15_mse_no.hi <- tail(red15_no.hi$err.rate,1)
+red15_per.var_no.hi <- 100 * (1 - red15_mse_no.hi/ var(COND_no.hi$logCOND, na.rm = TRUE))
+
+# RMSE
+red15_rmse_no.hi<- rmse(exp(red15_no.hi$predicted), exp(COND_no.hi$logCOND))
+red15_rmse.scaled_no.hi <- red15_rmse_no.hi/range_COND
+print(paste0('OOB RMSE = ' , round(red15_rmse_no.hi,2), units))
+print(paste0('Scaled OOB RMSE = ' , round(red15_rmse.scaled_no.hi*100,2), "%"))
+
+# Make a df for plots
+red15_plotdf_no.hi <- data.frame(obs = COND_no.hi$logCOND, pred = red15_no.hi$predicted) %>% 
+  mutate(obs = exp(obs)) %>% 
+  mutate(pred = exp(pred)) %>% 
+  mutate(delta = obs - pred)
+
+# Plot
+ggplot(data = red15_plotdf_no.hi, aes(x = pred, y = obs)) +
+  geom_point(alpha = 0.75) +
+  labs(title = "COND red15 Model predictions without human influenced vars",
+       x = paste("Predicted values", units),
+       y = paste("Observed values", units)) +
+  theme_bw() + 
+  geom_abline() + 
+  scale_x_log10() +
+  scale_y_log10() +
+  annotate("text", x = x, y = y3, label = paste0('OOB RMSE = ' , round(red15_rmse_no.hi,2), ' | scaled RMSE = ', round(red15_rmse.scaled_no.hi*100,2), "%"), size = 3)
+
+# Plot residuals - red15 model, adjusted human-influenced vars to 0
+red15_resid_no.hi <- exp(COND_no.hi$logCOND) - exp(red15_no.hi$predicted) # Observed minus predicted oob
+plot(red15_resid_no.hi ~ exp(red15_no.hi$predicted), xlab = paste("Predicted COND", units), ylab = "Residuals (obs - pred)", main = "red15 model residuals, no HI vars")
+abline(h=0, col = "red", lty = 2)
+```
 
 ## D. Reference-Only Model
 
@@ -674,7 +876,7 @@ map_function(full_map_no.hi)
 COND.ref <- cond_vars_selected %>% 
   filter(ReferenceSite=="REFERENCE") %>% 
   select(-c(MLocID:COMID, Conductivity, SampleStartDate))  %>%  # Remove AWQMS columns
-  select(-c("CANALDENSWS", "DAMDENSWS", "MINEDENSWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTAGSLPMID2001WS", "PCTCROP2001WS", "PCTFRSTLOSS2002WS", "PCTIMP2001WS",  "PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "SW_FLUXWS", "TRIDENSWS", "WWTPALLDENSWS")) %>% # Remove anthropogenic StreamCat vars
+  select(-HI_vars) %>% # Remove anthropogenic StreamCat vars
     as.data.frame()
 
 # Convert character columns to factors
@@ -706,13 +908,13 @@ ref_range_COND <- max(exp(COND.ref$logCOND)) - min(exp(COND.ref$logCOND))
 #In-bag RMSE
 ref.rmse<- rmse(exp(ref$predicted), exp(COND.ref$logCOND))
 ref_rmse.scaled <- ref.rmse/ref_range_COND
-print(paste0('In-bag RMSE = ' , round(ref.rmse,2), " (μS/cm)"))
+print(paste0('In-bag RMSE = ' , round(ref.rmse,2), units))
 print(paste0('Scaled In-bag RMSE = ' , round(ref_rmse.scaled*100,2), "%"))
 
 #OOB RMSE
 ref_oob.rmse<- rmse(exp(ref$predicted.oob), exp(COND.ref$logCOND))
 ref_oob.rmse.scaled <- ref_oob.rmse/ref_range_COND
-print(paste0('OOB RMSE = ' , round(ref_oob.rmse,2), " (μS/cm)"))
+print(paste0('OOB RMSE = ' , round(ref_oob.rmse,2), units))
 print(paste0('Scaled OOB RMSE = ' , round(ref_oob.rmse.scaled*100,2), "%"))
 
 # Model tuning - How many trees? (default: 500)
@@ -738,20 +940,20 @@ ref_plotdf<- rbind(ref_pred.oob, ref_pred.ib) %>%
 ggplot(data = ref_plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
   geom_point(alpha = 0.75) +
   labs(title = "COND Full Reference-Only Model",
-       x = "Predicted values (μS/cm)",
-       y = "Observed values (μS/cm)") +
+       x = paste("Predicted values", units),
+       y = paste("Observed values", units)) +
   theme_bw() + 
   geom_abline() + 
   geom_smooth(method = "lm", se = FALSE) +
   scale_x_log10() +
   scale_y_log10() +
-  annotate("text", x = 35, y = 110, label = paste0('OOB RMSE = ' , round(ref_oob.rmse,2), ' | scaled RMSE = ', round(ref_oob.rmse.scaled*100,2), "%"), size = 3) +
-    annotate("text", x = 35, y = 120, label = paste0('IB RMSE = ' , round(ref.rmse,2), ' | scaled RMSE = ', round(ref_rmse.scaled*100,2), "%"), size = 3) +
-      annotate("text", x = 35, y = 130, label = paste0('% variance explained = ' , round(ref_per.var,2), '%'), size = 3) 
+  annotate("text", x = x, y = y1, label = paste0('OOB RMSE = ' , round(ref_oob.rmse,2), ' | scaled RMSE = ', round(ref_oob.rmse.scaled*100,2), "%"), size = 3) +
+    annotate("text", x = x, y = y2, label = paste0('IB RMSE = ' , round(ref.rmse,2), ' | scaled RMSE = ', round(ref_rmse.scaled*100,2), "%"), size = 3) +
+      annotate("text", x = x, y = y3, label = paste0('% variance explained = ' , round(ref_per.var,2), '%'), size = 3) 
 
 # Plot residuals - 
 ref_resid <- exp(COND.ref$logCOND) - exp(ref$predicted) # Observed minus predicted oob
-plot(ref_resid ~ exp(ref$predicted), xlab = "Predicted COND (μS/cm)", ylab = "Residuals (obs - pred)", main = "Ref only model residuals")
+plot(ref_resid ~ exp(ref$predicted), xlab = paste("Predicted COND", units), ylab = "Residuals (obs - pred)", main = "Ref only model residuals")
 abline(h=0, col = "red", lty = 2)
 ```
 
@@ -811,15 +1013,15 @@ map_function(ref_map)
 
 ```{r}
 # Construct a dataframe of predictions to compare
-boxplot_preds <- data.frame(MLocID = full_map$MLocID, StationDes = full_map$StationDes, Obs = full_map$obs, Pred_full = full_map$pred, L3Eco = as.character(full_map$L3Eco),Pred_adj = full_map_no.hi$pred, Ref = full_map$ReferenceSite)
+boxplot_preds <- data.frame(MLocID = full_map$MLocID, StationDes = full_map$StationDes, Obs = full_map$obs, Pred_full = full_map$pred, L3Eco = as.character(full_map$L3Eco),Pred_adj = full_map_no.hi$pred, Ref = full_map$ReferenceSite, Pred_reduced = red15_map$pred)
 
 boxplot_ref<- ref_map %>%
   select(MLocID, Pred_ref = pred)
 
 boxplot_combo <- left_join(boxplot_preds, boxplot_ref, by="MLocID")
 
-boxplot_df <- gather(boxplot_combo, key = "Model", value = "Prediction", Pred_full, Pred_adj, Pred_ref, Obs)
-boxplot_df$Model <- factor(boxplot_df$Model, levels = c("Pred_ref", "Pred_adj","Pred_full", "Obs"))
+boxplot_df <- gather(boxplot_combo, key = "Model", value = "Prediction", Pred_full, Pred_reduced, Pred_adj, Pred_ref, Obs)
+boxplot_df$Model <- factor(boxplot_df$Model, levels = c("Pred_ref", "Pred_adj","Pred_reduced", "Pred_full", "Obs"))
 boxplot_df$L3Eco <- factor(boxplot_df$L3Eco, levels = c("Coast Range", "Willamette Valley", "Klamath Mountains", "Cascades", "Eastern Cascades Slopes and Foothills", "Columbia Plateau","Blue Mountains", "Northern Basin and Range", "Snake River Plain"))
 
 # Clean out environment
@@ -829,7 +1031,7 @@ ggplot(boxplot_df, aes(x = L3Eco, y = Prediction, fill = Model)) +
   geom_boxplot() +
   guides(x = guide_axis(angle = 45)) +
   scale_y_log10() +
-  theme_bw(base_size=14) + ylab("COND (μS/cm)") +
+  theme_bw(base_size=14) + ylab(paste("COND", units)) +
    stat_summary(
     fun.data = function(x) data.frame(y = median(x), label = length(x)),
     geom = "text",
@@ -845,7 +1047,7 @@ ggplot(boxplot_df, aes(x = L3Eco, y = Prediction, fill = Model)) +
 ```{r}
 leaflet_df <- left_join(boxplot_df, cond %>%  select(MLocID, Project1, Lat_DD, Long_DD), by = "MLocID") %>% 
   pivot_wider(names_from = Model, values_from = Prediction) %>% 
-  relocate(Obs, .before= Pred_unadj)
+  relocate(Obs, .before= Pred_full)
 
 map_all <- function(data) {
   leaflet() %>%
@@ -903,8 +1105,8 @@ pal <- colorNumeric(palette = "Greens",
   domain = c(0, max(leaflet_df$Obs)))
 pal2 <- colorNumeric(palette = "Greens", 
   domain = c(0, max(leaflet_df$Obs)))
-pal3 <- colorNumeric(palette = "Oranges", domain = c(0, max(leaflet_df$Pred_unadj)))
-pal4 <- colorNumeric(palette = "Oranges", domain = c(0, max(leaflet_df$Pred_unadj)), na.color = "transparent") 
+pal3 <- colorNumeric(palette = "Oranges", domain = c(0, max(leaflet_df$Pred_full)))
+pal4 <- colorNumeric(palette = "Oranges", domain = c(0, max(leaflet_df$Pred_full)), na.color = "transparent") 
 
 map_all(leaflet_df)
 
@@ -918,11 +1120,11 @@ map_all(leaflet_df)
 ```{r}
 leaflet_df$Ref <- factor(leaflet_df$Ref, levels = c("REFERENCE", "MODERATELY DISTURBED", "MOST DISTURBED"))
 
-ggplot(leaflet_df, aes(x = Pred_unadj, y = Pred_adj, color = Ref, shape = Ref)) +
+ggplot(leaflet_df, aes(x = Pred_full, y = Pred_adj, color = Ref, shape = Ref)) +
   geom_point(size = 1.5) + theme_bw(base_size = 15) +
   labs(
-    x = "Reduced model predicted COND (μS/cm)",
-    y = "Predicted COND (μS/cm) adjusted\n for no human disturbance predictions",
+    x = paste("Reduced model predicted COND", units),
+    y = paste("Predicted COND", units, "adjusted\n for no human disturbance predictions"),
     color = "Reference Status", shape = "Reference Status") + 
   geom_abline(intercept = 0, slope = 1, linetype = "dashed")
 ```

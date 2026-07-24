@@ -1,0 +1,68 @@
+---
+title: "Reference Trend Data Analysis"
+author: "Biomon"
+date: "2026-07-24"
+output: html_document
+---
+
+# **LOAD PACKAGES**
+
+```{r}
+library(readxl)
+library(ggplot2)
+library(tidyverse)
+#library(stringr)
+library(AWQMSdata)
+```
+
+# **1 - IMPORT WATER CHEMISTRY DATA**
+
+```{r}
+#CREATE VECTOR OF OUR 12 REFERENCE TREND STATION IDS USED TO PULL DATA
+stations <- c("26936-ORDEQ","35633-ORDEQ","35825-ORDEQ","35722-ORDEQ","32577-ORDEQ","23034-ORDEQ",
+              "31495-ORDEQ","24419-ORDEQ","35720-ORDEQ","34636-ORDEQ","11850-ORDEQ","35794-ORDEQ")
+
+#PULL TREND CHEMISTRY DATA FROM AWQMS (TYPICALLY TAKES 1-2 MINUTES)
+chem <- AWQMS_Data(MLocID = stations)
+rm(stations)
+```
+
+# **2 - FORMAT WATER CHEMISTRY DATA**
+
+```{r}
+#MAKE ABBREVIATED SITE NAMES
+chem$`StationDes`[chem$`StationDes`=="Black Canyon Creek"] <- "Black Canyon"
+chem$`StationDes`[chem$`StationDes`=="Booze Creek at River Mile 0.20"] <- "Booze"
+chem$`StationDes`[chem$`StationDes`=="Bridge Creek at upper reference site"] <- "Bridge"
+chem$`StationDes`[chem$`StationDes`=="ELK R NF AT RM 0.4"] <- "NF Elk"
+chem$`StationDes`[chem$`StationDes`=="FISH LAKE CR AT RM 1.8"] <- "Fish Lake"
+chem$`StationDes`[chem$`StationDes`=="Guano Creek, Hart Mountain"] <- "Guano"
+chem$`StationDes`[chem$`StationDes`=="Kilchis R SF at RM 1.55"] <- "SF Kilchis"
+chem$`StationDes`[chem$`StationDes`=="LADY CR AT RM 0.2"] <- "Lady"
+chem$`StationDes`[chem$`StationDes`=="LITTLE MINAM R AT RM 1.3"] <- "Little Minam"
+chem$`StationDes`[chem$`StationDes`=="Rock Creek at River Mile 1.5"] <- "Rock"
+chem$`StationDes`[chem$`StationDes`=="West Fork Silver Creek, 25 minutes downstream from end of FSR 035 (Silver, Silver Lake)"] <- "WF Silver"
+chem$`StationDes`[chem$`StationDes`=="Whychus CR NF AT MOUTH"] <- "NF Whychus"
+
+#MAKE NEW COLUMN FOR YEAR
+chem$Year<-substring(chem$`SampleStartDate`, 1, 4)
+
+#ADD & POPULATE ECO3 COLUMN
+chem$eco3<-ifelse(chem$`StationDes`=="NF Elk" | chem$`StationDes`=="Rock" | chem$`StationDes`=="SF Kilchis", "1",
+                  ifelse(chem$`StationDes`=="Fish Lake" | chem$`StationDes`=="Lady", "4",
+                         ifelse(chem$`StationDes`=="NF Whychus" | chem$`StationDes`=="WF Silver", "9",
+                                ifelse(chem$`StationDes`=="Black Canyon" | chem$`StationDes`=="Little Minam", "11",
+                                       ifelse(chem$`StationDes`=="Booze", "78",
+                                              ifelse(chem$`StationDes`=="Bridge" | chem$`StationDes`=="Guano", "80", "ERROR"))))))
+#CHECK FOR ECO3 ERRORS
+unique(chem$eco3) #fix rows that say "ERROR"
+
+#REMOVE VOIDED & REJECTED RECORDS
+chem <- subset(chem, chem$Result_Text != 'Void' & chem$Result_status != 'Rejected')
+
+#POPULATE NEW NUMERIC RESULT COLUMN TO ACCOUNT FOR NON-DETECTS AND EXCEEDANCES
+chem$'Result_Numeric_mod' <- ifelse(chem$Result_Text == 'ND', chem$'MDLValue' * 0.5, #non-detects based result text column
+                                    ifelse(chem$Result_Operator == '<', chem$'Result_Numeric' * 0.5, #non-detects based on "<" prefix
+                                    chem$Result_Numeric)) #otherwise provide value for standard result types
+```
+

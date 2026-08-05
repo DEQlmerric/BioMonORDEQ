@@ -51,7 +51,9 @@ cond <- read_excel('~/BioMonORDEQ/Benchmarks/Water Chemistry/cal.val_chem.ref.wq
   filter(Char_Name == 'Conductivity') %>% 
   select(c(MLocID, Project1, StationDes, Lat_DD, Long_DD, SampleStartDate, Result_Numeric_mod, L2Eco, L3Eco, EcoRegion4, HUC8, ReferenceSite, cal_val, COMID)) %>% 
   mutate(Conductivity = Result_Numeric_mod) %>% 
-  select(-Result_Numeric_mod)
+  select(-Result_Numeric_mod) %>% 
+  #   # filter(L3Eco %in% c("Coast Range", "Willamette Valley", "Klamath Mountains", "Cascades")) # WEST only! %>% 
+  # filter(!L3Eco %in% c("Coast Range", "Willamette Valley", "Klamath Mountains", "Cascades")) # EAST only!
 
 comids <- cond %>% 
   select(COMID) # Get just the COMIDs for next step

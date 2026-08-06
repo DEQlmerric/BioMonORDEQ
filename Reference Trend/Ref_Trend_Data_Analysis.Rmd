@@ -5,17 +5,31 @@ date: "2026-07-24"
 output: html_document
 ---
 
+1.       Are the macroinvertebrate communities changing at these sites? Species? Tolerance levels? Abundance? Diversity?
+2.       Are chemical parameters changing and in what direction?
+3.       Are riparian and in-stream habitat conditions changing? Shade? Disturbance? Flow? In-stream wood? Substrate? Etc.
+4.       What does the inter-year variability look like for different parameters at each site?
+5.       How do the statewide reference sites compare to our larger reference site network? Can they be used to understand annual variability at other reference and study locations?
+6.       How do the biological and chemical measurements at these sites compare to our water quality standards, benchmarks and narrative criteria?
+7.       What are the physical attributes of the reference sites in this network? Ecoregion? Elevation? Land-use? Etc.
+8.       Do these sites tell us anything about climate change yet?
+9.       Have any of these site been burned since we started monitoring?
+
+
 # **LOAD PACKAGES**
 
 ```{r}
 library(readxl)
 library(ggplot2)
 library(tidyverse)
+library(dplyr)
 #library(stringr)
 library(AWQMSdata)
 ```
 
-# **1 - IMPORT WATER CHEMISTRY DATA**
+# **WATER CHEMISTRY**
+
+## 1 - IMPORT DATA
 
 ```{r}
 #CREATE VECTOR OF OUR 12 REFERENCE TREND STATION IDS USED TO PULL DATA
@@ -24,10 +38,9 @@ stations <- c("26936-ORDEQ","35633-ORDEQ","35825-ORDEQ","35722-ORDEQ","32577-ORD
 
 #PULL TREND CHEMISTRY DATA FROM AWQMS (TYPICALLY TAKES 1-2 MINUTES)
 chem <- AWQMS_Data(MLocID = stations)
-rm(stations)
 ```
 
-# **2 - FORMAT WATER CHEMISTRY DATA**
+## 2 - FORMAT DATA
 
 ```{r}
 #MAKE ABBREVIATED SITE NAMES
@@ -64,5 +77,189 @@ chem <- subset(chem, chem$Result_Text != 'Void' & chem$Result_status != 'Rejecte
 chem$'Result_Numeric_mod' <- ifelse(chem$Result_Text == 'ND', chem$'MDLValue' * 0.5, #non-detects based result text column
                                     ifelse(chem$Result_Operator == '<', chem$'Result_Numeric' * 0.5, #non-detects based on "<" prefix
                                     chem$Result_Numeric)) #otherwise provide value for standard result types
+
+#SUBSET INDIVIDUAL WQ PARAMETERS FOR SUBSEQUENT EXPLORATIONS
+# ~ ~ ~ GRAB WQ METER PARAMETERS
+temp<-subset(chem, chem$`Char_Name`=='Temperature, water')
+turb<-subset(chem, chem$`Char_Name`=='Turbidity')
+cond<-subset(chem, chem$`Char_Name`=='Conductivity')
+ph<-subset(chem, chem$`Char_Name`=='pH')
+do.conc<-subset(chem, chem$`Char_Name`=='Dissolved oxygen (DO)')
+do.sat<-subset(chem, chem$`Char_Name`=='Dissolved oxygen saturation')
+afdm<-subset(chem, chem$`Char_Name` == 'Ash Free Dry Mass')
+chla<-subset(chem, chem$'Char_Name' == 'Chlorophyll a')
+
+# ~ ~ ~ LAB WQ PARAMETERS
+tss<-subset(chem, chem$`Char_Name`=='Total suspended solids')
+sulf<-subset(chem, chem$`Char_Name`=='Sulfate')
+tp<-subset(chem, chem$`Char_Name`=='Total Phosphorus, mixed forms' & chem$`Char_Speciation`=='as P') #excludes 1999 data with undefined method speciation
+  #TOTAL NITROGEN (requires extra steps to account for different methods)
+tn.total<-subset(chem, chem$`Char_Name`=="Nitrogen") #subset results from new TN method
+tn.nits.tkn<-subset(chem, chem$`Char_Name`=="Nitrate + Nitrite" | chem$`Char_Name`=="Total Kjeldahl nitrogen") #subset nits and TKN (pre-2018)
+### PLACEHOLDER FOR TN PREP
 ```
+
+## 3 - REFERENCE BENCHMARKS
+
+```{r}
+#IMPORT ECOREGION-SPECIFIC WATER CHEMISTRY BENCHMARKS
+refbench <- read_excel('//deqlab1/biomon/Projects/Biomon Redux/Trend Sites/R/Reference_Benchmarks_modified.xlsx', sheet = "Benchmarks_reformatted2")
+
+#CHANGE NAME OF ECO3 AND PARAMETER COLUMNS IN REFBENCH
+names(refbench)[names(refbench) == "CATEGORY"] <- "eco3"
+names(refbench)[names(refbench) == "PARAMETER"] <- "Char_Name"
+
+#CONVERT ECO3 COLUMN TO CHARACTER TO MATCH CHEM
+refbench$eco3 <- as.character(refbench$eco3)
+
+#MAKE CONDITION CLASS COLUMN IN CHEM FOR GOOD/FAIR/POOR BASED ON DEQ BENCHMARK VALUES
+chem <- chem %>%
+  left_join(refbench, by = c('eco3','Char_Name'))
+chem <- chem %>%
+  mutate(condclass = case_when(Result_Numeric_mod < GOOD_VAL ~ "Good",
+                               Result_Numeric_mod > POOR_VAL ~ "Poor",
+                               Result_Numeric_mod >= GOOD_VAL & Result_Numeric_mod <= POOR_VAL ~ "Fair",
+                               TRUE ~ "NA"))
+```
+
+## 4 - VISUALIZE DATA
+
+#### BOXPLOTS
+
+```{r}
+#RUN BOX PLOT FUNCTION
+boxp <- function(data, x, y) {
+  ggplot(data, aes({{x}}, {{y}})) +
+    geom_boxplot(outlier.color = "red", outlier.shape = 8) + #red asterisk outliers
+    labs(x = "Site", y = c(paste(data$Char_Name, "(",data$Result_Unit,")"))) + #automatic axis labeling
+    geom_hline(yintercept = data$MRLValue, linetype = "dashed", color = "red") + #MRL horizontal reference line
+    theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+}
+
+#GRAB WQ PARAMETERS BOX PLOTS (adjust y axis range as needed)
+boxp(turb, StationDes, Result_Numeric_mod) + coord_cartesian(ylim = c(0, 25))
+boxp(cond, StationDes, Result_Numeric_mod)
+boxp(do.sat, StationDes, Result_Numeric_mod) + coord_cartesian(ylim = c(50, 120))
+boxp(do.conc, StationDes, Result_Numeric_mod) + coord_cartesian(ylim = c(4, 12))
+boxp(ph, StationDes, Result_Numeric_mod) + coord_cartesian(ylim = c(6.5, 8.5))
+boxp(temp, StationDes, Result_Numeric_mod) + coord_cartesian(ylim = c(0, 25))
+boxp(afdm, StationDes, Result_Numeric_mod) #messy MRLs
+boxp(chla, StationDes, Result_Numeric_mod) + coord_cartesian(ylim = c(0, 0.01))
+
+#LAB WQ PARAMETERS BOX PLOTS (add chart modifiers as needed)
+boxp(tss, StationDes, Result_Numeric_mod)
+boxp(tp, StationDes, Result_Numeric_mod)
+boxp(sulf, StationDes, Result_Numeric_mod)
+boxp(tn, StationDes, Result_Numeric_mod) #fix char_name
+```
+
+
+#### ANNUAL TRENDS
+
+```{r}
+#CONDUCTIVITY
+elk<-subset(cond, cond$StationDes=='NF Elk')
+
+
+scat_cond<-ggplot(elk, aes(x = SampleStartDate, y = Result_Numeric_mod)) +
+  geom_point(aes(color = StationDes)) + 
+  labs(x = "Year", y = "Cond") +
+  theme(legend.position = "bottom") +
+  theme(legend.title = element_blank()) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+print(scat_cond)
+
+```
+
+
+
+# **MACROINVERTEBRATES**
+
+## 1 - IMPORT DATA
+
+```{r}
+#PULL BUG METRIC AND INDEX DATA FROM AWQMS
+bugs.met <- AWQMS_Bio_Metrics(MLocID = stations)
+bugs.ind <- AWQMS_Bio_Indexes(MLocID = stations)
+```
+
+## 2 - FORMAT DATA
+
+```{r}
+#RENAME COLUMNS
+names(bugs.met)[names(bugs.met) == "Metric_Name"] <- "Char_Name"
+names(bugs.ind)[names(bugs.ind) == "Index_Name"] <- "Char_Name"
+names(bugs.ind)[names(bugs.ind) == "Act_id"] <- "act_id"
+names(bugs.ind)[names(bugs.ind) == "Comment"] <- "Comments"
+
+#MERGE BUG METRIC AND INDEX DATA
+bugs <- full_join(bugs.met, bugs.ind)
+
+#ADD NEW COLUMN FOR YEAR
+bugs$Year <- substring(bugs$`Sample_Date`, 1, 4)
+
+#MAKE ABBREVIATED SITE NAMES
+bugs$StationDes[bugs$StationDes=="Black Canyon Cr (John Day)"] <- "Black Canyon"
+bugs$StationDes[bugs$StationDes=="Black Canyon Creek"] <- "Black Canyon"
+bugs$StationDes[bugs$StationDes=="Booze Cr_RM_0.20"] <- "Booze"
+bugs$StationDes[bugs$StationDes=="Booze Creek RM 0.20"] <- "Booze"
+bugs$StationDes[bugs$StationDes=="Booze Creek at River Mile 0.20"] <- "Booze"
+bugs$StationDes[bugs$StationDes=="Bridge Creek at Upper Reference"] <- "Bridge"
+bugs$StationDes[bugs$StationDes=="Bridge Creek at Upper reference site"] <- "Bridge"
+bugs$StationDes[bugs$StationDes=="Bridge Creek at upper reference site"] <- "Bridge"
+bugs$StationDes[bugs$StationDes=="ELK R NF AT RM 0.4"] <- "NF Elk"
+bugs$StationDes[bugs$StationDes=="Elk River NF at RM 0.4"] <- "NF Elk"
+bugs$StationDes[bugs$StationDes=="FISH LAKE CR AT RM 1.8"] <- "Fish Lake"
+bugs$StationDes[bugs$StationDes=="Fish Lake Creek at RM 1.8"] <- "Fish Lake"
+bugs$StationDes[bugs$StationDes=="Guano Creek (Hart Mountain)"] <- "Guano"
+bugs$StationDes[bugs$StationDes=="Guano_Ck_Hart_Mtn"] <- "Guano"
+bugs$StationDes[bugs$StationDes=="Guano Creek, Hart Mountain"] <- "Guano"
+bugs$StationDes[bugs$StationDes=="Kilchis R SF at RM 1.55"] <- "SF Kilchis"
+bugs$StationDes[bugs$StationDes=="Kilchis River SF at RM 1.55"] <- "SF Kilchis"
+bugs$StationDes[bugs$StationDes=="LADY CR AT RM 0.2"] <- "Lady"
+bugs$StationDes[bugs$StationDes=="Lady Creek at RM 0.2"] <- "Lady"
+bugs$StationDes[bugs$StationDes=="Little Minam R at RM 1.3"] <- "Little Minam"
+bugs$StationDes[bugs$StationDes=="LITTLE MINAM R AT RM 1.3"] <- "Little Minam"
+bugs$StationDes[bugs$StationDes=="Rock Creek at RM 1.5 (Alsea)"] <- "Rock"
+bugs$StationDes[bugs$StationDes=="Rock Creek at River Mile 1.5"] <- "Rock"
+bugs$StationDes[bugs$StationDes=="WF Silver Creek 25 min D/S from end of USFS"] <- "WF Silver"
+bugs$StationDes[bugs$StationDes=="WF Silver Creek 25 min D/S from end of USFS RD 035 (Silver, Silver Lake)"] <- "WF Silver"
+bugs$StationDes[bugs$StationDes=="West Fork Silver Creek, 25 minutes downstream from end of FSR 035 (Silver, Silver Lake)"] <- "WF Silver"
+bugs$StationDes[bugs$StationDes=="SQUAW CR NF AT MOUTH"] <- "NF Whychus"
+bugs$StationDes[bugs$StationDes=="Whychus Creek NF at mouth"] <- "NF Whychus"
+bugs$StationDes[bugs$StationDes=="Whychus CR NF AT MOUTH"] <- "NF Whychus"
+
+#REMOVE 1992 DATA (UNREPRESENTATIVE METHODS)
+bugs <- subset(bugs, bugs$Year!='1992')
+
+#PLACEHOLDER TO REMOVE ANYTHING BUT A OR B DATA ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#SUBSET INDIVIDUAL BUG METRICS FOR SUBSEQUENT EXPLORATIONS
+ts<-subset(bugs, bugs$`Char_Name`=='Inferred Temperature')
+bsti<-subset(bugs, bugs$`Char_Name`=='BSTI')
+oe<-subset(bugs, bugs$`Char_Name`=='O/E Ratio')
+ept<-subset(bugs, bugs$`Char_Name`=='pt_EPT') 
+```
+
+## 3 - VISUALIZE DATA
+
+#### BOXPLOTS
+
+```{r}
+#RUN BOX PLOT FUNCTION
+boxp <- function(data, x, y) {
+  ggplot(data, aes({{x}}, {{y}})) +
+    geom_boxplot(outlier.color = "red", outlier.shape = 8) + #red asterisk outliers
+    #labs(x = "Site", y = c(paste(data$Char_Name, "(",data$Result_Unit,")"))) + #automatic axis labeling
+    labs(x = "Site", y = c(paste(data$Char_Name))) + #automatic axis labeling
+    theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5))
+}
+
+#BUG BOX PLOTS (adjust y axis range as needed)
+boxp(ts, StationDes, Score) #+ coord_cartesian(ylim = c(0, 25))
+boxp(bsti, StationDes, Score)
+boxp(oe, StationDes, Score)
+boxp(ept, StationDes, Score)
+```
+
 

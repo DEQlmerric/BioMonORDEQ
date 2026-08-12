@@ -6,6 +6,10 @@ output: html_document
 ---
 
 # *Conductivity*
+```{r, include=FALSE}
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(include = FALSE)
+```
 
 # **1 - LOAD PACKAGES**
 
@@ -20,6 +24,7 @@ library(EnvStats)
 library(Metrics)
 library(randomForestSRC)
 library(leaflet)
+library(leaflet.extras)
 library(RColorBrewer)
 library(htmlwidgets)
 library(maps)
@@ -51,7 +56,7 @@ cond <- read_excel('~/BioMonORDEQ/Benchmarks/Water Chemistry/cal.val_chem.ref.wq
   filter(Char_Name == 'Conductivity') %>% 
   select(c(MLocID, Project1, StationDes, Lat_DD, Long_DD, SampleStartDate, Result_Numeric_mod, L2Eco, L3Eco, EcoRegion4, HUC8, ReferenceSite, cal_val, COMID)) %>% 
   mutate(Conductivity = Result_Numeric_mod) %>% 
-  select(-Result_Numeric_mod) %>% 
+  select(-Result_Numeric_mod) 
   #   # filter(L3Eco %in% c("Coast Range", "Willamette Valley", "Klamath Mountains", "Cascades")) # WEST only! %>% 
   # filter(!L3Eco %in% c("Coast Range", "Willamette Valley", "Klamath Mountains", "Cascades")) # EAST only!
 
@@ -300,7 +305,7 @@ cond_vars_selected$WETTEDWIDTH <- na.roughfix(cond_vars$WETTEDWIDTH) # 69 NA
 
 ## A. RESPONSE VARIABLE
 
-```{r}
+```{r, include = TRUE, echo = FALSE}
 # HISTOGRAM
 hist(cond_vars_selected$Conductivity, main = "", xlab = "Conductivity") #raw data
 hist(cond_vars_selected$logCOND, main = "", xlab = "log(Conductivity)" )
@@ -314,7 +319,7 @@ boxplot(cond_vars_selected$logCOND, ylab = "logCond")
 
 ## A. PREP RESPONSE DATA
 
-```{r}
+```{r, include = TRUE, echo = FALSE}
 # Select response data of interest
 COND <- cond_vars_selected %>%
   select(-c(MLocID:COMID, Conductivity, SampleStartDate)) %>%  #drop Conductivity in favor of logCOND. Drop AWQMS columns too.
@@ -326,6 +331,15 @@ COND[sapply(COND, is.character)] <- lapply(COND[sapply(COND, is.character)], as.
 # Order factors
 COND$L2Eco <- factor(COND$L2Eco, levels = c("Marine West Coast Forest", "Western Cordillera", "Cold Deserts"))
 COND$L3Eco <- factor(COND$L3Eco, levels = c("Coast Range", "Willamette Valley", "Klamath Mountains", "Cascades", "Eastern Cascades Slopes and Foothills", "Columbia Plateau","Blue Mountains", "Northern Basin and Range", "Snake River Plain"))
+
+# Look at response data by ecoregion
+ggplot(COND, aes(x=L3Eco, y = exp(logCOND))) + 
+geom_boxplot() +
+scale_y_log10() +
+theme_bw() +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+labs(y = "COND") +
+geom_jitter(color="gray50", size=0.85, alpha=0.8) 
 ```
 
 
@@ -341,7 +355,7 @@ full_tuning$optimal
 
 #### Build full model
 
-```{r}
+```{r, include = TRUE, echo = FALSE}
 full <- rfsrc(logCOND ~ ., data = COND, mtry = full_tuning$optimal[[2]], nodesize = full_tuning$optimal[[1]], importance = "TRUE", seed = 24)
 full # Model output. (OOB) R squared = Percent Variance Explained.
 
@@ -401,7 +415,7 @@ ggplot(data = full_plotdf, aes(x = pred, y = obs, color = predictions, shape = p
 
 #### Leaflet map of full model
 
-```{r}
+```{r, include = TRUE, echo = FALSE}
 # CREATE DF FOR MAPPING PURPOSES
 # Need to join predictions to AWQMS columns, but there are no unique identifiers in the COND table. Predictions will be in the same order as the COND table initially.
 
@@ -432,6 +446,7 @@ map_function <- function(data) {
   addProviderTiles(providers$Esri.WorldTopoMap, group = "Terrain") %>%
   addProviderTiles(providers$Esri.WorldImagery, group = "Satellite") %>%
   setView(lng = -120.5583, lat =44.0671, zoom =6.4) %>%
+  addFullscreenControl(position = "topleft", pseudoFullscreen = FALSE) %>% 
   addCircleMarkers(data = data, group = "Observed", lng = ~data$Long_DD, 
                      lat = ~data$Lat_DD, fillColor = pal(data$obs), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
@@ -483,7 +498,7 @@ map_function(full_map)
 
 #### Partial dependence plots for full model
 
-```{r}
+```{r,include = TRUE, echo = FALSE}
 # Top importance vars
 partialplots <- plot.variable(full, xvar.names = c(names(full_vimp[1:8])), partial = TRUE, plots.one.page = TRUE)
 
@@ -512,13 +527,14 @@ partialplots_hi <- plot.variable(full, xvar.names = c("PCTCROP2001WS", "SW_FLUXW
 
 #### Leaflet map of predictors
 
-```{r}
+```{r,include = TRUE, echo = FALSE}
 map_predictors <- function(data) {
   leaflet() %>%
   addProviderTiles("OpenStreetMap", group = "Basic Map") %>% 
   addProviderTiles(providers$Esri.WorldTopoMap, group = "Terrain") %>%
   addProviderTiles(providers$Esri.WorldImagery, group = "Satellite") %>%
   setView(lng = -120.5583, lat =44.0671, zoom =6.4) %>%
+  addFullscreenControl(position = "topleft", pseudoFullscreen = FALSE) %>% 
   addCircleMarkers(data = data, group = "PRECIP9120WS", lng = ~data$Long_DD, 
                      lat = ~data$Lat_DD, fillColor = pal(data$PRECIP9120WS), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
@@ -583,8 +599,7 @@ map_predictors(full_map)
 ```
 #### Map of predictors  
 
-```{r Map predictors}
-
+```{r}
 # define predictor
 predictor <- "PCTCROP2001WS"
 predictor_map <- map_data("state", region = "oregon")
@@ -604,7 +619,7 @@ ggplot() +
 
 #### Residual plots
 
-```{r}
+```{r,include = TRUE, echo = FALSE}
 # Plot residuals 
 full_resid <- exp(COND$logCOND) - exp(full_pred.oob$pred) # Observed minus predicted oob
 plot(full_resid ~ exp(full_pred.oob$pred), xlab = paste("Predicted Conductivity", units), ylab = "Residuals", main = "Full Model residuals")
@@ -625,7 +640,7 @@ plot(mse ~ full_map$Long_DD, xlab = "Longitude", ylab = "MSE")
 
 #### Reduce all human-influenced variables to 0 and make predictions using full model.
 
-```{r}
+```{r,include = TRUE, echo = FALSE}
 # Reduce all human-influenced vars to all 0s.
 COND_no.hi <- COND %>% 
   mutate(across(all_of(HI_vars), ~0))
@@ -669,7 +684,7 @@ abline(h=0, col = "red", lty = 2)
 
 #### Leaflet map adjusting human vbls to 0
 
-```{r}
+```{r,include = TRUE, echo = FALSE}
 # CREATE DF FOR MAPPING PURPOSES to explore how residuals changed on the map after scaling all HI to zero
 # Need to join predictions to AWQMS columns, but there are no unique identifiers in the COND table. Predictions will be in the same order as the COND table initially.
 
@@ -710,7 +725,7 @@ red15_tuning <- tune(red_vars, data = COND, seed = 1234)
 red15_tuning$optimal
 ```
 
-```{r reduced model}
+```{r reduced model, include = TRUE, echo = FALSE}
 red15 <- rfsrc(red_vars, data = COND, mtry = red15_tuning$optimal[[2]], nodesize = red15_tuning$optimal[[1]], importance = "TRUE", seed = 24)
 red15 # Model output. (OOB) R squared = Percent Variance Explained.
 
@@ -732,7 +747,7 @@ print(paste0('OOB RMSE = ' , round(red15_oob.rmse,2), units))
 print(paste0('Scaled OOB RMSE = ' , round(red15_oob.rmse.scaled*100,2), "%"))
 
 # Model tuning - How many trees? (default: 500)
-red15$err.rate
+#red15$err.rate
 
 # VIP
 plot(red15, plots.one.page=FALSE)
@@ -768,7 +783,7 @@ ggplot(data = red15_plotdf, aes(x = pred, y = obs, color = predictions, shape = 
 
 #### Partial dependence plots for red15 model
 
-```{r partial dependence plots for reduced model}
+```{r partial dependence plots for reduced model ,include = TRUE, echo = FALSE}
 # Top importance vars
 red15_partialplots <- plot.variable(red15, xvar.names = c(names(red15_vimp[1:8])), partial = TRUE, plots.one.page = TRUE)
 
@@ -782,7 +797,7 @@ red15_partialplots_hi <- plot.variable(red15, xvar.names = c("PCTCROP2001WS", "S
 
 #### Leaflet map of red15 model
 
-```{r leaflet map of reduced model}
+```{r leaflet map of reduced model, include = TRUE, echo = FALSE}
 # CREATE DF FOR MAPPING PURPOSES
 # Need to join predictions to AWQMS columns, but there are no unique identifiers in the COND table. Predictions will be in the same order as the COND table initially.
 
@@ -810,7 +825,7 @@ map_function(red15_map)
 
 #### Overlay reduced and full models
 
-```{r reduced and full model prediction plot}
+```{r reduced and full model prediction plot, include = TRUE, echo = FALSE}
 full_red_map <- left_join(full_map, red15_map %>% select(MLocID, pred), by = "MLocID") %>% 
   mutate(full_pred = pred.x) %>% 
   mutate(red15_pred = pred.y) %>% 
@@ -832,7 +847,7 @@ ggplot(full_red_map, aes(x = Prediction, y = obs, color = Model)) +
 #### Reduce all human-influenced variables [to 0]* and make predictions using reduced model.
 ##### * We may decide to adjust to a non-zero percentile based on reference quantiles in the chunk above.
 
-```{r adj reduced model}
+```{r adj reduced model, include = TRUE, echo = FALSE}
 # Make predictions with adjusted human-influence to 0 
 red15_no.hi <- predict(red15, newdata= COND_no.hi, seed = 24)
 
@@ -896,7 +911,7 @@ ref_tuning$optimal
 
 #### Build full ref-only model
 
-```{r}
+```{r, include = TRUE, echo = FALSE}
 ref <- rfsrc(logCOND ~ ., data = COND.ref, mtry = ref_tuning$optimal[[2]], nodesize = ref_tuning$optimal[[1]], importance = "TRUE", seed = 24)
 ref # Model output. (OOB) R squared = Percent Variance Explained.
 
@@ -961,7 +976,7 @@ abline(h=0, col = "red", lty = 2)
 
 #### Partial dependence plots for full ref-only model
 
-```{r}
+```{r, include = TRUE, echo = FALSE}
 # Top importance vars
 partialplots <- plot.variable(ref, xvar.names = c(names(ref_vimp[1:8])), partial = TRUE, plots.one.page = TRUE)
 
@@ -970,7 +985,7 @@ partialplots <- plot.variable(ref, xvar.names = c(names(ref_vimp[1:8])), partial
 
 #### Leaflet map of Ref-Only model
 
-```{r}
+```{r, include = TRUE, echo = FALSE}
 # CREATE DF FOR MAPPING PURPOSES
 # Need to join predictions to AWQMS columns, but there are no unique identifiers in the COND table. Predictions will be in the same order as the COND table initially.
 
@@ -1009,11 +1024,11 @@ map_function(ref_map)
 # saveWidget(ref_model_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//COND//ref_model_map.html", selfcontained = TRUE, title = "Ref-only model")
 ```
 
-## E. Make comparisons of predictions
-
 #### Compare reduced model (adjusted and unadjusted) by ecoregion
 
-```{r}
+## E. Make comparisons of predictions
+
+```{r,include = TRUE, echo = FALSE, warning=FALSE, fig.dim = c(11, 7)}
 # Construct a dataframe of predictions to compare
 boxplot_preds <- data.frame(MLocID = full_map$MLocID, StationDes = full_map$StationDes, Obs = full_map$obs, Pred_full = full_map$pred, L3Eco = as.character(full_map$L3Eco),Pred_adj = full_map_no.hi$pred, Ref = full_map$ReferenceSite, Pred_reduced = red15_map$pred)
 
@@ -1038,7 +1053,8 @@ ggplot(boxplot_df, aes(x = L3Eco, y = Prediction, fill = Model)) +
     fun.data = function(x) data.frame(y = median(x), label = length(x)),
     geom = "text",
     position = position_dodge(width = 0.75),
-    vjust = -0.5
+    vjust = -0.5,
+    size = 2.5
   )
 
 # Ignore warning for 700 rows removed - these are NAs in the Pred_ref column.
@@ -1046,7 +1062,7 @@ ggplot(boxplot_df, aes(x = L3Eco, y = Prediction, fill = Model)) +
 
 #### Combined Leaflet map of predictions
 
-```{r}
+```{r, include = TRUE, echo = FALSE}
 leaflet_df <- left_join(boxplot_df, cond %>%  select(MLocID, Project1, Lat_DD, Long_DD), by = "MLocID") %>% 
   pivot_wider(names_from = Model, values_from = Prediction) %>% 
   relocate(Obs, .before= Pred_full)
@@ -1057,6 +1073,7 @@ map_all <- function(data) {
   addProviderTiles(providers$Esri.WorldTopoMap, group = "Terrain") %>%
   addProviderTiles(providers$Esri.WorldImagery, group = "Satellite") %>%
   setView(lng = -120.5583, lat =44.0671, zoom =6.4) %>%
+  addFullscreenControl(position = "topleft", pseudoFullscreen = FALSE) %>%
   addCircleMarkers(data = data, group = "Observed", lng = ~data$Long_DD, 
                      lat = ~data$Lat_DD, fillColor = pal(data$Obs), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
@@ -1066,15 +1083,15 @@ map_all <- function(data) {
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$Ref, "<br>",
                                   "<strong>", "Observed Conductivity: ", "</strong>", data$Obs))  %>% 
-      addCircleMarkers(data = data, group = "Pred_unadj",lng = ~data$Long_DD, 
-                     lat = ~data$Lat_DD, fillColor = pal2(data$Pred_unadj), stroke = TRUE,
+      addCircleMarkers(data = data, group = "Pred_reduced",lng = ~data$Long_DD, 
+                     lat = ~data$Lat_DD, fillColor = pal2(data$Pred_reduced), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
                    popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
                                   "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
                                   "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$Ref, "<br>",
-                                  "<strong>", "Predicted Conductivity UNADJUSTED (full model): ", "</strong>", data$Pred_unadj))  %>% 
+                                  "<strong>", "Predicted Conductivity UNADJUSTED (full model): ", "</strong>", data$Pred_))  %>% 
      addCircleMarkers(data = data, group = "Pred_adj",lng = ~data$Long_DD, 
                      lat = ~data$Lat_DD, fillColor = pal3(data$Pred_adj), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
@@ -1095,10 +1112,10 @@ map_all <- function(data) {
                                   "<strong>", "Predicted Conductivity REF ONLY: ", "</strong>", data$Pred_ref))  %>% 
     addLayersControl(
       baseGroups = c("Basic Map", "Terrain", "Satellite"),
-      overlayGroups = c("Observed","Pred_unadj", "Pred_adj", "Pred_ref"),
+      overlayGroups = c("Observed","Pred_", "Pred_adj", "Pred_ref"),
       options = layersControlOptions(collapsed = FALSE)) %>% 
     addLegend(pal = pal, group = "Observed", values = data$Obs, position = "bottomright" , title = "Observed Conductivity" ) %>% 
-    addLegend(pal = pal2,group = "Pred_unadj",values = data$Obs, position = "bottomright" , title = "Predicted Conductivity (UNADJUSTED)" ) %>%  # Keep values=data$Obs here (instead of data$pred) to keep the legend colors scales the same between obs and pred.
+    addLegend(pal = pal2,group = "Pred_",values = data$Obs, position = "bottomright" , title = "Predicted Conductivity (UNADJUSTED)" ) %>%  # Keep values=data$Obs here (instead of data$pred) to keep the legend colors scales the same between obs and pred.
         addLegend(pal = pal3, group = "Pred_adj", values = data$Pred_adj, position = "bottomleft" , title = "Predicted Conductivity (ADJUSTED)" ) %>% 
         addLegend(pal = pal4, group = "Pred_ref", values = data$Pred_adj, position = "bottomleft" , title = "Predicted Conductivity (REF ONLY)" )    # Keep values=data$Pred_adj here (instead of data$Ref) to keep the legend colors scales the same between ref expectations.
 }
@@ -1119,14 +1136,14 @@ map_all(leaflet_df)
  
 #### Unadjusted predictions vs. adjusted human inflence 
 
-```{r}
+```{r, include = TRUE, echo = FALSE}
 leaflet_df$Ref <- factor(leaflet_df$Ref, levels = c("REFERENCE", "MODERATELY DISTURBED", "MOST DISTURBED"))
 
-ggplot(leaflet_df, aes(x = Pred_full, y = Pred_adj, color = Ref, shape = Ref)) +
+ggplot(leaflet_df, aes(x = Pred_adj, y = Pred_reduced, color = Ref, shape = Ref)) +
   geom_point(size = 1.5) + theme_bw(base_size = 15) +
   labs(
-    x = paste("Reduced model predicted COND", units),
-    y = paste("Predicted COND", units, "adjusted\n for no human disturbance predictions"),
+    y = paste("Reduced model predicted COND", units),
+    x = paste("Predicted COND", units, "adjusted\n for no human disturbance predictions"),
     color = "Reference Status", shape = "Reference Status") + 
   geom_abline(intercept = 0, slope = 1, linetype = "dashed")
 ```

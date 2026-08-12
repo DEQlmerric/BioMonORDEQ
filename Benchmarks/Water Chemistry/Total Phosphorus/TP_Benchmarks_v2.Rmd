@@ -6,6 +6,10 @@ output: html_document
 ---
 
 # *Total Phosphorus*
+```{r, include=FALSE}
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(include = FALSE)
+```
 
 # **1 - LOAD PACKAGES**
 
@@ -20,6 +24,7 @@ library(EnvStats)
 library(Metrics)
 library(randomForestSRC)
 library(leaflet)
+library(leaflet.extras)
 library(RColorBrewer)
 library(htmlwidgets)
 library(maps)
@@ -47,6 +52,14 @@ tn <- read_excel('~/BioMonORDEQ/Benchmarks/Water Chemistry/cal.val_chem.ref.wq_2
 
 comids <-  bind_rows(tp, tn) %>% select(COMID) %>% distinct() # Get just the COMIDs for the next step (TN and TP combined)
 
+```
+
+```{r pre-define inputs}
+# number of variables to include in the reduced model
+nred <- 12
+
+# Character vector of all human-influenced variables
+HI_vars <- c("CANALDENSWS", "DAMNRMSTORWS", "FERTWS", "MINEDENSWS", "NANIWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTCROP2001WS", "PCTIMP2001WS", "PCTFRSTLOSS2002WS","PCTHAY2001WS", "PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "SW_FLUXWS","TRIDENSWS","WWTPMAJORDENSWS", "WWTPALLDENSWS")
 ```
 
 ## B. WATERSHED PREDICTORS - *FROM EPA STREAMCAT*
@@ -290,7 +303,7 @@ sapply(tp_vars_selected, function(x) sum(is.na(x)))
 
 ## A. RESPONSE VARIABLE
 
-```{r}
+```{r, include = TRUE, echo = FALSE}
 # HISTOGRAM
 hist(tp_vars_selected$Total_phosphorus, main = "", xlab = "Total Phosphorus (mg/L)") #raw data
 hist(tp_vars_selected$logTP, main = "", xlab = "log(TP)", breaks = 15)
@@ -304,7 +317,7 @@ boxplot(tp_vars_selected$logTP, ylab = "log(TP)")
 
 ## A. PREP RESPONSE DATA
 
-```{r}
+```{r, include = TRUE, echo = FALSE}
 # Select response data of interest
 TP <- tp_vars_selected %>%
   select(-c(MLocID:COMID, Total_phosphorus, SampleStartDate)) %>% #drop tp in favor of logTP. Drop AWQMS columns too.
@@ -316,6 +329,15 @@ TP[sapply(TP, is.character)] <- lapply(TP[sapply(TP, is.character)], as.factor)
 # Order factors
 TP$L2Eco <- factor(TP$L2Eco, levels = c("Marine West Coast Forest", "Western Cordillera", "Cold Deserts"))
 TP$L3Eco <- factor(TP$L3Eco, levels = c("Coast Range", "Willamette Valley", "Klamath Mountains", "Cascades", "Eastern Cascades Slopes and Foothills", "Columbia Plateau","Blue Mountains", "Northern Basin and Range", "Snake River Plain"))
+
+# Look at response data by ecoregion
+ggplot(TP, aes(x=L3Eco, y = exp(logTP))) + 
+geom_boxplot() +
+scale_y_log10() +
+theme_bw() +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+labs(y = "TP") +
+geom_jitter(color="gray50", size=0.85, alpha=0.8) 
 ```
 
 ## B. FULL MODEL - ALL PREDICTORS INCLUDED
@@ -330,7 +352,7 @@ full_tuning$optimal
 
 #### Build full model
 
-```{r}
+```{r, include = TRUE, echo = FALSE}
 full <- rfsrc(logTP ~ ., data = TP, mtry = full_tuning$optimal[[2]], nodesize = full_tuning$optimal[[1]], importance = "TRUE", seed = 24)
 full # Model output. (OOB) R squared = Percent Variance Explained.
 
@@ -390,7 +412,7 @@ ggplot(data = full_plotdf, aes(x = pred, y = obs, color = predictions, shape = p
 
 #### Leaflet map of full model
 
-```{r}
+```{r, include = TRUE, echo = FALSE}
 # CREATE DF FOR MAPPING PURPOSES
 # Need to join predictions to AWQMS columns, but there are no unique identifiers in the TP table. Predictions will be in the same order as the TP table initially.
 
@@ -421,6 +443,7 @@ map_function <- function(data) {
   addProviderTiles(providers$Esri.WorldTopoMap, group = "Terrain") %>%
   addProviderTiles(providers$Esri.WorldImagery, group = "Satellite") %>%
   setView(lng = -120.5583, lat =44.0671, zoom =6.4) %>%
+  addFullscreenControl(position = "topleft", pseudoFullscreen = FALSE) %>% 
   addCircleMarkers(data = data, group = "Observed", lng = ~data$Long_DD, 
                      lat = ~data$Lat_DD, fillColor = pal(data$obs), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
@@ -472,7 +495,7 @@ map_function(full_map)
 
 #### Partial dependence plots for full model
 
-```{r}
+```{r,include = TRUE, echo = FALSE}
 # Top importance vars
 partialplots <- plot.variable(full, xvar.names = c(names(full_vimp[1:8])), partial = TRUE, plots.one.page = TRUE)
 
@@ -504,13 +527,14 @@ partialplots_hi <- plot.variable(full, xvar.names = c("PESTIC1997WS", "RDDENSWS"
 ```
 
 #### Leaflet map of predictors  
-```{r}
+```{r, include = TRUE, echo = FALSE}
 map_predictors <- function(data) {
   leaflet() %>%
   addProviderTiles("OpenStreetMap", group = "Basic Map") %>% 
   addProviderTiles(providers$Esri.WorldTopoMap, group = "Terrain") %>%
   addProviderTiles(providers$Esri.WorldImagery, group = "Satellite") %>%
   setView(lng = -120.5583, lat =44.0671, zoom =6.4) %>%
+  addFullscreenControl(position = "topleft", pseudoFullscreen = FALSE) %>% 
   addCircleMarkers(data = data, group = "PRECIP_MINUS_EVTWS", lng = ~data$Long_DD, 
                      lat = ~data$Lat_DD, fillColor = pal(data$PRECIP_MINUS_EVTWS), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
@@ -587,7 +611,7 @@ map_predictors(full_map)
 ```
 
 #### Residual plots
-```{r}
+```{r,include = TRUE, echo = FALSE}
 # Plot residuals 
 full_resid <- exp(TP$logTP) - exp(full_pred.oob$pred) # Observed minus predicted oob
 plot(full_resid ~ exp(full_pred.oob$pred), xlab = "Predicted Total Phosphorus (mg/L)", ylab = "Residuals", main = "Full Model residuals")
@@ -608,10 +632,10 @@ plot(mse ~ full_map$Long_DD, xlab = "Longitude", ylab = "MSE")
 
 #### Reduce all human-influenced variables to 0 and make predictions using full model.
 
-```{r}
+```{r,include = TRUE, echo = FALSE}
 # Reduce all human-influenced vars to all 0s.
 TP_no.hi <- TP %>% 
-  mutate(across(all_of(c("CANALDENSWS", "DAMNRMSTORWS", "FERTWS", "MINEDENSWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTCROP2001WS", "PCTHAY2001WS","PCTIMP2001WS", "PCTFRSTLOSS2002WS", "PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "SW_FLUXWS", "TRIDENSWS", "WWTPMAJORDENSWS", "WWTPALLDENSWS")), ~0))
+  mutate(across(all_of(HI_vars), ~0))
 
 # Make predictions with adjusted human-influence to 0 
 full_no.hi <- predict(full, newdata= TP_no.hi, seed = 24)
@@ -652,7 +676,7 @@ abline(h=0, col = "red", lty = 2)
 
 #### Leaflet map adjusting human vbls to 0
 
-```{r}
+```{r, include = TRUE, echo = FALSE}
 # CREATE DF FOR MAPPING PURPOSES to explore how residuals changed on the map after scaling all HI to zero
 # Need to join predictions to AWQMS columns, but there are no unique identifiers in the TP table. Predictions will be in the same order as the TP table initially.
 
@@ -685,13 +709,19 @@ map_function(full_map_no.hi)
 #### Build model with Top 12 predictors
 
 ```{r reduced model tuning}
+
+nred <-12
+
+# build formula
+red_vars <- as.formula(paste("logTP~", paste(names(full_vimp)[1:nred], collapse = "+")))
+
 #Adjust the parameters below based on tuning 
-red12_tuning <- tune(logTP ~ PRECIP_MINUS_EVTWS + PCTCONIF2001WS + PESTIC1997WS + WTDEPWS + ROCKNWS + RCKDEPWS + RDDENSWS + PCTBL2001WS + KFFACTWS + SEPTICWS + WETINDEXWS +OMWS, data = TP, seed = 1234)
+red12_tuning <- tune(red_vars, data = TP, seed = 1234)
 red12_tuning$optimal
 ```
 
-```{r}
-red12 <- rfsrc(logTP ~ PRECIP_MINUS_EVTWS + PCTCONIF2001WS + PESTIC1997WS + WTDEPWS + ROCKNWS + RCKDEPWS + RDDENSWS + PCTBL2001WS + KFFACTWS + SEPTICWS + WETINDEXWS +OMWS, data = TP, mtry = red12_tuning$optimal[[2]], nodesize = red12_tuning$optimal[[1]], importance = "TRUE", seed = 24)
+```{r,include = TRUE, echo = FALSE}
+red12 <- rfsrc(red_vars, data = TP, mtry = red12_tuning$optimal[[2]], nodesize = red12_tuning$optimal[[1]], importance = "TRUE", seed = 24)
 red12 # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (untransformed)
@@ -712,7 +742,7 @@ print(paste0('OOB RMSE = ' , round(red12_oob.rmse,2), " (μS/cm)"))
 print(paste0('Scaled OOB RMSE = ' , round(red12_oob.rmse.scaled*100,2), "%"))
 
 # Model tuning - How many trees? (default: 500)
-red12$err.rate
+#red12$err.rate
 
 # VIP
 plot(red12, plots.one.page=FALSE)
@@ -733,7 +763,7 @@ red12_plotdf <- rbind(red12_pred.oob, red12_pred.ib) %>%
 # Plot
 ggplot(data = red12_plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
   geom_point(alpha = 0.75) +
-  labs(title = "Total Phosphorus Red10 Model",
+  labs(title = paste0("Total Phosphorus Red", nred," Model"),
        x = "Predicted values (mg/L)",
        y = "Observed values (mg/L)") +
   theme_bw() + 
@@ -748,7 +778,7 @@ ggplot(data = red12_plotdf, aes(x = pred, y = obs, color = predictions, shape = 
 
 #### Leaflet map of Red12 model
 
-```{r}
+```{r, include = TRUE, echo = FALSE}
 # CREATE DF FOR MAPPING PURPOSES
 # Need to join predictions to AWQMS columns, but there are no unique identifiers in the TP table. Predictions will be in the same order as the TP table initially.
 
@@ -788,7 +818,7 @@ map_function(red12_map)
 
 #### Overlay reduced and full models
 
-```{r}
+```{r, include = TRUE, echo = FALSE}
 full_red_map <- left_join(full_map, red12_map %>% select(MLocID, pred), by = "MLocID") %>% 
   mutate(full_pred = pred.x) %>% 
   mutate(red12_pred = pred.y) %>% 
@@ -841,7 +871,7 @@ quantile(TP_ref_hi$SEPTICWS, probs = seq(.1, .9, by = .1))
 #### Reduce all human-influenced variables [to 0]* and make predictions using reduced model.
 ##### * We may decide to adjust to a non-zero percentile based on reference quantiles in the chunk above.
 
-```{r}
+```{r, include = TRUE, echo = FALSE}
 # Make predictions with adjusted human-influence to 0 
 red12_no.hi <- predict(red12, newdata= TP_no.hi, seed = 24)
 
@@ -864,7 +894,7 @@ red12_plotdf_no.hi <- data.frame(obs = TP_no.hi$logTP, pred = red12_no.hi$predic
 # Plot
 ggplot(data = red12_plotdf_no.hi, aes(x = pred, y = obs)) +
   geom_point(alpha = 0.75) +
-  labs(title = "TP Red10 Model predictions without human influenced vars",
+  labs(title = paste0("TP Red", nred, " Model predictions without human influenced vars"),
        x = "Predicted values (mg/L)",
        y = "Observed values (mg/L)") +
   theme_bw() + 
@@ -875,13 +905,13 @@ ggplot(data = red12_plotdf_no.hi, aes(x = pred, y = obs)) +
 
 # Plot residuals - red12 model, adjusted human-influenced vars to 0
 red12_resid_no.hi <- exp(TP_no.hi$logTP) - exp(red12_no.hi$predicted) # Observed minus predicted oob
-plot(red12_resid_no.hi ~ exp(red12_no.hi$predicted), xlab = "Predicted TP (mg/L)", ylab = "Residuals (obs - pred)", main = "Red10 model residuals, no HI vars")
+plot(red12_resid_no.hi ~ exp(red12_no.hi$predicted), xlab = "Predicted TP (mg/L)", ylab = "Residuals (obs - pred)", main = paste0("Red", nred, " model residuals, no HI vars"))
 abline(h=0, col = "red", lty = 2)
 ```
 
 #### Leaflet map after adjusting human vbls for reduced10 model
 
-```{r}
+```{r, include = TRUE, echo = FALSE}
 # CREATE DF FOR MAPPING PURPOSES to explore how residuals changed on the map after scaling all HI to zero
 # Need to join predictions to AWQMS columns, but there are no unique identifiers in the TP table. Predictions will be in the same order as the TP table initially.
 
@@ -911,7 +941,7 @@ map_function(red12_map_no.hi)
 
 #### Partial dependence plots for red12 model
 
-```{r partial dependence plots for reduced model}
+```{r partial dependence plots for reduced model, include = TRUE, echo = FALSE}
 # Top importance vars
 red12_partialplots <- plot.variable(red12, xvar.names = c(names(red12_vimp[1:8])), partial = TRUE, plots.one.page = TRUE)
 
@@ -995,7 +1025,7 @@ ggplot(data = red3_plotdf, aes(x = pred, y = obs, color = predictions, shape = p
 TP.ref <- tp_vars_selected %>% 
   filter(ReferenceSite=="REFERENCE") %>% 
   select(-c(MLocID:COMID, Total_phosphorus, SampleStartDate))  %>%  # Remove AWQMS columns
-  select(-c("CANALDENSWS", "DAMNRMSTORWS", "FERTWS", "MINEDENSWS", "NANIWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTCROP2001WS", "PCTFRSTLOSS2002WS","PCTHAY2001WS", "PCTIMP2001WS",  "PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "SW_FLUXWS", "TRIDENSWS", "WWTPMAJORDENSWS", "WWTPALLDENSWS")) %>% # Remove anthropogenic StreamCat vars
+  select(-all_of(HI_vars)) %>% # Remove anthropogenic StreamCat vars
   as.data.frame()
 
 # Convert character columns to factors
@@ -1013,7 +1043,7 @@ ref_tuning$optimal
 
 #### Build full ref-only model
 
-```{r}
+```{r,include = TRUE, echo = FALSE}
 ref <- rfsrc(logTP ~ ., data = TP.ref, mtry = ref_tuning$optimal[[2]], nodesize = ref_tuning$optimal[[1]], importance = "TRUE", seed = 24)
 ref # Model output. (OOB) R squared = Percent Variance Explained.
 
@@ -1037,7 +1067,7 @@ print(paste0('OOB RMSE = ' , round(ref_oob.rmse,2), " (μS/cm)"))
 print(paste0('Scaled OOB RMSE = ' , round(ref_oob.rmse.scaled*100,2), "%"))
 
 # Model tuning - How many trees? (default: 500)
-ref$err.rate
+#ref$err.rate
 
 # VIP
 plot(ref, plots.one.page=FALSE)
@@ -1078,7 +1108,7 @@ abline(h=0, col = "red", lty = 2)
 
 #### Partial dependence plots for full ref-only model
 
-```{r}
+```{r,include = TRUE, echo = FALSE}
 # Top importance vars
 partialplots <- plot.variable(ref, xvar.names = c(names(ref_vimp[1:8])), partial = TRUE, plots.one.page = TRUE)
 
@@ -1089,7 +1119,7 @@ partialplots2 <- plot.variable(ref, xvar.names = c(names(ref_vimp[9:16])), parti
 
 #### Leaflet map of Ref-Only model
 
-```{r}
+```{r,include = TRUE, echo = FALSE}
 # CREATE DF FOR MAPPING PURPOSES
 # Need to join predictions to AWQMS columns, but there are no unique identifiers in the TP table. Predictions will be in the same order as the TP table initially.
 
@@ -1132,7 +1162,7 @@ map_function(ref_map)
 
 #### Compare reduced model (adjusted and unadjusted) by ecoregion
 
-```{r}
+```{r,include = TRUE, echo = FALSE, warning=FALSE, fig.dim = c(11, 7)}
 # Construct a dataframe of predictions to compare
 boxplot_preds <- data.frame(MLocID = red12_map$MLocID, StationDes = red12_map$StationDes, Obs = red12_map$obs, Pred_reduced = red12_map$pred, L3Eco = as.character(red12_map$L3Eco),Pred_adj = red12_map_no.hi$pred, Ref = red12_map$ReferenceSite,Pred_full = full_map$pred)
 
@@ -1157,7 +1187,8 @@ ggplot(boxplot_df, aes(x = L3Eco, y = Prediction, fill = Model)) +
     fun.data = function(x) data.frame(y = median(x), label = length(x)),
     geom = "text",
     position = position_dodge(width = 0.75),
-    vjust = -0.5
+    vjust = -0.5, 
+    size = 2.5
   )
 
 # Ignore warning for 624 rows removed - these are NAs in the Pred_ref column. (112 reference sites of 729 total observations.)
@@ -1165,10 +1196,10 @@ ggplot(boxplot_df, aes(x = L3Eco, y = Prediction, fill = Model)) +
 
 #### Combined Leaflet map of predictions
 
-```{r}
+```{r,include = TRUE, echo = FALSE}
 leaflet_df <- left_join(boxplot_df, tp %>%  select(MLocID, Project1, Lat_DD, Long_DD), by = "MLocID") %>% 
   pivot_wider(names_from = Model, values_from = Prediction) %>% 
-  relocate(Obs, .before= Pred_unadj)
+  relocate(Obs, .before= Pred_reduced)
 
 map_all <- function(data) {
   leaflet() %>%
@@ -1176,6 +1207,7 @@ map_all <- function(data) {
   addProviderTiles(providers$Esri.WorldTopoMap, group = "Terrain") %>%
   addProviderTiles(providers$Esri.WorldImagery, group = "Satellite") %>%
   setView(lng = -120.5583, lat =44.0671, zoom =6.4) %>%
+  addFullscreenControl(position = "topleft", pseudoFullscreen = FALSE) %>%   
   addCircleMarkers(data = data, group = "Observed", lng = ~data$Long_DD, 
                      lat = ~data$Lat_DD, fillColor = pal(data$Obs), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
@@ -1185,7 +1217,7 @@ map_all <- function(data) {
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$Ref, "<br>",
                                   "<strong>", "Observed Total Phosphorus: ", "</strong>", data$Obs))  %>% 
-      addCircleMarkers(data = data, group = "Pred_unadj",lng = ~data$Long_DD, 
+      addCircleMarkers(data = data, group = "Pred_reduced",lng = ~data$Long_DD, 
                      lat = ~data$Lat_DD, fillColor = pal2(data$Pred_unadj), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
                    popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
@@ -1214,10 +1246,10 @@ map_all <- function(data) {
                                   "<strong>", "Predicted Total Phos REF ONLY: ", "</strong>", data$Pred_ref))  %>% 
     addLayersControl(
       baseGroups = c("Basic Map", "Terrain", "Satellite"),
-      overlayGroups = c("Observed","Pred_unadj", "Pred_adj", "Pred_ref"),
+      overlayGroups = c("Observed","Pred_reduced", "Pred_adj", "Pred_ref"),
       options = layersControlOptions(collapsed = FALSE)) %>% 
     addLegend(pal = pal, group = "Observed", values = data$Obs, position = "bottomright" , title = "Observed Total Phosphorus" ) %>% 
-    addLegend(pal = pal2,group = "Pred_unadj",values = data$Obs, position = "bottomright" , title = "Predicted Total Phosphorus (UNADJUSTED)" ) %>%  # Keep values=data$Obs here (instead of data$pred) to keep the legend colors scales the same between obs and pred.
+    addLegend(pal = pal2,group = "Pred_reduced",values = data$Obs, position = "bottomright" , title = "Predicted Total Phosphorus (UNADJUSTED)" ) %>%  # Keep values=data$Obs here (instead of data$pred) to keep the legend colors scales the same between obs and pred.
         addLegend(pal = pal3, group = "Pred_adj", values = data$Pred_adj, position = "bottomleft" , title = "Predicted Total Phosphorus (ADJUSTED)" ) %>% 
         addLegend(pal = pal4, group = "Pred_ref", values = data$Pred_adj, position = "bottomleft" , title = "Predicted Total Phosphorus (REF ONLY)" )    # Keep values=data$Pred_adj here (instead of data$Ref) to keep the legend colors scales the same between ref expectations.
 }
@@ -1238,14 +1270,14 @@ map_all(leaflet_df)
  
 #### Unadjusted predictions vs. adjusted human inflence 
 
-```{r}
+```{r,include = TRUE, echo = FALSE}
 leaflet_df$Ref <- factor(leaflet_df$Ref, levels = c("REFERENCE", "MODERATELY DISTURBED", "MOST DISTURBED"))
 
-ggplot(leaflet_df, aes(x = Pred_unadj, y = Pred_adj, color = Ref, shape = Ref)) +
+ggplot(leaflet_df, aes(x = Pred_adj, y = Pred_reduced, color = Ref, shape = Ref)) +
   geom_point(size = 1.5) + theme_bw(base_size = 15) +
   labs(
-    x = "Reduced model predicted TP (mg/L)",
-    y = "Predicted TP (mg/L) adjusted\n for no human disturbance predictions",
+    y = "Reduced model predicted TP (mg/L)",
+    x = "Predicted TP (mg/L) adjusted\n for no human disturbance predictions",
     color = "Reference Status", shape = "Reference Status") + 
   geom_abline(intercept = 0, slope = 1, linetype = "dashed")
 ```

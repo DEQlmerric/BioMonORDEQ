@@ -1,0 +1,230 @@
+---
+title: "StreamCat predictors by ecoregion"
+author: "Sabine Berzins"
+date: "2026-08-11"
+output: html_document
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(include = FALSE)
+```
+
+
+```{r, warning=FALSE}
+library(tidyverse)
+library(StreamCatTools) 
+library(readxl)
+library(writexl)
+library(randomForest)
+library(ORDEQBioassessment)
+library(EnvStats)
+library(Metrics)
+library(randomForestSRC)
+library(leaflet)
+library(leaflet.extras)
+library(RColorBrewer)
+library(htmlwidgets)
+library(maps)
+library(ggforce)
+```
+
+
+```{r}
+
+all_awqms <- read_excel('~/BioMonORDEQ/Benchmarks/Water Chemistry/cal.val_chem.ref.wq_2026-05-14.xlsx') %>%  # Output file from ref benchmarks script 
+  select(c(MLocID, Project1, StationDes, Lat_DD, Long_DD, SampleStartDate, L2Eco, L3Eco, EcoRegion4, HUC8, ReferenceSite, cal_val, COMID)) 
+
+# Convert character columns to factors
+all_awqms[sapply(all_awqms, is.character)] <- lapply(all_awqms[sapply(all_awqms, is.character)], as.factor)
+
+# Order factors
+all_awqms$L2Eco <- factor(all_awqms$L2Eco, levels = c("Marine West Coast Forest", "Western Cordillera", "Cold Deserts"))
+all_awqms$L3Eco <- factor(all_awqms$L3Eco, levels = c("Coast Range", "Willamette Valley", "Klamath Mountains", "Cascades", "Eastern Cascades Slopes and Foothills", "Columbia Plateau","Blue Mountains", "Northern Basin and Range", "Snake River Plain"))
+all_awqms$ReferenceSite <- factor(all_awqms$ReferenceSite, levels = c("REFERENCE", "MODERATELY DISTURBED", "MOST DISTURBED"))
+
+comids <- all_awqms %>% 
+  select(COMID) %>% 
+  distinct()# Get just the COMIDs for next step
+
+```
+
+
+```{r streamcat pull}
+# # Run function to query ALL StreamCat data for selected COMIDs by subcategory
+#source('~/BioMonORDEQ/Benchmarks/Water Chemistry/SC_pull.R')
+# 
+# #Pull ALL StreamCat data by subcategory and merge
+# ag <- get_streamcat(comids = comids, type = "Agriculture")
+# clim <- get_streamcat(comids = comids, type = "Climate")
+# dams <- get_streamcat(comids = comids, type = "Dams")
+# flow <- get_streamcat(comids = comids, type = "Flow")
+# iwi <- get_streamcat(comids = comids, type = "IWI") 
+# cover <- get_streamcat(comids = comids, type = "Land Cover")
+# litho <- get_streamcat(comids = comids, type = "Lithology") 
+# mintox <- get_streamcat(comids = comids, type = "Mining_Toxics")
+# riparian <- get_streamcat(comids = comids, type = "Riparian Buffer")
+# roads <- get_streamcat(comids = comids, type = "Roads")
+# urb <- get_streamcat(comids = comids, type = "Urban")
+# fire <- get_streamcat(comids = comids, type = "Wildfire")
+# other <- get_streamcat(comids = comids, type = "Others")
+# riparian <- get_streamcat(comids = comids, type = "Riparian Buffer")
+# 
+# # MERGE INTO ONE TABLE
+# sc_all <- list(ag, clim, dams, flow, iwi, cover, litho, mintox, roads, urb, fire, other)
+# sc_all <- sc_all %>% reduce(full_join, by = 'COMID')
+# 
+# rm(list=c('ag', 'clim', 'dams', 'flow','iwi', 'cover', 'litho', 'mintox', 'riparian', 'roads', 'urb', 'fire', 'other'))
+```
+
+
+```{r streamcat flat file}
+sc_all <- read_excel("~/BioMonORDEQ/Benchmarks/Water Chemistry/SC_all_comids_2026-05-14.xlsx")
+sc_all <- inner_join(sc_all, comids)  # only keep TN COMIDs.
+```
+
+```{r}
+# ERODIBLE VS RESISTENT GEOLOGY (KEPT ERODIBLE, SINCE RESISTENT IS INVERSE OF ERODIBLE)
+erod_resist_strmpow <- sc_all %>%
+  mutate(PCT_EROD = PCTALLUVCOASTWS+PCTCARBRESIDWS+PCTCOASTCRSWS+PCTCOLLUVSEDWS+PCTEOLCRSWS+PCTEOLFINEWS+PCTGLACLAKECRSWS+PCTGLACLAKEFINEWS+PCTGLACTILCLAYWS+PCTGLACTILCRSWS+PCTGLACTILLOAMWS+PCTSALLAKEWS+PCTNONCARBRESIDWS)  %>% 
+  mutate(PCT_RESIST = PCTALKINTRUVOLWS+PCTEXTRUVOLWS+PCTHYDRICWS+PCTSILICICWS) 
+
+# SLOPE FROM NHD (TAKES 1-2 MIN)
+# Note: do NOT push the downloaded file to GitHub as it's too large and will result in issues. Commit the ignore instead.
+erod_resist_strmpow <- ORDEQBioassessment::get_NHD_info(erod_resist_strmpow) 
+
+# WATERSHED AREA AND STREAM POWER
+erod_resist_strmpow <- erod_resist_strmpow %>% 
+  mutate(STRMPOW_CAT = totdasqkm + PRECIP9120WS * slope) %>%  # WSAREASQKM from SC, instead pulling totdasqkm from get_NHD (they are the same)
+  select(COMID, PCT_EROD, STRMPOW_CAT, NHD_pSLOPE, SITE_TYPE) # Drop PCT_RESIST since it's the inverse of PCT_ERODE
+
+vars <- sc_all %>% 
+  inner_join(erod_resist_strmpow, by='COMID') %>% # Join StreamCat data with erod_resist_strmpow data calulated above
+  right_join(all_awqms, by = 'COMID') %>% 
+  distinct(COMID, .keep_all = TRUE) %>% 
+  relocate(MLocID:cal_val, .before = COMID) %>% 
+  select(-c(MLocID:SampleStartDate,EcoRegion4:HUC8,cal_val,COMID))
+```
+
+
+```{r,include = TRUE, echo = FALSE, warning=FALSE, fig.dim = c(11, 11)}
+vars2 <- vars %>% 
+  select(L3Eco, where(is.numeric)) %>% 
+  pivot_longer(cols = -L3Eco, names_to = "numeric_var", values_to = "value") %>% 
+  mutate(value = log(value+1), .keep = "unused")
+
+ggplot(vars2, aes(x=L3Eco, y = value)) + 
+geom_boxplot() +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+facet_wrap_paginate( ~ numeric_var, scales = "free_y", ncol = 3, nrow = 3, page = 1) +
+labs(y = "log scale") +
+geom_jitter(color="gray", size=0.3, alpha=0.7) 
+
+ggplot(vars2, aes(x=L3Eco, y = value)) + 
+geom_boxplot() +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+facet_wrap_paginate( ~ numeric_var, scales = "free_y", ncol = 3, nrow = 3, page = 2)+
+labs(y = "log scale") +
+geom_jitter(color="gray", size=0.3, alpha=0.7) 
+
+ggplot(vars2, aes(x=L3Eco, y = value)) + 
+geom_boxplot() +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+facet_wrap_paginate( ~ numeric_var, scales = "free_y", ncol = 3, nrow = 3, page = 3)+
+labs(y = "log scale") +
+geom_jitter(color="gray", size=0.3, alpha=0.7) 
+
+ggplot(vars2, aes(x=L3Eco, y = value)) + 
+geom_boxplot() +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+facet_wrap_paginate( ~ numeric_var, scales = "free_y", ncol = 3, nrow = 3, page = 4)+
+labs(y = "log scale") +
+geom_jitter(color="gray", size=0.3, alpha=0.7) 
+
+ggplot(vars2, aes(x=L3Eco, y = value)) + 
+geom_boxplot() +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+facet_wrap_paginate( ~ numeric_var, scales = "free_y", ncol = 3, nrow = 3, page = 5)+
+labs(y = "log scale") +
+geom_jitter(color="gray", size=0.3, alpha=0.7) 
+
+ggplot(vars2, aes(x=L3Eco, y = value)) + 
+geom_boxplot() +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+facet_wrap_paginate( ~ numeric_var, scales = "free_y", ncol = 3, nrow = 3, page = 6)+
+labs(y = "log scale") +
+geom_jitter(color="gray", size=0.3, alpha=0.7) 
+
+ggplot(vars2, aes(x=L3Eco, y = value)) + 
+geom_boxplot() +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+facet_wrap_paginate( ~ numeric_var, scales = "free_y", ncol = 3, nrow = 3, page = 7)+
+labs(y = "log scale") +
+geom_jitter(color="gray", size=0.3, alpha=0.7) 
+
+ggplot(vars2, aes(x=L3Eco, y = value)) + 
+geom_boxplot() +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+facet_wrap_paginate( ~ numeric_var, scales = "free_y", ncol = 3, nrow = 3, page = 8)+
+labs(y = "log scale") +
+geom_jitter(color="gray", size=0.3, alpha=0.7) 
+
+ggplot(vars2, aes(x=L3Eco, y = value)) + 
+geom_boxplot() +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+facet_wrap_paginate( ~ numeric_var, scales = "free_y", ncol = 3, nrow = 3, page = 9)+
+labs(y = "log scale") +
+geom_jitter(color="gray", size=0.3, alpha=0.7) 
+
+ggplot(vars2, aes(x=L3Eco, y = value)) + 
+geom_boxplot() +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+facet_wrap_paginate( ~ numeric_var, scales = "free_y", ncol = 3, nrow = 3, page = 10)+
+labs(y = "log scale") +
+geom_jitter(color="gray", size=0.3, alpha=0.7) 
+
+ggplot(vars2, aes(x=L3Eco, y = value)) + 
+geom_boxplot() +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+facet_wrap_paginate( ~ numeric_var, scales = "free_y", ncol = 3, nrow = 3, page = 11)+
+labs(y = "log scale") +
+geom_jitter(color="gray", size=0.3, alpha=0.7) 
+
+ggplot(vars2, aes(x=L3Eco, y = value)) + 
+geom_boxplot() +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+facet_wrap_paginate( ~ numeric_var, scales = "free_y", ncol = 3, nrow = 3, page = 12)+
+labs(y = "log scale") +
+geom_jitter(color="gray", size=0.3, alpha=0.7) 
+
+ggplot(vars2, aes(x=L3Eco, y = value)) + 
+geom_boxplot() +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+facet_wrap_paginate( ~ numeric_var, scales = "free_y", ncol = 3, nrow = 3, page = 13)+
+labs(y = "log scale") +
+geom_jitter(color="gray", size=0.3, alpha=0.7) 
+
+ggplot(vars2, aes(x=L3Eco, y = value)) + 
+geom_boxplot() +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+facet_wrap_paginate( ~ numeric_var, scales = "free_y", ncol = 3, nrow = 3, page = 14)+
+labs(y = "log scale") +
+geom_jitter(color="gray", size=0.3, alpha=0.7) 
+
+ggplot(vars2, aes(x=L3Eco, y = value)) + 
+geom_boxplot() +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+facet_wrap_paginate( ~ numeric_var, scales = "free_y", ncol = 3, nrow = 3, page = 15)+
+labs(y = "log scale") +
+geom_jitter(color="gray", size=0.3, alpha=0.7) 
+
+ggplot(vars2, aes(x=L3Eco, y = value)) + 
+geom_boxplot() +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+facet_wrap_paginate( ~ numeric_var, scales = "free_y", ncol = 3, nrow = 3, page = 16)+
+labs(y = "log scale") +
+geom_jitter(color="gray", size=0.3, alpha=0.7) 
+
+  
+```
+

@@ -8,7 +8,7 @@ output:
 ---
 
 # *Total Nitrogen*
-```{r include=FALSE}
+```{r, include=FALSE}
 knitr::opts_chunk$set(message = FALSE)
 knitr::opts_chunk$set(include = FALSE)
 ```
@@ -16,7 +16,7 @@ knitr::opts_chunk$set(include = FALSE)
 
 # **1 - LOAD PACKAGES**
 
-```{r warning=FALSE}
+```{r, warning=FALSE}
 library(tidyverse)
 library(StreamCatTools) 
 library(readxl)
@@ -27,6 +27,7 @@ library(EnvStats)
 library(Metrics)
 library(randomForestSRC)
 library(leaflet)
+library(leaflet.extras)
 library(RColorBrewer)
 library(htmlwidgets)
 library(maps)
@@ -47,7 +48,6 @@ tn <- read_excel('~/BioMonORDEQ/Benchmarks/Water Chemistry/cal.val_chem.ref.wq_2
 #%>% 
   #  filter(L3Eco %in% c("Coast Range", "Willamette Valley", "Klamath Mountains", "Cascades")) %>%  # WEST only
   # filter(!L3Eco %in% c("Coast Range", "Willamette Valley", "Klamath Mountains", "Cascades")) # EAST only
-
 
 comids <- tn %>% 
   select(COMID) # Get just the COMIDs for next step
@@ -323,7 +323,7 @@ boxplot(tn_vars_selected$logTN, ylab = "log(TN)")
 
 ## A. PREP RESPONSE DATA
 
-```{r}
+```{r, include = TRUE, echo = FALSE}
 # Select response data of interest
 TN <- tn_vars_selected %>%
   select(-c(MLocID:COMID, Total_nitrogen, SampleStartDate)) %>% #drop tn in favor of logTN. Drop AWQMS columns too.
@@ -335,6 +335,15 @@ TN[sapply(TN, is.character)] <- lapply(TN[sapply(TN, is.character)], as.factor)
 # Order factors
 TN$L2Eco <- factor(TN$L2Eco, levels = c("Marine West Coast Forest", "Western Cordillera", "Cold Deserts"))
 TN$L3Eco <- factor(TN$L3Eco, levels = c("Coast Range", "Willamette Valley", "Klamath Mountains", "Cascades", "Eastern Cascades Slopes and Foothills", "Columbia Plateau","Blue Mountains", "Northern Basin and Range", "Snake River Plain"))
+
+# Look at response data by ecoregion
+ggplot(TN, aes(x=L3Eco, y = exp(logTN))) + 
+geom_boxplot() +
+theme_bw() +
+scale_y_log10() +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+labs(y = "TN") +
+geom_jitter(color="gray50", size=0.85, alpha=0.8) 
 
 # 7/21/26 try dropping L2Eco and L3Eco from predictors
 TN <- TN %>% 
@@ -413,7 +422,7 @@ ggplot(data = full_plotdf, aes(x = pred, y = obs, color = predictions, shape = p
 
 #### Leaflet map of full model
 
-```{r}
+```{r, include = TRUE, echo = FALSE}
 # CREATE DF FOR MAPPING PURPOSES
 # Need to join predictions to AWQMS columns, but there are no unique identifiers in the TN table. Predictions will be in the same order as the TN table initially.
 
@@ -445,6 +454,7 @@ map_function <- function(data) {
   addProviderTiles(providers$Esri.WorldTopoMap, group = "Terrain") %>%
   addProviderTiles(providers$Esri.WorldImagery, group = "Satellite") %>%
   setView(lng = -120.5583, lat =44.0671, zoom =6.4) %>%
+  addFullscreenControl(position = "topleft", pseudoFullscreen = FALSE) %>% 
   addCircleMarkers(data = data, group = "Observed", lng = ~data$Long_DD, 
                      lat = ~data$Lat_DD, fillColor = pal(data$obs), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
@@ -534,13 +544,14 @@ partialplots_hi2 <- plot.variable(full, xvar.names = c("PCTURBHI2001WS", "PCTAGD
 
 #### Leaflet map of predictors
 
-```{r}
+```{r,include = TRUE, echo = FALSE}
 map_predictors <- function(data) {
   leaflet() %>%
   addProviderTiles("OpenStreetMap", group = "Basic Map") %>% 
   addProviderTiles(providers$Esri.WorldTopoMap, group = "Terrain") %>%
   addProviderTiles(providers$Esri.WorldImagery, group = "Satellite") %>%
   setView(lng = -120.5583, lat =44.0671, zoom =6.4) %>%
+  addFullscreenControl(position = "topleft", pseudoFullscreen = FALSE) %>% 
   addCircleMarkers(data = data, group = "PCTCONIF2001WS", lng = ~data$Long_DD, 
                      lat = ~data$Lat_DD, fillColor = pal(data$PCTCONIF2001WS), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
@@ -683,7 +694,7 @@ abline(h=0, col = "red", lty = 2)
 
 #### Leaflet map adjusting human vbls to 0
 
-```{r}
+```{r, include = TRUE, echo = FALSE}
 # CREATE DF FOR MAPPING PURPOSES to explore how residuals changed on the map after scaling all HI to zero
 # Need to join predictions to AWQMS columns, but there are no unique identifiers in the TN table. Predictions will be in the same order as the TN table initially.
 
@@ -726,7 +737,7 @@ red14_tuning$optimal
 
 ```
 
-#### Build model with Top 10 predictors
+#### Build model with Top red14 predictors
 
 ```{r,include = TRUE, echo = FALSE}
 red14 <- rfsrc(red_vars, data = TN, mtry = red14_tuning$optimal[[2]], nodesize = red14_tuning$optimal[[1]], importance = "TRUE", seed = 24)
@@ -750,7 +761,7 @@ print(paste0('OOB RMSE = ' , round(red14_oob.rmse,2), " (μS/cm)"))
 print(paste0('Scaled OOB RMSE = ' , round(red14_oob.rmse.scaled*100,2), "%"))
 
 # Model tuning - How many trees? (default: 500)
-red14$err.rate
+#red14$err.rate
 
 # VIP
 #plot(red14, plots.one.page=FALSE)
@@ -771,7 +782,7 @@ red14_plotdf <- rbind(red14_pred.oob, red14_pred.ib) %>%
 # Plot
 ggplot(data = red14_plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
   geom_point(alpha = 0.75) +
-  labs(title = "Total Nitrogen red14 Model",
+  labs(title = paste0("Total Nitrogen red", nred, " Model"),
        x = "Predicted values (mg/L)",
        y = "Observed values (mg/L)") +
   theme_bw() + 
@@ -786,7 +797,7 @@ ggplot(data = red14_plotdf, aes(x = pred, y = obs, color = predictions, shape = 
 
 #### Leaflet map of red14 model
 
-```{r}
+```{r, include = TRUE, echo = FALSE}
 # CREATE DF FOR MAPPING PURPOSES
 # Need to join predictions to AWQMS columns, but there are no unique identifiers in the TN table. Predictions will be in the same order as the TN table initially.
 
@@ -897,7 +908,7 @@ red14_plotdf_no.hi <- data.frame(obs = TN_no.hi$logTN, pred = red14_no.hi$predic
 # Plot
 ggplot(data = red14_plotdf_no.hi, aes(x = pred, y = obs)) +
   geom_point(alpha = 0.75) +
-  labs(title = "TN red14 Model predictions without human influenced vars",
+  labs(title = paste0("TN Red", nred, " Model predictions without human influenced vars"),
        x = "Predicted values (mg/L)",
        y = "Observed values (mg/L)") +
   theme_bw() + 
@@ -908,13 +919,13 @@ ggplot(data = red14_plotdf_no.hi, aes(x = pred, y = obs)) +
 
 # Plot residuals - red14 model, adjusted human-influenced vars to 0
 red14_resid_no.hi <- exp(TN_no.hi$logTN) - exp(red14_no.hi$predicted) # Observed minus predicted oob
-plot(red14_resid_no.hi ~ exp(red14_no.hi$predicted), xlab = "Predicted TN (mg/L)", ylab = "Residuals (obs - pred)", main = "red14 model residuals, no HI vars")
+plot(red14_resid_no.hi ~ exp(red14_no.hi$predicted), xlab = "Predicted TN (mg/L)", ylab = "Residuals (obs - pred)", main = paste0("Red", nred, " model residuals, no HI vars"))
 abline(h=0, col = "red", lty = 2)
 ```
 
 #### Leaflet map after adjusting human vbls for red14 model
 
-```{r}
+```{r, include = TRUE, echo = FALSE}
 # CREATE DF FOR MAPPING PURPOSES to explore how residuals changed on the map after scaling all HI to zero
 # Need to join predictions to AWQMS columns, but there are no unique identifiers in the TN table. Predictions will be in the same order as the TN table initially.
 
@@ -1029,7 +1040,7 @@ ggplot(data = red3_plotdf, aes(x = pred, y = obs, color = predictions, shape = p
 TN.ref <- tn_vars_selected %>% 
   filter(ReferenceSite=="REFERENCE") %>% 
   select(-c(MLocID:COMID, Total_nitrogen, SampleStartDate))  %>%  # Remove AWQMS columns
-  select(-c("CANALDENSWS", "DAMNRMSTORWS", "FERTWS", "MINEDENSWS", "NANIWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTCROP2001WS", "PCTFRSTLOSS2002WS","PCTHAY2001WS", "PCTIMP2001WS",  "PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "SW_FLUXWS", "TRIDENSWS", "WWTPMAJORDENSWS", "WWTPALLDENSWS")) %>%  # Remove anthropogenic StreamCat vars
+  select(-all_of(HI_vars)) %>%  # Remove anthropogenic StreamCat vars
   as.data.frame()
 
 # Convert character columns to factors
@@ -1071,7 +1082,7 @@ print(paste0('OOB RMSE = ' , round(ref_oob.rmse,2), " (μS/cm)"))
 print(paste0('Scaled OOB RMSE = ' , round(ref_oob.rmse.scaled*100,2), "%"))
 
 # Model tuning - How many trees? (default: 500)
-ref$err.rate
+#ref$err.rate
 
 # VIP
 #plot(ref, plots.one.page=FALSE)
@@ -1123,7 +1134,7 @@ partialplots2 <- plot.variable(ref, xvar.names = c(names(ref_vimp[9:16])),, part
 
 #### Leaflet map of Ref-Only model
 
-```{r}
+```{r, include = TRUE, echo = FALSE}
 # CREATE DF FOR MAPPING PURPOSES
 # Need to join predictions to AWQMS columns, but there are no unique identifiers in the TN table. Predictions will be in the same order as the TN table initially.
 
@@ -1166,7 +1177,7 @@ map_function(ref_map)
 
 #### Compare reduced model (adjusted and unadjusted) by ecoregion
 
-```{r,include = TRUE, echo = FALSE}
+```{r,include = TRUE, echo = FALSE, warning=FALSE, fig.dim = c(11, 7)}
 # Construct a dataframe of predictions to compare
 boxplot_preds <- data.frame(MLocID = red14_map$MLocID, StationDes = red14_map$StationDes, Obs = red14_map$obs, Pred_reduced = red14_map$pred, L3Eco = as.character(red14_map$L3Eco),Pred_adj = red14_map_no.hi$pred, Ref = red14_map$ReferenceSite, Pred_full = full_map$pred) 
 
@@ -1199,7 +1210,7 @@ ggplot(boxplot_df, aes(x = L3Eco, y = Prediction, fill = Model)) +
 
 #### Combined Leaflet map of predictions
 
-```{r}
+```{r, include = TRUE, echo = FALSE}
 leaflet_df <- left_join(boxplot_df, tn %>% select(MLocID, Project1, Lat_DD, Long_DD), by = "MLocID") %>% 
   pivot_wider(names_from = Model, values_from = Prediction) %>% 
   relocate(Obs, .before= Pred_reduced)
@@ -1209,6 +1220,7 @@ map_all <- function(data) {
   addProviderTiles("OpenStreetMap", group = "Basic Map") %>% 
   addProviderTiles(providers$Esri.WorldTopoMap, group = "Terrain") %>%
   addProviderTiles(providers$Esri.WorldImagery, group = "Satellite") %>%
+  addFullscreenControl(position = "topleft", pseudoFullscreen = FALSE) %>%    
   setView(lng = -120.5583, lat =44.0671, zoom =6.4) %>%
   addCircleMarkers(data = data, group = "Observed", lng = ~data$Long_DD, 
                      lat = ~data$Lat_DD, fillColor = pal(data$Obs), stroke = TRUE,
@@ -1275,11 +1287,11 @@ map_all(leaflet_df)
 ```{r,include = TRUE, echo = FALSE}
 leaflet_df$Ref <- factor(leaflet_df$Ref, levels = c("REFERENCE", "MODERATELY DISTURBED", "MOST DISTURBED"))
 
-ggplot(leaflet_df, aes(x = Pred_reduced, y = Pred_adj, color = Ref, shape = Ref)) +
+ggplot(leaflet_df, aes(x = Pred_adj, y = Pred_reduced, color = Ref, shape = Ref)) +
   geom_point(size = 1.5) + theme_bw(base_size = 15) +
   labs(
-    x = "Reduced model predicted TN (mg/L)",
-    y = "Predicted TN (mg/L) adjusted\n for no human disturbance predictions",
+    y = "Reduced model predicted TN (mg/L)",
+    x = "Predicted TN (mg/L) adjusted\n for no human disturbance predictions",
     color = "Reference Status", shape = "Reference Status") + 
   geom_abline(intercept = 0, slope = 1, linetype = "dashed")
 ```
@@ -1305,7 +1317,7 @@ TN2[sapply(TN2, is.character)] <- lapply(TN2[sapply(TN2, is.character)], as.fact
 
 #### Full model 
 
-```{r}
+```{r, include = TRUE, echo = FALSE}
 full2 <- rfsrc(logTN ~ ., data = TN2, mtry = 58, nodesize = 7, importance = "TRUE", seed = 24)
 full2 # Model output. (OOB) R squared = Percent Variance Explained.
 
@@ -1361,6 +1373,5 @@ ggplot(data = full2_plotdf, aes(x = pred, y = obs, color = predictions, shape = 
   annotate("text", x = 0.12, y = 2, label = paste0('OOB RMSE = ' , round(full2_oob.rmse,2), ' | scaled RMSE = ', round(full2_oob.rmse.scaled*100,2), "%"), size = 3) +
     annotate("text", x = 0.12, y = 2.5, label = paste0('IB RMSE = ' , round(full2_rmse,2), ' | scaled RMSE = ', round(full2_rmse.scaled*100,2), "%"), size = 3) +
       annotate("text", x = 0.12, y = 3, label = paste0('% variance explained = ' , round(full2_per.var,2), '%'), size = 3) 
-```
 ```
 

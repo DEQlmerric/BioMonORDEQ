@@ -65,7 +65,7 @@ comids <-  bind_rows(tp, tn) %>% select(COMID) %>% distinct() # Get just the COM
 nred <- 14
 
 # Character vector of all human-influenced variables
-HI_vars <- c("CANALDENSWS", "FERTWS", "MINEDENSWS", "NANIWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTCROP2001WS", "PCTIMP2001WS", "PCTFRSTLOSS2002WS","PCTHAY2001WS", "PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "SW_FLUXWS", "TRIDENSWS", "WWTPALLDENSWS")
+HI_vars <- c("CANALDENSWS", "DAMNRMSTORWS", "FERTWS", "MINEDENSWS", "NANIWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTCROP2001WS", "PCTIMP2001WS", "PCTFRSTLOSS2002WS","PCTHAY2001WS", "PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "SW_FLUXWS", "TRIDENSWS", "WWTPALLDENSWS", "WWTPMAJORDENSWS")
 ```
 
 ## B. WATERSHED PREDICTORS - *FROM EPA STREAMCAT*
@@ -508,9 +508,9 @@ map_function(full_map)
 
 ```{r,include = TRUE, echo = FALSE}
 # Top importance vars
-partialplots <- plot.variable(full, xvar.names = c(names(full_vimp[1:8])),, partial = TRUE, plots.one.page = TRUE)
+partialplots <- plot.variable(full, xvar.names = c(names(full_vimp[1:8])), partial = TRUE, plots.one.page = TRUE)
 
-partialplots2 <- plot.variable(full, xvar.names = c(names(full_vimp[9:16])),, partial = TRUE, plots.one.page = TRUE)
+partialplots2 <- plot.variable(full, xvar.names = c(names(full_vimp[9:16])), partial = TRUE, plots.one.page = TRUE)
 
 # Human-influenced vars
 partialplots_hi <- plot.variable(full, xvar.names = c("FERTWS", "RDDENSWS", "POPDEN2010WS", "CANALDENSWS", "PCTCROP2001WS", "PESTIC1997WS"), partial = TRUE, plots.one.page = TRUE)
@@ -1039,7 +1039,7 @@ ggplot(data = red3_plotdf, aes(x = pred, y = obs, color = predictions, shape = p
 ```{r}
 TN.ref <- tn_vars_selected %>% 
   filter(ReferenceSite=="REFERENCE") %>% 
-  select(-c(MLocID:COMID, Total_nitrogen, SampleStartDate))  %>%  # Remove AWQMS columns
+  select(-c(MLocID:COMID, Total_nitrogen, SampleStartDate, L2Eco, L3Eco))  %>%  # Remove AWQMS columns
   select(-all_of(HI_vars)) %>%  # Remove anthropogenic StreamCat vars
   as.data.frame()
 
@@ -1182,12 +1182,12 @@ map_function(ref_map)
 boxplot_preds <- data.frame(MLocID = red14_map$MLocID, StationDes = red14_map$StationDes, Obs = red14_map$obs, Pred_reduced = red14_map$pred, L3Eco = as.character(red14_map$L3Eco),Pred_adj = red14_map_no.hi$pred, Ref = red14_map$ReferenceSite, Pred_full = full_map$pred) 
 
 boxplot_ref<- ref_map %>%
-  select(MLocID, Pred_ref = pred)
+  select(MLocID, Pred_ref = pred, Obs_ref_only = obs)
 
 boxplot_combo <- left_join(boxplot_preds, boxplot_ref, by="MLocID")
 
-boxplot_df <- gather(boxplot_combo, key = "Model", value = "Prediction", Pred_reduced, Pred_adj, Pred_ref, Pred_full, Obs)
-boxplot_df$Model <- factor(boxplot_df$Model, levels = c("Pred_ref", "Pred_adj","Pred_reduced","Pred_full", "Obs"))
+boxplot_df <- gather(boxplot_combo, key = "Model", value = "Prediction", Pred_reduced, Pred_adj, Pred_ref, Pred_full, Obs, Obs_ref_only)
+boxplot_df$Model <- factor(boxplot_df$Model, levels = c("Obs_ref_only", "Pred_ref", "Pred_adj","Pred_reduced","Pred_full", "Obs"))
 boxplot_df$L3Eco <- factor(boxplot_df$L3Eco, levels = c("Coast Range", "Willamette Valley", "Klamath Mountains", "Cascades", "Eastern Cascades Slopes and Foothills", "Columbia Plateau","Blue Mountains", "Northern Basin and Range", "Snake River Plain"))
 
 # Clean out environment
@@ -1195,6 +1195,7 @@ rm=(c("boxplot_preds", "boxplot_ref", "boxplot_combo"))
 
 ggplot(boxplot_df, aes(x = L3Eco, y = Prediction, fill = Model)) + 
   geom_boxplot() +
+  scale_fill_brewer(palette = "Set1") + 
   guides(x = guide_axis(angle = 45)) +
   scale_y_log10() +
   theme_bw(base_size=14) + ylab("TN (mg/L)") +

@@ -935,7 +935,7 @@ print(paste0('OOB RMSE = ' , round(ref_oob.rmse,2), units))
 print(paste0('Scaled OOB RMSE = ' , round(ref_oob.rmse.scaled*100,2), "%"))
 
 # Model tuning - How many trees? (default: 500)
-ref$err.rate
+#ref$err.rate
 
 # VIP
 plot(ref, plots.one.page=FALSE)
@@ -1033,12 +1033,12 @@ map_function(ref_map)
 boxplot_preds <- data.frame(MLocID = full_map$MLocID, StationDes = full_map$StationDes, Obs = full_map$obs, Pred_full = full_map$pred, L3Eco = as.character(full_map$L3Eco),Pred_adj = full_map_no.hi$pred, Ref = full_map$ReferenceSite, Pred_reduced = red15_map$pred)
 
 boxplot_ref<- ref_map %>%
-  select(MLocID, Pred_ref = pred)
+  select(MLocID, Pred_ref = pred, Obs_ref_only = obs)
 
 boxplot_combo <- left_join(boxplot_preds, boxplot_ref, by="MLocID")
 
-boxplot_df <- gather(boxplot_combo, key = "Model", value = "Prediction", Pred_full, Pred_reduced, Pred_adj, Pred_ref, Obs)
-boxplot_df$Model <- factor(boxplot_df$Model, levels = c("Pred_ref", "Pred_adj","Pred_reduced", "Pred_full", "Obs"))
+boxplot_df <- gather(boxplot_combo, key = "Model", value = "Prediction", Pred_reduced, Pred_adj, Pred_ref, Pred_full, Obs, Obs_ref_only)
+boxplot_df$Model <- factor(boxplot_df$Model, levels = c("Obs_ref_only", "Pred_ref", "Pred_adj","Pred_reduced","Pred_full", "Obs"))
 boxplot_df$L3Eco <- factor(boxplot_df$L3Eco, levels = c("Coast Range", "Willamette Valley", "Klamath Mountains", "Cascades", "Eastern Cascades Slopes and Foothills", "Columbia Plateau","Blue Mountains", "Northern Basin and Range", "Snake River Plain"))
 
 # Clean out environment
@@ -1046,6 +1046,7 @@ rm=(c("boxplot_preds", "boxplot_ref", "boxplot_combo"))
 
 ggplot(boxplot_df, aes(x = L3Eco, y = Prediction, fill = Model)) + 
   geom_boxplot() +
+  scale_fill_brewer(palette = "Set1") +
   guides(x = guide_axis(angle = 45)) +
   scale_y_log10() +
   theme_bw(base_size=14) + ylab(paste("COND", units)) +
@@ -1091,7 +1092,7 @@ map_all <- function(data) {
                                   "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$Ref, "<br>",
-                                  "<strong>", "Predicted Conductivity UNADJUSTED (full model): ", "</strong>", data$Pred_))  %>% 
+                                  "<strong>", "Predicted Conductivity UNADJUSTED (full model): ", "</strong>", data$Pred_reduced))  %>% 
      addCircleMarkers(data = data, group = "Pred_adj",lng = ~data$Long_DD, 
                      lat = ~data$Lat_DD, fillColor = pal3(data$Pred_adj), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
@@ -1112,10 +1113,10 @@ map_all <- function(data) {
                                   "<strong>", "Predicted Conductivity REF ONLY: ", "</strong>", data$Pred_ref))  %>% 
     addLayersControl(
       baseGroups = c("Basic Map", "Terrain", "Satellite"),
-      overlayGroups = c("Observed","Pred_", "Pred_adj", "Pred_ref"),
+      overlayGroups = c("Observed","Pred_reduced", "Pred_adj", "Pred_ref"),
       options = layersControlOptions(collapsed = FALSE)) %>% 
     addLegend(pal = pal, group = "Observed", values = data$Obs, position = "bottomright" , title = "Observed Conductivity" ) %>% 
-    addLegend(pal = pal2,group = "Pred_",values = data$Obs, position = "bottomright" , title = "Predicted Conductivity (UNADJUSTED)" ) %>%  # Keep values=data$Obs here (instead of data$pred) to keep the legend colors scales the same between obs and pred.
+    addLegend(pal = pal2,group = "Pred_reduced",values = data$Obs, position = "bottomright" , title = "Predicted Conductivity (UNADJUSTED)" ) %>%  # Keep values=data$Obs here (instead of data$pred) to keep the legend colors scales the same between obs and pred.
         addLegend(pal = pal3, group = "Pred_adj", values = data$Pred_adj, position = "bottomleft" , title = "Predicted Conductivity (ADJUSTED)" ) %>% 
         addLegend(pal = pal4, group = "Pred_ref", values = data$Pred_adj, position = "bottomleft" , title = "Predicted Conductivity (REF ONLY)" )    # Keep values=data$Pred_adj here (instead of data$Ref) to keep the legend colors scales the same between ref expectations.
 }

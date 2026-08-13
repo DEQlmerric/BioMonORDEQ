@@ -6,6 +6,10 @@ output: html_document
 ---
 
 # *Total Suspended Solids*
+```{r, include=FALSE}
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(include = FALSE)
+```
 
 # **1 - LOAD PACKAGES**
 
@@ -20,6 +24,7 @@ library(EnvStats)
 library(Metrics)
 library(randomForestSRC)
 library(leaflet)
+library(leaflet.extras)
 library(RColorBrewer)
 library(htmlwidgets)
 library(maps)
@@ -40,6 +45,13 @@ comids <- tss %>%
   select(COMID) # Get just the COMIDs for next step
 ```
 
+```{r pre-define inputs}
+# number of variables to include in the reduced model
+nred <- 11
+
+# Character vector of all human-influenced variables
+HI_vars <- c("CANALDENSWS", "DAMDENSWS", "MINEDENSWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTAGSLPMID2001WS", "PCTCROP2001WS", "PCTIMP2001WS", "PCTFRSTLOSS2002WS","PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "SW_FLUXWS", "TRIDENSWS", "WATERINPUTWS", "WWTPALLDENSWS", "WWTPMAJORDENSWS")
+```
 ## B. WATERSHED PREDICTORS - *FROM EPA STREAMCAT*
 
 ##### Learn about StreamCat predictors: <https://www.epa.gov/national-aquatic-resource-surveys/streamcat-metrics-and-definitions>
@@ -274,7 +286,7 @@ tss_vars_selected$WETTEDWIDTH  <- na.roughfix(tss_vars_selected$WETTEDWIDTH)
 
 ## A. RESPONSE VARIABLE
 
-```{r}
+```{r, include = TRUE, echo = FALSE}
 # HISTOGRAM
 hist(tss_vars_selected$TSS, main = "", xlab = "Total Suspended Solids (mg/L)") #raw data
 hist(tss_vars_selected$logTSS, main = "", xlab = "log(Total Suspended Solids)", breaks = 15)
@@ -288,7 +300,7 @@ boxplot(tss_vars_selected$logTSS, ylab = "log(Total Suspended Solids)")
 
 ## A. PREP RESPONSE DATA
 
-```{r}
+```{r, include = TRUE, echo = FALSE}
 # Select response data of interest
 TSS <- tss_vars_selected %>%
   select(-c(MLocID:COMID, TSS, SampleStartDate)) %>% #drop tp in favor of logTSS. Drop AWQMS columns too.
@@ -300,6 +312,15 @@ TSS[sapply(TSS, is.character)] <- lapply(TSS[sapply(TSS, is.character)], as.fact
 # Order factors
 TSS$L2Eco <- factor(TSS$L2Eco, levels = c("Marine West Coast Forest", "Western Cordillera", "Cold Deserts"))
 TSS$L3Eco <- factor(TSS$L3Eco, levels = c("Coast Range", "Willamette Valley", "Klamath Mountains", "Cascades", "Eastern Cascades Slopes and Foothills", "Columbia Plateau","Blue Mountains", "Northern Basin and Range", "Snake River Plain"))
+
+# Look at response data by ecoregion
+ggplot(TSS, aes(x=L3Eco, y = exp(logTSS))) + 
+geom_boxplot() +
+theme_bw() +
+scale_y_log10() +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+labs(y = "TSS") +
+geom_jitter(color="gray50", size=0.85, alpha=0.8) 
 ```
 
 ## B. FULL MODEL - ALL PREDICTORS INCLUDED
@@ -314,7 +335,7 @@ full_tuning$optimal
 
 #### Build full model
 
-```{r}
+```{r, include = TRUE, echo = FALSE}
 full <- rfsrc(logTSS ~ ., data = TSS, mtry = full_tuning$optimal[[2]], nodesize = full_tuning$optimal[[1]], importance = "TRUE", seed = 24)
 full # Model output. (OOB) R squared = Percent Variance Explained.
 
@@ -374,7 +395,7 @@ ggplot(data = full_plotdf, aes(x = pred, y = obs, color = predictions, shape = p
 
 #### Leaflet map of full model
 
-```{r}
+```{r, include = TRUE, echo = FALSE}
 # CREATE DF FOR MAPPING PURPOSES
 # Need to join predictions to AWQMS columns, but there are no unique identifiers in the TSS table. Predictions will be in the same order as the TSS table initially.
 
@@ -405,6 +426,7 @@ map_function <- function(data) {
   addProviderTiles(providers$Esri.WorldTopoMap, group = "Terrain") %>%
   addProviderTiles(providers$Esri.WorldImagery, group = "Satellite") %>%
   setView(lng = -120.5583, lat =44.0671, zoom =6.4) %>%
+  addFullscreenControl(position = "topleft", pseudoFullscreen = FALSE) %>%
   addCircleMarkers(data = data, group = "Observed", lng = ~data$Long_DD, 
                      lat = ~data$Lat_DD, fillColor = pal(data$obs), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
@@ -456,7 +478,7 @@ map_function(full_map)
 
 #### Partial dependence plots for full model
 
-```{r}
+```{r,include = TRUE, echo = FALSE}
 # Top importance vars
 partialplots <- plot.variable(full, xvar.names = c(names(full_vimp[1:8])), partial = TRUE, plots.one.page = TRUE)
 
@@ -488,13 +510,14 @@ partialplots_hi <- plot.variable(full, xvar.names = c("PESTIC1997WS", "DAMDENSWS
 ```
 
 #### Leaflet map of predictors  
-```{r}
+```{r,include = TRUE, echo = FALSE}
 map_predictors <- function(data) {
   leaflet() %>%
   addProviderTiles("OpenStreetMap", group = "Basic Map") %>% 
   addProviderTiles(providers$Esri.WorldTopoMap, group = "Terrain") %>%
   addProviderTiles(providers$Esri.WorldImagery, group = "Satellite") %>%
   setView(lng = -120.5583, lat =44.0671, zoom =6.4) %>%
+  addFullscreenControl(position = "topleft", pseudoFullscreen = FALSE) %>%
   addCircleMarkers(data = data, group = "PCTICE2001WS", lng = ~data$Long_DD, 
                      lat = ~data$Lat_DD, fillColor = pal(data$PCTICE2001WS), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
@@ -571,7 +594,7 @@ map_predictors(full_map)
 ```
 
 #### Residual plots
-```{r}
+```{r,include = TRUE, echo = FALSE}
 # Plot residuals 
 full_resid <- exp(TSS$logTSS) - exp(full_pred.oob$pred) # Observed minus predicted oob
 plot(full_resid ~ exp(full_pred.oob$pred), xlab = "Predicted TSS (mg/L)", ylab = "Residuals", main = "Full Model residuals")
@@ -592,10 +615,10 @@ plot(mse ~ full_map$Long_DD, xlab = "Longitude", ylab = "MSE")
 
 #### Reduce all human-influenced variables to 0 and make predictions using full model.
 
-```{r}
+```{r,include = TRUE, echo = FALSE}
 # Reduce all human-influenced vars to all 0s.
 TSS_no.hi <- TSS %>% 
-  mutate(across(all_of(c("CANALDENSWS", "DAMDENSWS", "MINEDENSWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTAGSLPMID2001WS", "PCTCROP2001WS", "PCTIMP2001WS", "PCTFRSTLOSS2002WS", "PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "SW_FLUXWS", "TRIDENSWS", "WATERINPUTWS", "WWTPMAJORDENSWS", "WWTPALLDENSWS")), ~0))
+  mutate(across(all_of(HI_vars), ~0))
 
 # Make predictions with adjusted human-influence to 0 
 full_no.hi <- predict(full, newdata= TSS_no.hi, seed = 24)
@@ -636,7 +659,7 @@ abline(h=0, col = "red", lty = 2)
 
 #### Leaflet map adjusting human vbls to 0
 
-```{r}
+```{r,include = TRUE, echo = FALSE}
 # CREATE DF FOR MAPPING PURPOSES to explore how residuals changed on the map after scaling all HI to zero
 # Need to join predictions to AWQMS columns, but there are no unique identifiers in the TSS table. Predictions will be in the same order as the TSS table initially.
 
@@ -669,13 +692,19 @@ map_function(full_map_no.hi)
 #### Build model with Top 11 predictors
 
 ```{r}
-#Adjust the parameters below based on tuning
-red11_tuning <- tune(logTSS~PESTIC1997WS + PCTICE2001WS + PCTCONIF2001WS + PCTBL2001WS + DAMDENSWS + CLAYWS + PCTGLACLAKECRSWS + PCTCROP2001WS + WATERINPUTWS + WETTEDWIDTH + PCTAGSLPMID2001WS, TSS, seed = 1234)
+nred <-11
+
+# build formula
+red_vars <- as.formula(paste("logTSS~", paste(names(full_vimp)[1:nred], collapse = "+")))
+
+#Adjust the parameters below based on tuning 
+red11_tuning <- tune(red_vars, data = TSS, seed = 1234)
 red11_tuning$optimal
+
 ```
 
-```{r}
-red11 <- rfsrc(logTSS ~ PESTIC1997WS + PCTICE2001WS + PCTCONIF2001WS + PCTBL2001WS + DAMDENSWS + CLAYWS + PCTGLACLAKECRSWS + PCTCROP2001WS + WATERINPUTWS + WETTEDWIDTH + PCTAGSLPMID2001WS, data = TSS, mtry = red11_tuning$optimal[[2]], nodesize = red11_tuning$optimal[[1]], importance = "TRUE", seed = 24)
+```{r,include = TRUE, echo = FALSE}
+red11 <- rfsrc(red_vars, data = TSS, mtry = red11_tuning$optimal[[2]], nodesize = red11_tuning$optimal[[1]], importance = "TRUE", seed = 24)
 red11 # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (untransformed)
@@ -696,13 +725,13 @@ print(paste0('OOB RMSE = ' , round(red11_oob.rmse,2), " (μS/cm)"))
 print(paste0('Scaled OOB RMSE = ' , round(red11_oob.rmse.scaled*100,2), "%"))
 
 # Model tuning - How many trees? (default: 500)
-red11$err.rate
+#red11$err.rate
 
 # VIP
 plot(red11, plots.one.page=FALSE)
 red11_vimp <- sort(red11$importance, decreasing = TRUE)[1:20]
 par(mar=c(5,7,4,1)+.1)
-barplot(red11_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = "TSS Reduced (11 variables) model VIMP")
+barplot(red11_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = paste0("TSS Reduced (", nred, " variables) model VIMP"))
 
 #print(vimp(red11)$importance)
 
@@ -717,7 +746,7 @@ red11_plotdf <- rbind(red11_pred.oob, red11_pred.ib) %>%
 # Plot
 ggplot(data = red11_plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
   geom_point(alpha = 0.75) +
-  labs(title = "TSS Red11 Model",
+  labs(title = "TSS red11 Model",
        x = "Predicted values (mg/L)",
        y = "Observed values (mg/L)") +
   theme_bw() + 
@@ -732,7 +761,7 @@ ggplot(data = red11_plotdf, aes(x = pred, y = obs, color = predictions, shape = 
 
 #### Leaflet map of red11 model
 
-```{r}
+```{r,include = TRUE, echo = FALSE}
 # CREATE DF FOR MAPPING PURPOSES
 # Need to join predictions to AWQMS columns, but there are no unique identifiers in the TSS table. Predictions will be in the same order as the TSS table initially.
 
@@ -772,7 +801,7 @@ map_function(red11_map)
 
 #### Overlay reduced and full models
 
-```{r}
+```{r,include = TRUE, echo = FALSE}
 full_red_map <- left_join(full_map, red11_map %>% select(MLocID, pred), by = "MLocID") %>% 
   mutate(full_pred = pred.x) %>% 
   mutate(red11_pred = pred.y) %>% 
@@ -813,32 +842,32 @@ abline(v=quantile(TSS_ref_hi$PESTIC1997WS, probs = c(0.05, 0.25, 0.5, 0.90)), co
 hist(TSS_ref_hi$PESTIC1997WS, main = '')
 quantile(TSS_ref_hi$PESTIC1997WS, probs = seq(.1, .9, by = .1))
 
-# PCTAGSLPMID2001WS
-par(mfrow=c(1,2))
-plot.variable(red11, xvar.names = c("PCTAGSLPMID2001WS"), partial = TRUE, plots.one.page = TRUE)
-abline(v=quantile(TSS_ref_hi$PCTAGSLPMID2001WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
-hist(TSS_ref_hi$PCTAGSLPMID2001WS, main = '')
-quantile(TSS_ref_hi$PCTAGSLPMID2001WS, probs = seq(.1, .9, by = .1))
-
-# WATERINPUTWS
-par(mfrow=c(1,2))
-plot.variable(red11, xvar.names = c("WATERINPUTWS"), partial = TRUE, plots.one.page = TRUE)
-abline(v=quantile(TSS_ref_hi$WATERINPUTWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
-hist(TSS_ref_hi$WATERINPUTWS, main = '')
-quantile(TSS_ref_hi$WATERINPUTWS, probs = seq(.1, .9, by = .1))
-
-# PCTCROP2001WS
-par(mfrow=c(1,2))
-plot.variable(red11, xvar.names = c("PCTCROP2001WS"), partial = TRUE, plots.one.page = TRUE)
-abline(v=quantile(TSS_ref_hi$PCTCROP2001WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
-hist(TSS_ref_hi$PCTCROP2001WS, main = '')
-quantile(TSS_ref_hi$PCTCROP2001WS, probs = seq(.1, .9, by = .1))
+# # PCTAGSLPMID2001WS
+# par(mfrow=c(1,2))
+# plot.variable(red11, xvar.names = c("PCTAGSLPMID2001WS"), partial = TRUE, plots.one.page = TRUE)
+# abline(v=quantile(TSS_ref_hi$PCTAGSLPMID2001WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
+# hist(TSS_ref_hi$PCTAGSLPMID2001WS, main = '')
+# quantile(TSS_ref_hi$PCTAGSLPMID2001WS, probs = seq(.1, .9, by = .1))
+# 
+# # WATERINPUTWS
+# par(mfrow=c(1,2))
+# plot.variable(red11, xvar.names = c("WATERINPUTWS"), partial = TRUE, plots.one.page = TRUE)
+# abline(v=quantile(TSS_ref_hi$WATERINPUTWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
+# hist(TSS_ref_hi$WATERINPUTWS, main = '')
+# quantile(TSS_ref_hi$WATERINPUTWS, probs = seq(.1, .9, by = .1))
+# 
+# # PCTCROP2001WS
+# par(mfrow=c(1,2))
+# plot.variable(red11, xvar.names = c("PCTCROP2001WS"), partial = TRUE, plots.one.page = TRUE)
+# abline(v=quantile(TSS_ref_hi$PCTCROP2001WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
+# hist(TSS_ref_hi$PCTCROP2001WS, main = '')
+# quantile(TSS_ref_hi$PCTCROP2001WS, probs = seq(.1, .9, by = .1))
 ```
 
 #### Reduce all human-influenced variables [to 0]* and make predictions using reduced model.
 ##### * We may decide to adjust to a non-zero percentile based on reference quantiles in the chunk above.
 
-```{r}
+```{r,include = TRUE, echo = FALSE}
 # Make predictions with adjusted human-influence to 0 
 red11_no.hi <- predict(red11, newdata= TSS_no.hi, seed = 24)
 
@@ -861,7 +890,7 @@ red11_plotdf_no.hi <- data.frame(obs = TSS_no.hi$logTSS, pred = red11_no.hi$pred
 # Plot
 ggplot(data = red11_plotdf_no.hi, aes(x = pred, y = obs)) +
   geom_point(alpha = 0.75) +
-  labs(title = "TSS Red11 Model predictions without human influenced vars",
+  labs(title = "TSS red11 Model predictions without human influenced vars",
        x = "Predicted values (mg/L)",
        y = "Observed values (mg/L)") +
   theme_bw() + 
@@ -872,13 +901,13 @@ ggplot(data = red11_plotdf_no.hi, aes(x = pred, y = obs)) +
 
 # Plot residuals - red11 model, adjusted human-influenced vars to 0
 red11_resid_no.hi <- exp(TSS_no.hi$logTSS) - exp(red11_no.hi$predicted) # Observed minus predicted oob
-plot(red11_resid_no.hi ~ exp(red11_no.hi$predicted), xlab = "Predicted TSS (mg/L)", ylab = "Residuals (obs - pred)", main = "Red11 model residuals, no HI vars")
+plot(red11_resid_no.hi ~ exp(red11_no.hi$predicted), xlab = "Predicted TSS (mg/L)", ylab = "Residuals (obs - pred)", main = "red11 model residuals, no HI vars")
 abline(h=0, col = "red", lty = 2)
 ```
 
 #### Leaflet map after adjusting human vbls for reduced10 model
 
-```{r}
+```{r,include = TRUE, echo = FALSE}
 # CREATE DF FOR MAPPING PURPOSES to explore how residuals changed on the map after scaling all HI to zero
 # Need to join predictions to AWQMS columns, but there are no unique identifiers in the TSS table. Predictions will be in the same order as the TSS table initially.
 
@@ -907,14 +936,11 @@ map_function(red11_map_no.hi)
 ```
 #### Partial dependence plots for red11 model
 
-```{r partial dependence plots for reduced model}
+```{r,include = TRUE, echo = FALSE}
 # Top importance vars
 red11_partialplots <- plot.variable(red11, xvar.names = c(names(red11_vimp[1:8])), partial = TRUE, plots.one.page = TRUE)
 
 red11_partialplots2 <- plot.variable(red11, xvar.names = c(names(red11_vimp[9:11])), partial = TRUE, las = 2, cex.axis = 0.7, plots.one.page = TRUE)
-
-# Human-influenced vars
-red11_partialplots_hi <- plot.variable(red11, xvar.names = c("DAMDENSWS", "PESTIC1997WS"), partial = TRUE, plots.one.page = TRUE)
 
 #******************consider adding code to look at individual metrics
 ```
@@ -949,7 +975,7 @@ print(paste0('OOB RMSE = ' , round(red4_oob.rmse,2), " (μS/cm)"))
 print(paste0('Scaled OOB RMSE = ' , round(red4_oob.rmse.scaled*100,2), "%"))
 
 # Model tuning - How many trees? (default: 500)
-red4$err.rate
+#red4$err.rate
 
 # VIP
 plot(red4, plots.one.page=FALSE)
@@ -991,7 +1017,7 @@ ggplot(data = red4_plotdf, aes(x = pred, y = obs, color = predictions, shape = p
 TSS.ref <- tss_vars_selected %>% 
   filter(ReferenceSite=="REFERENCE") %>% 
   select(-c(MLocID:COMID, TSS, SampleStartDate))  %>%  # Remove AWQMS columns
-  select(-c("CANALDENSWS", "DAMDENSWS", "MINEDENSWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTAGSLPMID2001WS", "PCTCROP2001WS", "PCTIMP2001WS", "PCTFRSTLOSS2002WS", "PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "SW_FLUXWS", "TRIDENSWS", "WATERINPUTWS", "WWTPMAJORDENSWS", "WWTPALLDENSWS")) %>%  # Remove anthropogenic StreamCat vars
+  select(-all_of(HI_vars)) %>%  # Remove anthropogenic StreamCat vars
   as.data.frame()
 
 # Convert character columns to factors
@@ -1009,7 +1035,7 @@ ref_tuning$optimal
 
 #### Build full ref-only model
 
-```{r}
+```{r,include = TRUE, echo = FALSE}
 ref <- rfsrc(logTSS ~ ., data = TSS.ref, nodesize = ref_tuning$optimal[[1]], mtry = ref_tuning$optimal[[2]], importance = "TRUE", seed = 24)
 ref # Model output. (OOB) R squared = Percent Variance Explained.
 
@@ -1033,7 +1059,7 @@ print(paste0('OOB RMSE = ' , round(ref_oob.rmse,2), " (μS/cm)"))
 print(paste0('Scaled OOB RMSE = ' , round(ref_oob.rmse.scaled*100,2), "%"))
 
 # Model tuning - How many trees? (default: 500)
-ref$err.rate
+#ref$err.rate
 
 # VIP
 plot(ref, plots.one.page=FALSE)
@@ -1074,7 +1100,7 @@ abline(h=0, col = "red", lty = 2)
 
 #### Partial dependence plots for full ref-only model
 
-```{r}
+```{r,include = TRUE, echo = FALSE}
 # Top importance vars
 partialplots <- plot.variable(ref, xvar.names = c(names(ref_vimp[1:8])), partial = TRUE, plots.one.page = TRUE)
 
@@ -1083,7 +1109,7 @@ partialplots <- plot.variable(ref, xvar.names = c(names(ref_vimp[1:8])), partial
 
 #### Leaflet map of Ref-Only model
 
-```{r}
+```{r,include = TRUE, echo = FALSE}
 # CREATE DF FOR MAPPING PURPOSES
 # Need to join predictions to AWQMS columns, but there are no unique identifiers in the TSS table. Predictions will be in the same order as the TSS table initially.
 
@@ -1126,17 +1152,17 @@ map_function(ref_map)
 
 #### Compare reduced model (adjusted and unadjusted) by ecoregion
 
-```{r}
+```{r,include = TRUE, echo = FALSE, warning=FALSE, fig.dim = c(11, 7)}
 # Construct a dataframe of predictions to compare
 boxplot_preds <- data.frame(MLocID = red11_map$MLocID, StationDes = red11_map$StationDes, Obs = red11_map$obs, Pred_reduced = red11_map$pred, L3Eco = as.character(red11_map$L3Eco),Pred_adj = red11_map_no.hi$pred, Ref = red11_map$ReferenceSite, Pred_full = full_map$pred)
 
 boxplot_ref<- ref_map %>%
-  select(MLocID, Pred_ref = pred)
+  select(MLocID, Pred_ref = pred, Obs_ref_only = obs)
 
 boxplot_combo <- left_join(boxplot_preds, boxplot_ref, by="MLocID")
 
-boxplot_df <- gather(boxplot_combo, key = "Model", value = "Prediction", Pred_reduced, Pred_adj, Pred_ref, Pred_full, Obs)
-boxplot_df$Model <- factor(boxplot_df$Model, levels = c("Pred_ref", "Pred_adj","Pred_reduced", "Pred_full", "Obs"))
+boxplot_df <- gather(boxplot_combo, key = "Model", value = "Prediction", Pred_reduced, Pred_adj, Pred_ref, Pred_full, Obs, Obs_ref_only)
+boxplot_df$Model <- factor(boxplot_df$Model, levels = c("Obs_ref_only", "Pred_ref", "Pred_adj","Pred_reduced","Pred_full", "Obs"))
 boxplot_df$L3Eco <- factor(boxplot_df$L3Eco, levels = c("Coast Range", "Willamette Valley", "Klamath Mountains", "Cascades", "Eastern Cascades Slopes and Foothills", "Columbia Plateau","Blue Mountains", "Northern Basin and Range", "Snake River Plain"))
 
 # Clean out environment
@@ -1144,6 +1170,7 @@ rm=(c("boxplot_preds", "boxplot_ref", "boxplot_combo"))
 
 ggplot(boxplot_df, aes(x = L3Eco, y = Prediction, fill = Model)) + 
   geom_boxplot() +
+  scale_fill_brewer(palette = "Set1") +
   guides(x = guide_axis(angle = 45)) +
   scale_y_log10() +
   theme_bw(base_size=14) + ylab("TSS (mg/L)") +
@@ -1151,7 +1178,8 @@ ggplot(boxplot_df, aes(x = L3Eco, y = Prediction, fill = Model)) +
     fun.data = function(x) data.frame(y = median(x), label = length(x)),
     geom = "text",
     position = position_dodge(width = 0.75),
-    vjust = -0.5
+    vjust = -0.5,
+    size = 2.5
   )
 
 # Ignore warning for 621 rows removed - these are NAs in the Pred_ref column.
@@ -1159,10 +1187,10 @@ ggplot(boxplot_df, aes(x = L3Eco, y = Prediction, fill = Model)) +
 
 #### Combined Leaflet map of predictions
 
-```{r}
+```{r, include = TRUE, echo = FALSE}
 leaflet_df <- left_join(boxplot_df, tss %>%  select(MLocID, Project1, Lat_DD, Long_DD), by = "MLocID") %>% 
   pivot_wider(names_from = Model, values_from = Prediction) %>% 
-  relocate(Obs, .before= Pred_unadj)
+  relocate(Obs, .before= Pred_reduced)
 
 map_all <- function(data) {
   leaflet() %>%
@@ -1179,15 +1207,15 @@ map_all <- function(data) {
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$Ref, "<br>",
                                   "<strong>", "Observed TSS: ", "</strong>", data$Obs))  %>% 
-      addCircleMarkers(data = data, group = "Pred_unadj",lng = ~data$Long_DD, 
-                     lat = ~data$Lat_DD, fillColor = pal2(data$Pred_unadj), stroke = TRUE,
+      addCircleMarkers(data = data, group = "Pred_reduced",lng = ~data$Long_DD, 
+                     lat = ~data$Lat_DD, fillColor = pal2(data$Pred_reduced), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
                    popup = paste0("<strong>", "MLocID: ","</strong>", data$MLocID, "<br>",
                                   "<strong>", "Station Description: ", "</strong>", data$StationDes, "<br>",
                                   "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$Ref, "<br>",
-                                  "<strong>", "Predicted TSS UNADJUSTED (reduced model): ", "</strong>", data$Pred_unadj))  %>% 
+                                  "<strong>", "Predicted TSS UNADJUSTED (reduced model): ", "</strong>", data$Pred_reduced))  %>% 
      addCircleMarkers(data = data, group = "Pred_adj",lng = ~data$Long_DD, 
                      lat = ~data$Lat_DD, fillColor = pal3(data$Pred_adj), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
@@ -1208,10 +1236,10 @@ map_all <- function(data) {
                                   "<strong>", "Predicted TSS REF ONLY: ", "</strong>", data$Pred_ref))  %>% 
     addLayersControl(
       baseGroups = c("Basic Map", "Terrain", "Satellite"),
-      overlayGroups = c("Observed","Pred_unadj", "Pred_adj", "Pred_ref"),
+      overlayGroups = c("Observed","Pred_reduced", "Pred_adj", "Pred_ref"),
       options = layersControlOptions(collapsed = FALSE)) %>% 
     addLegend(pal = pal, group = "Observed", values = data$Obs, position = "bottomright" , title = "Observed TSS" ) %>% 
-    addLegend(pal = pal2,group = "Pred_unadj",values = data$Obs, position = "bottomright" , title = "Predicted TSS (UNADJUSTED)" ) %>%  # Keep values=data$Obs here (instead of data$pred) to keep the legend colors scales the same between obs and pred.
+    addLegend(pal = pal2,group = "Pred_reduced",values = data$Obs, position = "bottomright" , title = "Predicted TSS (UNADJUSTED)" ) %>%  # Keep values=data$Obs here (instead of data$pred) to keep the legend colors scales the same between obs and pred.
         addLegend(pal = pal3, group = "Pred_adj", values = data$Pred_adj, position = "bottomleft" , title = "Predicted TSS (ADJUSTED)" ) %>% 
         addLegend(pal = pal4, group = "Pred_ref", values = data$Pred_adj, position = "bottomleft" , title = "Predicted TSS (REF ONLY)" )    # Keep values=data$Pred_adj here (instead of data$Ref) to keep the legend colors scales the same between ref expectations.
 }
@@ -1220,8 +1248,8 @@ pal <- colorNumeric(palette = "Greens",
   domain = c(0, max(leaflet_df$Obs)))
 pal2 <- colorNumeric(palette = "Greens", 
   domain = c(0, max(leaflet_df$Obs)))
-pal3 <- colorNumeric(palette = "Oranges", c(0, max(leaflet_df$Pred_unadj)))
-pal4 <- colorNumeric(palette = "Oranges", domain = c(0, max(leaflet_df$Pred_unadj)), na.color = "transparent") 
+pal3 <- colorNumeric(palette = "Oranges", c(0, max(leaflet_df$Pred_reduced)))
+pal4 <- colorNumeric(palette = "Oranges", domain = c(0, max(leaflet_df$Pred_reduced)), na.color = "transparent") 
 
 map_all(leaflet_df)
 
@@ -1232,14 +1260,14 @@ map_all(leaflet_df)
  
 #### Unadjusted predictions vs. adjusted human inflence 
 
-```{r}
+```{r, include = TRUE, echo = FALSE}
 leaflet_df$Ref <- factor(leaflet_df$Ref, levels = c("REFERENCE", "MODERATELY DISTURBED", "MOST DISTURBED"))
 
-ggplot(leaflet_df, aes(x = Pred_unadj, y = Pred_adj, color = Ref, shape = Ref)) +
+ggplot(leaflet_df, aes(x = Pred_adj, y = Pred_reduced, color = Ref, shape = Ref)) +
   geom_point(size = 1.5) + theme_bw(base_size = 15) +
   labs(
-    x = "Reduced model predicted TSS (mg/L)",
-    y = "Predicted TSS (mg/L) adjusted\n for no human disturbance predictions",
+    y = "Reduced model predicted TSS (mg/L)",
+    x = "Predicted TSS (mg/L) adjusted\n for no human disturbance predictions",
     color = "Reference Status", shape = "Reference Status") + 
   geom_abline(intercept = 0, slope = 1, linetype = "dashed")
 ```

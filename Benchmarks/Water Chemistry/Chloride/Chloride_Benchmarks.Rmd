@@ -1176,12 +1176,12 @@ map_function(ref_map)
 boxplot_preds <- data.frame(MLocID = red10_map$MLocID, StationDes = red10_map$StationDes, Obs = red10_map$obs, Pred_reduced = red10_map$pred, L3Eco = as.character(red10_map$L3Eco),Pred_adj = red10_map_no.hi$pred, Ref = red10_map$ReferenceSite, Pred_full = full_map$pred)
 
 boxplot_ref<- ref_map %>%
-  select(MLocID, Pred_ref = pred)
+  select(MLocID, Pred_ref = pred, Obs_ref_only = obs)
 
 boxplot_combo <- left_join(boxplot_preds, boxplot_ref, by="MLocID")
 
-boxplot_df <- gather(boxplot_combo, key = "Model", value = "Prediction", Pred_full, Pred_reduced, Pred_adj, Pred_ref, Obs)
-boxplot_df$Model <- factor(boxplot_df$Model, levels = c("Pred_ref", "Pred_adj","Pred_reduced", "Pred_full", "Obs"))
+boxplot_df <- gather(boxplot_combo, key = "Model", value = "Prediction", Pred_reduced, Pred_adj, Pred_ref, Pred_full, Obs, Obs_ref_only)
+boxplot_df$Model <- factor(boxplot_df$Model, levels = c("Obs_ref_only", "Pred_ref", "Pred_adj","Pred_reduced","Pred_full", "Obs"))
 boxplot_df$L3Eco <- factor(boxplot_df$L3Eco, levels = c("Coast Range", "Willamette Valley", "Klamath Mountains", "Cascades", "Eastern Cascades Slopes and Foothills", "Columbia Plateau","Blue Mountains", "Northern Basin and Range", "Snake River Plain"))
 
 # Clean out environment
@@ -1189,6 +1189,7 @@ rm=(c("boxplot_preds", "boxplot_ref", "boxplot_combo"))
 
 ggplot(boxplot_df, aes(x = L3Eco, y = Prediction, fill = Model)) + 
   geom_boxplot() +
+  scale_fill_brewer(palette = "Set1") +
   guides(x = guide_axis(angle = 45)) +
   scale_y_log10() +
   theme_bw(base_size=14) + ylab("CHLOR (mg/L)") +

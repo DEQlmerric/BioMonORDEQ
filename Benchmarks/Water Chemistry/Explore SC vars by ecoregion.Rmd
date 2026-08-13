@@ -1,5 +1,5 @@
 ---
-title: "StreamCat predictors by ecoregion"
+title: "StreamCat predictors"
 author: "Sabine Berzins"
 date: "2026-08-11"
 output: html_document
@@ -106,7 +106,7 @@ vars <- sc_all %>%
   select(-c(MLocID:SampleStartDate,EcoRegion4:HUC8,cal_val,COMID))
 ```
 
-
+## By Level 3 Ecoregion
 ```{r,include = TRUE, echo = FALSE, warning=FALSE, fig.dim = c(11, 11)}
 vars2 <- vars %>% 
   select(L3Eco, where(is.numeric)) %>% 
@@ -224,7 +224,124 @@ theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
 facet_wrap_paginate( ~ numeric_var, scales = "free_y", ncol = 3, nrow = 3, page = 16)+
 labs(y = "log scale") +
 geom_jitter(color="gray", size=0.3, alpha=0.7) 
-
-  
 ```
 
+## By reference status
+```{r,include = TRUE, echo = FALSE, warning=FALSE, fig.dim = c(11, 11)}
+vars2 <- vars %>% 
+  select(ReferenceSite, where(is.numeric)) %>% 
+  pivot_longer(cols = -ReferenceSite, names_to = "numeric_var", values_to = "value") %>% 
+  mutate(value = log(value+1), .keep = "unused")
+
+ggplot(vars2, aes(x=ReferenceSite, y = value)) + 
+geom_boxplot() +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+facet_wrap_paginate( ~ numeric_var, scales = "free_y", ncol = 3, nrow = 3, page = 1) +
+labs(y = "log scale") +
+geom_jitter(color="gray", size=0.3, alpha=0.7) 
+
+ggplot(vars2, aes(x=ReferenceSite, y = value)) + 
+geom_boxplot() +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+facet_wrap_paginate( ~ numeric_var, scales = "free_y", ncol = 3, nrow = 3, page = 2)+
+labs(y = "log scale") +
+geom_jitter(color="gray", size=0.3, alpha=0.7) 
+
+ggplot(vars2, aes(x=ReferenceSite, y = value)) + 
+geom_boxplot() +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+facet_wrap_paginate( ~ numeric_var, scales = "free_y", ncol = 3, nrow = 3, page = 3)+
+labs(y = "log scale") +
+geom_jitter(color="gray", size=0.3, alpha=0.7) 
+
+ggplot(vars2, aes(x=ReferenceSite, y = value)) + 
+geom_boxplot() +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+facet_wrap_paginate( ~ numeric_var, scales = "free_y", ncol = 3, nrow = 3, page = 4)+
+labs(y = "log scale") +
+geom_jitter(color="gray", size=0.3, alpha=0.7) 
+
+ggplot(vars2, aes(x=ReferenceSite, y = value)) + 
+geom_boxplot() +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+facet_wrap_paginate( ~ numeric_var, scales = "free_y", ncol = 3, nrow = 3, page = 5)+
+labs(y = "log scale") +
+geom_jitter(color="gray", size=0.3, alpha=0.7) 
+
+ggplot(vars2, aes(x=ReferenceSite, y = value)) + 
+geom_boxplot() +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+facet_wrap_paginate( ~ numeric_var, scales = "free_y", ncol = 3, nrow = 3, page = 6)+
+labs(y = "log scale") +
+geom_jitter(color="gray", size=0.3, alpha=0.7) 
+
+ggplot(vars2, aes(x=ReferenceSite, y = value)) + 
+geom_boxplot() +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+facet_wrap_paginate( ~ numeric_var, scales = "free_y", ncol = 3, nrow = 3, page = 7)+
+labs(y = "log scale") +
+geom_jitter(color="gray", size=0.3, alpha=0.7) 
+
+ggplot(vars2, aes(x=ReferenceSite, y = value)) + 
+geom_boxplot() +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+facet_wrap_paginate( ~ numeric_var, scales = "free_y", ncol = 3, nrow = 3, page = 8)+
+labs(y = "log scale") +
+geom_jitter(color="gray", size=0.3, alpha=0.7) 
+
+ggplot(vars2, aes(x=ReferenceSite, y = value)) + 
+geom_boxplot() +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+facet_wrap_paginate( ~ numeric_var, scales = "free_y", ncol = 3, nrow = 3, page = 9)+
+labs(y = "log scale") +
+geom_jitter(color="gray", size=0.3, alpha=0.7) 
+
+ggplot(vars2, aes(x=ReferenceSite, y = value)) + 
+geom_boxplot() +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+facet_wrap_paginate( ~ numeric_var, scales = "free_y", ncol = 3, nrow = 3, page = 10)+
+labs(y = "log scale") +
+geom_jitter(color="gray", size=0.3, alpha=0.7) 
+
+ggplot(vars2, aes(x=ReferenceSite, y = value)) + 
+geom_boxplot() +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+facet_wrap_paginate( ~ numeric_var, scales = "free_y", ncol = 3, nrow = 3, page = 11)+
+labs(y = "log scale") +
+geom_jitter(color="gray", size=0.3, alpha=0.7) 
+
+ggplot(vars2, aes(x=ReferenceSite, y = value)) + 
+geom_boxplot() +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+facet_wrap_paginate( ~ numeric_var, scales = "free_y", ncol = 3, nrow = 3, page = 12)+
+labs(y = "log scale") +
+geom_jitter(color="gray", size=0.3, alpha=0.7) 
+
+ggplot(vars2, aes(x=ReferenceSite, y = value)) + 
+geom_boxplot() +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+facet_wrap_paginate( ~ numeric_var, scales = "free_y", ncol = 3, nrow = 3, page = 13)+
+labs(y = "log scale") +
+geom_jitter(color="gray", size=0.3, alpha=0.7) 
+
+ggplot(vars2, aes(x=ReferenceSite, y = value)) + 
+geom_boxplot() +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+facet_wrap_paginate( ~ numeric_var, scales = "free_y", ncol = 3, nrow = 3, page = 14)+
+labs(y = "log scale") +
+geom_jitter(color="gray", size=0.3, alpha=0.7) 
+
+ggplot(vars2, aes(x=ReferenceSite, y = value)) + 
+geom_boxplot() +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+facet_wrap_paginate( ~ numeric_var, scales = "free_y", ncol = 3, nrow = 3, page = 15)+
+labs(y = "log scale") +
+geom_jitter(color="gray", size=0.3, alpha=0.7) 
+
+ggplot(vars2, aes(x=ReferenceSite, y = value)) + 
+geom_boxplot() +
+theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+facet_wrap_paginate( ~ numeric_var, scales = "free_y", ncol = 3, nrow = 3, page = 16)+
+labs(y = "log scale") +
+geom_jitter(color="gray", size=0.3, alpha=0.7) 
+```

@@ -35,19 +35,17 @@ library(maps)
 ## A. STATIONS - *FROM WATER CHEMISTRY BENCHMARKS SCRIPT*
 
 ```{r}
-so4 <- read_excel('~/BioMonORDEQ/Benchmarks/Water Chemistry/cal.val_chem.ref.wq_2026-05-14.xlsx') %>%  # Output file from ref benchmarks script 
+sulf <- read_excel('~/BioMonORDEQ/Benchmarks/Water Chemistry/cal.val_chem.ref.wq_2026-05-14.xlsx') %>%  # Output file from ref benchmarks script 
   filter(Char_Name == 'Sulfate') %>% 
   select(c(MLocID, Project1, StationDes, Lat_DD, Long_DD, SampleStartDate, Result_Numeric_mod, L2Eco, L3Eco, EcoRegion4, HUC8, ReferenceSite, cal_val, COMID)) %>% 
   mutate(Sulfate = Result_Numeric_mod) %>% 
   select(-Result_Numeric_mod)
 
-comids <- so4 %>% 
+comids <- sulf %>% 
   select(COMID) # Get just the COMIDs for next step
 ```
 
 ```{r pre-define inputs}
-# number of variables to include in the reduced model
-nred <- 12
 
 # Character vector of all human-influenced variables
 HI_vars <- c("CANALDENSWS", "DAMDENSWS", "FERTWS", "MINEDENSWS", "NANIWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTAGSLPMID2001WS", "PCTCROP2001WS", "PCTIMP2001WS", "PCTFRSTLOSS2002WS", "PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "TRIDENSWS", "WWTPALLDENSWS")
@@ -115,12 +113,12 @@ erod_resist_strmpow <- erod_resist_strmpow %>%
   select(COMID, PCT_EROD, STRMPOW_CAT, NHD_pSLOPE, SITE_TYPE) # Drop PCT_RESIST since it's the inverse of PCT_ERODE
 
 # JOIN WITH OTHER PARAMETERS NOT FROM STREAMCAT
-so4_vars <- sc_all %>% 
+sulf_vars <- sc_all %>% 
   inner_join(erod_resist_strmpow, by='COMID') %>% # Join StreamCat data with erod_resist_strmpow data calulated above
-  inner_join(so4, by = 'COMID') # Join those with columns from AWQMS.
+  inner_join(sulf, by = 'COMID') # Join those with columns from AWQMS.
 
 # RE-ORDER COLUMNS 
-so4_vars <- so4_vars %>% 
+sulf_vars <- sulf_vars %>% 
   relocate(MLocID:Sulfate, .before = 'COMID') %>% 
   relocate(L2Eco:L3Eco, .after = SITE_TYPE) %>% 
   select(-c(HUC8, EcoRegion4)) 
@@ -131,7 +129,7 @@ so4_vars <- so4_vars %>%
 coast_dist <- read_excel("//deqlab1//GIS_WA//Personal_Working_Folders//SBerzins//Dist_to_coast_All_sites.xls") %>% select(-c("OBJECTID", "StationDes","Lat_DD", "Long_DD", "NEAR_FID")) %>% rename(Coast_dist = NEAR_DIST) 
 
 # Join to sulfate table
-so4_vars <- inner_join(coast_dist, so4_vars, by = "MLocID") %>% 
+sulf_vars <- inner_join(coast_dist, sulf_vars, by = "MLocID") %>% 
   relocate(Coast_dist, .before = "PCT_EROD")
 ```
 
@@ -143,7 +141,7 @@ so4_vars <- inner_join(coast_dist, so4_vars, by = "MLocID") %>%
 
 ```{r}
 # FIND OUT WHICH COLUMNS HAVE NAs
-sort(sapply(so4_vars, function(x) sum(is.na(x))))
+sort(sapply(sulf_vars, function(x) sum(is.na(x))))
 
 # THEN WRITE CODE FOR THEM IN ROUGH FIX SECTION BELOW.
 
@@ -154,11 +152,11 @@ sort(sapply(so4_vars, function(x) sum(is.na(x))))
 
 ```{r}
 # PERFORM NA ROUGHFIX FUNCTION ON METRICS WITH ONLY A FEW MISSING VALUES (Leave metrics with >10 NAs [MAST2008, BMMI0809, WETTEDWITDTH, THALWEGDEPTH, BANKFULLWIDTH, BANKFULLDEPTH] until after the correlation table is built.)
-so4_vars$NSURPWS  <- na.roughfix(so4_vars$NSURPWS) # 1 NA
-so4_vars$NANIWS  <- na.roughfix(so4_vars$NANIWS) # 1 NA
-so4_vars$SW_FLUXWS  <- na.roughfix(so4_vars$SW_FLUXWS) # 2 NA
-so4_vars$PCTIMPSLPHIGH2001WS  <- na.roughfix(so4_vars$PCTIMPSLPHIGH2001WS) # 4 NA
-so4_vars$MWST2008  <- na.roughfix(so4_vars$MWST2008) # 6 NA
+sulf_vars$NSURPWS  <- na.roughfix(sulf_vars$NSURPWS) # 1 NA
+sulf_vars$NANIWS  <- na.roughfix(sulf_vars$NANIWS) # 1 NA
+sulf_vars$SW_FLUXWS  <- na.roughfix(sulf_vars$SW_FLUXWS) # 2 NA
+sulf_vars$PCTIMPSLPHIGH2001WS  <- na.roughfix(sulf_vars$PCTIMPSLPHIGH2001WS) # 4 NA
+sulf_vars$MWST2008  <- na.roughfix(sulf_vars$MWST2008) # 6 NA
 ```
 
 ## B. PREDICTOR VARIABLE SELECTION
@@ -167,13 +165,13 @@ so4_vars$MWST2008  <- na.roughfix(so4_vars$MWST2008) # 6 NA
 
 ```{r, warning=FALSE}
 # Subset numeric variables only
-so4_vars_num <- so4_vars %>% 
+sulf_vars_num <- sulf_vars %>% 
   select(!c(SITE_TYPE:L3Eco)) %>% 
   select(!c(MLocID:Sulfate)) %>%  
   relocate(sort(names(.))) # sort columns alphabetically
 
 # FULL CORRELATION MATRIX
-spear <- cor(so4_vars_num, method = "spearman", use = "pairwise.complete.obs")
+spear <- cor(sulf_vars_num, method = "spearman", use = "pairwise.complete.obs")
 spear <- as.data.frame(spear)
 spear.rows <- tibble::rownames_to_column(spear)
 
@@ -189,19 +187,19 @@ rm(list=c('spear', 'spear.rows'))
 
 ```{r}
 # Export once, then clean up in Excel.
-#write_xlsx(matrix, path = paste0("~/BioMonORDEQ/Benchmarks/Water Chemistry/Sulfate/SO4_Spearmans_Matrix", Sys.Date(), ".xlsx"))
+#write_xlsx(matrix, path = paste0("~/BioMonORDEQ/Benchmarks/Water Chemistry/Sulfate/SULF_Spearmans_Matrix", Sys.Date(), ".xlsx"))
 ```
 
 #### Calculate coefficient of variance (CV), proportion of 0s, and kernel density plots to guide variable selection decisions
 
 ```{r}
 # Calculate coefficient of variance (CV) for each predictor.
-cv <- so4_vars_num %>% 
+cv <- sulf_vars_num %>% 
   summarise(across(everything(), ~ cv(.x, na.rm = TRUE))) %>% 
   pivot_longer(1:141, names_to="Var", values_to="CV") # Change first argument to 1:# columns
 
 # Calculate % of zeros for each predictor.
-cv_pctzero <- so4_vars_num %>%
+cv_pctzero <- sulf_vars_num %>%
   summarise(across(everything(), ~ sum(. == 0, na.rm = TRUE) / n() * 100)) %>% 
   pivot_longer(1:141, names_to="Var", values_to="Percent Zeros") %>%  # Change  first argument to 1:# columns
   inner_join(cv, by = "Var")
@@ -211,7 +209,7 @@ cv_pctzero <- so4_vars_num %>%
 rm(cv)
 
 # Make kernel density plots for predictors of interest to compare distributions.
-so4_vars %>%
+sulf_vars %>%
     select("RUNOFFWS" , "SW_FLUXWS") %>%  # Edit this line to include vars that you want to look at.
   keep(is.numeric) %>% 
   gather() %>% 
@@ -248,23 +246,23 @@ so4_vars %>%
 
 ```{r}
 # Use Excel formula (=TEXTJOIN(", ", TRUE, range:range)) to compile list from decisions sheet and paste below.
-so4_vars_selected <- so4_vars %>% 
+sulf_vars_selected <- sulf_vars %>% 
   select(c(MLocID:COMID,BFIWS, CANALDENSWS, CAOWS, CLAYWS, COMPSTRGTHWS, DAMDENSWS, ELEVWS, FERTWS, HYDRLCONDWS, KFFACTWS, MINEDENSWS, MSST2008, NA2OWS, NANIWS, NHD_pSLOPE, NPDESDENSWS, NWS, OMWS, PCT_EROD, PCTAGDRAINAGEWS, PCTAGSLPMID2001WS, PCTALKINTRUVOLWS, PCTALLUVCOASTWS, PCTBL2001WS, PCTBURNAREA2002WS, PCTCOLLUVSEDWS, PCTCONIF2001WS, PCTCROP2001WS, PCTDECID2001WS, PCTEOLCRSWS, PCTEOLFINEWS, PCTEXTRUVOLWS, PCTFRSTLOSS2002WS, PCTGLACLAKECRSWS, PCTGLACLAKEFINEWS, PCTGLACTILCRSWS, PCTGRS2001WS, PCTHBWET2001WS, PCTICE2001WS, PCTIMP2001WS, PCTINCVEGRESP2002WS, PCTMXFST2001WS, PCTNONAGINTRODMANAGVEGWS, PCTOW2001WS, PCTSALLAKEWS, PCTSHRB2001WS, PCTURBHI2001WS, PCTURBLO2001WS, PCTURBOP2001WS, PCTWATERWS, PCTWDWET2001WS, PESTIC1997WS, POPDEN2010WS, RCKDEPWS, RDCRSSLPWTDWS, RDCRSWS, RDDENSWS, ROCKNWS, RUNOFFWS, SANDWS, SEPTICWS, SN2008WS, STRMPOW_CAT, SUPERFUNDDENSWS, SWS, TMAX9120WS, TRIDENSWS, WETINDEXWS, WTDEPWS, WWTPALLDENSWS, WWTPMAJORDENSWS, Coast_dist, SITE_TYPE:L3Eco)) %>% 
   relocate(COMID, .after = cal_val) %>% 
-  mutate(logSO4 = log(Sulfate)) %>% 
-  relocate(logSO4, .before= Sulfate)
+  mutate(logSULF = log(Sulfate)) %>% 
+  relocate(logSULF, .before= Sulfate)
 ```
 
 #### Perform final correlation check to ensure no co-varied predictors remain
 
 ```{r, warning=FALSE}
 # Subset numeric variables only
-so4_vars_num_selected <- so4_vars_selected %>% 
+sulf_vars_num_selected <- sulf_vars_selected %>% 
   select(!c(SITE_TYPE:L3Eco)) %>% 
   select(!c(MLocID:Sulfate)) 
 
 # FULL CORRELATION MATRIX
-spear2 <- cor(so4_vars_num_selected, method = "spearman", use = "pairwise.complete.obs")
+spear2 <- cor(sulf_vars_num_selected, method = "spearman", use = "pairwise.complete.obs")
 spear2 <- as.data.frame(spear2)
 spear2.rows <- tibble::rownames_to_column(spear2)
 
@@ -273,7 +271,7 @@ matrix2 <- spear2.rows %>%
   gather(-rowname, key = "colname", value = "cor") %>% 
   filter(abs(cor) > 0.8)
 
-rm(list=c('spear2', 'spear2.rows', 'so4_vars_num_selected'))
+rm(list=c('spear2', 'spear2.rows', 'sulf_vars_num_selected'))
 
 # ***OPEN NEWLY CREATED MATRIX AND CONTINUE ONLY IF NO CORRELATED VARIABLES REMAIN (ALL SHOULD BE 1)***
 ```
@@ -281,14 +279,14 @@ rm(list=c('spear2', 'spear2.rows', 'so4_vars_num_selected'))
 #### Clear out the environment
 
 ```{r}
-rm(list=c('cv_pctzero', 'erod_resist_strmpow', 'matrix', 'matrix2', 'comids', 'so4_vars', 'so4_vars_num'))
+rm(list=c('cv_pctzero', 'erod_resist_strmpow', 'matrix', 'matrix2', 'comids', 'sulf_vars', 'sulf_vars_num'))
 ```
 
 #### Perform final NA check and perform rough fix as desired
 
 ```{r}
 # FIND OUT WHICH COLUMNS HAVE NAs
-sapply(so4_vars_selected, function(x) sum(is.na(x)))
+sapply(sulf_vars_selected, function(x) sum(is.na(x)))
 
 # DO ANY LAST NA ROUGH FIXES AS DESIRED 
 # none for sulfate :)
@@ -300,12 +298,12 @@ sapply(so4_vars_selected, function(x) sum(is.na(x)))
 
 ```{r, include = TRUE, echo = FALSE}
 # HISTOGRAM
-hist(so4_vars_selected$Sulfate, main = "", xlab = "Sulfate (mg/L)") #raw data
-hist(so4_vars_selected$logSO4, main = "", xlab = "log(Sulfate)", breaks = 15)
+hist(sulf_vars_selected$Sulfate, main = "", xlab = "Sulfate (mg/L)") #raw data
+hist(sulf_vars_selected$logSULF, main = "", xlab = "log(Sulfate)", breaks = 15)
 
 # BOX PLOTS
-boxplot(so4_vars_selected$Sulfate, ylab = "Sulfate (mg/L)")
-boxplot(so4_vars_selected$logSO4, ylab = "log(Sulfate)")
+boxplot(sulf_vars_selected$Sulfate, ylab = "Sulfate (mg/L)")
+boxplot(sulf_vars_selected$logSULF, ylab = "log(Sulfate)")
 ```
 
 # **5 - RANDOM FOREST MODELS**
@@ -314,25 +312,29 @@ boxplot(so4_vars_selected$logSO4, ylab = "log(Sulfate)")
 
 ```{r, include = TRUE, echo = FALSE}
 # Select response data of interest
-SO4 <- so4_vars_selected %>%
-  select(-c(MLocID:COMID, Sulfate, SampleStartDate)) %>% #drop tp in favor of logSO4. Drop AWQMS columns too.
+SULF <- sulf_vars_selected %>%
+  select(-c(MLocID:COMID, Sulfate, SampleStartDate)) %>% #drop tp in favor of logSULF. Drop AWQMS columns too.
   as.data.frame()
 
 # Convert character columns to factors
-SO4[sapply(SO4, is.character)] <- lapply(SO4[sapply(SO4, is.character)], as.factor)
+SULF[sapply(SULF, is.character)] <- lapply(SULF[sapply(SULF, is.character)], as.factor)
 
 # Order factors
-SO4$L2Eco <- factor(SO4$L2Eco, levels = c("Marine West Coast Forest", "Western Cordillera", "Cold Deserts"))
-SO4$L3Eco <- factor(SO4$L3Eco, levels = c("Coast Range", "Willamette Valley", "Klamath Mountains", "Cascades", "Eastern Cascades Slopes and Foothills", "Columbia Plateau","Blue Mountains", "Northern Basin and Range", "Snake River Plain"))
+SULF$L2Eco <- factor(SULF$L2Eco, levels = c("Marine West Coast Forest", "Western Cordillera", "Cold Deserts"))
+SULF$L3Eco <- factor(SULF$L3Eco, levels = c("Coast Range", "Willamette Valley", "Klamath Mountains", "Cascades", "Eastern Cascades Slopes and Foothills", "Columbia Plateau","Blue Mountains", "Northern Basin and Range", "Snake River Plain"))
 
 # Look at response data by ecoregion
-ggplot(SO4, aes(x=L3Eco, y = exp(logSO4))) + 
+ggplot(SULF, aes(x=L3Eco, y = exp(logSULF))) + 
 geom_boxplot() +
 scale_y_log10() +
 theme_bw() +
 theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
 labs(y = "Sulfate") +
 geom_jitter(color="gray50", size=0.85, alpha=0.8) 
+
+# 8/14/26 try dropping L2Eco and L3Eco from predictors
+SULF <- SULF %>% 
+  select(-c(L2Eco, L3Eco))
 ```
 
 ## B. FULL MODEL - ALL PREDICTORS INCLUDED
@@ -341,32 +343,32 @@ geom_jitter(color="gray50", size=0.85, alpha=0.8)
 
 ```{r}
 #Adjust the parameters below based on tuning (nodesize = 6; mtry = 72)
-full_tuning <- tune(logSO4~., SO4, seed = 1234)
+full_tuning <- tune(logSULF~., SULF, seed = 1234)
 full_tuning$optimal
 ```
 
 #### Build full model
 
 ```{r, include = TRUE, echo = FALSE}
-full <- rfsrc(logSO4 ~ ., data = SO4, mtry = full_tuning$optimal[[2]], nodesize = full_tuning$optimal[[1]], importance = "TRUE", seed = 24)
+full <- rfsrc(logSULF ~ ., data = SULF, mtry = full_tuning$optimal[[2]], nodesize = full_tuning$optimal[[1]], importance = "TRUE", seed = 24)
 full # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (transformed)
 full_oob.mse <- tail(full$err.rate,1)
-full_per.var <- 100 * (1 - full_oob.mse/ var(SO4$logSO4, na.rm = TRUE))
+full_per.var <- 100 * (1 - full_oob.mse/ var(SULF$logSULF, na.rm = TRUE))
 print(full_per.var)
 
-range_SO4 <- max(exp(SO4$logSO4)) - min(exp(SO4$logSO4))
+range_SULF <- max(exp(SULF$logSULF)) - min(exp(SULF$logSULF))
 
 #In-bag RMSE
-full_rmse<- rmse(exp(full$predicted), exp(SO4$logSO4))
-full_rmse.scaled <- full_rmse/range_SO4
+full_rmse<- rmse(exp(full$predicted), exp(SULF$logSULF))
+full_rmse.scaled <- full_rmse/range_SULF
 print(paste0('In-bag RMSE = ' , round(full_rmse,2), " (μS/cm)"))
 print(paste0('Scaled In-bag RMSE = ' , round(full_rmse.scaled*100,2), "%"))
 
 #OOB RMSE
-full_oob.rmse<- rmse(exp(full$predicted.oob), exp(SO4$logSO4))
-full_oob.rmse.scaled <- full_oob.rmse/range_SO4
+full_oob.rmse<- rmse(exp(full$predicted.oob), exp(SULF$logSULF))
+full_oob.rmse.scaled <- full_oob.rmse/range_SULF
 print(paste0('OOB RMSE = ' , round(full_oob.rmse,2), " (μS/cm)"))
 print(paste0('Scaled OOB RMSE = ' , round(full_oob.rmse.scaled*100,2), "%"))
 
@@ -377,13 +379,13 @@ print(paste0('Scaled OOB RMSE = ' , round(full_oob.rmse.scaled*100,2), "%"))
 plot(full, plots.one.page=FALSE)
 full_vimp <- sort(full$importance, decreasing = TRUE)[1:20]
 par(mar=c(5,8.5,4,1)+.1)
-barplot(full_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = "SO4 Full model VIMP")
+barplot(full_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = "SULF Full model VIMP")
 
 #print(vimp(full)$importance)
 
 # Make a df for plots
-full_pred.oob <- data.frame(obs = SO4$logSO4, pred = full$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
-full_pred.ib <- data.frame(obs =SO4$logSO4, pred = full$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
+full_pred.oob <- data.frame(obs = SULF$logSULF, pred = full$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
+full_pred.ib <- data.frame(obs =SULF$logSULF, pred = full$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
 full_plotdf <- rbind(full_pred.oob, full_pred.ib) %>% 
   mutate(obs = exp(obs)) %>% 
   mutate(pred = exp(pred)) %>% 
@@ -392,7 +394,7 @@ full_plotdf <- rbind(full_pred.oob, full_pred.ib) %>%
 # Plot
 ggplot(data = full_plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
   geom_point(alpha = 0.75) +
-  labs(title = "SO4 Full Model",
+  labs(title = "SULF Full Model",
        x = "Predicted values (mg/L)",
        y = "Observed values (mg/L)") +
   theme_bw() + 
@@ -409,25 +411,26 @@ ggplot(data = full_plotdf, aes(x = pred, y = obs, color = predictions, shape = p
 
 ```{r, include = TRUE, echo = FALSE}
 # CREATE DF FOR MAPPING PURPOSES
-# Need to join predictions to AWQMS columns, but there are no unique identifiers in the SO4 table. Predictions will be in the same order as the SO4 table initially.
+# Need to join predictions to AWQMS columns, but there are no unique identifiers in the SULF table. Predictions will be in the same order as the SULF table initially.
 
 # Find a StreamCat row that has ALL unique values
-# any(duplicated(SO4$ELEVWS))  # Elevation works.
-# any(duplicated(SO4$PRECIP9120WS))
+# any(duplicated(SULF$ELEVWS))  # Elevation works.
+# any(duplicated(SULF$PRECIP9120WS))
 
 # Join predictions to StreamCat table
-full_obs.predict <- cbind(full_plotdf, SO4) %>% 
+full_obs.predict <- cbind(full_plotdf, SULF) %>% 
   filter(predictions == "OOB") %>% 
   arrange(ELEVWS) # Order by unique col
 
-full_awqms <- so4_vars_selected %>% 
+full_awqms <- sulf_vars_selected %>% 
   arrange(ELEVWS) %>% # Order by unique col
-  select(MLocID:logSO4) 
+  relocate(L2Eco:L3Eco, .before = COMID) %>% 
+  select(MLocID:logSULF) 
 
-# Join pred with awqms table, and makes sure the SO4 results match (Make sure logSO4 column is the same as logSO4.1)
+# Join pred with awqms table, and makes sure the SULF results match (Make sure logSULF column is the same as logSULF.1)
 full_map <- cbind(full_obs.predict,full_awqms)
 
-# Then select to remove duplicate logSO4 column and reorder.
+# Then select to remove duplicate logSULF column and reorder.
 full_map <- full_map %>% 
   select(obs:COMID) %>% 
   relocate(MLocID:COMID, .before = obs)
@@ -447,7 +450,7 @@ map_function <- function(data) {
                                   "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
-                                  "<strong>", "Observed SO4: ", "</strong>", data$obs))  %>% 
+                                  "<strong>", "Observed SULF: ", "</strong>", data$obs))  %>% 
       addCircleMarkers(data = data, group = "Predicted",lng = ~data$Long_DD, 
                      lat = ~data$Lat_DD, fillColor = pal2(data$pred), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
@@ -456,7 +459,7 @@ map_function <- function(data) {
                                   "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
-                                  "<strong>", "Predicted SO4: ", "</strong>", data$pred))  %>% 
+                                  "<strong>", "Predicted SULF: ", "</strong>", data$pred))  %>% 
      addCircleMarkers(data = data, group = "Obs-Pred",lng = ~data$Long_DD, 
                      lat = ~data$Lat_DD, fillColor = pal3(data$delta), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
@@ -465,14 +468,14 @@ map_function <- function(data) {
                                   "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$ReferenceSite, "<br>",
-                                  "<strong>", "Obs - Pred SO4: ", "</strong>", data$delta))  %>% 
+                                  "<strong>", "Obs - Pred SULF: ", "</strong>", data$delta))  %>% 
     addLayersControl(
       baseGroups = c("Basic Map", "Terrain", "Satellite"),
       overlayGroups = c("Observed","Predicted", "Obs-Pred"),
       options = layersControlOptions(collapsed = FALSE)) %>% 
-    addLegend(pal = pal, group = "Observed", values = data$obs, position = "bottomright" , title = "Observed SO4" ) %>% 
-    addLegend(pal = pal2,group = "Predicted",values = data$obs, position = "bottomright" , title = "Predicted SO4" ) %>%  # Keep values=data$obs here (instead of data$pred) to keep the legend colors scales the same between obs and pred.
-        addLegend(pal = pal3, group = "Obs-Pred", values = data$delta, position = "bottomleft" , title = "Obs - Pred SO4" )
+    addLegend(pal = pal, group = "Observed", values = data$obs, position = "bottomright" , title = "Observed SULF" ) %>% 
+    addLegend(pal = pal2,group = "Predicted",values = data$obs, position = "bottomright" , title = "Predicted SULF" ) %>%  # Keep values=data$obs here (instead of data$pred) to keep the legend colors scales the same between obs and pred.
+        addLegend(pal = pal3, group = "Obs-Pred", values = data$delta, position = "bottomleft" , title = "Obs - Pred SULF" )
 }
 
 pal <- colorNumeric(palette = "Greens", 
@@ -493,7 +496,6 @@ map_function(full_map)
 ```{r,include = TRUE, echo = FALSE}
 # Top importance vars
 par(mar = c(10, 5, 2, 2))
-partialplot_eco <- plot.variable(full, xvar.names = c("L3Eco"), partial = TRUE, las = 2, cex.axis = 0.7, plots.one.page = TRUE)
 
 partialplots <- plot.variable(full, xvar.names = c(names(full_vimp[1:8])), partial = TRUE, plots.one.page = TRUE)
 
@@ -612,8 +614,8 @@ map_predictors(full_map)
 #### Residual plots
 ```{r,include = TRUE, echo = FALSE}
 # Plot residuals 
-full_resid <- exp(SO4$logSO4) - exp(full_pred.oob$pred) # Observed minus predicted oob
-plot(full_resid ~ exp(full_pred.oob$pred), xlab = "Predicted SO4 (mg/L)", ylab = "Residuals", main = "Full Model residuals")
+full_resid <- exp(SULF$logSULF) - exp(full_pred.oob$pred) # Observed minus predicted oob
+plot(full_resid ~ exp(full_pred.oob$pred), xlab = "Predicted SULF (mg/L)", ylab = "Residuals", main = "Full Model residuals")
 abline(h=0, col = "red", lty = 2)
 
 # Resids by lat and long
@@ -624,7 +626,7 @@ ggplot(data=full_map, aes(x = Long_DD, y = delta)) + geom_point() + geom_smooth(
   labs(x = "Longitude", y = "Obs - Pred") 
 
 # MSE by lat and long
-mse <- (exp(SO4$logSO4) - exp(full_pred.oob$pred))^2
+mse <- (exp(SULF$logSULF) - exp(full_pred.oob$pred))^2
 plot(mse ~ full_map$Lat_DD, xlab = "Latitude", ylab = "MSE")
 plot(mse ~ full_map$Long_DD, xlab = "Longitude", ylab = "MSE")
 ```
@@ -633,24 +635,24 @@ plot(mse ~ full_map$Long_DD, xlab = "Longitude", ylab = "MSE")
 
 ```{r,include = TRUE, echo = FALSE}
 # Reduce all human-influenced vars to all 0s.
-SO4_no.hi <- SO4 %>% 
+SULF_no.hi <- SULF %>% 
   mutate(across(all_of(HI_vars), ~0))
 
 # Make predictions with adjusted human-influence to 0 
-full_no.hi <- predict(full, newdata= SO4_no.hi, seed = 24)
+full_no.hi <- predict(full, newdata= SULF_no.hi, seed = 24)
 
 # Mean squared error (untransformed)
 full_mse_no.hi <- tail(full_no.hi$err.rate,1)
-full_per.var_no.hi <- 100 * (1 - full_mse_no.hi/ var(SO4_no.hi$logSO4, na.rm = TRUE))
+full_per.var_no.hi <- 100 * (1 - full_mse_no.hi/ var(SULF_no.hi$logSULF, na.rm = TRUE))
 
 # RMSE
-full_rmse_no.hi<- rmse(exp(full_no.hi$predicted), exp(SO4_no.hi$logSO4))
-full_rmse.scaled_no.hi <- full_rmse_no.hi/range_SO4
+full_rmse_no.hi<- rmse(exp(full_no.hi$predicted), exp(SULF_no.hi$logSULF))
+full_rmse.scaled_no.hi <- full_rmse_no.hi/range_SULF
 print(paste0('OOB RMSE = ' , round(full_rmse_no.hi,2), " (μS/cm)"))
 print(paste0('Scaled OOB RMSE = ' , round(full_rmse.scaled_no.hi*100,2), "%"))
 
 # Make a df for plots
-full_plotdf_no.hi <- data.frame(obs = SO4_no.hi$logSO4, pred = full_no.hi$predicted) %>% 
+full_plotdf_no.hi <- data.frame(obs = SULF_no.hi$logSULF, pred = full_no.hi$predicted) %>% 
   mutate(obs = exp(obs)) %>% 
   mutate(pred = exp(pred)) %>% 
   mutate(delta = obs - pred)
@@ -658,7 +660,7 @@ full_plotdf_no.hi <- data.frame(obs = SO4_no.hi$logSO4, pred = full_no.hi$predic
 # Plot
 ggplot(data = full_plotdf_no.hi, aes(x = pred, y = obs)) +
   geom_point(alpha = 0.75) +
-  labs(title = "SO4 Full Model predictions without human influenced vars",
+  labs(title = "SULF Full Model predictions without human influenced vars",
        x = "Predicted values (mg/L)",
        y = "Observed values (mg/L)") +
   theme_bw() + 
@@ -668,8 +670,8 @@ ggplot(data = full_plotdf_no.hi, aes(x = pred, y = obs)) +
   annotate("text", x =0.6, y = 40, label = paste0('OOB RMSE = ' , round(full_rmse_no.hi,2), ' | scaled RMSE = ', round(full_rmse.scaled_no.hi*100,2), "%"), size = 3)
 
 # Plot residuals - full model, adjusted human-influenced vars to 0
-full_resid_no.hi <- exp(SO4_no.hi$logSO4) - exp(full_no.hi$predicted) # Observed minus predicted oob
-plot(full_resid_no.hi ~ exp(full_no.hi$predicted), xlab = "Predicted SO4 (mg/L)", ylab = "Residuals (obs - pred)", main = "full model residuals, no HI vars")
+full_resid_no.hi <- exp(SULF_no.hi$logSULF) - exp(full_no.hi$predicted) # Observed minus predicted oob
+plot(full_resid_no.hi ~ exp(full_no.hi$predicted), xlab = "Predicted SULF (mg/L)", ylab = "Residuals (obs - pred)", main = "full model residuals, no HI vars")
 abline(h=0, col = "red", lty = 2)
 ```
 
@@ -677,18 +679,18 @@ abline(h=0, col = "red", lty = 2)
 
 ```{r, include = TRUE, echo = FALSE}
 # CREATE DF FOR MAPPING PURPOSES to explore how residuals changed on the map after scaling all HI to zero
-# Need to join predictions to AWQMS columns, but there are no unique identifiers in the SO4 table. Predictions will be in the same order as the SO4 table initially.
+# Need to join predictions to AWQMS columns, but there are no unique identifiers in the SULF table. Predictions will be in the same order as the SULF table initially.
 
 # Join predictions to cal_val table
-full_obs.predict_no.hi <- cbind(full_plotdf_no.hi, SO4_no.hi) %>% 
+full_obs.predict_no.hi <- cbind(full_plotdf_no.hi, SULF_no.hi) %>% 
   arrange(ELEVWS) # Use unique col
 
-# Join SO4.obs_predict_no.hi with SO4.awqms, and makes sure the results match.
+# Join SULF.obs_predict_no.hi with SULF.awqms, and makes sure the results match.
 full_map_no.hi <- cbind(full_awqms,full_obs.predict_no.hi)
 
-# Then select to remove duplicate logSO4 column and reorder.
+# Then select to remove duplicate logSULF column and reorder.
 full_map_no.hi <- full_map_no.hi %>% 
-  select(MLocID:delta, BFIWS:L3Eco)
+  select(MLocID:delta, BFIWS:SITE_TYPE)
 
 pal <- colorNumeric(palette = "Purples", 
   domain = c(0, max(full_map_no.hi$obs)))
@@ -708,63 +710,63 @@ map_function(full_map_no.hi)
 #### Model tuning - mtry and node size (number of trees happens in next step)
 
 ```{r}
-
-nred <-12
+# number of variables to include in the reduced model
+nred <- 17
 
 # build formula
-red_vars <- as.formula(paste("logSO4~", paste(names(full_vimp)[1:nred], collapse = "+")))
+red_vars <- as.formula(paste("logSULF~", paste(names(full_vimp)[1:nred], collapse = "+")))
 
 #Adjust the parameters below based on tuning 
-red12_tuning <- tune(red_vars, data = SO4, seed = 1234)
-red12_tuning$optimal
+red17_tuning <- tune(red_vars, data = SULF, seed = 1234)
+red17_tuning$optimal
 ```
 
-#### Build model with Top red12 predictors
+#### Build model with Top red17 predictors
 
 ```{r,include = TRUE, echo = FALSE}
-red12 <- rfsrc(red_vars, data = SO4, mtry = red12_tuning$optimal[[2]], nodesize = red12_tuning$optimal[[1]], importance = "TRUE", seed = 24)
-red12 # Model output. (OOB) R squared = Percent Variance Explained.
+red17 <- rfsrc(red_vars, data = SULF, mtry = red17_tuning$optimal[[2]], nodesize = red17_tuning$optimal[[1]], importance = "TRUE", seed = 24)
+red17 # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (untransformed)
-red12_oob.mse <- tail(red12$err.rate,1)
-red12_per.var <- 100 * (1 - red12_oob.mse/ var(SO4$logSO4, na.rm = TRUE))
-print(red12_per.var)
+red17_oob.mse <- tail(red17$err.rate,1)
+red17_per.var <- 100 * (1 - red17_oob.mse/ var(SULF$logSULF, na.rm = TRUE))
+print(red17_per.var)
 
 #In-bag RMSE
-red12_rmse<- rmse(exp(red12$predicted), exp(SO4$logSO4))
-red12_rmse.scaled <- red12_rmse/range_SO4
-print(paste0('In-bag RMSE = ' , round(red12_rmse,2), " (μS/cm)"))
-print(paste0('Scaled In-bag RMSE = ' , round(red12_rmse.scaled*100,2), "%"))
+red17_rmse<- rmse(exp(red17$predicted), exp(SULF$logSULF))
+red17_rmse.scaled <- red17_rmse/range_SULF
+print(paste0('In-bag RMSE = ' , round(red17_rmse,2), " (μS/cm)"))
+print(paste0('Scaled In-bag RMSE = ' , round(red17_rmse.scaled*100,2), "%"))
 
 #OOB RMSE
-red12_oob.rmse<- rmse(exp(red12$predicted.oob), exp(SO4$logSO4))
-red12_oob.rmse.scaled <- red12_oob.rmse/range_SO4
-print(paste0('OOB RMSE = ' , round(red12_oob.rmse,2), " (μS/cm)"))
-print(paste0('Scaled OOB RMSE = ' , round(red12_oob.rmse.scaled*100,2), "%"))
+red17_oob.rmse<- rmse(exp(red17$predicted.oob), exp(SULF$logSULF))
+red17_oob.rmse.scaled <- red17_oob.rmse/range_SULF
+print(paste0('OOB RMSE = ' , round(red17_oob.rmse,2), " (μS/cm)"))
+print(paste0('Scaled OOB RMSE = ' , round(red17_oob.rmse.scaled*100,2), "%"))
 
 # Model tuning - How many trees? (default: 500)
-#red12$err.rate
+#red17$err.rate
 
 # VIP
-plot(red12, plots.one.page=FALSE)
-red12_vimp <- sort(red12$importance, decreasing = TRUE)[1:20]
+plot(red17, plots.one.page=FALSE)
+red17_vimp <- sort(red17$importance, decreasing = TRUE)[1:20]
 par(mar=c(5,7,4,1)+.1)
-barplot(red12_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = paste0("SO4 Reduced (", nred, " variables) model VIMP"))
+barplot(red17_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = paste0("SULF Reduced (", nred, " variables) model VIMP"))
 
-#print(vimp(red12)$importance)
+#print(vimp(red17)$importance)
 
 # Make a df for plots
-red12_pred.oob <- data.frame(obs = SO4$logSO4, pred = red12$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
-red12_pred.ib <- data.frame(obs =SO4$logSO4, pred = red12$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
-red12_plotdf <- rbind(red12_pred.oob, red12_pred.ib) %>% 
+red17_pred.oob <- data.frame(obs = SULF$logSULF, pred = red17$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
+red17_pred.ib <- data.frame(obs =SULF$logSULF, pred = red17$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
+red17_plotdf <- rbind(red17_pred.oob, red17_pred.ib) %>% 
   mutate(obs = exp(obs)) %>% 
   mutate(pred = exp(pred)) %>% 
   mutate(delta = obs - pred)
 
 # Plot
-ggplot(data = red12_plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
+ggplot(data = red17_plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
   geom_point(alpha = 0.75) +
-  labs(title = paste0("SO4 Red", nred, " Model"),
+  labs(title = paste0("SULF Red", nred, " Model"),
        x = "Predicted values (mg/L)",
        y = "Observed values (mg/L)") +
   theme_bw() + 
@@ -772,69 +774,70 @@ ggplot(data = red12_plotdf, aes(x = pred, y = obs, color = predictions, shape = 
   geom_smooth(method = "lm", se = FALSE) +
   scale_x_log10() +
   scale_y_log10() +
-  annotate("text", x = 0.6, y = 100, label = paste0('OOB RMSE = ' , round(red12_oob.rmse,2), ' | scaled RMSE = ', round(red12_oob.rmse.scaled*100,2), "%"), size = 3) +
-    annotate("text", x = 0.6, y = 130, label = paste0('IB RMSE = ' , round(red12_rmse,2), ' | scaled RMSE = ', round(red12_rmse.scaled*100,2), "%"), size = 3) +
-      annotate("text", x = 0.6, y = 180, label = paste0('% variance explained = ' , round(red12_per.var,2), '%'), size = 3) 
+  annotate("text", x = 0.6, y = 100, label = paste0('OOB RMSE = ' , round(red17_oob.rmse,2), ' | scaled RMSE = ', round(red17_oob.rmse.scaled*100,2), "%"), size = 3) +
+    annotate("text", x = 0.6, y = 130, label = paste0('IB RMSE = ' , round(red17_rmse,2), ' | scaled RMSE = ', round(red17_rmse.scaled*100,2), "%"), size = 3) +
+      annotate("text", x = 0.6, y = 180, label = paste0('% variance explained = ' , round(red17_per.var,2), '%'), size = 3) 
 ```
 
-#### Leaflet map of red12 model
+#### Leaflet map of red17 model
 
 ```{r, include = TRUE, echo = FALSE}
 # CREATE DF FOR MAPPING PURPOSES
-# Need to join predictions to AWQMS columns, but there are no unique identifiers in the SO4 table. Predictions will be in the same order as the SO4 table initially.
+# Need to join predictions to AWQMS columns, but there are no unique identifiers in the SULF table. Predictions will be in the same order as the SULF table initially.
 
 # Find a StreamCat row that has ALL unique values
-# any(duplicated(SO4$ELEVWS))  # Elevation works.
-# any(duplicated(SO4$PRECIP9120WS))
+# any(duplicated(SULF$ELEVWS))  # Elevation works.
+# any(duplicated(SULF$PRECIP9120WS))
 
 # Join predictions to StreamCat table
-red12_obs.predict <- cbind(red12_plotdf, SO4) %>% 
+red17_obs.predict <- cbind(red17_plotdf, SULF) %>% 
   filter(predictions == "OOB") %>% 
   arrange(ELEVWS) # Order by unique col
 
-red12_awqms <- so4_vars_selected %>% 
+red17_awqms <- sulf_vars_selected %>% 
   arrange(ELEVWS) %>% # Order by unique col
-  select(MLocID:logSO4) 
+  relocate(L2Eco:L3Eco, .before = COMID) %>% 
+  select(MLocID:logSULF) 
 
-# Join obs.pred with awqms table, and makes sure the SO4 results match (Make sure logSO4 column is the same as logSO4.1)
-red12_map <- cbind(red12_obs.predict,red12_awqms)
+# Join obs.pred with awqms table, and makes sure the SULF results match (Make sure logSULF column is the same as logSULF.1)
+red17_map <- cbind(red17_obs.predict,red17_awqms)
 
-# Then select to remove duplicate logSO4 column and reorder.
-red12_map <- red12_map %>% 
+# Then select to remove duplicate logSULF column and reorder.
+red17_map <- red17_map %>% 
   select(obs:COMID) %>% 
   relocate(MLocID:COMID, .before = obs)
 
 pal <- colorNumeric(palette = "Greens", 
-  domain = c(0, max(red12_map$obs)))
+  domain = c(0, max(red17_map$obs)))
 pal2 <- colorNumeric(palette = "Greens", 
-  domain = c(0, max(red12_map$obs)))
-pal3 <- colorNumeric(palette = "RdBu", domain = c(-1*max(red12_map$delta), max(red12_map$delta)))
+  domain = c(0, max(red17_map$obs)))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-1*max(red17_map$delta), max(red17_map$delta)))
 
-map_function(red12_map)
+map_function(red17_map)
 
 # Save map as html
-# red12_model_map <- map_function(red12_map)
-# saveWidget(red12_model_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures///Sulfate//red12_model_map.html", selfcontained = TRUE, title = "red12 model")
+# red17_model_map <- map_function(red17_map)
+# saveWidget(red17_model_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures///Sulfate//red17_model_map.html", selfcontained = TRUE, title = "red17 model")
 ```
 
 #### Overlay reduced and full models
 
 ```{r, include = TRUE, echo = FALSE}
-full_red_map <- left_join(full_map, red12_map %>% select(MLocID, pred), by = "MLocID") %>% 
+full_red_map <- left_join(full_map, red17_map %>% select(MLocID, pred), by = "MLocID") %>% 
   mutate(full_pred = pred.x) %>% 
-  mutate(red12_pred = pred.y) %>% 
+  mutate(red17_pred = pred.y) %>% 
   select(-c(pred.x,pred.y)) %>% 
-  relocate(red12_pred, .after = obs) %>% 
+  relocate(red17_pred, .after = obs) %>% 
   relocate(full_pred, .after = obs) %>% 
   select(MLocID:predictions) %>% 
-  gather(key = "Model", value = "Prediction", full_pred, red12_pred)
+  gather(key = "Model", value = "Prediction", full_pred, red17_pred)
 
 ggplot(full_red_map, aes(x = Prediction, y = obs, color = Model)) +
   geom_point(size = 1.5, alpha = 0.5) + theme_bw(base_size = 15) +
   geom_smooth(method = "lm", se = FALSE) +
   labs(
-    x = "Predicted SO4 (mg/L)",
-    y = "Observed SO4 (mg/L)") + scale_x_log10() + scale_y_log10() +
+    x = "Predicted SULF (mg/L)",
+    y = "Observed SULF (mg/L)") + scale_x_log10() + scale_y_log10() +
   geom_abline(intercept = 0, slope = 1, linetype = "dashed")
 ```
 
@@ -842,23 +845,16 @@ ggplot(full_red_map, aes(x = Prediction, y = obs, color = Model)) +
 
 ```{r}
 # Select only the human influenced predictors at reference sites from the reduced model.
-SO4_ref_hi <- full_map %>% 
+SULF_ref_hi <- full_map %>% 
   filter(ReferenceSite == "REFERENCE") %>% 
-  select(c(MLocID:logSO4, NANIWS, PCTNONAGINTRODMANAGVEGWS, PCTCROP2001WS))
+  select(c(MLocID:logSULF, NANIWS, PCTNONAGINTRODMANAGVEGWS, PCTCROP2001WS))
 
 # NANIWS
 par(mfrow=c(1,2))
 plot.variable(full, xvar.names = c("NANIWS"), partial = TRUE, plots.one.page = TRUE)
-abline(v=quantile(SO4_ref_hi$NANIWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
-hist(SO4_ref_hi$NANIWS, main = '')
-quantile(SO4_ref_hi$NANIWS, probs = seq(.1, .9, by = .1))
-
-# PCTNONAGINTRODMANAGVEGWS
-par(mfrow=c(1,2))
-plot.variable(red12, xvar.names = c("PCTNONAGINTRODMANAGVEGWS"), partial = TRUE, plots.one.page = TRUE)
-abline(v=quantile(SO4_ref_hi$PCTNONAGINTRODMANAGVEGWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
-hist(SO4_ref_hi$PCTNONAGINTRODMANAGVEGWS, main = '')
-quantile(SO4_ref_hi$PCTNONAGINTRODMANAGVEGWS, probs = seq(.1, .9, by = .1))
+abline(v=quantile(SULF_ref_hi$NANIWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
+hist(SULF_ref_hi$NANIWS, main = '')
+quantile(SULF_ref_hi$NANIWS, probs = seq(.1, .9, by = .1))
 
 ```
 
@@ -867,85 +863,80 @@ quantile(SO4_ref_hi$PCTNONAGINTRODMANAGVEGWS, probs = seq(.1, .9, by = .1))
 
 ```{r,include = TRUE, echo = FALSE}
 # Make predictions with adjusted human-influence to 0 
-red12_no.hi <- predict(red12, newdata= SO4_no.hi, seed = 24)
+red17_no.hi <- predict(red17, newdata= SULF_no.hi, seed = 24)
 
 # Mean squared error (untransformed)
-red12_mse_no.hi <- tail(red12_no.hi$err.rate,1)
-red12_per.var_no.hi <- 100 * (1 - red12_mse_no.hi/ var(SO4_no.hi$logSO4, na.rm = TRUE))
+red17_mse_no.hi <- tail(red17_no.hi$err.rate,1)
+red17_per.var_no.hi <- 100 * (1 - red17_mse_no.hi/ var(SULF_no.hi$logSULF, na.rm = TRUE))
 
 # RMSE
-red12_rmse_no.hi<- rmse(exp(red12_no.hi$predicted), exp(SO4_no.hi$logSO4))
-red12_rmse.scaled_no.hi <- red12_rmse_no.hi/range_SO4
-print(paste0('OOB RMSE = ' , round(red12_rmse_no.hi,2), " (μS/cm)"))
-print(paste0('Scaled OOB RMSE = ' , round(red12_rmse.scaled_no.hi*100,2), "%"))
+red17_rmse_no.hi<- rmse(exp(red17_no.hi$predicted), exp(SULF_no.hi$logSULF))
+red17_rmse.scaled_no.hi <- red17_rmse_no.hi/range_SULF
+print(paste0('OOB RMSE = ' , round(red17_rmse_no.hi,2), " (μS/cm)"))
+print(paste0('Scaled OOB RMSE = ' , round(red17_rmse.scaled_no.hi*100,2), "%"))
 
 # Make a df for plots
-red12_plotdf_no.hi <- data.frame(obs = SO4_no.hi$logSO4, pred = red12_no.hi$predicted) %>% 
+red17_plotdf_no.hi <- data.frame(obs = SULF_no.hi$logSULF, pred = red17_no.hi$predicted) %>% 
   mutate(obs = exp(obs)) %>% 
   mutate(pred = exp(pred)) %>% 
   mutate(delta = obs - pred)
 
 # Plot
-ggplot(data = red12_plotdf_no.hi, aes(x = pred, y = obs)) +
+ggplot(data = red17_plotdf_no.hi, aes(x = pred, y = obs)) +
   geom_point(alpha = 0.75) +
-  labs(title = "SO4 red12 Model predictions without human influenced vars",
+  labs(title = "SULF red17 Model predictions without human influenced vars",
        x = "Predicted values (mg/L)",
        y = "Observed values (mg/L)") +
   theme_bw() + 
   geom_abline() + 
   scale_x_log10() +
   scale_y_log10() +
-  annotate("text", x = 0.6, y = 90, label = paste0('OOB RMSE = ' , round(red12_rmse_no.hi,2), ' | scaled RMSE = ', round(red12_rmse.scaled_no.hi*100,2), "%"), size = 3)
+  annotate("text", x = 0.6, y = 90, label = paste0('OOB RMSE = ' , round(red17_rmse_no.hi,2), ' | scaled RMSE = ', round(red17_rmse.scaled_no.hi*100,2), "%"), size = 3)
 
-# Plot residuals - red12 model, adjusted human-influenced vars to 0
-red12_resid_no.hi <- exp(SO4_no.hi$logSO4) - exp(red12_no.hi$predicted) # Observed minus predicted oob
-plot(red12_resid_no.hi ~ exp(red12_no.hi$predicted), xlab = "Predicted SO4 (mg/L)", ylab = "Residuals (obs - pred)", main = "red12 model residuals, no HI vars")
+# Plot residuals - red17 model, adjusted human-influenced vars to 0
+red17_resid_no.hi <- exp(SULF_no.hi$logSULF) - exp(red17_no.hi$predicted) # Observed minus predicted oob
+plot(red17_resid_no.hi ~ exp(red17_no.hi$predicted), xlab = "Predicted SULF (mg/L)", ylab = "Residuals (obs - pred)", main = "red17 model residuals, no HI vars")
 abline(h=0, col = "red", lty = 2)
 ```
 
-#### Leaflet map after adjusting human vbls for red12 model
+#### Leaflet map after adjusting human vbls for red17 model
 
 ```{r,include = TRUE, echo = FALSE}
 # CREATE DF FOR MAPPING PURPOSES to explore how residuals changed on the map after scaling all HI to zero
-# Need to join predictions to AWQMS columns, but there are no unique identifiers in the SO4 table. Predictions will be in the same order as the SO4 table initially.
+# Need to join predictions to AWQMS columns, but there are no unique identifiers in the SULF table. Predictions will be in the same order as the SULF table initially.
 
 # Join predictions to cal_val table
-red12_obs.predict_no.hi <- cbind(red12_plotdf_no.hi, SO4_no.hi) %>% 
+red17_obs.predict_no.hi <- cbind(red17_plotdf_no.hi, SULF_no.hi) %>% 
   arrange(ELEVWS) # Use unique col
 
-# Join SO4.obs_predict_no.hi with SO4.awqms, and makes sure the results match.
-red12_map_no.hi <- cbind(full_awqms,red12_obs.predict_no.hi)
+# Join SULF.obs_predict_no.hi with SULF.awqms, and makes sure the results match.
+red17_map_no.hi <- cbind(full_awqms,red17_obs.predict_no.hi)
 
-# Then select to remove duplicate logSO4 column and reorder.
-red12_map_no.hi <- red12_map_no.hi %>% 
-  select(MLocID:delta, BFIWS:L3Eco)
+# Then select to remove duplicate logSULF column and reorder.
+red17_map_no.hi <- red17_map_no.hi %>% 
+  select(MLocID:delta, BFIWS:SITE_TYPE)
 
 pal <- colorNumeric(palette = "Purples", 
-  domain = c(0, max(red12_map_no.hi$obs)))
+  domain = c(0, max(red17_map_no.hi$obs)))
 pal2 <- colorNumeric(palette = "Purples", 
-  domain = c(0, max(red12_map_no.hi$obs)))
-pal3 <- colorNumeric(palette = "RdBu", domain = c(-1*max(red12_map_no.hi$delta), max(red12_map_no.hi$delta)))
+  domain = c(0, max(red17_map_no.hi$obs)))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-1*max(red17_map_no.hi$delta), max(red17_map_no.hi$delta)))
 
-map_function(red12_map_no.hi)
+map_function(red17_map_no.hi)
 
 # Save map as html
-# red12_model_map_no.hi <- map_function(red12_map_no.hi)
-# saveWidget(red12_model_map_no.hi, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//Sulfate//red12_model_map_no.hi.html", selfcontained = TRUE, title = "Full model Adjusted (no human-influenced vars)")
+# red17_model_map_no.hi <- map_function(red17_map_no.hi)
+# saveWidget(red17_model_map_no.hi, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//Sulfate//red17_model_map_no.hi.html", selfcontained = TRUE, title = "Full model Adjusted (no human-influenced vars)")
 ```
 
-#### Partial dependence plots for red12 model
+#### Partial dependence plots for red17 model
 
 ```{r partial dependence plots for reduced model, include = TRUE, echo = FALSE}
 # Top importance vars
-red12_partialplots <- plot.variable(red12, xvar.names = c(names(red12_vimp[1:8])), partial = TRUE, plots.one.page = TRUE)
+red17_partialplots <- plot.variable(red17, xvar.names = c(names(red17_vimp[1:8])), partial = TRUE, plots.one.page = TRUE)
 
-red12_partialplots2 <- plot.variable(red12, xvar.names = c(names(red12_vimp[9:16])), partial = TRUE, plots.one.page = TRUE)
+red17_partialplots2 <- plot.variable(red17, xvar.names = c(names(red17_vimp[9:16])), partial = TRUE, plots.one.page = TRUE)
 
-par(mar = c(10, 5, 2, 2))
-red12_partialplots2 <- plot.variable(red12, xvar.names = c("L2Eco", "L3Eco"), partial = TRUE, las = 2, cex.axis = 0.7, plots.one.page = TRUE)
-
-# Human-influenced vars
-red12_partialplots_hi <- plot.variable(red12, xvar.names = c("NANIWS", "PCTNONAGINTRODMANAGVEGWS", "PCTCROP2001WS"), partial = TRUE, plots.one.page = TRUE)
 
 #******************consider adding code to look at individual metrics
 ```
@@ -955,45 +946,45 @@ red12_partialplots_hi <- plot.variable(red12, xvar.names = c("NANIWS", "PCTNONAG
 
 ```{r}
 #Adjust the parameters below based on tuning (nodesize = 3; mtry = 4)
-red4_tuning <- tune(logSO4 ~ L3Eco + WETINDEXWS + PCTCONIF2001WS + SWS, SO4, seed = 1234)
+red4_tuning <- tune(logSULF ~ WETINDEXWS + PCTEXTRUVOLWS + SWS + CLAYWS, SULF, seed = 1234)
 red4_tuning$optimal
 ```
 
 ```{r}
-red4 <- rfsrc(logSO4 ~ L3Eco + WETINDEXWS + PCTCONIF2001WS + SWS, data = SO4, mtry = red4_tuning$optimal[[2]], nodesize = red4_tuning$optimal[[1]], importance = "TRUE", seed = 24)
+red4 <- rfsrc(logSULF ~ WETINDEXWS + PCTEXTRUVOLWS + SWS + CLAYWS, data = SULF, mtry = red4_tuning$optimal[[2]], nodesize = red4_tuning$optimal[[1]], importance = "TRUE", seed = 24)
 red4 # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (untransformed)
 red4_oob.mse <- tail(red4$err.rate,1)
-red4_per.var <- 100 * (1 - red4_oob.mse/ var(SO4$logSO4, na.rm = TRUE))
+red4_per.var <- 100 * (1 - red4_oob.mse/ var(SULF$logSULF, na.rm = TRUE))
 print(red4_per.var)
 
 #In-bag RMSE
-red4_rmse<- rmse(exp(red4$predicted), exp(SO4$logSO4))
-red4_rmse.scaled <- red4_rmse/range_SO4
+red4_rmse<- rmse(exp(red4$predicted), exp(SULF$logSULF))
+red4_rmse.scaled <- red4_rmse/range_SULF
 print(paste0('In-bag RMSE = ' , round(red4_rmse,2), " (μS/cm)"))
 print(paste0('Scaled In-bag RMSE = ' , round(red4_rmse.scaled*100,2), "%"))
 
 #OOB RMSE
-red4_oob.rmse<- rmse(exp(red4$predicted.oob), exp(SO4$logSO4))
-red4_oob.rmse.scaled <- red4_oob.rmse/range_SO4
+red4_oob.rmse<- rmse(exp(red4$predicted.oob), exp(SULF$logSULF))
+red4_oob.rmse.scaled <- red4_oob.rmse/range_SULF
 print(paste0('OOB RMSE = ' , round(red4_oob.rmse,2), " (μS/cm)"))
 print(paste0('Scaled OOB RMSE = ' , round(red4_oob.rmse.scaled*100,2), "%"))
 
 # Model tuning - How many trees? (default: 500)
-red4$err.rate
+#red4$err.rate
 
 # VIP
 plot(red4, plots.one.page=FALSE)
 red4_vimp <- sort(red4$importance, decreasing = TRUE)[1:20]
 par(mar=c(5,7,4,1)+.1)
-barplot(red4_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = "SO4 Reduced (4 variables) model VIMP")
+barplot(red4_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = "SULF Reduced (4 variables) model VIMP")
 
 #print(vimp(red4)$importance)
 
 # Make a df for plots
-red4_pred.oob <- data.frame(obs = SO4$logSO4, pred = red4$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
-red4_pred.ib <- data.frame(obs =SO4$logSO4, pred = red4$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
+red4_pred.oob <- data.frame(obs = SULF$logSULF, pred = red4$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
+red4_pred.ib <- data.frame(obs =SULF$logSULF, pred = red4$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
 red4_plotdf <- rbind(red4_pred.oob, red4_pred.ib) %>% 
   mutate(obs = exp(obs)) %>% 
   mutate(pred = exp(pred)) %>% 
@@ -1002,7 +993,7 @@ red4_plotdf <- rbind(red4_pred.oob, red4_pred.ib) %>%
 # Plot
 ggplot(data = red4_plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
   geom_point(alpha = 0.75) +
-  labs(title = "SO4 red4 Model",
+  labs(title = "SULF red4 Model",
        x = "Predicted values (mg/L)",
        y = "Observed values (mg/L)") +
   theme_bw() + 
@@ -1020,46 +1011,46 @@ ggplot(data = red4_plotdf, aes(x = pred, y = obs, color = predictions, shape = p
 #### Subset the data
 
 ```{r}
-SO4.ref <- so4_vars_selected %>% 
+SULF.ref <- sulf_vars_selected %>% 
   filter(ReferenceSite=="REFERENCE") %>% 
   select(-c(MLocID:COMID, Sulfate, SampleStartDate))  %>%  # Remove AWQMS columns
   select(-all_of(HI_vars)) %>%  # Remove anthropogenic StreamCat vars
   as.data.frame()
 
 # Convert character columns to factors
-SO4.ref[sapply(SO4.ref, is.character)] <- lapply(SO4.ref[sapply(SO4.ref, is.character)], as.factor)
+SULF.ref[sapply(SULF.ref, is.character)] <- lapply(SULF.ref[sapply(SULF.ref, is.character)], as.factor)
 ```
 
 #### Model tuning - mtry and node size (number of trees happens in next step)
 
 ```{r}
 #Adjust the parameters below based on tuning (nodesize = 1; mtry = 20)
-ref_tuning <- tune(logSO4~., SO4.ref, seed = 2)
+ref_tuning <- tune(logSULF~., SULF.ref, seed = 2)
 ref_tuning$optimal
 ```
 
 #### Build full ref-only model
 
 ```{r,include = TRUE, echo = FALSE}
-ref <- rfsrc(logSO4 ~ ., data = SO4.ref, mtry = ref_tuning$optimal[[2]], nodesize = ref_tuning$optimal[[1]], importance = "TRUE", seed = 24)
+ref <- rfsrc(logSULF ~ ., data = SULF.ref, mtry = ref_tuning$optimal[[2]], nodesize = ref_tuning$optimal[[1]], importance = "TRUE", seed = 24)
 ref # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (untransformed)
 ref_oob.mse <- tail(ref$err.rate,1)
-ref_per.var <- 100 * (1 - ref_oob.mse/ var(SO4.ref$logSO4, na.rm = TRUE))
+ref_per.var <- 100 * (1 - ref_oob.mse/ var(SULF.ref$logSULF, na.rm = TRUE))
 print(ref_per.var)
 
-ref_range_SO4 <- max(exp(SO4.ref$logSO4)) - min(exp(SO4.ref$logSO4))
+ref_range_SULF <- max(exp(SULF.ref$logSULF)) - min(exp(SULF.ref$logSULF))
 
 #In-bag RMSE
-ref.rmse<- rmse(exp(ref$predicted), exp(SO4.ref$logSO4))
-ref_rmse.scaled <- ref.rmse/ref_range_SO4
+ref.rmse<- rmse(exp(ref$predicted), exp(SULF.ref$logSULF))
+ref_rmse.scaled <- ref.rmse/ref_range_SULF
 print(paste0('In-bag RMSE = ' , round(ref.rmse,2), " (μS/cm)"))
 print(paste0('Scaled In-bag RMSE = ' , round(ref_rmse.scaled*100,2), "%"))
 
 #OOB RMSE
-ref_oob.rmse<- rmse(exp(ref$predicted.oob), exp(SO4.ref$logSO4))
-ref_oob.rmse.scaled <- ref_oob.rmse/ref_range_SO4
+ref_oob.rmse<- rmse(exp(ref$predicted.oob), exp(SULF.ref$logSULF))
+ref_oob.rmse.scaled <- ref_oob.rmse/ref_range_SULF
 print(paste0('OOB RMSE = ' , round(ref_oob.rmse,2), " (μS/cm)"))
 print(paste0('Scaled OOB RMSE = ' , round(ref_oob.rmse.scaled*100,2), "%"))
 
@@ -1070,13 +1061,13 @@ print(paste0('Scaled OOB RMSE = ' , round(ref_oob.rmse.scaled*100,2), "%"))
 plot(ref, plots.one.page=FALSE)
 ref_vimp <- sort(ref$importance, decreasing = TRUE)[1:20]
 par(mar=c(5,7,4,1)+.1)
-barplot(ref_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = "SO4 Full Reference-Only Model VIMP")
+barplot(ref_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = "SULF Full Reference-Only Model VIMP")
 
 #print(vimp(ref)$importance)
 
 # Make a df for plots
-ref_pred.oob <- data.frame(obs = SO4.ref$logSO4, pred = ref$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
-ref_pred.ib <- data.frame(obs =SO4.ref$logSO4, pred = ref$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
+ref_pred.oob <- data.frame(obs = SULF.ref$logSULF, pred = ref$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
+ref_pred.ib <- data.frame(obs =SULF.ref$logSULF, pred = ref$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
 ref_plotdf<- rbind(ref_pred.oob, ref_pred.ib) %>% 
   mutate(obs = exp(obs)) %>% 
   mutate(pred = exp(pred)) %>% 
@@ -1085,7 +1076,7 @@ ref_plotdf<- rbind(ref_pred.oob, ref_pred.ib) %>%
 # Plot
 ggplot(data = ref_plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
   geom_point(alpha = 0.75) +
-  labs(title = "SO4 Full Reference-Only Model",
+  labs(title = "SULF Full Reference-Only Model",
        x = "Predicted values (mg/L)",
        y = "Observed values (mg/L)") +
   theme_bw() + 
@@ -1098,8 +1089,8 @@ ggplot(data = ref_plotdf, aes(x = pred, y = obs, color = predictions, shape = pr
       annotate("text", x = 0.75, y = 25, label = paste0('% variance explained = ' , round(ref_per.var,2), '%'), size = 3) 
 
 # Plot residuals - 
-ref_resid <- exp(SO4.ref$logSO4) - exp(ref$predicted) # Observed minus predicted oob
-plot(ref_resid ~ exp(ref$predicted), xlab = "Predicted SO4 (mg/L)", ylab = "Residuals (obs - pred)", main = "Ref only model residuals")
+ref_resid <- exp(SULF.ref$logSULF) - exp(ref$predicted) # Observed minus predicted oob
+plot(ref_resid ~ exp(ref$predicted), xlab = "Predicted SULF (mg/L)", ylab = "Residuals (obs - pred)", main = "Ref only model residuals")
 abline(h=0, col = "red", lty = 2)
 ```
 
@@ -1118,26 +1109,26 @@ partialplots2 <- plot.variable(ref, xvar.names = c(names(ref_vimp[9:16])), parti
 
 ```{r, include = TRUE, echo = FALSE}
 # CREATE DF FOR MAPPING PURPOSES
-# Need to join predictions to AWQMS columns, but there are no unique identifiers in the SO4 table. Predictions will be in the same order as the SO4 table initially.
+# Need to join predictions to AWQMS columns, but there are no unique identifiers in the SULF table. Predictions will be in the same order as the SULF table initially.
 
 # Find a StreamCat row that has ALL unique values
-# any(duplicated(SO4$ELEVWS))  # Elevation works.
-# any(duplicated(SO4$PRECIP9120WS))
+# any(duplicated(SULF$ELEVWS))  # Elevation works.
+# any(duplicated(SULF$PRECIP9120WS))
 
 # Join predictions to StreamCat table
-ref_obs.predict <- cbind(ref_plotdf, SO4.ref) %>% 
+ref_obs.predict <- cbind(ref_plotdf, SULF.ref) %>% 
   filter(predictions == "OOB") %>% 
   arrange(ELEVWS) # Order by unique col
 
-ref_awqms <- so4_vars_selected %>% 
+ref_awqms <- sulf_vars_selected %>% 
   arrange(ELEVWS) %>% # Order by unique col
   filter(ReferenceSite=='REFERENCE') %>% 
-  select(MLocID:logSO4) 
+  select(MLocID:logSULF) 
 
-# Join obs.predict and awqms tables, and makes sure the SO4 results match (Make sure logSO4 column is the same as logSO4.1)
+# Join obs.predict and awqms tables, and makes sure the SULF results match (Make sure logSULF column is the same as logSULF.1)
 ref_map <- cbind(ref_obs.predict, ref_awqms)
 
-# Then select to remove duplicate logSO4 column and reorder.
+# Then select to remove duplicate logSULF column and reorder.
 ref_map <- ref_map %>% 
   select(obs:COMID) %>% 
   relocate(MLocID:COMID, .before = obs)
@@ -1161,7 +1152,7 @@ map_function(ref_map)
 
 ```{r,include = TRUE, echo = FALSE, warning=FALSE, fig.dim = c(12, 7)}
 # Construct a dataframe of predictions to compare
-boxplot_preds <- data.frame(MLocID = red12_map$MLocID, StationDes = red12_map$StationDes, Obs = red12_map$obs, Pred_reduced = red12_map$pred, L3Eco = as.character(red12_map$L3Eco),Pred_adj = red12_map_no.hi$pred, Ref = red12_map$ReferenceSite, Pred_full = full_map$pred)
+boxplot_preds <- data.frame(MLocID = red17_map$MLocID, StationDes = red17_map$StationDes, Obs = red17_map$obs, Pred_reduced = red17_map$pred, L3Eco = as.character(red17_map$L3Eco),Pred_adj = red17_map_no.hi$pred, Ref = red17_map$ReferenceSite, Pred_full = full_map$pred)
 
 boxplot_ref<- ref_map %>%
   select(MLocID, Pred_ref = pred, Obs_ref_only = obs)
@@ -1180,7 +1171,7 @@ ggplot(boxplot_df, aes(x = L3Eco, y = Prediction, fill = Model)) +
   scale_fill_brewer(palette = "Set1") +
   guides(x = guide_axis(angle = 45)) +
   scale_y_log10() +
-  theme_bw(base_size=14) + ylab("SO4 (mg/L)") +
+  theme_bw(base_size=14) + ylab("SULF (mg/L)") +
    stat_summary(
     fun.data = function(x) data.frame(y = median(x), label = length(x)),
     geom = "text",
@@ -1188,14 +1179,32 @@ ggplot(boxplot_df, aes(x = L3Eco, y = Prediction, fill = Model)) +
     vjust = -0.5,
     size = 2.5
   )
+```
 
-# Ignore warning for 544 rows removed - these are NAs in the Pred_ref column.
+#### Compare reduced model (adjusted and unadjusted) by ref status
+```{r,include = TRUE, echo = FALSE, warning=FALSE, fig.dim = c(12, 7)}
+boxplot_df$Ref <- factor(boxplot_df$Ref, levels = c("REFERENCE", "MODERATELY DISTURBED", "MOST DISTURBED"))
+
+ggplot(boxplot_df %>% filter(Model != "Obs_ref_only"), aes(x = Ref, y = Prediction, fill = Model)) + 
+  geom_boxplot() +
+  scale_fill_manual(values = brewer.pal(6, "Set1")[2:6]) +
+  guides(x = guide_axis(angle = 45)) +
+  scale_y_log10() +
+  theme_bw(base_size=14) + ylab("SULF (mg/L)") +
+   stat_summary(
+    fun.data = function(x) data.frame(y = median(x), label = length(x)),
+    geom = "text",
+    position = position_dodge(width = 0.75),
+    vjust = -0.5,
+    size = 2.5
+  )
+# Ignore warning for rows removed - these are NAs in the Pred_ref column.
 ```
 
 #### Combined Leaflet map of predictions
 
 ```{r, include = TRUE, echo = FALSE}
-leaflet_df <- left_join(boxplot_df, so4 %>%  select(MLocID, Project1, Lat_DD, Long_DD), by = "MLocID") %>% 
+leaflet_df <- left_join(boxplot_df, sulf %>%  select(MLocID, Project1, Lat_DD, Long_DD), by = "MLocID") %>% 
   pivot_wider(names_from = Model, values_from = Prediction) %>% 
   relocate(Obs, .before= Pred_reduced)
 
@@ -1214,7 +1223,7 @@ map_all <- function(data) {
                                   "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$Ref, "<br>",
-                                  "<strong>", "Observed SO4: ", "</strong>", data$Obs))  %>% 
+                                  "<strong>", "Observed SULF: ", "</strong>", data$Obs))  %>% 
       addCircleMarkers(data = data, group = "Pred_reduced",lng = ~data$Long_DD, 
                      lat = ~data$Lat_DD, fillColor = pal2(data$Pred_reduced), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
@@ -1223,7 +1232,7 @@ map_all <- function(data) {
                                   "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$Ref, "<br>",
-                                  "<strong>", "Predicted SO4 UNADJUSTED (reduced model): ", "</strong>", data$Pred_reduced))  %>% 
+                                  "<strong>", "Predicted SULF UNADJUSTED (reduced model): ", "</strong>", data$Pred_reduced))  %>% 
      addCircleMarkers(data = data, group = "Pred_adj",lng = ~data$Long_DD, 
                      lat = ~data$Lat_DD, fillColor = pal3(data$Pred_adj), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
@@ -1232,7 +1241,7 @@ map_all <- function(data) {
                                   "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$Ref, "<br>",
-                                  "<strong>", "Predicted SO4 ADJUSTED: ", "</strong>", data$Pred_adj))  %>% 
+                                  "<strong>", "Predicted SULF ADJUSTED: ", "</strong>", data$Pred_adj))  %>% 
      addCircleMarkers(data = data, group = "Pred_ref",lng = ~data$Long_DD, 
                      lat = ~data$Lat_DD, fillColor = pal4(data$Pred_ref), stroke = TRUE,
                    color = "#000", weight = 0.5, fillOpacity = 2, radius = 3, 
@@ -1241,15 +1250,15 @@ map_all <- function(data) {
                                   "<strong>", "Project: ", "</strong>", data$Project1, "<br>",
                                   "<strong>", "Level 3 Ecoregion: ", "</strong>", data$L3Eco, "<br>",
                                   "<strong>", "Reference Status: ", "</strong>", data$Ref, "<br>",
-                                  "<strong>", "Predicted SO4 REF ONLY: ", "</strong>", data$Pred_ref))  %>% 
+                                  "<strong>", "Predicted SULF REF ONLY: ", "</strong>", data$Pred_ref))  %>% 
     addLayersControl(
       baseGroups = c("Basic Map", "Terrain", "Satellite"),
       overlayGroups = c("Observed","Pred_reduced", "Pred_adj", "Pred_ref"),
       options = layersControlOptions(collapsed = FALSE)) %>% 
-    addLegend(pal = pal, group = "Observed", values = data$Obs, position = "bottomright" , title = "Observed SO4" ) %>% 
-    addLegend(pal = pal2,group = "Pred_reduced",values = data$Obs, position = "bottomright" , title = "Predicted SO4 (UNADJUSTED)" ) %>%  # Keep values=data$Obs here (instead of data$pred) to keep the legend colors scales the same between obs and pred.
-        addLegend(pal = pal3, group = "Pred_adj", values = data$Pred_adj, position = "bottomleft" , title = "Predicted SO4 (ADJUSTED)" ) %>% 
-        addLegend(pal = pal4, group = "Pred_ref", values = data$Pred_adj, position = "bottomleft" , title = "Predicted SO4 (REF ONLY)" )    # Keep values=data$Pred_adj here (instead of data$Ref) to keep the legend colors scales the same between ref expectations.
+    addLegend(pal = pal, group = "Observed", values = data$Obs, position = "bottomright" , title = "Observed SULF" ) %>% 
+    addLegend(pal = pal2,group = "Pred_reduced",values = data$Obs, position = "bottomright" , title = "Predicted SULF (UNADJUSTED)" ) %>%  # Keep values=data$Obs here (instead of data$pred) to keep the legend colors scales the same between obs and pred.
+        addLegend(pal = pal3, group = "Pred_adj", values = data$Pred_adj, position = "bottomleft" , title = "Predicted SULF (ADJUSTED)" ) %>% 
+        addLegend(pal = pal4, group = "Pred_ref", values = data$Pred_adj, position = "bottomleft" , title = "Predicted SULF (REF ONLY)" )    # Keep values=data$Pred_adj here (instead of data$Ref) to keep the legend colors scales the same between ref expectations.
 }
 
 pal <- colorNumeric(palette = "Greens", 
@@ -1274,8 +1283,8 @@ leaflet_df$Ref <- factor(leaflet_df$Ref, levels = c("REFERENCE", "MODERATELY DIS
 ggplot(leaflet_df, aes(x = Pred_adj, y = Pred_reduced, color = Ref, shape = Ref)) +
   geom_point(size = 1.5) + theme_bw(base_size = 15) +
   labs(
-    y = "Reduced model predicted SO4 (mg/L)",
-    x = "Predicted SO4 (mg/L) adjusted\n for no human disturbance predictions",
+    y = "Reduced model predicted SULF (mg/L)",
+    x = "Predicted SULF (mg/L) adjusted\n for no human disturbance predictions",
     color = "Reference Status", shape = "Reference Status") + 
   geom_abline(intercept = 0, slope = 1, linetype = "dashed")
 ```

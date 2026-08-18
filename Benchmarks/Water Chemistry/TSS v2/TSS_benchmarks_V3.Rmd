@@ -46,8 +46,6 @@ comids <- tss %>%
 ```
 
 ```{r pre-define inputs}
-# number of variables to include in the reduced model
-nred <- 11
 
 # Character vector of all human-influenced variables
 HI_vars <- c("CANALDENSWS", "DAMDENSWS", "MINEDENSWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTAGSLPMID2001WS", "PCTCROP2001WS", "PCTIMP2001WS", "PCTFRSTLOSS2002WS","PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "SW_FLUXWS", "TRIDENSWS", "WATERINPUTWS", "WWTPALLDENSWS", "WWTPMAJORDENSWS")
@@ -321,6 +319,10 @@ scale_y_log10() +
 theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
 labs(y = "TSS") +
 geom_jitter(color="gray50", size=0.85, alpha=0.8) 
+
+# 8/18/26 try dropping L2Eco and L3Eco from predictors
+TSS <- TSS %>% 
+  select(-c(L2Eco, L3Eco))
 ```
 
 ## B. FULL MODEL - ALL PREDICTORS INCLUDED
@@ -410,6 +412,7 @@ full_obs.predict <- cbind(full_plotdf, TSS) %>%
 
 full_awqms <- tss_vars_selected %>% 
   arrange(ELEVWS) %>% # Order by unique col
+  relocate(L2Eco:L3Eco, .before = COMID) %>%
   select(MLocID:logTSS) 
 
 # Join pred with awqms table, and makes sure the TSS results match (Make sure logTSS column is the same as logTSS.1)
@@ -417,7 +420,7 @@ full_map <- cbind(full_obs.predict,full_awqms)
 
 # Then select to remove duplicate logTSS column and reorder.
 full_map <- full_map %>% 
-  select(obs:COMID) %>% 
+  select(obs:COMID) %>%
   relocate(MLocID:COMID, .before = obs)
 
 map_function <- function(data) {
@@ -672,7 +675,7 @@ full_map_no.hi <- cbind(full_awqms,full_obs.predict_no.hi)
 
 # Then select to remove duplicate logTSS column and reorder.
 full_map_no.hi <- full_map_no.hi %>% 
-  select(MLocID:delta, BFIWS:L3Eco)
+  select(MLocID:delta, BFIWS:SITE_TYPE)
 
 pal <- colorNumeric(palette = "Purples", 
   domain = c(0, max(full_map_no.hi$obs)))
@@ -689,64 +692,65 @@ map_function(full_map_no.hi)
 
 ## C. Model Reduction
 
-#### Build model with Top 11 predictors
+#### Build model with top red10 predictors
 
 ```{r}
-nred <-11
+# number of variables to include in the reduced model
+nred <- 10
 
 # build formula
 red_vars <- as.formula(paste("logTSS~", paste(names(full_vimp)[1:nred], collapse = "+")))
 
 #Adjust the parameters below based on tuning 
-red11_tuning <- tune(red_vars, data = TSS, seed = 1234)
-red11_tuning$optimal
+red10_tuning <- tune(red_vars, data = TSS, seed = 1234)
+red10_tuning$optimal
 
 ```
 
 ```{r,include = TRUE, echo = FALSE}
-red11 <- rfsrc(red_vars, data = TSS, mtry = red11_tuning$optimal[[2]], nodesize = red11_tuning$optimal[[1]], importance = "TRUE", seed = 24)
-red11 # Model output. (OOB) R squared = Percent Variance Explained.
+red10 <- rfsrc(red_vars, data = TSS, mtry = red10_tuning$optimal[[2]], nodesize = red10_tuning$optimal[[1]], importance = "TRUE", seed = 24)
+red10 # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (untransformed)
-red11_oob.mse <- tail(red11$err.rate,1)
-red11_per.var <- 100 * (1 - red11_oob.mse/ var(TSS$logTSS, na.rm = TRUE))
-print(red11_per.var)
+red10_oob.mse <- tail(red10$err.rate,1)
+red10_per.var <- 100 * (1 - red10_oob.mse/ var(TSS$logTSS, na.rm = TRUE))
+print(red10_per.var)
 
 #In-bag RMSE
-red11_rmse<- rmse(exp(red11$predicted), exp(TSS$logTSS))
-red11_rmse.scaled <- red11_rmse/range_TSS
-print(paste0('In-bag RMSE = ' , round(red11_rmse,2), " (μS/cm)"))
-print(paste0('Scaled In-bag RMSE = ' , round(red11_rmse.scaled*100,2), "%"))
+red10_rmse<- rmse(exp(red10$predicted), exp(TSS$logTSS))
+red10_rmse.scaled <- red10_rmse/range_TSS
+print(paste0('In-bag RMSE = ' , round(red10_rmse,2), " (μS/cm)"))
+print(paste0('Scaled In-bag RMSE = ' , round(red10_rmse.scaled*100,2), "%"))
 
 #OOB RMSE
-red11_oob.rmse<- rmse(exp(red11$predicted.oob), exp(TSS$logTSS))
-red11_oob.rmse.scaled <- red11_oob.rmse/range_TSS
-print(paste0('OOB RMSE = ' , round(red11_oob.rmse,2), " (μS/cm)"))
-print(paste0('Scaled OOB RMSE = ' , round(red11_oob.rmse.scaled*100,2), "%"))
+red10_oob.rmse<- rmse(exp(red10$predicted.oob), exp(TSS$logTSS))
+red10_oob.rmse.scaled <- red10_oob.rmse/range_TSS
+print(paste0('OOB RMSE = ' , round(red10_oob.rmse,2), " (μS/cm)"))
+print(paste0('Scaled OOB RMSE = ' , round(red10_oob.rmse.scaled*100,2), "%"))
 
 # Model tuning - How many trees? (default: 500)
-#red11$err.rate
+#red10$err.rate
 
 # VIP
-plot(red11, plots.one.page=FALSE)
-red11_vimp <- sort(red11$importance, decreasing = TRUE)[1:20]
+plot(red10, plots.one.page=FALSE)
+red10_vimp <- sort(red10$importance, decreasing = TRUE)[1:20]
 par(mar=c(5,7,4,1)+.1)
-barplot(red11_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = paste0("TSS Reduced (", nred, " variables) model VIMP"))
+barplot(red10_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = paste0("TSS Reduced (", nred, " variables) model VIMP"))
 
-#print(vimp(red11)$importance)
+#print(vimp(red10)$importance)
 
 # Make a df for plots
-red11_pred.oob <- data.frame(obs = TSS$logTSS, pred = red11$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
-red11_pred.ib <- data.frame(obs =TSS$logTSS, pred = red11$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
-red11_plotdf <- rbind(red11_pred.oob, red11_pred.ib) %>% 
+red10_pred.oob <- data.frame(obs = TSS$logTSS, pred = red10$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
+red10_pred.ib <- data.frame(obs =TSS$logTSS, pred = red10$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
+red10_plotdf <- rbind(red10_pred.oob, red10_pred.ib) %>% 
   mutate(obs = exp(obs)) %>% 
   mutate(pred = exp(pred)) %>% 
   mutate(delta = obs - pred)
 
 # Plot
-ggplot(data = red11_plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
+ggplot(data = red10_plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
   geom_point(alpha = 0.75) +
-  labs(title = "TSS red11 Model",
+  labs(title = "TSS red10 Model",
        x = "Predicted values (mg/L)",
        y = "Observed values (mg/L)") +
   theme_bw() + 
@@ -754,12 +758,12 @@ ggplot(data = red11_plotdf, aes(x = pred, y = obs, color = predictions, shape = 
   geom_smooth(method = "lm", se = FALSE) +
   scale_x_log10() +
   scale_y_log10() +
-  annotate("text", x = 0.75, y = 100, label = paste0('OOB RMSE = ' , round(red11_oob.rmse,2), ' | scaled RMSE = ', round(red11_oob.rmse.scaled*100,2), "%"), size = 3) +
-    annotate("text", x = 0.75, y = 120, label = paste0('IB RMSE = ' , round(red11_rmse,2), ' | scaled RMSE = ', round(red11_rmse.scaled*100,2), "%"), size = 3) +
-      annotate("text", x = 0.75, y = 145, label = paste0('% variance explained = ' , round(red11_per.var,2), '%'), size = 3) 
+  annotate("text", x = 0.75, y = 100, label = paste0('OOB RMSE = ' , round(red10_oob.rmse,2), ' | scaled RMSE = ', round(red10_oob.rmse.scaled*100,2), "%"), size = 3) +
+    annotate("text", x = 0.75, y = 120, label = paste0('IB RMSE = ' , round(red10_rmse,2), ' | scaled RMSE = ', round(red10_rmse.scaled*100,2), "%"), size = 3) +
+      annotate("text", x = 0.75, y = 145, label = paste0('% variance explained = ' , round(red10_per.var,2), '%'), size = 3) 
 ```
 
-#### Leaflet map of red11 model
+#### Leaflet map of red10 model
 
 ```{r,include = TRUE, echo = FALSE}
 # CREATE DF FOR MAPPING PURPOSES
@@ -770,46 +774,47 @@ ggplot(data = red11_plotdf, aes(x = pred, y = obs, color = predictions, shape = 
 # any(duplicated(TSS$PRECIP9120WS))
 
 # Join predictions to StreamCat table
-red11_obs.predict <- cbind(red11_plotdf, TSS) %>% 
+red10_obs.predict <- cbind(red10_plotdf, TSS) %>% 
   filter(predictions == "OOB") %>% 
   arrange(ELEVWS) # Order by unique col
 
-red11_awqms <- tss_vars_selected %>% 
+red10_awqms <- tss_vars_selected %>% 
   arrange(ELEVWS) %>% # Order by unique col
+  relocate(L2Eco:L3Eco, .before = COMID) %>% 
   select(MLocID:logTSS) 
 
 # Join obs.pred with awqms table, and makes sure the TSS results match (Make sure logTSS column is the same as logTSS.1)
-red11_map <- cbind(red11_obs.predict,red11_awqms)
+red10_map <- cbind(red10_obs.predict,red10_awqms)
 
 # Then select to remove duplicate logTSS column and reorder.
-red11_map <- red11_map %>% 
+red10_map <- red10_map %>% 
   select(obs:COMID) %>% 
   relocate(MLocID:COMID, .before = obs)
 
 pal <- colorNumeric(palette = "Greens", 
-  domain = c(0, max(red11_map$obs)))
+  domain = c(0, max(red10_map$obs)))
 pal2 <- colorNumeric(palette = "Greens", 
-  domain = c(0, max(red11_map$obs)))
-pal3 <- colorNumeric(palette = "RdBu", domain = c(-1*max(red11_map$delta), max(red11_map$delta)))
+  domain = c(0, max(red10_map$obs)))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-1*max(red10_map$delta), max(red10_map$delta)))
 
-map_function(red11_map)
+map_function(red10_map)
 
 # Save map as html
-# red11_model_map <- map_function(red11_map)
-# saveWidget(red11_model_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//TSS//red11_model_map.html", selfcontained = TRUE, title = "red11 model")
+# red10_model_map <- map_function(red10_map)
+# saveWidget(red10_model_map, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//TSS//red10_model_map.html", selfcontained = TRUE, title = "red10 model")
 ```
 
 #### Overlay reduced and full models
 
 ```{r,include = TRUE, echo = FALSE}
-full_red_map <- left_join(full_map, red11_map %>% select(MLocID, pred), by = "MLocID") %>% 
+full_red_map <- left_join(full_map, red10_map %>% select(MLocID, pred), by = "MLocID") %>% 
   mutate(full_pred = pred.x) %>% 
-  mutate(red11_pred = pred.y) %>% 
+  mutate(red10_pred = pred.y) %>% 
   select(-c(pred.x,pred.y)) %>% 
-  relocate(red11_pred, .after = obs) %>% 
+  relocate(red10_pred, .after = obs) %>% 
   relocate(full_pred, .after = obs) %>% 
   select(MLocID:predictions) %>% 
-  gather(key = "Model", value = "Prediction", full_pred, red11_pred)
+  gather(key = "Model", value = "Prediction", full_pred, red10_pred)
 
 ggplot(full_red_map, aes(x = Prediction, y = obs, color = Model)) +
   geom_point(size = 1.5, alpha = 0.5) + theme_bw(base_size = 15) +
@@ -830,35 +835,35 @@ TSS_ref_hi <- full_map %>%
 
 # DAMDENSWS
 par(mfrow=c(1,2))
-plot.variable(red11, xvar.names = c("DAMDENSWS"), partial = TRUE, plots.one.page = TRUE)
+plot.variable(red10, xvar.names = c("DAMDENSWS"), partial = TRUE, plots.one.page = TRUE)
 abline(v=quantile(TSS_ref_hi$DAMDENSWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
 hist(TSS_ref_hi$DAMDENSWS, main = '')
 quantile(TSS_ref_hi$DAMDENSWS, probs = seq(.1, .9, by = .1))
 
 # PESTIC1997WS: Mean pesticide use (kg/km2) in yr. 1997
 par(mfrow=c(1,2))
-plot.variable(red11, xvar.names = c("PESTIC1997WS"), partial = TRUE, plots.one.page = TRUE)
+plot.variable(red10, xvar.names = c("PESTIC1997WS"), partial = TRUE, plots.one.page = TRUE)
 abline(v=quantile(TSS_ref_hi$PESTIC1997WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
 hist(TSS_ref_hi$PESTIC1997WS, main = '')
 quantile(TSS_ref_hi$PESTIC1997WS, probs = seq(.1, .9, by = .1))
 
 # # PCTAGSLPMID2001WS
 # par(mfrow=c(1,2))
-# plot.variable(red11, xvar.names = c("PCTAGSLPMID2001WS"), partial = TRUE, plots.one.page = TRUE)
+# plot.variable(red10, xvar.names = c("PCTAGSLPMID2001WS"), partial = TRUE, plots.one.page = TRUE)
 # abline(v=quantile(TSS_ref_hi$PCTAGSLPMID2001WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
 # hist(TSS_ref_hi$PCTAGSLPMID2001WS, main = '')
 # quantile(TSS_ref_hi$PCTAGSLPMID2001WS, probs = seq(.1, .9, by = .1))
 # 
 # # WATERINPUTWS
 # par(mfrow=c(1,2))
-# plot.variable(red11, xvar.names = c("WATERINPUTWS"), partial = TRUE, plots.one.page = TRUE)
+# plot.variable(red10, xvar.names = c("WATERINPUTWS"), partial = TRUE, plots.one.page = TRUE)
 # abline(v=quantile(TSS_ref_hi$WATERINPUTWS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
 # hist(TSS_ref_hi$WATERINPUTWS, main = '')
 # quantile(TSS_ref_hi$WATERINPUTWS, probs = seq(.1, .9, by = .1))
 # 
 # # PCTCROP2001WS
 # par(mfrow=c(1,2))
-# plot.variable(red11, xvar.names = c("PCTCROP2001WS"), partial = TRUE, plots.one.page = TRUE)
+# plot.variable(red10, xvar.names = c("PCTCROP2001WS"), partial = TRUE, plots.one.page = TRUE)
 # abline(v=quantile(TSS_ref_hi$PCTCROP2001WS, probs = c(0.05, 0.25, 0.5, 0.90)), col = c('blue', 'red', 'green', 'black'),lty = 'dashed')
 # hist(TSS_ref_hi$PCTCROP2001WS, main = '')
 # quantile(TSS_ref_hi$PCTCROP2001WS, probs = seq(.1, .9, by = .1))
@@ -869,39 +874,39 @@ quantile(TSS_ref_hi$PESTIC1997WS, probs = seq(.1, .9, by = .1))
 
 ```{r,include = TRUE, echo = FALSE}
 # Make predictions with adjusted human-influence to 0 
-red11_no.hi <- predict(red11, newdata= TSS_no.hi, seed = 24)
+red10_no.hi <- predict(red10, newdata= TSS_no.hi, seed = 24)
 
 # Mean squared error (untransformed)
-red11_mse_no.hi <- tail(red11_no.hi$err.rate,1)
-red11_per.var_no.hi <- 100 * (1 - red11_mse_no.hi/ var(TSS_no.hi$logTSS, na.rm = TRUE))
+red10_mse_no.hi <- tail(red10_no.hi$err.rate,1)
+red10_per.var_no.hi <- 100 * (1 - red10_mse_no.hi/ var(TSS_no.hi$logTSS, na.rm = TRUE))
 
 # RMSE
-red11_rmse_no.hi<- rmse(exp(red11_no.hi$predicted), exp(TSS_no.hi$logTSS))
-red11_rmse.scaled_no.hi <- red11_rmse_no.hi/range_TSS
-print(paste0('OOB RMSE = ' , round(red11_rmse_no.hi,2), " (μS/cm)"))
-print(paste0('Scaled OOB RMSE = ' , round(red11_rmse.scaled_no.hi*100,2), "%"))
+red10_rmse_no.hi<- rmse(exp(red10_no.hi$predicted), exp(TSS_no.hi$logTSS))
+red10_rmse.scaled_no.hi <- red10_rmse_no.hi/range_TSS
+print(paste0('OOB RMSE = ' , round(red10_rmse_no.hi,2), " (μS/cm)"))
+print(paste0('Scaled OOB RMSE = ' , round(red10_rmse.scaled_no.hi*100,2), "%"))
 
 # Make a df for plots
-red11_plotdf_no.hi <- data.frame(obs = TSS_no.hi$logTSS, pred = red11_no.hi$predicted) %>% 
+red10_plotdf_no.hi <- data.frame(obs = TSS_no.hi$logTSS, pred = red10_no.hi$predicted) %>% 
   mutate(obs = exp(obs)) %>% 
   mutate(pred = exp(pred)) %>% 
   mutate(delta = obs - pred)
 
 # Plot
-ggplot(data = red11_plotdf_no.hi, aes(x = pred, y = obs)) +
+ggplot(data = red10_plotdf_no.hi, aes(x = pred, y = obs)) +
   geom_point(alpha = 0.75) +
-  labs(title = "TSS red11 Model predictions without human influenced vars",
+  labs(title = "TSS red10 Model predictions without human influenced vars",
        x = "Predicted values (mg/L)",
        y = "Observed values (mg/L)") +
   theme_bw() + 
   geom_abline() + 
   scale_x_log10() +
   scale_y_log10() +
-  annotate("text", x = 0.6, y = 90, label = paste0('OOB RMSE = ' , round(red11_rmse_no.hi,2), ' | scaled RMSE = ', round(red11_rmse.scaled_no.hi*100,2), "%"), size = 3)
+  annotate("text", x = 0.6, y = 90, label = paste0('OOB RMSE = ' , round(red10_rmse_no.hi,2), ' | scaled RMSE = ', round(red10_rmse.scaled_no.hi*100,2), "%"), size = 3)
 
-# Plot residuals - red11 model, adjusted human-influenced vars to 0
-red11_resid_no.hi <- exp(TSS_no.hi$logTSS) - exp(red11_no.hi$predicted) # Observed minus predicted oob
-plot(red11_resid_no.hi ~ exp(red11_no.hi$predicted), xlab = "Predicted TSS (mg/L)", ylab = "Residuals (obs - pred)", main = "red11 model residuals, no HI vars")
+# Plot residuals - red10 model, adjusted human-influenced vars to 0
+red10_resid_no.hi <- exp(TSS_no.hi$logTSS) - exp(red10_no.hi$predicted) # Observed minus predicted oob
+plot(red10_resid_no.hi ~ exp(red10_no.hi$predicted), xlab = "Predicted TSS (mg/L)", ylab = "Residuals (obs - pred)", main = "red10 model residuals, no HI vars")
 abline(h=0, col = "red", lty = 2)
 ```
 
@@ -912,35 +917,35 @@ abline(h=0, col = "red", lty = 2)
 # Need to join predictions to AWQMS columns, but there are no unique identifiers in the TSS table. Predictions will be in the same order as the TSS table initially.
 
 # Join predictions to cal_val table
-red11_obs.predict_no.hi <- cbind(red11_plotdf_no.hi, TSS_no.hi) %>% 
+red10_obs.predict_no.hi <- cbind(red10_plotdf_no.hi, TSS_no.hi) %>% 
   arrange(ELEVWS) # Use unique col
 
 # Join TSS.obs_predict_no.hi with TSS.awqms, and makes sure the results match.
-red11_map_no.hi <- cbind(full_awqms,red11_obs.predict_no.hi)
+red10_map_no.hi <- cbind(full_awqms,red10_obs.predict_no.hi)
 
 # Then select to remove duplicate logTSS column and reorder.
-red11_map_no.hi <- red11_map_no.hi %>% 
-  select(MLocID:delta, BFIWS:L3Eco)
+red10_map_no.hi <- red10_map_no.hi %>% 
+  select(MLocID:delta, BFIWS:SITE_TYPE)
 
 pal <- colorNumeric(palette = "Purples", 
-  domain = c(0, max(red11_map_no.hi$obs)))
+  domain = c(0, max(red10_map_no.hi$obs)))
 pal2 <- colorNumeric(palette = "Purples", 
-  domain = c(0, max(red11_map_no.hi$obs)))
-pal3 <- colorNumeric(palette = "RdBu", domain = c(-1*max(red11_map_no.hi$delta), max(red11_map_no.hi$delta)))
+  domain = c(0, max(red10_map_no.hi$obs)))
+pal3 <- colorNumeric(palette = "RdBu", domain = c(-1*max(red10_map_no.hi$delta), max(red10_map_no.hi$delta)))
 
-map_function(red11_map_no.hi)
+map_function(red10_map_no.hi)
 
 # Save map as html
-# red11_model_map_no.hi <- map_function(red11_map_no.hi)
-# saveWidget(red11_model_map_no.hi, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//TSS//red11_model_map_no.hi.html", selfcontained = TRUE, title = "Full model Adjusted (no human-influenced vars)")
+# red10_model_map_no.hi <- map_function(red10_map_no.hi)
+# saveWidget(red10_model_map_no.hi, file = "//deqlab1//biomon//projects//Biomon Redux//2026//Benchmarks exploratory figures//TSS//red10_model_map_no.hi.html", selfcontained = TRUE, title = "Full model Adjusted (no human-influenced vars)")
 ```
-#### Partial dependence plots for red11 model
+#### Partial dependence plots for red10 model
 
 ```{r,include = TRUE, echo = FALSE}
 # Top importance vars
-red11_partialplots <- plot.variable(red11, xvar.names = c(names(red11_vimp[1:8])), partial = TRUE, plots.one.page = TRUE)
+red10_partialplots <- plot.variable(red10, xvar.names = c(names(red10_vimp[1:8])), partial = TRUE, plots.one.page = TRUE)
 
-red11_partialplots2 <- plot.variable(red11, xvar.names = c(names(red11_vimp[9:11])), partial = TRUE, las = 2, cex.axis = 0.7, plots.one.page = TRUE)
+red10_partialplots2 <- plot.variable(red10, xvar.names = c(names(red10_vimp[9:11])), partial = TRUE, las = 2, cex.axis = 0.7, plots.one.page = TRUE)
 
 #******************consider adding code to look at individual metrics
 ```
@@ -1016,7 +1021,7 @@ ggplot(data = red4_plotdf, aes(x = pred, y = obs, color = predictions, shape = p
 ```{r}
 TSS.ref <- tss_vars_selected %>% 
   filter(ReferenceSite=="REFERENCE") %>% 
-  select(-c(MLocID:COMID, TSS, SampleStartDate))  %>%  # Remove AWQMS columns
+  select(-c(MLocID:COMID, TSS, SampleStartDate, L2Eco, L3Eco))  %>%  # Remove AWQMS columns
   select(-all_of(HI_vars)) %>%  # Remove anthropogenic StreamCat vars
   as.data.frame()
 
@@ -1125,6 +1130,7 @@ ref_obs.predict <- cbind(ref_plotdf, TSS.ref) %>%
 ref_awqms <- tss_vars_selected %>% 
   arrange(ELEVWS) %>% # Order by unique col
   filter(ReferenceSite=='REFERENCE') %>% 
+  relocate(L2Eco:L3Eco, .before = COMID) %>% 
   select(MLocID:logTSS) 
 
 # Join obs.predict and awqms tables, and makes sure the TSS results match (Make sure logTSS column is the same as logTSS.1)
@@ -1154,7 +1160,7 @@ map_function(ref_map)
 
 ```{r,include = TRUE, echo = FALSE, warning=FALSE, fig.dim = c(11, 7)}
 # Construct a dataframe of predictions to compare
-boxplot_preds <- data.frame(MLocID = red11_map$MLocID, StationDes = red11_map$StationDes, Obs = red11_map$obs, Pred_reduced = red11_map$pred, L3Eco = as.character(red11_map$L3Eco),Pred_adj = red11_map_no.hi$pred, Ref = red11_map$ReferenceSite, Pred_full = full_map$pred)
+boxplot_preds <- data.frame(MLocID = red10_map$MLocID, StationDes = red10_map$StationDes, Obs = red10_map$obs, Pred_reduced = red10_map$pred, L3Eco = as.character(red10_map$L3Eco),Pred_adj = red10_map_no.hi$pred, Ref = red10_map$ReferenceSite, Pred_full = full_map$pred)
 
 boxplot_ref<- ref_map %>%
   select(MLocID, Pred_ref = pred, Obs_ref_only = obs)
@@ -1173,7 +1179,7 @@ ggplot(boxplot_df, aes(x = L3Eco, y = Prediction, fill = Model)) +
   scale_fill_brewer(palette = "Set1") +
   guides(x = guide_axis(angle = 45)) +
   scale_y_log10() +
-  theme_bw(base_size=14) + ylab("TSS (mg/L)") +
+  theme_bw(base_size=14) + ylab(paste("TSS (mg/L)")) +
    stat_summary(
     fun.data = function(x) data.frame(y = median(x), label = length(x)),
     geom = "text",
@@ -1183,6 +1189,26 @@ ggplot(boxplot_df, aes(x = L3Eco, y = Prediction, fill = Model)) +
   )
 
 # Ignore warning for 621 rows removed - these are NAs in the Pred_ref column.
+```
+
+#### Compare reduced model (adjusted and unadjusted) by ref status
+```{r,include = TRUE, echo = FALSE, warning=FALSE, fig.dim = c(12, 7)}
+boxplot_df$Ref <- factor(boxplot_df$Ref, levels = c("REFERENCE", "MODERATELY DISTURBED", "MOST DISTURBED"))
+
+ggplot(boxplot_df %>% filter(Model != "Obs_ref_only"), aes(x = Ref, y = Prediction, fill = Model)) + 
+  geom_boxplot() +
+  scale_fill_manual(values = brewer.pal(6, "Set1")[2:6]) +
+  guides(x = guide_axis(angle = 45)) +
+  scale_y_log10() +
+  theme_bw(base_size=14) + ylab(paste("TSS (mg/L)")) +
+   stat_summary(
+    fun.data = function(x) data.frame(y = median(x), label = length(x)),
+    geom = "text",
+    position = position_dodge(width = 0.75),
+    vjust = -0.5,
+    size = 2.5
+  )
+# Ignore warning for rows removed - these are NAs in the Pred_ref column.
 ```
 
 #### Combined Leaflet map of predictions

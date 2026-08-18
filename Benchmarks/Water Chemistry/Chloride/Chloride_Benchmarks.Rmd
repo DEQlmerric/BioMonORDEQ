@@ -46,8 +46,6 @@ comids <- chlor %>%
 ```
 
 ```{r pre-define inputs}
-# number of variables to include in the reduced model
-nred <- 10
 
 # Character vector of all human-influenced variables
 HI_vars <- c("CANALDENSWS", "DAMDENSWS", "FERTWS", "MINEDENSWS", "NANIWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTAGDRAINAGEWS", "PCTCROP2001WS", "PCTIMP2001WS", "PCTFRSTLOSS2002WS", "PCTNONAGINTRODMANAGVEGWS", "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS", "SUPERFUNDDENSWS", "TRIDENSWS", "WWTPALLDENSWS", "WWTPMAJORDENSWS")
@@ -334,6 +332,10 @@ theme_bw() +
 theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
 labs(y = "Chloride") +
 geom_jitter(color="gray50", size=0.85, alpha=0.8) 
+
+# 8/14/26 try dropping L2Eco and L3Eco from predictors
+CHLOR <- CHLOR %>% 
+  select(-c(L2Eco, L3Eco))
 ```
 
 ## B. FULL MODEL - ALL PREDICTORS INCLUDED
@@ -423,6 +425,7 @@ full_obs.predict <- cbind(full_plotdf, CHLOR) %>%
 
 full_awqms <- chlor_vars_selected %>% 
   arrange(ELEVWS) %>% # Order by unique col
+  relocate(L2Eco:L3Eco, .before = COMID) %>% 
   select(MLocID:logCHLOR) 
 
 # Join pred with awqms table, and makes sure the CHLOR results match (Make sure logCHLOR column is the same as logCHLOR.1)
@@ -496,9 +499,6 @@ map_function(full_map)
 partialplots <- plot.variable(full, xvar.names = c(names(full_vimp[1:8])), partial = TRUE, plots.one.page = TRUE)
 
 partialplots2 <- plot.variable(full, xvar.names = c(names(full_vimp[9:16])), partial = TRUE, plots.one.page = TRUE)
-
-par(mar = c(10, 5, 2, 2))
-partialplots3 <- plot.variable(full, xvar.names = c("L2Eco", "L3Eco"), partial = TRUE, las = 2, cex.axis = 0.7, plots.one.page = TRUE)
 
 # Human-influenced vars
 partialplots_hi <- plot.variable(full, xvar.names = c("SEPTICWS", "PCTFRSTLOSS2002WS", "PCTURBOP2001WS", "CANALDENSWS", "PCTNONAGINTRODMANAGVEGWS"), partial = TRUE, plots.one.page = TRUE)
@@ -689,7 +689,7 @@ full_map_no.hi <- cbind(full_awqms,full_obs.predict_no.hi)
 
 # Then select to remove duplicate logCHLOR column and reorder.
 full_map_no.hi <- full_map_no.hi %>% 
-  select(MLocID:delta, BFIWS:L3Eco)
+  select(MLocID:delta, BFIWS:SITE_TYPE)
 
 pal <- colorNumeric(palette = "Purples", 
   domain = c(0, max(full_map_no.hi$obs)))
@@ -708,8 +708,8 @@ map_function(full_map_no.hi)
 #### Build model with Top 10 predictors
 
 ```{r reduced model tuning}
-
-nred <-10
+# number of variables to include in the reduced model
+nred <- 10
 
 # build formula
 red_vars <- as.formula(paste("logCHLOR~", paste(names(full_vimp)[1:nred], collapse = "+")))
@@ -792,6 +792,7 @@ red10_obs.predict <- cbind(red10_plotdf, CHLOR) %>%
 
 red10_awqms <- chlor_vars_selected %>% 
   arrange(ELEVWS) %>% # Order by unique col
+  relocate(L2Eco:L3Eco, .before = COMID) %>% 
   select(MLocID:logCHLOR) 
 
 # Join obs.pred with awqms table, and makes sure the CHLOR results match (Make sure logCHLOR column is the same as logCHLOR.1)
@@ -938,7 +939,7 @@ red10_map_no.hi <- cbind(full_awqms,red10_obs.predict_no.hi)
 
 # Then select to remove duplicate logCHLOR column and reorder.
 red10_map_no.hi <- red10_map_no.hi %>% 
-  select(MLocID:delta, BFIWS:L3Eco)
+  select(MLocID:delta, BFIWS:SITE_TYPE)
 
 pal <- colorNumeric(palette = "Purples", 
   domain = c(0, max(red10_map_no.hi$obs)))
@@ -968,12 +969,12 @@ red10_partialplots2 <- plot.variable(red10, xvar.names = c(names(red10_vimp[9:10
 
 ```{r reducing the model further tuning}
 #Adjust the parameters below based on tuning
-red4_tuning <- tune(logCHLOR ~ ELEVWS + TMAX9120WS + L3Eco + CLAYWS, data = CHLOR, seed = 1234)
+red4_tuning <- tune(logCHLOR ~ ELEVWS + TMAX9120WS + PRECIP_MINUS_EVTWS + CLAYWS, data = CHLOR, seed = 1234)
 red4_tuning$optimal
 ```
 
 ```{r reducing the model further}
-red4 <- rfsrc(logCHLOR ~ ELEVWS + TMAX9120WS + L3Eco + CLAYWS, data = CHLOR, mtry = red4_tuning$optimal[[2]], nodesize = red4_tuning$optimal[[1]], importance = "TRUE", seed = 24)
+red4 <- rfsrc(logCHLOR ~ ELEVWS + TMAX9120WS + PRECIP_MINUS_EVTWS + CLAYWS, data = CHLOR, mtry = red4_tuning$optimal[[2]], nodesize = red4_tuning$optimal[[1]], importance = "TRUE", seed = 24)
 red4 # Model output. (OOB) R squared = Percent Variance Explained.
 
 # Mean squared error (untransformed)
@@ -994,7 +995,7 @@ print(paste0('OOB RMSE = ' , round(red4_oob.rmse,2), " (mg/L)"))
 print(paste0('Scaled OOB RMSE = ' , round(red4_oob.rmse.scaled*100,2), "%"))
 
 # Model tuning - How many trees? (default: 500)
-red4$err.rate
+#red4$err.rate
 
 # VIP
 plot(red4, plots.one.page=FALSE)
@@ -1204,6 +1205,27 @@ ggplot(boxplot_df, aes(x = L3Eco, y = Prediction, fill = Model)) +
 # Ignore warning for 540 rows removed - these are NAs in the Pred_ref column.
 ```
 
+#### Compare reduced model (adjusted and unadjusted) by ref status
+```{r,include = TRUE, echo = FALSE, warning=FALSE, fig.dim = c(12, 7)}
+boxplot_df$Ref <- factor(boxplot_df$Ref, levels = c("REFERENCE", "MODERATELY DISTURBED", "MOST DISTURBED"))
+
+ggplot(boxplot_df %>% filter(Model != "Obs_ref_only"), aes(x = Ref, y = Prediction, fill = Model)) + 
+  geom_boxplot() +
+  scale_fill_manual(values = brewer.pal(6, "Set1")[2:6]) +
+  guides(x = guide_axis(angle = 45)) +
+  scale_y_log10() +
+  theme_bw(base_size=14) + ylab("CHLOR (mg/L)") +
+   stat_summary(
+    fun.data = function(x) data.frame(y = median(x), label = length(x)),
+    geom = "text",
+    position = position_dodge(width = 0.75),
+    vjust = -0.5,
+    size = 2.5
+  )
+# Ignore warning for rows removed - these are NAs in the Pred_ref column.
+```
+
+
 #### Combined Leaflet map of predictions
 
 ```{r combinded leaflet map of predictions, include = TRUE, echo = FALSE}
@@ -1280,7 +1302,7 @@ map_all(leaflet_df)
  
 #### Unadjusted predictions vs. adjusted human inflence 
 
-```{r unadjusted predictions vs adj human influence}
+```{r unadjusted predictions vs adj human influence,fig.dim = c(12, 7)}
 leaflet_df$Ref <- factor(leaflet_df$Ref, levels = c("REFERENCE", "MODERATELY DISTURBED", "MOST DISTURBED"))
 
 ggplot(leaflet_df, aes(x = Pred_adj, y = Pred_reduced, color = Ref, shape = Ref)) +
@@ -1291,315 +1313,8 @@ ggplot(leaflet_df, aes(x = Pred_adj, y = Pred_reduced, color = Ref, shape = Ref)
     color = "Reference Status", shape = "Reference Status") + 
   geom_abline(intercept = 0, slope = 1, linetype = "dashed")
 ```
-## G. EXPERIMENTATION with the models
-##### Take all this with a grain of salt!  (No chloride pun intended)
-
-#### Remove L2 and L3 Ecoregion as predictors
-```{r, include = TRUE, echo = FALSE}
-# Select response data of interest
-CHLOR_noEco <- chlor_vars_selected %>%
-  select(-c(MLocID:COMID, Chloride, SampleStartDate, L2Eco, L3Eco, ELEVWS)) %>%  #drop Chloride in favor of logCHLOR. Drop AWQMS columns too. Drop Ecoregions.
-  as.data.frame() # Make sure CHLOR is a data frame, not a tibble
-
-# Convert character columns to factors
-CHLOR_noEco[sapply(CHLOR_noEco, is.character)] <- lapply(CHLOR_noEco[sapply(CHLOR_noEco, is.character)], as.factor)
-
-# Build model
-
-#Adjust the parameters below based on tuning
-tuning <- tune(logCHLOR~., data = CHLOR_noEco, seed = 123)
-tuning$optimal
-
-full_noEco <- rfsrc(logCHLOR ~ ., data = CHLOR_noEco, mtry = tuning$optimal[[2]], nodesize = tuning$optimal[[1]], importance = "TRUE", seed = 160)
-full_noEco # Model output. (OOB) R squared = Percent Variance Explained.
-
-# Mean squared error (transformed)
-full_noEco_oob.mse <- tail(full_noEco$err.rate,1)
-full_noEco_per.var <- 100 * (1 - full_noEco_oob.mse/ var(CHLOR_noEco$logCHLOR, na.rm = TRUE))
-print(full_noEco_per.var)
-
-range_CHLOR <- max(exp(CHLOR_noEco$logCHLOR)) - min(exp(CHLOR_noEco$logCHLOR))
-
-#In-bag RMSE
-full_noEco_rmse<- rmse(exp(full_noEco$predicted), exp(CHLOR_noEco$logCHLOR))
-full_noEco_rmse.scaled <- full_noEco_rmse/range_CHLOR
-print(paste0('In-bag RMSE = ' , round(full_noEco_rmse,2), " (mg/L)"))
-print(paste0('Scaled In-bag RMSE = ' , round(full_noEco_rmse.scaled*100,2), "%"))
-
-#OOB RMSE
-full_noEco_oob.rmse<- rmse(exp(full_noEco$predicted.oob), exp(CHLOR_noEco$logCHLOR))
-full_noEco_oob.rmse.scaled <- full_noEco_oob.rmse/range_CHLOR
-print(paste0('OOB RMSE = ' , round(full_noEco_oob.rmse,2), " (mg/L)"))
-print(paste0('Scaled OOB RMSE = ' , round(full_noEco_oob.rmse.scaled*100,2), "%"))
-
-# Model tuning - How many trees? (default: 500)
-#full_noEco$err.rate
-
-# VIP
-plot(full_noEco, plots.one.page=FALSE)
-full_noEco_vimp <- sort(full_noEco$importance, decreasing = TRUE)[1:20]
-par(mar=c(5,8.5,4,1)+.1)
-barplot(full_noEco_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = "CHLOR full_noEco model VIMP")
-
-#print(vimp(full_noEco)$importance)
-
-# Make a df for plots
-full_noEco_pred.oob <- data.frame(obs = CHLOR_noEco$logCHLOR, pred = full_noEco$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
-full_noEco_pred.ib <- data.frame(obs =CHLOR_noEco$logCHLOR, pred = full_noEco$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
-full_noEco_plotdf <- rbind(full_noEco_pred.oob, full_noEco_pred.ib) %>% 
-  mutate(obs = exp(obs)) %>% 
-  mutate(pred = exp(pred)) %>% 
-  mutate(delta = obs - pred)
-
-# Plot
-ggplot(data = full_noEco_plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
-  geom_point(alpha = 0.75) +
-  labs(title = "CHLOR full_noEco Model",
-       x = "Predicted values (mg/L)",
-       y = "Observed values (mg/L)") +
-  theme_bw() + 
-  geom_abline() + 
-  geom_smooth(method = "lm", se = FALSE) +
-  scale_x_log10() +
-  scale_y_log10() +
-  annotate("text", x = 0.8, y = 80, label = paste0('OOB RMSE = ' , round(full_noEco_oob.rmse,2), ' | scaled RMSE = ', round(full_noEco_oob.rmse.scaled*100,2), "%"), size = 3) +
-    annotate("text", x = 0.8, y = 100, label = paste0('IB RMSE = ' , round(full_noEco_rmse,2), ' | scaled RMSE = ', round(full_noEco_rmse.scaled*100,2), "%"), size = 3) +
-      annotate("text", x = 0.8, y = 125, label = paste0('% variance explained = ' , round(full_noEco_per.var,2), '%'), size = 3) 
-```
-
-#### Partial dependence plots for full model without ecoregions
-
-```{r partial dependence plots for full model no ecoregions,include = TRUE, echo = FALSE}
-# Top importance vars
-partialplots <- plot.variable(full_noEco, xvar.names = c(names(full_noEco_vimp[1:8])), partial = TRUE, plots.one.page = TRUE)
-
-partialplots2 <- plot.variable(full_noEco, xvar.names = c(names(full_noEco_vimp[9:16])), partial = TRUE, plots.one.page = TRUE)
-```
 
 ```{r, include = TRUE, echo = FALSE}
-elev_temp <- ggplot(CHLOR, aes(x = TMAX9120WS, y = ELEVWS, color = L3Eco)) + geom_point()
+elev_temp <- ggplot(full_map, aes(x = TMAX9120WS, y = ELEVWS, color = L3Eco)) + geom_point()
 elev_temp
 ```
-
-```{r, include = TRUE, echo = FALSE}
-# Select response data of interest
-CHLOR_WC <- chlor_vars_selected %>%
-  select(-c(MLocID:COMID, Chloride, SampleStartDate)) %>%  #drop Chloride in favor of logCHLOR. Drop AWQMS columns too. 
-  filter(L2Eco=="Western Cordillera") %>% 
-  select(-c(L3Eco,L2Eco)) %>%  
-  as.data.frame() # Make sure CHLOR is a data frame, not a tibble
-
-# Convert character columns to factors
-CHLOR_WC[sapply(CHLOR_WC, is.character)] <- lapply(CHLOR_WC[sapply(CHLOR_WC, is.character)], as.factor)
-
-# Build model
-
-#Adjust the parameters below based on tuning 
-tuning <- tune(logCHLOR~., data = CHLOR_WC, seed = 123)
-tuning$optimal
-
-full_WC <- rfsrc(logCHLOR ~ ., data = CHLOR_WC, mtry = tuning$optimal[[2]], nodesize = tuning$optimal[[1]], importance = "TRUE", seed = 160)
-full_WC # Model output. (OOB) R squared = Percent Variance Explained.
-
-# Mean squared error (transformed)
-full_WC_oob.mse <- tail(full_WC$err.rate,1)
-full_WC_per.var <- 100 * (1 - full_WC_oob.mse/ var(CHLOR_WC$logCHLOR, na.rm = TRUE))
-print(full_WC_per.var)
-
-range_CHLOR <- max(exp(CHLOR_WC$logCHLOR)) - min(exp(CHLOR_WC$logCHLOR))
-
-#In-bag RMSE
-full_WC_rmse<- rmse(exp(full_WC$predicted), exp(CHLOR_WC$logCHLOR))
-full_WC_rmse.scaled <- full_WC_rmse/range_CHLOR
-print(paste0('In-bag RMSE = ' , round(full_WC_rmse,2), " (mg/L)"))
-print(paste0('Scaled In-bag RMSE = ' , round(full_WC_rmse.scaled*100,2), "%"))
-
-#OOB RMSE
-full_WC_oob.rmse<- rmse(exp(full_WC$predicted.oob), exp(CHLOR_WC$logCHLOR))
-full_WC_oob.rmse.scaled <- full_WC_oob.rmse/range_CHLOR
-print(paste0('OOB RMSE = ' , round(full_WC_oob.rmse,2), " (mg/L)"))
-print(paste0('Scaled OOB RMSE = ' , round(full_WC_oob.rmse.scaled*100,2), "%"))
-
-# Model tuning - How many trees? (default: 500)
-#full_WC$err.rate
-
-# VIP
-plot(full_WC, plots.one.page=FALSE)
-full_WC_vimp <- sort(full_WC$importance, decreasing = TRUE)[1:20]
-par(mar=c(5,8.5,4,1)+.1)
-barplot(full_WC_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = "CHLOR full_WC model VIMP")
-
-#print(vimp(full_WC)$importance)
-
-# Make a df for plots
-full_WC_pred.oob <- data.frame(obs = CHLOR_WC$logCHLOR, pred = full_WC$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
-full_WC_pred.ib <- data.frame(obs =CHLOR_WC$logCHLOR, pred = full_WC$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
-full_WC_plotdf <- rbind(full_WC_pred.oob, full_WC_pred.ib) %>% 
-  mutate(obs = exp(obs)) %>% 
-  mutate(pred = exp(pred)) %>% 
-  mutate(delta = obs - pred)
-
-# Plot
-ggplot(data = full_WC_plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
-  geom_point(alpha = 0.75) +
-  labs(title = "CHLOR full_WC Model",
-       x = "Predicted values (mg/L)",
-       y = "Observed values (mg/L)") +
-  theme_bw() + 
-  geom_abline() + 
-  geom_smooth(method = "lm", se = FALSE) +
-  scale_x_log10() +
-  scale_y_log10() +
-  annotate("text", x = 0.8, y = 80, label = paste0('OOB RMSE = ' , round(full_WC_oob.rmse,2), ' | scaled RMSE = ', round(full_WC_oob.rmse.scaled*100,2), "%"), size = 3) +
-    annotate("text", x = 0.8, y = 100, label = paste0('IB RMSE = ' , round(full_WC_rmse,2), ' | scaled RMSE = ', round(full_WC_rmse.scaled*100,2), "%"), size = 3) +
-      annotate("text", x = 0.8, y = 125, label = paste0('% variance explained = ' , round(full_WC_per.var,2), '%'), size = 3) 
-```
-
-## Cherry picked model (ignore)
-```{r, include = TRUE, echo = FALSE}
-CHLOR_CP <- chlor_vars %>% 
-  select(c(MLocID:COMID,CANALDENSWS,  DAMDENSWS,FERTWS,  NPDESDENSWS, PCT_EROD, PCTAGDRAINAGEWS, PCTAGSLPMID2001WS, PCTCROP2001WS,  PCTIMP2001WS, PCTURBHI2001WS, PCTURBLO2001WS, PCTURBOP2001WS, PESTIC1997WS, POPDEN2010WS, PRECIP_MINUS_EVTWS, RDCRSSLPWTDWS, RDCRSWS, RDDENSWS, SEPTICWS, WWTPALLDENSWS, WWTPMAJORDENSWS, Coast_dist)) %>% 
-  relocate(COMID, .after = cal_val) %>% 
-  mutate(logCHLOR=log(Chloride)) %>% 
-  relocate(logCHLOR, .before = Chloride) %>% 
-  select(-c(MLocID:COMID, Chloride, SampleStartDate)) %>%  #drop Chloride in favor of logCHLOR. Drop AWQMS columns too. 
-  as.data.frame() # Make sure CHLOR is a data frame, not a tibble
-
-# Convert character columns to factors
-CHLOR_CP[sapply(CHLOR_CP, is.character)] <- lapply(CHLOR_CP[sapply(CHLOR_CP, is.character)], as.factor)
-
-# Build model
-
-#Adjust the parameters below based on tuning 
-tuning <- tune(logCHLOR~., data = CHLOR_CP, seed = 123)
-tuning$optimal
-
-full_CP <- rfsrc(logCHLOR ~ ., data = CHLOR_CP, mtry = full_tuning$optimal[[2]], nodesize = full_tuning$optimal[[1]], importance = "TRUE", seed = 160)
-full_CP # Model output. (OOB) R squared = Percent Variance Explained.
-
-# Mean squared error (transformed)
-full_CP_oob.mse <- tail(full_CP$err.rate,1)
-full_CP_per.var <- 100 * (1 - full_CP_oob.mse/ var(CHLOR_CP$logCHLOR, na.rm = TRUE))
-print(full_CP_per.var)
-
-range_CHLOR <- max(exp(CHLOR_CP$logCHLOR)) - min(exp(CHLOR_CP$logCHLOR))
-
-#In-bag RMSE
-full_CP_rmse<- rmse(exp(full_CP$predicted), exp(CHLOR_CP$logCHLOR))
-full_CP_rmse.scaled <- full_CP_rmse/range_CHLOR
-print(paste0('In-bag RMSE = ' , round(full_CP_rmse,2), " (mg/L)"))
-print(paste0('Scaled In-bag RMSE = ' , round(full_CP_rmse.scaled*100,2), "%"))
-
-#OOB RMSE
-full_CP_oob.rmse<- rmse(exp(full_CP$predicted.oob), exp(CHLOR_CP$logCHLOR))
-full_CP_oob.rmse.scaled <- full_CP_oob.rmse/range_CHLOR
-print(paste0('OOB RMSE = ' , round(full_CP_oob.rmse,2), " (mg/L)"))
-print(paste0('Scaled OOB RMSE = ' , round(full_CP_oob.rmse.scaled*100,2), "%"))
-
-# Model tuning - How many trees? (default: 500)
-#full_CP$err.rate
-
-# VIP
-plot(full_CP, plots.one.page=FALSE)
-full_CP_vimp <- sort(full_CP$importance, decreasing = TRUE)[1:20]
-par(mar=c(5,8.5,4,1)+.1)
-barplot(full_CP_vimp, horiz = TRUE, cex.names = 0.5, las = 1, main = "CHLOR full_CP model VIMP")
-
-#print(vimp(full_CP)$importance)
-
-# Make a df for plots
-full_CP_pred.oob <- data.frame(obs = CHLOR_CP$logCHLOR, pred = full_CP$predicted.oob, predictions = "OOB") # The prediction is computed using only the trees in which that specific case was not used for training.
-full_CP_pred.ib <- data.frame(obs =CHLOR_CP$logCHLOR, pred = full_CP$predicted, predictions = "In-Bag") # This contains the predicted values for each case in the training data based on the entire ensemble (all trees). It uses the data that was "in-bag" (used to grow the trees) to determine the terminal node predictions.
-full_CP_plotdf <- rbind(full_CP_pred.oob, full_CP_pred.ib) %>% 
-  mutate(obs = exp(obs)) %>% 
-  mutate(pred = exp(pred)) %>% 
-  mutate(delta = obs - pred)
-
-# Plot
-ggplot(data = full_CP_plotdf, aes(x = pred, y = obs, color = predictions, shape = predictions)) +
-  geom_point(alpha = 0.75) +
-  labs(title = "CHLOR full_CP Model",
-       x = "Predicted values (mg/L)",
-       y = "Observed values (mg/L)") +
-  theme_bw() + 
-  geom_abline() + 
-  geom_smooth(method = "lm", se = FALSE) +
-  scale_x_log10() +
-  scale_y_log10() +
-  annotate("text", x = 0.8, y = 80, label = paste0('OOB RMSE = ' , round(full_CP_oob.rmse,2), ' | scaled RMSE = ', round(full_CP_oob.rmse.scaled*100,2), "%"), size = 3) +
-    annotate("text", x = 0.8, y = 100, label = paste0('IB RMSE = ' , round(full_CP_rmse,2), ' | scaled RMSE = ', round(full_CP_rmse.scaled*100,2), "%"), size = 3) +
-      annotate("text", x = 0.8, y = 125, label = paste0('% variance explained = ' , round(full_CP_per.var,2), '%'), size = 3) 
-
-# CREATE DF FOR MAPPING PURPOSES
-# Need to join predictions to AWQMS columns, but there are no unique identifiers in the CHLOR table. Predictions will be in the same order as the CHLOR table initially.
-
-# Find a StreamCat row that has ALL unique values
-# any(duplicated(CHLOR_CP$Coast_dist))  # Coast dist works.
-# any(duplicated(CHLOR$PRECIP9120WS))
-
-# Join predictions to StreamCat table
-full_CP_obs.predict <- cbind(full_CP_plotdf, CHLOR_CP) %>% 
-  filter(predictions == "OOB") %>% 
-  arrange(Coast_dist) # Order by unique col
-
-full_CP_awqms <- chlor_vars_selected %>% 
-  arrange(Coast_dist) %>% # Order by unique col
-  select(MLocID:logCHLOR) 
-
-# Join obs.pred with awqms table, and makes sure the CHLOR results match (Make sure logCHLOR column is the same as logCHLOR.1)
-full_CP_map <- cbind(full_CP_obs.predict,full_CP_awqms)
-
-# Then select to remove duplicate logCHLOR column and reorder.
-full_CP_map <- full_CP_map %>% 
-  select(obs:COMID) %>% 
-  relocate(MLocID:COMID, .before = obs)
-
-pal <- colorNumeric(palette = "Greens", 
-  domain = c(0, full_CP_map$obs))
-pal2 <- colorNumeric(palette = "Greens", 
-  domain = c(0, full_CP_map$obs))
-pal3 <- colorNumeric(palette = "RdBu", domain = c(-1 * max(full_CP_map$delta),max(full_CP_map$delta)))
-
-map_function(full_CP_map)
-
-CHLOR_CP_no.hi <- CHLOR_CP %>% 
-  mutate(across(all_of(c("CANALDENSWS", "DAMDENSWS", "FERTWS", "NPDESDENSWS", "PCTAGDRAINAGEWS", "PCTAGSLPMID2001WS", "PCTCROP2001WS", "PCTIMP2001WS",  "PCTURBHI2001WS", "PCTURBLO2001WS","PCTURBOP2001WS", "PESTIC1997WS", "POPDEN2010WS", "RDCRSSLPWTDWS", "RDCRSWS", "RDDENSWS", "SEPTICWS",  "WWTPMAJORDENSWS", "WWTPALLDENSWS")), ~0))
-
-# Make predictions with adjusted human-influence to 0 
-full_CP_no.hi <- predict(full_CP, newdata= CHLOR_CP_no.hi, seed = 24)
-
-# Mean squared error (untransformed)
-full_CP_mse_no.hi <- tail(full_CP_no.hi$err.rate,1)
-full_CP_per.var_no.hi <- 100 * (1 - full_CP_mse_no.hi/ var(CHLOR_CP_no.hi$logCHLOR, na.rm = TRUE))
-
-# RMSE
-full_CP_rmse_no.hi<- rmse(exp(full_CP_no.hi$predicted), exp(CHLOR_CP_no.hi$logCHLOR))
-full_CP_rmse.scaled_no.hi <- full_CP_rmse_no.hi/range_CHLOR
-print(paste0('OOB RMSE = ' , round(full_CP_rmse_no.hi,2), " (mg/L)"))
-print(paste0('Scaled OOB RMSE = ' , round(full_CP_rmse.scaled_no.hi*100,2), "%"))
-
-# Make a df for plots
-full_CP_plotdf_no.hi <- data.frame(obs = CHLOR_CP_no.hi$logCHLOR, pred = full_CP_no.hi$predicted) %>% 
-  mutate(obs = exp(obs)) %>% 
-  mutate(pred = exp(pred)) %>% 
-  mutate(delta = obs - pred)
-
-# Plot
-ggplot(data = full_CP_plotdf_no.hi, aes(x = pred, y = obs)) +
-  geom_point(alpha = 0.75) +
-  labs(title = "CHLOR_CP full_CP Model predictions without human influenced vars",
-       x = "Predicted values (mg/L)",
-       y = "Observed values (mg/L)") +
-  theme_bw() + 
-  geom_abline() + 
-  scale_x_log10() +
-  scale_y_log10() +
-  annotate("text", x =0.9, y = 100, label = paste0('OOB RMSE = ' , round(full_CP_rmse_no.hi,2), ' | scaled RMSE = ', round(full_CP_rmse.scaled_no.hi*100,2), "%"), size = 3)
-
-# Plot residuals - full_CP model, adjusted human-influenced vars to 0
-full_CP_resid_no.hi <- exp(CHLOR_CP_no.hi$logCHLOR) - exp(full_CP_no.hi$predicted) # Observed minus predicted oob
-plot(full_CP_resid_no.hi ~ exp(full_CP_no.hi$predicted), xlab = "Predicted CHLOR_CP (mg/L)", ylab = "Residuals (obs - pred)", main = "full_CP model residuals, no HI vars")
-abline(h=0, col = "red", lty = 2)
-
-```
-

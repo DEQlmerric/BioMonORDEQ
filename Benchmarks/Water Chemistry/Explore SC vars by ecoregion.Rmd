@@ -81,6 +81,15 @@ comids <- all_awqms %>%
 ```{r streamcat flat file}
 sc_all <- read_excel("~/BioMonORDEQ/Benchmarks/Water Chemistry/SC_all_comids_2026-05-14.xlsx")
 sc_all <- inner_join(sc_all, comids)  # only keep TN COMIDs.
+
+# add in rp100 metrics and % forest
+deq_sc_rp100 <- read_csv(r"(\\deqlab1\\BioMon\\Projects\\Biomon Redux\\StreamCat data June 2026\\wsrp100.csv)", 
+                         col_select = c(comid,minedenswsrp100,tridenswsrp100,superfunddenswsrp100)) %>% 
+  filter(comid %in% comids$COMID)
+
+sc_all <- sc_all %>% 
+  full_join(deq_sc_rp100, by = join_by("COMID" == "comid")) %>% 
+  mutate(PCTFOREST2001 = rowSums(across(c(PCTCONIF2001WS, PCTDECID2001WS, PCTMXFST2001WS)))) # Create pctforest var.
 ```
 
 ```{r}

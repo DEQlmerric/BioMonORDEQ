@@ -4,17 +4,17 @@ author: "Biomon"
 date: "2026-07-24"
 output: html_document
 ---
+# **QUESTIONS**
 
-1.       Are the macroinvertebrate communities changing at these sites? Species? Tolerance levels? Abundance? Diversity?
-2.       Are chemical parameters changing and in what direction?
-3.       Are riparian and in-stream habitat conditions changing? Shade? Disturbance? Flow? In-stream wood? Substrate? Etc.
-4.       What does the inter-year variability look like for different parameters at each site?
-5.       How do the statewide reference sites compare to our larger reference site network? Can they be used to understand annual variability at other reference and study locations?
-6.       How do the biological and chemical measurements at these sites compare to our water quality standards, benchmarks and narrative criteria?
-7.       What are the physical attributes of the reference sites in this network? Ecoregion? Elevation? Land-use? Etc.
-8.       Do these sites tell us anything about climate change yet?
-9.       Have any of these site been burned since we started monitoring?
-
+#1. Are the macroinvertebrate communities changing at these sites? Species? Tolerance levels? Abundance? Diversity?
+#2. Are chemical parameters changing and in what direction?
+#3. Are riparian and in-stream habitat conditions changing? Shade? Disturbance? Flow? In-stream wood? Substrate? Etc.
+#4. What does the inter-year variability look like for different parameters at each site?
+#5. How do the statewide reference sites compare to our larger reference site network? Can they be used to understand annual variability at other reference and study locations?
+#6. How do the biological and chemical measurements at these sites compare to our water quality standards, benchmarks and narrative criteria?
+#7. What are the physical attributes of the reference sites in this network? Ecoregion? Elevation? Land-use? Etc.
+#8. Do these sites tell us anything about climate change yet?
+#9. Have any of these site been burned since we started monitoring?
 
 # **LOAD PACKAGES**
 
@@ -30,6 +30,8 @@ library(AWQMSdata)
 # **WATER CHEMISTRY**
 
 ## 1 - IMPORT DATA
+
+##### Must be connected to VPN to pull AWQMS data
 
 ```{r}
 #CREATE VECTOR OF OUR 12 REFERENCE TREND STATION IDS USED TO PULL DATA
@@ -153,7 +155,6 @@ boxp(sulf, StationDes, Result_Numeric_mod)
 boxp(tn, StationDes, Result_Numeric_mod) #fix char_name
 ```
 
-
 #### ANNUAL TRENDS
 
 ```{r}
@@ -170,8 +171,6 @@ scat_cond<-ggplot(elk, aes(x = SampleStartDate, y = Result_Numeric_mod)) +
 print(scat_cond)
 
 ```
-
-
 
 # **MACROINVERTEBRATES**
 
@@ -261,5 +260,3 @@ boxp(bsti, StationDes, Score)
 boxp(oe, StationDes, Score)
 boxp(ept, StationDes, Score)
 ```
-
-

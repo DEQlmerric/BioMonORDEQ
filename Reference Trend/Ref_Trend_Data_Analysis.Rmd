@@ -14,7 +14,7 @@ output: html_document
 #6. How do the biological and chemical measurements at these sites compare to our water quality standards, benchmarks and narrative criteria?
 #7. What are the physical attributes of the reference sites in this network? Ecoregion? Elevation? Land-use? Etc.
 #8. Do these sites tell us anything about climate change yet?
-#9. Have any of these site been burned since we started monitoring? 
+#9. Have any of these site been burned since we started monitoring?
 
 # **LOAD PACKAGES**
 

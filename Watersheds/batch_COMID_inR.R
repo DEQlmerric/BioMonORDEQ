@@ -1,6 +1,6 @@
 ###                                                                          ###  
 ### This script reads in a single set or batch of coordinates and determines ### 
-### the appropriate COMID based on the NHDPlus Medium Resolution layer. This ###
+### the appropriate COMID based on the NHDPlusV2 FEATUREID polygon. This     ###
 ### script is meant to help the BioMon crew more easily identify the COMID   ###
 ### of newly created sites. The batch_COMID_from_arcpy.R script is the same  ###
 ### but can be run from ArcGIS Pro. Any changes in one should be made to the ###
@@ -12,12 +12,11 @@ library(nhdplusTools)
 library(sf)
 library(tidyverse)
 
-input_csv <- "//deqlab1/Assessment/AWQMS/Stations/COMID output/final_today_coords.csv"
-output_csv <- "//deqlab1/BioMon/Projects/Biomon Redux/2026/COMID_update.csv"
+input_csv <- "" #full path of input file containing stations to be assigned a COMID
+output_csv <- "" #full path of output file where COMIDs will be exported
 
 # Read the coordinates from CSV
-coords <-  ref_sta |>
-  #read.csv(input_csv) |>
+coords <-  read.csv(input_csv) |>
   select("orgid", "STATION_KEY", "StationDes", "Lat_DD", "Long_DD", "Datum") #|>
   
 # Map Datum codes to EPSG (coordinate system numbers)
